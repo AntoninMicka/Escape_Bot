@@ -1,44 +1,30 @@
-# Kompletní Checklist Projektu "Escape Bot"
+# Kompletní checklist projektu "Escape Bot"
 
-## 0. Správa Projektu a Nástroje
+## 1. Návrh komunikačního protokolu (Frontend <-> Backend)
+- [x] Definice formátu zpráv (JSON přes WebSockets).
+- [x] Správa stavu hry a relací (State Machine v Pythonu).
 
-- [x] Vytvořit spouštěcí skripty pro backend a klienta (`.sh`/`.bat`).
+## 2. Šablona pro QML rozhraní (Klientská aplikace)
+- [x] Základní layout komunikátoru a interaktivní widgety.
+- [ ] Logika pro obsluhu kamery (extrakce snímků) a integrace čtečky QR kódů.
 
-## 1. Návrh Komunikačního Protokolu
+## 3. Webová aplikace a infrastruktura (PWA / WASM)
+- [ ] Kompilace C++/Qt frontendu do WebAssembly.
+- [ ] Konfigurace PWA (Manifest, Service Workers) pro běh na mobilu ve fullscreenu bez instalace.
+- [ ] Zajištění HTTPS a nastavení webového serveru (nutnost pro přístup prohlížeče ke kameře a bezpečné spojení).
 
-- [x] Definovat JSON zprávy přes WebSocket.
-- [x] Připravit datové typy zpráv v Pythonu.
-- [x] Připravit základní state machine v Pythonu.
-- [ ] Doplnit autentizaci/session token pro produkční build.
-- [ ] Přidat replay log pro ladění průchodu hrou.
+## 4. Dynamické napojení na AI (Ollama a ComfyUI)
+- [ ] Zpracování vizuálního vstupu pro analýzu reálných lokací a naskenovaných materiálů.
+- [ ] Generování kontextových odpovědí a řízení videí (lip-syncing).
 
-## 2. QML Rozhraní A Nativní Klient
+## 5. Integrace prvků rozšířené reality (ARG) a rébusů
+- [ ] Logika ověřování fyzických objevů v reálném světě.
+- [ ] Propojení modulárních virtuálních rébusů s herním dějem.
 
-- [x] Připravit základní layout komunikátoru.
-- [x] Připravit C++ bridge pro kameru a QR události.
-- [ ] Napojit reálné dekódování QR kódů.
-- [ ] Doplnit lokální cache médií a videí.
-- [ ] Přidat packaging profil pro Linux/Windows.
+## 6. Vizuální a zvukové efekty (GL Shadery)
+- [x] Atmosférické efekty přes hardwarovou akceleraci (CRT, glitching, odlesky).
+- [ ] Synchronizace zvukového designu s akcemi hráče.
 
-## 3. Dynamické Napojení Na AI
-
-- [x] Připravit adaptér pro Ollama.
-- [x] Připravit adaptér pro ComfyUI.
-- [ ] Napojit vizuální analýzu snímků z lokace.
-- [ ] Navrhnout prompt kontrakty pro textové odpovědi.
-- [ ] Vybrat pipeline pro lip-syncing videí.
-
-## 4. ARG Prvky
-
-- [x] Založit strukturu pro ověřování fyzických objevů.
-- [ ] Definovat první sadu QR/fyzických stop.
-- [ ] Přidat pravidla pro virtuální a hardwarové rébusy.
-- [ ] Přidat audit, aby AI sama neodemkla stav bez verifikace.
-
-## 5. Vizuální A Zvukové Efekty
-
-- [x] Připravit CRT shader.
-- [x] Připravit glitch shader.
-- [ ] Doplnit audio cue systém.
-- [ ] Propojit efekty se stavy hry.
-- [ ] Přidat nastavení intenzity efektů pro přístupnost.
+## 7. Vizuální editor her (Produkční nástroje)
+- [ ] Nodové rozhraní (desktop Qt/C++) pro návrh příběhových větví a stavového automatu.
+- [ ] Export scénářů a správa multimediálních assetů.
