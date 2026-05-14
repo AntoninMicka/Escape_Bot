@@ -1,0 +1,2 @@
+"""Escape Bot backend package."""
+

@@ -1,0 +1,12 @@
+{
+  "discoveries": [
+    {
+      "id": "lobby-panel-a",
+      "label": "Lobby panel A",
+      "required_evidence": ["qr_value"],
+      "qr_value": "escapebot://clue/lobby-panel-a",
+      "unlocks": ["first_lock"]
+    }
+  ]
+}
+
