@@ -1,5 +1,9 @@
 # Kompletní Checklist Projektu "Escape Bot"
 
+## 0. Správa Projektu a Nástroje
+
+- [x] Vytvořit spouštěcí skripty pro backend a klienta (`.sh`/`.bat`).
+
 ## 1. Návrh Komunikačního Protokolu
 
 - [x] Definovat JSON zprávy přes WebSocket.

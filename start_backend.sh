@@ -1,0 +1,36 @@
+#!/bin/bash
+#
+# Spouštěcí skript pro backend server.
+#
+# Tento skript automaticky:
+# 1. Vytvoří virtuální prostředí (.venv), pokud neexistuje.
+# 2. Nainstaluje závislosti z requirements.txt.
+# 3. Spustí WebSocket server.
+#
+set -e # Ukončí skript při první chybě
+
+# Přejdeme do adresáře backendu relativně k umístění skriptu
+SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &> /dev/null && pwd)
+cd "$SCRIPT_DIR/backend"
+
+# Zkontrolujeme, zda je nainstalován python3 a modul venv
+if ! command -v python3 &> /dev/null || ! python3 -m venv -h &> /dev/null; then
+    echo "Chyba: Python 3 a/nebo modul 'venv' nejsou k dispozici."
+    echo "Nainstalujte prosím Python 3 a zkuste to znovu."
+    exit 1
+fi
+
+# Vytvoření virtuálního prostředí, pokud neexistuje
+if [ ! -d ".venv" ]; then
+    echo "Vytvářím virtuální prostředí..."
+    python3 -m venv .venv
+fi
+
+# Aktivace prostředí a instalace závislostí
+echo "Aktivuji virtuální prostředí a instaluji závislosti..."
+source .venv/bin/activate
+pip install -r requirements.txt
+
+# Spuštění serveru
+echo "Spouštím backend server na ws://127.0.0.1:8765..."
+python3 -m escape_bot.server
