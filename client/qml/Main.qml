@@ -1,7 +1,6 @@
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
-import QtWebSockets
 
 ApplicationWindow {
     id: root
@@ -13,22 +12,18 @@ ApplicationWindow {
 
     property string pendingInput: ""
 
-    WebSocket {
-        id: socket
-        url: "ws://127.0.0.1:8765"
-        active: true
+    Component.onCompleted: backendBridge.connectToBackend()
 
-        onStatusChanged: {
-            if (status === WebSocket.Open) {
-                sendJson("client.hello", {
-                    client_name: "Escape Bot QML",
-                    protocol_version: 1
-                })
+    Connections {
+        target: backendBridge
+
+        function onConnectedChanged() {
+            if (!backendBridge.connected) {
+                stateLabel.text = "offline"
             }
         }
 
-        onTextMessageReceived: function(message) {
-            const data = JSON.parse(message)
+        function onMessageReceived(data) {
             if (data.type === "bot.message") {
                 transcriptModel.append({ speaker: "BOT", text: data.payload.text })
             } else if (data.type === "game.state") {
@@ -38,6 +33,10 @@ ApplicationWindow {
             } else if (data.type === "error") {
                 transcriptModel.append({ speaker: "ERROR", text: data.payload.message })
             }
+        }
+
+        function onErrorOccurred(message) {
+            transcriptModel.append({ speaker: "SYSTEM", text: message })
         }
     }
 
@@ -51,16 +50,12 @@ ApplicationWindow {
     }
 
     function sendJson(type, payload) {
-        if (socket.status !== WebSocket.Open) {
+        if (!backendBridge.connected) {
             transcriptModel.append({ speaker: "SYSTEM", text: "Backend neni pripojeny." })
             return
         }
 
-        socket.sendTextMessage(JSON.stringify({
-            type: type,
-            request_id: Date.now().toString(),
-            payload: payload
-        }))
+        backendBridge.sendJson(type, payload)
     }
 
     ListModel {
@@ -164,4 +159,3 @@ ApplicationWindow {
         input.clear()
     }
 }
-

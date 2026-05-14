@@ -11,6 +11,8 @@ qt_standard_project_setup()
 
 qt_add_executable(EscapeBotClient
     src/main.cpp
+    src/BackendBridge.cpp
+    src/BackendBridge.h
     src/CameraQrBridge.cpp
     src/CameraQrBridge.h
 )
@@ -31,4 +33,3 @@ target_link_libraries(EscapeBotClient
         Qt6::Multimedia
         Qt6::WebSockets
 )
-

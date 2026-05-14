@@ -40,8 +40,8 @@ if %errorlevel% neq 0 (
     exit /b 1
 )
 
-:: Předpokládaný název spustitelného souboru (může se lišit)
-set "EXECUTABLE_NAME=escape_bot_client.exe"
+:: Název spustitelného souboru podle targetu v client\CMakeLists.txt
+set "EXECUTABLE_NAME=EscapeBotClient.exe"
 set "EXECUTABLE_PATH=%BUILD_DIR%\%EXECUTABLE_NAME%"
 
 :: Pro Visual Studio generátor může být cíl v podadresáři s konfigurací

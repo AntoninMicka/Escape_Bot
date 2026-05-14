@@ -28,8 +28,8 @@ cmake -S . -B "$BUILD_DIR"
 echo "Sestavuji projekt..."
 cmake --build "$BUILD_DIR"
 
-# Předpokládaný název spustitelného souboru (může se lišit)
-EXECUTABLE_NAME="escape_bot_client" # Upravte dle potřeby
+# Název spustitelného souboru podle targetu v client/CMakeLists.txt
+EXECUTABLE_NAME="EscapeBotClient"
 
 if [ -f "$BUILD_DIR/$EXECUTABLE_NAME" ]; then
     echo "Spouštím klienta..."

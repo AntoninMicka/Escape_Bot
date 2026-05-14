@@ -42,4 +42,3 @@
 - [ ] Doplnit audio cue systém.
 - [ ] Propojit efekty se stavy hry.
 - [ ] Přidat nastavení intenzity efektů pro přístupnost.
-
