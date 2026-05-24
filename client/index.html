@@ -367,6 +367,13 @@
                     gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
                     gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.2);
                     osc.start(); osc.stop(audioCtx.currentTime + 0.2);
+                } else if (type === 'type') {
+                    // Zvuk psaní na stroji (terminál)
+                    osc.type = 'triangle';
+                    osc.frequency.setValueAtTime(120 + Math.random() * 40, audioCtx.currentTime); // Mírná náhodnost tónu
+                    gain.gain.setValueAtTime(0.03, audioCtx.currentTime); // Velmi potichu
+                    gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.02); // Extrémně krátké (20ms)
+                    osc.start(); osc.stop(audioCtx.currentTime + 0.02);
                 } else {
                     osc.type = 'sine';
                     osc.frequency.setValueAtTime(800, audioCtx.currentTime);
@@ -446,9 +453,14 @@
                         
                         function typeNextChar() {
                             if (charIndex < fullText.length) {
-                                textSpan.textContent += fullText.charAt(charIndex);
+                                const char = fullText.charAt(charIndex);
+                                textSpan.textContent += char;
                                 charIndex++;
                                 chatBox.scrollTop = chatBox.scrollHeight;
+                                
+                                // Přehrajeme zvuk, pokud zrovna nepíšeme mezeru (dělá to lepší rytmus)
+                                if (char.trim() !== '') playSound('type');
+                                
                                 setTimeout(typeNextChar, 15 + Math.random() * 20); // Simulace rychlosti psaní
                             }
                         }
@@ -641,6 +653,24 @@
             document.getElementById('chat-' + channelId).classList.add('active-chat');
             btnElement.classList.add('active');
         }
+
+        // --- NÁHODNÝ AMBIENTNÍ GLITCH EFEKT ---
+        function scheduleRandomGlitch() {
+            // Další glitch nastane náhodně za 15 až 45 sekund
+            const nextGlitchIn = 15000 + Math.random() * 30000;
+            setTimeout(() => {
+                document.body.classList.add('glitch-active');
+                
+                // Samotný záškub trvá jen velmi krátce (100 až 400 ms)
+                const glitchDuration = 100 + Math.random() * 300;
+                setTimeout(() => {
+                    document.body.classList.remove('glitch-active');
+                    scheduleRandomGlitch(); // Naplánování dalšího záškubu
+                }, glitchDuration);
+            }, nextGlitchIn);
+        }
+        
+        scheduleRandomGlitch(); // Odstartování efektů po načtení
     </script>
 </body>
 </html>
