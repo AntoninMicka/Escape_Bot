@@ -65,10 +65,12 @@
     "hints_used": {}
   },
   "9b7f096a-977b-4d11-bbf8-a356625baf2e": {
-    "phase": "comms_offline",
+    "phase": "searching_lost",
     "unlocked_discoveries": [],
     "inventory": [],
-    "flags": {},
+    "flags": {
+      "room_104_unlocked": true
+    },
     "chat_history": [
       {
         "role": "bot",
@@ -99,9 +101,151 @@
         "role": "bot",
         "channel": "general",
         "text": "[Systém]: Spojení bylo úspěšně obnoveno. Relace je aktivní."
+      },
+      {
+        "role": "bot",
+        "channel": "general",
+        "text": "[Systém]: Spojení bylo úspěšně obnoveno. Relace je aktivní."
+      },
+      {
+        "role": "player",
+        "channel": "captain",
+        "text": "no"
+      },
+      {
+        "role": "bot",
+        "channel": "captain",
+        "text": "Výborně, spojení funguje. Máme krizovou situaci. Naše kolegyně uvízla v jiné dimenzi. Potřebuji, abys rozluštil její dimenzionální frekvenci z materiálů v místnosti a zadal ji sem."
+      },
+      {
+        "role": "player",
+        "channel": "captain",
+        "text": "jakou frekvenci?"
+      },
+      {
+        "role": "bot",
+        "channel": "captain",
+        "text": "*šum* Frekvence 'jakou frekvenci?' je hluchá. Zkus to znovu, musíme ji najít!"
+      },
+      {
+        "role": "bot",
+        "channel": "general",
+        "text": "[Systém]: Spojení bylo úspěšně obnoveno. Relace je aktivní."
+      },
+      {
+        "role": "bot",
+        "channel": "general",
+        "text": "[Systém]: Spojení bylo úspěšně obnoveno. Relace je aktivní."
+      },
+      {
+        "role": "bot",
+        "channel": "general",
+        "text": "[Systém]: Spojení bylo úspěšně obnoveno. Relace je aktivní."
+      },
+      {
+        "role": "bot",
+        "channel": "general",
+        "text": "[Systém]: Spojení bylo úspěšně obnoveno. Relace je aktivní."
+      },
+      {
+        "role": "player",
+        "channel": "captain",
+        "text": "jak ji mám najít?"
+      },
+      {
+        "role": "bot",
+        "channel": "captain",
+        "text": "*šum* Frekvence 'jak ji mám najít?' je hluchá. Zkus to znovu, musíme ji najít!"
+      },
+      {
+        "role": "bot",
+        "channel": "general",
+        "text": "[Systém]: Spojení bylo úspěšně obnoveno. Relace je aktivní."
+      },
+      {
+        "role": "player",
+        "channel": "captain",
+        "text": "jak ji máme najít?"
+      },
+      {
+        "role": "bot",
+        "channel": "captain",
+        "text": "*šum* Frekvence 'jak ji máme najít?' je hluchá. Zkus to znovu, musíme ji najít!"
+      },
+      {
+        "role": "player",
+        "channel": "captain",
+        "text": "jak jí mame najít?"
+      },
+      {
+        "role": "bot",
+        "channel": "captain",
+        "text": "*šum* Frekvence 'jak jí mame najít?' je hluchá. Zkus to znovu, musíme ji najít!"
+      },
+      {
+        "role": "bot",
+        "channel": "general",
+        "text": "[Systém]: Spojení bylo úspěšně obnoveno. Relace je aktivní."
+      },
+      {
+        "role": "player",
+        "channel": "captain",
+        "text": "jak ji máme najít?"
+      },
+      {
+        "role": "bot",
+        "channel": "captain",
+        "text": "*šum* Frekvence 'jak ji máme najít?' je hluchá. Zkus to znovu, musíme ji najít!"
+      },
+      {
+        "role": "bot",
+        "channel": "general",
+        "text": "[Systém]: Spojení bylo úspěšně obnoveno. Relace je aktivní."
+      },
+      {
+        "role": "player",
+        "channel": "captain",
+        "text": "jak ji mám najit?"
+      },
+      {
+        "role": "bot",
+        "channel": "general",
+        "text": "NÁPOVĚDA SYSTÉMU: Zaměř se na materiály a zprávy, které máš fyzicky k dispozici v místnosti."
+      },
+      {
+        "role": "bot",
+        "channel": "general",
+        "text": "[Systém]: Spojení bylo úspěšně obnoveno. Relace je aktivní."
+      },
+      {
+        "role": "bot",
+        "channel": "general",
+        "text": "[Systém]: Spojení bylo úspěšně obnoveno. Relace je aktivní."
+      },
+      {
+        "role": "bot",
+        "channel": "general",
+        "text": "Přístupový panel 104 odemčen. Elektromagnetický zámek uvolněn."
+      },
+      {
+        "role": "bot",
+        "channel": "lost",
+        "text": "Slyšela jsem cvaknutí! Ty dveře do pokoje 104 se právě otevřely. Jdu dovnitř..."
+      },
+      {
+        "role": "player",
+        "channel": "lost",
+        "text": "ahoj"
+      },
+      {
+        "role": "bot",
+        "channel": "captain",
+        "text": "*šum* Frekvence 'ahoj' je hluchá. Zkus to znovu, musíme ji najít!"
       }
     ],
-    "score": 1000,
-    "hints_used": {}
+    "score": 990,
+    "hints_used": {
+      "searching_lost": 1
+    }
   }
 }

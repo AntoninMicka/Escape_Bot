@@ -260,7 +260,7 @@
                 <div id="chat-lost" class="chat-history"></div>
                 
                 <div id="typing-indicator" class="typing-indicator">
-                    > AI přemýšlí<span>.</span><span>.</span><span>.</span>
+                    > <span id="typing-text">Systém zpracovává</span><span>.</span><span>.</span><span>.</span>
                 </div>
                 
                 <div class="controls">
@@ -434,8 +434,25 @@
                     if (channel === 'lost') sender = "Ztracená";
                     
                     if (chatBox) {
-                        chatBox.innerHTML += `<div class="message bot"><b>[${sender}]:</b> ${msg.payload.text}</div>`;
-                        chatBox.scrollTop = chatBox.scrollHeight;
+                        // Vytvoření prvků pro postupný výpis
+                        const msgDiv = document.createElement('div');
+                        msgDiv.className = 'message bot';
+                        msgDiv.innerHTML = `<b>[${sender}]:</b> <span class="typewriter-text"></span>`;
+                        chatBox.appendChild(msgDiv);
+                        
+                        const textSpan = msgDiv.querySelector('.typewriter-text');
+                        const fullText = msg.payload.text || "";
+                        let charIndex = 0;
+                        
+                        function typeNextChar() {
+                            if (charIndex < fullText.length) {
+                                textSpan.textContent += fullText.charAt(charIndex);
+                                charIndex++;
+                                chatBox.scrollTop = chatBox.scrollHeight;
+                                setTimeout(typeNextChar, 15 + Math.random() * 20); // Simulace rychlosti psaní
+                            }
+                        }
+                        typeNextChar();
                     }
                 }
                 else if (msg.type === 'score.update') {
@@ -529,6 +546,14 @@
             chatBox.scrollTop = chatBox.scrollHeight;
             
             // Zobrazení indikátoru ihned po odeslání
+            const typingText = document.getElementById('typing-text');
+            if (currentChannel === 'captain') {
+                typingText.innerText = 'Kapitánka píše';
+            } else if (currentChannel === 'lost') {
+                typingText.innerText = 'Ztracená píše';
+            } else {
+                typingText.innerText = 'Systém zpracovává';
+            }
             document.getElementById('typing-indicator').style.display = 'block';
         }
 

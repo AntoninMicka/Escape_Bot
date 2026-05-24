@@ -1,11 +1,15 @@
 {
+  "knowledge_base": "Opuštěný hotel se jmenuje 'Hotel Overlook' a je zamořený dimenzionálními trhlinami. Ztracená se jmenuje 'Elara'. Hráč je její jediná záchrana. K úniku z dimenze je nutné najít 3 krystaly a zadat jejich kódy do hlavního terminálu v recepci. V místnostech občas zhasínají světla a jsou slyšet podivné zvuky.",
   "phases": {
     "comms_offline": {
       "enter_message": {
         "text": "*ššš*... Tady Kapitánka. Slyšíme se? Interkom konečně naběhl. Potvrď příjem!",
         "mood": "alert",
         "channel": "captain"
-      }
+      },
+      "hints": [
+        {"text": "Pro potvrzení příjmu stačí do chatu odeslat jakoukoliv zprávu.", "penalty": 5}
+      ]
     },
     "searching_lost": {
       "enter_message": {
@@ -64,7 +68,12 @@
         "text": "Slyším tě: '{text}'. Musíme najít ten portál ven.",
         "mood": "alert",
         "channel": "lost"
-      }
+      },
+      "hints": [
+        {"text": "Požádejte Elaru, aby se rozhlédla po místnosti a popsala vám, co přesně vidí.", "penalty": 10},
+        {"text": "Nasměrujte Ztracenou směrem k hlavní recepci. Zkuste hledat zamčené dveře s číselníkem.", "penalty": 20},
+        {"text": "Vaším hlavním úkolem je teď najít 3 napájecí krystaly pro únikový portál.", "penalty": 30}
+      ]
     }
   },
   "rooms": {

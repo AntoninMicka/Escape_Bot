@@ -203,6 +203,10 @@ class EscapeBotStateMachine:
         
         ai_prompt = p_data.get("ai_system_prompt")
         if ai_prompt:
+            knowledge_base = self.scenario.data.get("knowledge_base", "")
+            if knowledge_base:
+                ai_prompt += f"\n\nDŮLEŽITÉ INFORMACE O SVĚTĚ A PŘÍBĚHU (ZNALOSTNÍ BÁZE):\n{knowledge_base}"
+                
             # Zkusíme vygenerovat odpověď pomocí AI
             ai_response = await self.ai.generate_response(ai_prompt, self.state.chat_history)
             if ai_response:

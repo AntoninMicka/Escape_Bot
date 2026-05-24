@@ -7,9 +7,19 @@ import os
 logger = logging.getLogger("OllamaAdapter")
 
 class OllamaAdapter:
+    _verified_model = None
+
     def __init__(self, host=None, model="llama3"):
         self.host = host or os.environ.get("OLLAMA_HOST", "http://localhost:11434")
-        self.model = os.environ.get("OLLAMA_MODEL", model)
+        self._initial_model = os.environ.get("OLLAMA_MODEL", model)
+
+    @property
+    def model(self) -> str:
+        return OllamaAdapter._verified_model or self._initial_model
+
+    @model.setter
+    def model(self, value: str):
+        OllamaAdapter._verified_model = value
 
     def _post_sync(self, system_prompt: str, history: list[dict[str, str]]) -> str:
         url = f"{self.host}/api/chat"
@@ -30,7 +40,7 @@ class OllamaAdapter:
         
         try:
             req = urllib.request.Request(url, data=json.dumps(payload).encode('utf-8'), headers={'Content-Type': 'application/json'})
-            with urllib.request.urlopen(req, timeout=15) as response:
+            with urllib.request.urlopen(req, timeout=120) as response:
                 result = json.loads(response.read().decode('utf-8'))
                 return result.get("message", {}).get("content", "").strip()
         except Exception as e:
@@ -71,12 +81,17 @@ class OllamaAdapter:
                 has_model = any(m == self.model or m.startswith(f"{self.model}:") for m in models)
                 
                 if not has_model:
-                    logger.info(f"Ollama: Model '{self.model}' nenalezen. Zahajuji stahování na pozadí (může trvat několik minut)...")
-                    url_pull = f"{self.host}/api/pull"
-                    payload = {"name": self.model, "stream": False}
-                    req_pull = urllib.request.Request(url_pull, data=json.dumps(payload).encode('utf-8'), headers={'Content-Type': 'application/json'})
-                    with urllib.request.urlopen(req_pull, timeout=1200) as response_pull:
-                        logger.info(f"Ollama: Model '{self.model}' úspěšně stažen a je připraven pro hru.")
+                    if models:
+                        original_model = self.model
+                        self.model = models[0]
+                        logger.info(f"Ollama: Požadovaný model '{original_model}' nebyl nalezen. Přepínám na nalezený dostupný model: '{self.model}'.")
+                    else:
+                        logger.info(f"Ollama: Model '{self.model}' nenalezen a žádné jiné nejsou k dispozici. Zahajuji stahování na pozadí (může trvat několik minut)...")
+                        url_pull = f"{self.host}/api/pull"
+                        payload = {"name": self.model, "stream": False}
+                        req_pull = urllib.request.Request(url_pull, data=json.dumps(payload).encode('utf-8'), headers={'Content-Type': 'application/json'})
+                        with urllib.request.urlopen(req_pull, timeout=1200) as response_pull:
+                            logger.info(f"Ollama: Model '{self.model}' úspěšně stažen a je připraven pro hru.")
             except Exception as e:
                 logger.warning(f"Ollama: Nepodařilo se připojit k {self.host} nebo ověřit model. Je Ollama spuštěna? ({e})")
         
