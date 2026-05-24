@@ -28,3 +28,9 @@
 ## 7. Vizuální editor her (Produkční nástroje)
 - [ ] Nodové rozhraní (desktop Qt/C++) pro návrh příběhových větví a stavového automatu.
 - [ ] Export scénářů a správa multimediálních assetů.
+
+## 8. Námět na první scénář: Ztracená v jiné dimenzi
+- [ ] **Koncept**: Dvě dívky, jedna v naší realitě, druhá ztracená v jiné dimenzi. Cílem je dostat ztracenou dívku zpět pomocí komunikace přes "interkom".
+- [ ] **Fáze 1 - Zprovoznění komunikace**: Vyřešit úvodní rébus k fyzickému zprovoznění interkomu, aby bylo vůbec možné zachytit signál.
+- [ ] **Fáze 2 - Zaměření dimenze**: Rozluštit a zadat správné speciální "telefonní číslo" nebo dimenzionální souřadnice, čímž dojde ke stabilnímu propojení obou světů.
+- [ ] **Fáze 3 - Navigace k portálu**: Řešit navazující hádanky a postupně ztracenou dívku přes interkom přemisťovat a navigovat v její dimenzi až na bezpečné místo, odkud se může vrátit domů.
