@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
     <title>Interkom - Jiná Dimenze</title>
     <style>
         body {
@@ -172,17 +173,78 @@
         .numpad-btn.action.clear:hover { background: #f00; color: #000; }
         .numpad-btn.action.enter { color: #0f0; border-color: #0f0; }
         .numpad-btn.action.enter:hover { background: #0f0; color: #000; }
+
+        /* Glitch efekt pro celou obrazovku */
+        .glitch-active {
+            animation: glitch-anim 0.15s linear infinite;
+            filter: hue-rotate(90deg) contrast(200%) invert(10%);
+        }
+        @keyframes glitch-anim {
+            0% { transform: translate(0) }
+            20% { transform: translate(-3px, 3px) }
+            40% { transform: translate(-3px, -3px) }
+            60% { transform: translate(3px, 3px) }
+            80% { transform: translate(3px, -3px) }
+            100% { transform: translate(0) }
+        }
+
+        /* HUD Notifikace */
+        #hud-notifications {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 1000;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            pointer-events: none;
+        }
+        .hud-toast {
+            background: rgba(0, 20, 0, 0.9);
+            border: 1px solid #0f0;
+            color: #0f0;
+            padding: 10px 20px;
+            font-family: inherit;
+            box-shadow: 0 0 10px rgba(0, 255, 0, 0.5);
+            animation: slideIn 0.3s ease-out forwards, fadeOut 0.5s ease-out 3s forwards;
+        }
+        .hud-toast.error { border-color: #f00; color: #f00; background: rgba(20, 0, 0, 0.9); box-shadow: 0 0 10px rgba(255, 0, 0, 0.5); }
+        @keyframes slideIn { from { transform: translateX(120%); } to { transform: translateX(0); } }
+        @keyframes fadeOut { from { opacity: 1; } to { opacity: 0; } }
+
+        /* Indikátor přemýšlení AI */
+        .typing-indicator {
+            color: #0aa;
+            font-style: italic;
+            font-size: 0.9em;
+            margin: 5px 0 10px 0;
+            display: none;
+        }
+        .typing-indicator span { animation: blink 1.4s infinite both; }
+        .typing-indicator span:nth-child(2) { animation-delay: 0.2s; }
+        .typing-indicator span:nth-child(3) { animation-delay: 0.4s; }
+        @keyframes blink {
+            0% { opacity: 0.2; }
+            20% { opacity: 1; }
+            100% { opacity: 0.2; }
+        }
     </style>
 </head>
 <body>
+    <div id="hud-notifications"></div>
+
     <div class="tabs">
         <button class="tab-button active" onclick="openTab('tab-intercom', this)">INTERKOM</button>
         <button class="tab-button" onclick="openTab('tab-map', this)">MAPA HOTELU</button>
         <button class="tab-button" onclick="openTab('tab-room', this)">MÍSTNOST (Virtuální panel)</button>
+        <button class="tab-button" onclick="openTab('tab-scanner', this)">SKENER (Kamera)</button>
     </div>
 
     <div id="tab-intercom" class="tab-content active">
-        <h2><span id="connection-status" class="status-indicator"></span>[ INTERKOM - SEKTOR 4 ]</h2>
+        <h2>
+            <span id="connection-status" class="status-indicator"></span>[ INTERKOM - SEKTOR 4 ]
+            <span id="score-display" style="float: right; color: #0aa; font-size: 0.6em; line-height: 2.2em; border: 1px solid #0aa; padding: 0 10px;">SKÓRE: 1000</span>
+        </h2>
         <div class="intercom-container">
             <div class="channels-sidebar">
                 <button class="channel-btn active" onclick="switchChannel('general', this)"># sys_log</button>
@@ -196,6 +258,10 @@
                 </div>
                 <div id="chat-captain" class="chat-history"></div>
                 <div id="chat-lost" class="chat-history"></div>
+                
+                <div id="typing-indicator" class="typing-indicator">
+                    > AI přemýšlí<span>.</span><span>.</span><span>.</span>
+                </div>
                 
                 <div class="controls">
                     <input type="text" id="msgInput" placeholder="Zadej zprávu do aktivního kanálu..." onkeypress="if(event.key === 'Enter') sendMsg()" />
@@ -249,6 +315,16 @@
         </div>
     </div>
 
+    <div id="tab-scanner" class="tab-content">
+        <h2>[ OPTICKÝ SKENER ]</h2>
+        <div id="scanner-container" style="position: relative; width: 100%; max-width: 400px; margin: 0 auto; border: 2px solid #0f0;">
+            <video id="qr-video" style="width: 100%; display: block;" autoplay playsinline></video>
+            <canvas id="qr-canvas" style="display: none;"></canvas>
+            <div id="qr-overlay" style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; box-shadow: inset 0 0 20px #0f0; pointer-events: none;"></div>
+        </div>
+        <p id="qr-status" style="text-align: center; margin-top: 10px;">Kliknutím na záložku aktivujte kameru.</p>
+    </div>
+
     <script>
         let ws;
         const input = document.getElementById('msgInput');
@@ -264,18 +340,72 @@
             localStorage.setItem('escapeBotSessionId', sessionId);
         }
 
+        // --- Zvukový a Notifikační systém ---
+        let audioCtx = null;
+        
+        function playSound(type) {
+            try {
+                if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                if (audioCtx.state === 'suspended') audioCtx.resume();
+                
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                
+                if (type === 'error') {
+                    osc.type = 'sawtooth';
+                    osc.frequency.setValueAtTime(150, audioCtx.currentTime);
+                    osc.frequency.exponentialRampToValueAtTime(50, audioCtx.currentTime + 0.3);
+                    gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.3);
+                    osc.start(); osc.stop(audioCtx.currentTime + 0.3);
+                } else if (type === 'success') {
+                    osc.type = 'square';
+                    osc.frequency.setValueAtTime(400, audioCtx.currentTime);
+                    osc.frequency.setValueAtTime(600, audioCtx.currentTime + 0.1);
+                    gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.2);
+                    osc.start(); osc.stop(audioCtx.currentTime + 0.2);
+                } else {
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(800, audioCtx.currentTime);
+                    gain.gain.setValueAtTime(0.05, audioCtx.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.1);
+                    osc.start(); osc.stop(audioCtx.currentTime + 0.1);
+                }
+            } catch (e) { console.warn("Audio zablokováno prohlížečem, dokud hráč neklikne na stránku."); }
+        }
+
+        function showNotification(message, type = 'info') {
+            const container = document.getElementById('hud-notifications');
+            const toast = document.createElement('div');
+            toast.className = `hud-toast ${type === 'error' ? 'error' : ''}`;
+            toast.innerText = `> ${message}`;
+            container.appendChild(toast);
+            playSound(type);
+            
+            setTimeout(() => toast.remove(), 3500);
+        }
+        // ------------------------------------
+
         // 2. Správa připojení a znovupřipojení
         function connect() {
-            ws = new WebSocket('ws://127.0.0.1:8765');
+            const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            ws = new WebSocket(`${wsProtocol}//${window.location.host}/ws`);
 
             ws.onopen = () => {
                 console.log("WebSocket připojen. Session ID:", sessionId);
                 statusIndicator.classList.add('online');
                 ws.send(JSON.stringify({ type: 'client.hello', payload: { session_id: sessionId } }));
+                showNotification('Připojeno k centrálnímu uzlu', 'success');
             };
 
             ws.onmessage = (event) => {
                 const msg = JSON.parse(event.data);
+                
+                // Skrytí indikátoru při přijetí jakékoliv odpovědi od serveru
+                document.getElementById('typing-indicator').style.display = 'none';
                 
                 if (msg.type === 'chat.history') {
                     // Vyčistíme stávající historii v DOMu (proti duplikacím při reconnectu bez F5)
@@ -308,8 +438,14 @@
                         chatBox.scrollTop = chatBox.scrollHeight;
                     }
                 }
+                else if (msg.type === 'score.update') {
+                    showNotification(`Identifikována žádost o pomoc. Použita nápověda (-${msg.payload.penalty} bodů).`, 'error');
+                }
                 else if (msg.type === 'game.state') {
                     const flags = msg.payload.flags || {};
+                    const scoreDisplay = document.getElementById('score-display');
+                    if (scoreDisplay) scoreDisplay.innerText = `SKÓRE: ${msg.payload.score}`;
+                    
                     const room104 = document.getElementById('map-room-104');
                     if (room104 && flags['room_104_unlocked']) {
                         room104.style.borderColor = '#0f0';
@@ -321,9 +457,11 @@
                     if (msg.payload.success) {
                         display.innerText = 'GRANTED';
                         display.className = 'numpad-display success';
+                        showNotification('Zámek úspěšně uvolněn', 'success');
                     } else {
                         display.innerText = 'DENIED';
                         display.className = 'numpad-display error';
+                        showNotification('Chybný přístupový kód', 'error');
                     }
                     currentPin = '';
                     
@@ -331,17 +469,29 @@
                         if (display.innerText === 'GRANTED' || display.innerText === 'DENIED') clearPin();
                     }, 2000);
                 }
+                else if (msg.type === 'effect.trigger') {
+                    if (msg.payload.effect === 'glitch') {
+                        document.body.classList.add('glitch-active');
+                        playSound('error');
+                        setTimeout(() => {
+                            document.body.classList.remove('glitch-active');
+                        }, msg.payload.duration_ms || 1000);
+                    }
+                }
             };
 
             ws.onclose = (e) => {
                 console.warn("Spojení ztraceno. Pokus o znovupřipojení za 3 sekundy...", e.reason);
                 statusIndicator.classList.remove('online');
+                document.getElementById('typing-indicator').style.display = 'none';
+                showNotification('Spojení ztraceno. Pokus o obnovu...', 'error');
                 setTimeout(connect, 3000);
             };
 
             ws.onerror = (err) => {
                 console.error("Chyba WebSocketu:", err);
                 statusIndicator.classList.remove('online');
+                document.getElementById('typing-indicator').style.display = 'none';
                 ws.close(); // Vynutí zavolání onclose pro znovupřipojení
             };
         }
@@ -352,6 +502,7 @@
         function pressPin(num) {
             if (currentPin.length < 8) {
                 currentPin += num;
+                playSound('info');
                 document.getElementById('numpad-display').innerText = currentPin;
             }
         }
@@ -376,7 +527,70 @@
             chatBox.innerHTML += `<div class="message player"><b>[Ty]:</b> ${input.value}</div>`;
             input.value = '';
             chatBox.scrollTop = chatBox.scrollHeight;
+            
+            // Zobrazení indikátoru ihned po odeslání
+            document.getElementById('typing-indicator').style.display = 'block';
         }
+
+        // --- LOGIKA OPTICKÉHO SKENERU ---
+        const qrVideo = document.getElementById("qr-video");
+        const qrCanvas = document.getElementById("qr-canvas");
+        const qrCtx = qrCanvas.getContext("2d");
+        const qrStatus = document.getElementById("qr-status");
+        let qrScanning = false;
+        let qrStreamRef = null;
+
+        function startScanner() {
+            if (qrScanning) return;
+            // Žádost o přístup k zadní kameře
+            navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } }).then(function(stream) {
+                qrScanning = true;
+                qrStreamRef = stream;
+                qrVideo.srcObject = stream;
+                qrStatus.innerText = "Skenování aktivní... Namiřte na QR kód.";
+                requestAnimationFrame(tickScanner);
+            }).catch(err => {
+                qrStatus.innerText = "Chyba kamery: " + err.message;
+            });
+        }
+
+        function stopScanner() {
+            qrScanning = false;
+            if (qrStreamRef) {
+                qrStreamRef.getTracks().forEach(track => track.stop());
+                qrStreamRef = null;
+            }
+            qrStatus.innerText = "Skener neaktivní.";
+        }
+
+        function tickScanner() {
+            if (!qrScanning) return;
+            if (qrVideo.readyState === qrVideo.HAVE_ENOUGH_DATA) {
+                qrCanvas.height = qrVideo.videoHeight;
+                qrCanvas.width = qrVideo.videoWidth;
+                qrCtx.drawImage(qrVideo, 0, 0, qrCanvas.width, qrCanvas.height);
+                var imageData = qrCtx.getImageData(0, 0, qrCanvas.width, qrCanvas.height);
+                var code = jsQR(imageData.data, imageData.width, imageData.height, { inversionAttempts: "dontInvert" });
+                
+                if (code) {
+                    qrStatus.innerText = "Nalezen kód: " + code.data;
+                    if (ws && ws.readyState === WebSocket.OPEN) {
+                        showNotification('Optická shoda. Odesílám k analýze.', 'success');
+                        ws.send(JSON.stringify({ type: 'qr.detected', payload: { value: code.data } }));
+                    }
+                    
+                    document.getElementById('scanner-container').style.borderColor = '#f00';
+                    setTimeout(() => { 
+                        document.getElementById('scanner-container').style.borderColor = '#0f0';
+                        qrStatus.innerText = "Skenování aktivní... Namiřte na QR kód.";
+                        if (qrScanning) requestAnimationFrame(tickScanner); 
+                    }, 3000);
+                    return; // Pauza ve skenování po detekci
+                }
+            }
+            requestAnimationFrame(tickScanner);
+        }
+        // --------------------------------
 
         function openTab(tabId, btnElement) {
             document.querySelectorAll('.tab-content').forEach(tab => tab.classList.remove('active'));
@@ -385,6 +599,12 @@
             document.getElementById(tabId).classList.add('active');
             if (btnElement) {
                 btnElement.classList.add('active');
+            }
+
+            if (tabId === 'tab-scanner') {
+                startScanner();
+            } else {
+                stopScanner();
             }
         }
         

@@ -38,11 +38,11 @@ call .venv\Scripts\activate.bat
 pip install -r requirements.txt
 
 echo ===========================================================
-echo   Hra je pripravena! Webovy klient: http://localhost:8080  
+echo   Hra je pripravena! Webovy klient: http://localhost:8088  
 echo ===========================================================
 
 :: Spuštění serveru
-echo Spoustim centralni uzel (HTTP na 8080, WS na 8765)...
+echo Spoustim centralni uzel (HTTP i WebSockets spolecne na 8088)...
 python -m escape_bot.server
 
 endlocal

@@ -32,9 +32,9 @@ source .venv/bin/activate
 pip install -r requirements.txt
 
 echo "==========================================================="
-echo "  Hra je připravena! Webový klient: http://localhost:8080  "
+echo "  Hra je připravena! Webový klient: http://localhost:8088  "
 echo "==========================================================="
 
 # Spuštění serveru
-echo "Spouštím centrální uzel (HTTP na 8080, WS na 8765)..."
+echo "Spouštím centrální uzel (HTTP i WebSockets společně na portu 8088)..."
 python3 -m escape_bot.server

@@ -39,5 +39,5 @@ Server poslouchá na `ws://127.0.0.1:8765`.
 
 ```bash
 cd Escape_Bot/client
-python3 -m http.server 8080
+python3 -m http.server 8088
 ```

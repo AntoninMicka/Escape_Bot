@@ -18,6 +18,11 @@
         {"text": "Frekvence 734 přijata! Přepojuji tě na ni... *píp*", "mood": "relieved", "channel": "captain"},
         {"text": "Haló? Kapitánko? Jsi tam? Tady je hrozná tma, nevím, co mám dělat! Můžeš mi pomoct se zorientovat v téhle budově?", "mood": "tense", "channel": "lost"}
       ],
+      "hints": [
+        {"text": "Zaměř se na materiály a zprávy, které máš fyzicky k dispozici v místnosti.", "penalty": 10},
+        {"text": "Hledaná frekvence se skládá přesně ze tří číslic.", "penalty": 20},
+        {"text": "Zkus naladit frekvenci 734.", "penalty": 50}
+      ],
       "fail_message": {
         "text": "*šum* Frekvence '{text}' je hluchá. Zkus to znovu, musíme ji najít!",
         "mood": "tense",
@@ -43,6 +48,10 @@
          "mood": "alert",
          "channel": "lost"
       },
+      "hints": [
+        {"text": "Systém jasně hlásil, že musíš provést tvrdý restart.", "penalty": 10},
+        {"text": "Jednoduše do komunikátoru napiš slovo 'restart'.", "penalty": 20}
+      ],
       "fail_message": {
          "text": "SYSTEM ERROR: Spojení nelze navázat. Zadejte 'restart'.",
          "mood": "error",
@@ -50,6 +59,7 @@
       }
     },
     "navigating": {
+      "ai_system_prompt": "Jsi 'Ztracená', dívka uvězněná v jiné dimenzi ve strašidelném opuštěném hotelu. Hráč se s tebou právě spojil přes interkom a snaží se tě navigovat. Odpovídej vždy česky, krátce (max 2-3 věty), napjatě a ustrašeně. Plně spoléháš na rady hráče.",
       "default_message": {
         "text": "Slyším tě: '{text}'. Musíme najít ten portál ven.",
         "mood": "alert",

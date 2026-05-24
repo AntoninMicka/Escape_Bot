@@ -6,7 +6,7 @@
 
 ## 2. Šablona pro QML rozhraní (Klientská aplikace)
 - [x] Základní layout komunikátoru a interaktivní widgety.
-- [ ] Logika pro obsluhu kamery (extrakce snímků) a integrace čtečky QR kódů.
+- [x] Logika pro obsluhu kamery (extrakce snímků) a integrace čtečky QR kódů (přesunuto na WebRTC/JS).
 
 ## 3. Webová aplikace a infrastruktura (PWA / WASM)
 - [ ] Kompilace C++/Qt frontendu do WebAssembly.
@@ -48,15 +48,15 @@
 
 ## 10. Backend jako centrální uzel (Orchestrace a Multitasking)
 - [ ] **Webserver a orchestrátor**: Backend bude sloužit jako hlavní přístupový bod (webserver pro klientské aplikace) a postará se o orchestraci všech ostatních služeb (AI modely, HW zprávy).
-- [ ] **Perzistence a obnova relací (Wi-Fi stabilita)**: Z důvodu provozu na bezdrátové síti zavést robustní udržování relací (např. generování Session tokenu uloženého v prohlížeči). Při výpadku Wi-Fi se klient musí umět plynule a bez ztráty postupu znovu připojit k běžící herní relaci.
+- [x] **Perzistence a obnova relací (Wi-Fi stabilita)**: Session tokeny fungují. Stav všech her se automaticky ukládá do `sessions.json` a obnovuje i po tvrdém restartu serveru.
 - [ ] **Správa více hráčů (Multiplayer)**: Zajištění synchronizace stavu hry mezi vícero klienty (telefony/tablety/PC) v rámci jedné herní relace.
 - [ ] **Multitasking a více instancí (Multitenancy)**: Přepracování správy stavu tak, aby backend dokázal obsluhovat více nezávislých her (místností nebo různých scénářů) naprosto paralelně a bez ovlivňování.
-- [ ] **Centrální správa hry (Game Master panel)**: Připravit rozhraní pro obsluhu únikovky, která zde uvidí stav všech běžících her, bude moci posílat nápovědy a řešit krizové situace.
+- [ ] **Centrální správa hry (Game Master panel)**: (Odloženo) Využívat JSON soubor jako dočasnou admin konzoli. Později připravit plnohodnotné webové rozhraní pro obsluhu únikovky.
 - [ ] **Captive portál (Vstupní bod hry)**: Zprovoznit captive portál (např. úpravou DNS pro přesměrování po připojení na herní Wi-Fi), který automaticky načte klientům webové rozhraní hry.
 
 ## 11. Herní engine, nápovědy a skórování
 - [x] **Oddělení scénáře od enginu**: Přesunout hardcodovanou logiku, fáze a texty z backendu (např. `state_machine.py`) do externích konfiguračních souborů (JSON/YAML scénáře), aby engine zůstal plně univerzální.
-- [ ] **Inteligentní reakce na vstupy**: Nahradit jednoduché kontroly (např. if "734" in text) robustnějším systémem, případně s napojením na lokální AI (Ollama) pro interaktivní a variabilní reakce na hráčské podměty.
-- [ ] **Systém postupných nápověd (Hint systém)**: Implementovat možnost vyžádat si radu v UI. Systém nabídne sekvenci nápověd pro aktivní fázi (od lehkého naťuknutí až po jasné zobrazení řešení).
-- [ ] **Bodování a penalizace**: Zavést výchozí stav bodů pro hru. Za každé vyžádání nápovědy (nebo příliš mnoho chybných pokusů) se odečtou negativní body ze skóre.
+- [x] **Inteligentní reakce na vstupy**: Nahradit jednoduché kontroly (např. if "734" in text) robustnějším systémem, případně s napojením na lokální AI (Ollama) pro interaktivní a variabilní reakce na hráčské podměty.
+- [x] **Systém postupných nápověd (Hint systém)**: Nápovědy jsou integrovány přímo do chatu. AI analyzuje záměr hráče z jeho zpráv, a pokud detekuje bezradnost či prosbu o pomoc, uvolní další nápovědu k aktuální fázi.
+- [x] **Bodování a penalizace**: Zaveden výchozí stav bodů (Skóre) pro hru. Za každé uvolnění nápovědy AI systémem se odečte specifikovaný počet negativních bodů.
 - [ ] **Síň slávy (Leaderboard)**: Na konci scénáře vyhodnotit úspěšnost, zobrazit výsledné skóre, vyzvat hráče k zadání jména týmu a zapsat výsledek do trvalé Síně slávy.

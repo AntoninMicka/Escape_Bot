@@ -6,6 +6,7 @@ from typing import Any
 
 from .protocol import Message, reply
 from .scenario import Scenario
+from .ollama_adapter import OllamaAdapter
 
 
 class GamePhase(StrEnum):
@@ -26,6 +27,8 @@ class GameState:
     inventory: list[str] = field(default_factory=list)
     flags: dict[str, Any] = field(default_factory=dict)
     chat_history: list[dict[str, str]] = field(default_factory=list)
+    score: int = 1000
+    hints_used: dict[str, int] = field(default_factory=dict)
 
     def snapshot(self) -> dict[str, Any]:
         return {
@@ -34,15 +37,33 @@ class GameState:
             "inventory": list(self.inventory),
             "flags": self.flags,
             "chat_history": self.chat_history,
+            "score": self.score,
+            "hints_used": self.hints_used,
         }
+
+    @classmethod
+    def restore(cls, data: dict[str, Any]) -> "GameState":
+        state = cls()
+        state.phase = GamePhase(data.get("phase", GamePhase.BOOT.value))
+        state.unlocked_discoveries = set(data.get("unlocked_discoveries", []))
+        state.inventory = list(data.get("inventory", []))
+        state.flags = dict(data.get("flags", {}))
+        state.chat_history = list(data.get("chat_history", []))
+        state.score = int(data.get("score", 1000))
+        state.hints_used = dict(data.get("hints_used", {}))
+        return state
 
 
 class EscapeBotStateMachine:
     def __init__(self, scenario: Scenario) -> None:
         self.state = GameState()
         self.scenario = scenario
+        self.ai = OllamaAdapter(model="llama3") # Možno změnit model např. na llama3.1
 
-    def handle(self, message: Message) -> list[Message]:
+    def restore_state(self, data: dict[str, Any]) -> None:
+        self.state = GameState.restore(data)
+
+    async def handle(self, message: Message) -> list[Message]:
         # Automatické uložení příchozí zprávy hráče do historie
         if message.type == "player.message":
             text = str(message.payload.get("text", "")).strip()
@@ -59,7 +80,7 @@ class EscapeBotStateMachine:
             "room.unlock": self._handle_room_unlock,
         }
         handler = handlers.get(message.type, self._handle_unknown)
-        responses = handler(message)
+        responses = await handler(message)
 
         # Automatické uložení odpovědí bota do historie
         for resp in responses:
@@ -75,7 +96,34 @@ class EscapeBotStateMachine:
     def _state_message(self) -> Message:
         return Message("game.state", self.state.snapshot())
 
-    def _handle_hello(self, message: Message) -> list[Message]:
+    def _provide_hint(self, phase: str, message: Message) -> list[Message]:
+        p_data = self.scenario.get_phase_data(phase)
+        hints = p_data.get("hints", [])
+        
+        if not hints:
+            return [reply("bot.message", {"text": "Systém: Pro tuto situaci nemám v databázi žádné další nápovědy.", "mood": "error", "channel": "general"}, message)]
+            
+        idx = self.state.hints_used.get(phase, 0)
+        is_new_hint = False
+        
+        if idx >= len(hints):
+            idx = len(hints) - 1 # Zopakuje poslední známou nápovědu bez stržení dalších bodů
+        else:
+            is_new_hint = True
+            
+        hint = hints[idx]
+        responses = []
+        
+        if is_new_hint:
+            self.state.score -= hint.get("penalty", 10)
+            self.state.hints_used[phase] = idx + 1
+            responses.append(reply("score.update", {"score": self.state.score, "penalty": hint.get("penalty", 10)}, message))
+            
+        responses.append(reply("bot.message", {"text": f"NÁPOVĚDA SYSTÉMU: {hint.get('text', '')}", "mood": "info", "channel": "general"}, message))
+        responses.append(self._state_message())
+        return responses
+
+    async def _handle_hello(self, message: Message) -> list[Message]:
         if self.state.phase == GamePhase.BOOT:
             self.state.phase = GamePhase.COMMS_OFFLINE
             p_data = self.scenario.get_phase_data("comms_offline")
@@ -92,7 +140,7 @@ class EscapeBotStateMachine:
                 self._state_message(),
             ]
 
-    def _handle_player_message(self, message: Message) -> list[Message]:
+    async def _handle_player_message(self, message: Message) -> list[Message]:
         text = str(message.payload.get("text", "")).strip()
         if not text:
             return [reply("error", {"message": "Text message is empty."}, message)]
@@ -113,9 +161,13 @@ class EscapeBotStateMachine:
                 responses.append(self._state_message())
                 return responses
             else:
-                fail_msg = p_data.get("fail_message", {}).copy()
-                fail_msg["text"] = fail_msg.get("text", "").replace("{text}", text)
-                return [reply("bot.message", fail_msg, message), self._state_message()]
+                # Vyhodnocení, zda hráč neprosí o pomoc pomocí AI
+                if await self.ai.is_hint_request(text):
+                    return self._provide_hint("searching_lost", message)
+                else:
+                    fail_msg = p_data.get("fail_message", {}).copy()
+                    fail_msg["text"] = fail_msg.get("text", "").replace("{text}", text)
+                    return [reply("bot.message", fail_msg, message), self._state_message()]
 
         if self.state.phase == GamePhase.LOST_CONNECTED:
             self.state.phase = GamePhase.CONNECTION_LOST
@@ -138,18 +190,29 @@ class EscapeBotStateMachine:
                     self._state_message(),
                 ]
             else:
-                return [
-                    reply("bot.message", p_data.get("fail_message", {}), message),
-                    self._state_message(),
-                ]
+                if await self.ai.is_hint_request(text):
+                    return self._provide_hint("connection_lost", message)
+                else:
+                    return [
+                        reply("bot.message", p_data.get("fail_message", {}), message),
+                        self._state_message(),
+                    ]
 
         # Výchozí odpověď pro fázi NAVIGATING
         p_data = self.scenario.get_phase_data("navigating")
+        
+        ai_prompt = p_data.get("ai_system_prompt")
+        if ai_prompt:
+            # Zkusíme vygenerovat odpověď pomocí AI
+            ai_response = await self.ai.generate_response(ai_prompt, self.state.chat_history)
+            if ai_response:
+                return [reply("bot.message", {"text": ai_response, "mood": "alert", "channel": "lost"}, message)]
+                
         def_msg = p_data.get("default_message", {}).copy()
         def_msg["text"] = def_msg.get("text", "").replace("{text}", text)
         return [reply("bot.message", def_msg, message)]
 
-    def _handle_qr_detected(self, message: Message) -> list[Message]:
+    async def _handle_qr_detected(self, message: Message) -> list[Message]:
         value = str(message.payload.get("value", "")).strip()
         discovery_id = value.removeprefix("escapebot://clue/")
         if not discovery_id or discovery_id == value:
@@ -166,7 +229,7 @@ class EscapeBotStateMachine:
             self._state_message(),
         ]
 
-    def _handle_arg_verify(self, message: Message) -> list[Message]:
+    async def _handle_arg_verify(self, message: Message) -> list[Message]:
         discovery_id = str(message.payload.get("discovery_id", "")).strip()
         if discovery_id not in self.state.unlocked_discoveries:
             return [reply("arg.result", {"verified": False, "reason": "Discovery is not unlocked."}, message)]
@@ -182,7 +245,7 @@ class EscapeBotStateMachine:
             self._state_message(),
         ]
 
-    def _handle_camera_frame(self, message: Message) -> list[Message]:
+    async def _handle_camera_frame(self, message: Message) -> list[Message]:
         return [
             reply(
                 "bot.message",
@@ -194,7 +257,7 @@ class EscapeBotStateMachine:
             )
         ]
 
-    def _handle_room_unlock(self, message: Message) -> list[Message]:
+    async def _handle_room_unlock(self, message: Message) -> list[Message]:
         pin = str(message.payload.get("pin", "")).strip()
         
         # Vyhledání PINu ve scénáři
@@ -218,5 +281,5 @@ class EscapeBotStateMachine:
             self._state_message(),
         ]
 
-    def _handle_unknown(self, message: Message) -> list[Message]:
+    async def _handle_unknown(self, message: Message) -> list[Message]:
         return [reply("error", {"message": f"Unsupported message type: {message.type}"}, message)]
