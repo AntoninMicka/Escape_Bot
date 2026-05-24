@@ -139,6 +139,39 @@
             background-color: #0f0;
             box-shadow: 0 0 8px #0f0;
         }
+        
+        /* Styly pro číselník (numpad) */
+        .numpad-container {
+            width: 250px;
+            margin: 20px 0;
+            border: 2px solid #333;
+            background: #111;
+            padding: 20px;
+            text-align: center;
+        }
+        .numpad-display {
+            background: #000;
+            border: 1px solid #0f0;
+            color: #0f0;
+            font-size: 2em;
+            padding: 10px;
+            margin-bottom: 20px;
+            min-height: 30px;
+            letter-spacing: 5px;
+        }
+        .numpad-display.error { color: #f00; border-color: #f00; }
+        .numpad-display.success { color: #0f0; border-color: #0f0; background: #020; }
+        .numpad-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+        .numpad-btn {
+            background: #222; color: #0aa; border: 1px solid #0aa;
+            padding: 15px; font-size: 1.5em; cursor: pointer; font-family: inherit;
+        }
+        .numpad-btn:hover { background: #0aa; color: #000; }
+        .numpad-btn.action { font-size: 1em; font-weight: bold; }
+        .numpad-btn.action.clear { color: #f00; border-color: #f00; }
+        .numpad-btn.action.clear:hover { background: #f00; color: #000; }
+        .numpad-btn.action.enter { color: #0f0; border-color: #0f0; }
+        .numpad-btn.action.enter:hover { background: #0f0; color: #000; }
     </style>
 </head>
 <body>
@@ -196,8 +229,24 @@
     </div>
 
     <div id="tab-room" class="tab-content">
-        <h2>[ SIMULACE MÍSTNOSTI / HARDWARU ]</h2>
-        <p>Zde bude rozhraní pro zadávání hádanek a interakci s prostředím, pokud není k dispozici vyhrazený fyzický hardware (např. zámky, panely, senzory).</p>
+        <h2>[ PŘÍSTUPOVÝ PANEL - DVEŘE 104 ]</h2>
+        <div class="numpad-container">
+            <div id="numpad-display" class="numpad-display">_</div>
+            <div class="numpad-grid">
+                <button class="numpad-btn" onclick="pressPin('1')">1</button>
+                <button class="numpad-btn" onclick="pressPin('2')">2</button>
+                <button class="numpad-btn" onclick="pressPin('3')">3</button>
+                <button class="numpad-btn" onclick="pressPin('4')">4</button>
+                <button class="numpad-btn" onclick="pressPin('5')">5</button>
+                <button class="numpad-btn" onclick="pressPin('6')">6</button>
+                <button class="numpad-btn" onclick="pressPin('7')">7</button>
+                <button class="numpad-btn" onclick="pressPin('8')">8</button>
+                <button class="numpad-btn" onclick="pressPin('9')">9</button>
+                <button class="numpad-btn action clear" onclick="clearPin()">CLR</button>
+                <button class="numpad-btn" onclick="pressPin('0')">0</button>
+                <button class="numpad-btn action enter" onclick="submitPin()">ENT</button>
+            </div>
+        </div>
     </div>
 
     <script>
@@ -205,6 +254,7 @@
         const input = document.getElementById('msgInput');
         let currentChannel = 'general';
         const statusIndicator = document.getElementById('connection-status');
+        let currentPin = '';
 
         // 1. Správa Session ID (Udržení relace)
         let sessionId = localStorage.getItem('escapeBotSessionId');
@@ -226,7 +276,26 @@
 
             ws.onmessage = (event) => {
                 const msg = JSON.parse(event.data);
-                if (msg.type === 'bot.message') {
+                
+                if (msg.type === 'chat.history') {
+                    // Vyčistíme stávající historii v DOMu (proti duplikacím při reconnectu bez F5)
+                    document.querySelectorAll('.chat-history').forEach(el => el.innerHTML = '');
+                    
+                    msg.payload.messages.forEach(m => {
+                        const channel = m.channel || 'general';
+                        const chatBox = document.getElementById('chat-' + channel);
+                        if (!chatBox) return;
+
+                        if (m.role === 'bot') {
+                            let sender = channel === 'captain' ? "Kapitánka" : (channel === 'lost' ? "Ztracená" : "Systém");
+                            chatBox.innerHTML += `<div class="message bot"><b>[${sender}]:</b> ${m.text}</div>`;
+                        } else if (m.role === 'player') {
+                            chatBox.innerHTML += `<div class="message player"><b>[Ty]:</b> ${m.text}</div>`;
+                        }
+                    });
+                    document.querySelectorAll('.chat-history').forEach(el => el.scrollTop = el.scrollHeight);
+                }
+                else if (msg.type === 'bot.message') {
                     const channel = msg.payload.channel || 'general';
                     const chatBox = document.getElementById('chat-' + channel);
                     
@@ -238,6 +307,21 @@
                         chatBox.innerHTML += `<div class="message bot"><b>[${sender}]:</b> ${msg.payload.text}</div>`;
                         chatBox.scrollTop = chatBox.scrollHeight;
                     }
+                }
+                else if (msg.type === 'room.unlock_result') {
+                    const display = document.getElementById('numpad-display');
+                    if (msg.payload.success) {
+                        display.innerText = 'GRANTED';
+                        display.className = 'numpad-display success';
+                    } else {
+                        display.innerText = 'DENIED';
+                        display.className = 'numpad-display error';
+                    }
+                    currentPin = '';
+                    
+                    setTimeout(() => {
+                        if (display.innerText === 'GRANTED' || display.innerText === 'DENIED') clearPin();
+                    }, 2000);
                 }
             };
 
@@ -256,6 +340,24 @@
 
         // Inicializace prvního připojení
         connect();
+
+        function pressPin(num) {
+            if (currentPin.length < 8) {
+                currentPin += num;
+                document.getElementById('numpad-display').innerText = currentPin;
+            }
+        }
+
+        function clearPin() {
+            currentPin = '';
+            document.getElementById('numpad-display').innerText = '_';
+            document.getElementById('numpad-display').className = 'numpad-display';
+        }
+
+        function submitPin() {
+            if (!currentPin || !ws || ws.readyState !== WebSocket.OPEN) return;
+            ws.send(JSON.stringify({ type: 'room.unlock', payload: { pin: currentPin } }));
+        }
 
         function sendMsg() {
             if (!input.value.trim() || !ws || ws.readyState !== WebSocket.OPEN) return;

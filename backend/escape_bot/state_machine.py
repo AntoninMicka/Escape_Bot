@@ -24,6 +24,7 @@ class GameState:
     unlocked_discoveries: set[str] = field(default_factory=set)
     inventory: list[str] = field(default_factory=list)
     flags: dict[str, Any] = field(default_factory=dict)
+    chat_history: list[dict[str, str]] = field(default_factory=list)
 
     def snapshot(self) -> dict[str, Any]:
         return {
@@ -31,6 +32,7 @@ class GameState:
             "unlocked_discoveries": sorted(self.unlocked_discoveries),
             "inventory": list(self.inventory),
             "flags": self.flags,
+            "chat_history": self.chat_history,
         }
 
 
@@ -39,15 +41,34 @@ class EscapeBotStateMachine:
         self.state = GameState()
 
     def handle(self, message: Message) -> list[Message]:
+        # Automatické uložení příchozí zprávy hráče do historie
+        if message.type == "player.message":
+            text = str(message.payload.get("text", "")).strip()
+            channel = str(message.payload.get("channel", "general")).strip()
+            if text:
+                self.state.chat_history.append({"role": "player", "channel": channel, "text": text})
+
         handlers = {
             "client.hello": self._handle_hello,
             "player.message": self._handle_player_message,
             "qr.detected": self._handle_qr_detected,
             "arg.verify": self._handle_arg_verify,
             "camera.frame": self._handle_camera_frame,
+            "room.unlock": self._handle_room_unlock,
         }
         handler = handlers.get(message.type, self._handle_unknown)
-        return handler(message)
+        responses = handler(message)
+
+        # Automatické uložení odpovědí bota do historie
+        for resp in responses:
+            if resp.type == "bot.message":
+                self.state.chat_history.append({
+                    "role": "bot",
+                    "channel": resp.payload.get("channel", "general"),
+                    "text": resp.payload.get("text", "")
+                })
+
+        return responses
 
     def _state_message(self) -> Message:
         return Message("game.state", self.state.snapshot())
@@ -68,8 +89,9 @@ class EscapeBotStateMachine:
                 self._state_message(),
             ]
         else:
-            # Znovupřipojení během hry – neresetujeme stav
+            # Znovupřipojení během hry – pošleme historii a neresetujeme stav
             return [
+                Message("chat.history", {"messages": self.state.chat_history}),
                 reply(
                     "bot.message",
                     {
@@ -201,6 +223,33 @@ class EscapeBotStateMachine:
                 message,
             )
         ]
+
+    def _handle_room_unlock(self, message: Message) -> list[Message]:
+        pin = str(message.payload.get("pin", "")).strip()
+        
+        # Pro ukázku odemkneme "Pokoj 104" pomocí PINu "104"
+        if pin == "104":
+            # TODO: Přidat flag do self.state.flags, že je místnost odemčena
+            return [
+                reply("room.unlock_result", {"success": True}, message),
+                reply("bot.message", {
+                    "text": "Přístupový panel 104 odemčen. Elektromagnetický zámek uvolněn.",
+                    "mood": "success",
+                    "channel": "general"
+                }, message),
+                reply("bot.message", {
+                    "text": "Slyšela jsem cvaknutí! Ty dveře do pokoje 104 se právě otevřely. Jdu dovnitř...",
+                    "mood": "relieved",
+                    "channel": "lost"
+                }, message),
+                self._state_message(),
+            ]
+        else:
+            return [
+                reply("room.unlock_result", {"success": False}, message),
+                reply("bot.message", {"text": f"Chybný PIN kód '{pin}'. Přístup odepřen.", "mood": "error", "channel": "general"}, message),
+                self._state_message(),
+            ]
 
     def _handle_unknown(self, message: Message) -> list[Message]:
         return [reply("error", {"message": f"Unsupported message type: {message.type}"}, message)]
