@@ -124,6 +124,21 @@
         }
         .map-room { display: inline-block; width: 100px; height: 60px; border: 1px solid #0aa; text-align: center; line-height: 60px; margin: 5px; background: #000;}
         .map-corridor { display: inline-block; width: 330px; height: 40px; border: 1px dashed #555; text-align: center; line-height: 40px; margin: 5px; }
+        
+        .status-indicator {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-right: 10px;
+            background-color: #f00;
+            box-shadow: 0 0 8px #f00;
+            transition: all 0.3s ease;
+        }
+        .status-indicator.online {
+            background-color: #0f0;
+            box-shadow: 0 0 8px #0f0;
+        }
     </style>
 </head>
 <body>
@@ -134,7 +149,7 @@
     </div>
 
     <div id="tab-intercom" class="tab-content active">
-        <h2>[ INTERKOM - SEKTOR 4 ]</h2>
+        <h2><span id="connection-status" class="status-indicator"></span>[ INTERKOM - SEKTOR 4 ]</h2>
         <div class="intercom-container">
             <div class="channels-sidebar">
                 <button class="channel-btn active" onclick="switchChannel('general', this)"># sys_log</button>
@@ -186,31 +201,64 @@
     </div>
 
     <script>
-        const ws = new WebSocket('ws://127.0.0.1:8765');
+        let ws;
         const input = document.getElementById('msgInput');
         let currentChannel = 'general';
+        const statusIndicator = document.getElementById('connection-status');
 
-        ws.onopen = () => ws.send(JSON.stringify({ type: 'client.hello', payload: {} }));
+        // 1. Správa Session ID (Udržení relace)
+        let sessionId = localStorage.getItem('escapeBotSessionId');
+        if (!sessionId) {
+            // Jednoduchý fallback pro generování ID, pokud není dostupné crypto.randomUUID
+            sessionId = window.crypto && crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).substring(2, 15);
+            localStorage.setItem('escapeBotSessionId', sessionId);
+        }
 
-        ws.onmessage = (event) => {
-            const msg = JSON.parse(event.data);
-            if (msg.type === 'bot.message') {
-                const channel = msg.payload.channel || 'general';
-                const chatBox = document.getElementById('chat-' + channel);
-                
-                let sender = "Systém";
-                if (channel === 'captain') sender = "Kapitánka";
-                if (channel === 'lost') sender = "Ztracená";
-                
-                if (chatBox) {
-                    chatBox.innerHTML += `<div class="message bot"><b>[${sender}]:</b> ${msg.payload.text}</div>`;
-                    chatBox.scrollTop = chatBox.scrollHeight;
+        // 2. Správa připojení a znovupřipojení
+        function connect() {
+            ws = new WebSocket('ws://127.0.0.1:8765');
+
+            ws.onopen = () => {
+                console.log("WebSocket připojen. Session ID:", sessionId);
+                statusIndicator.classList.add('online');
+                ws.send(JSON.stringify({ type: 'client.hello', payload: { session_id: sessionId } }));
+            };
+
+            ws.onmessage = (event) => {
+                const msg = JSON.parse(event.data);
+                if (msg.type === 'bot.message') {
+                    const channel = msg.payload.channel || 'general';
+                    const chatBox = document.getElementById('chat-' + channel);
+                    
+                    let sender = "Systém";
+                    if (channel === 'captain') sender = "Kapitánka";
+                    if (channel === 'lost') sender = "Ztracená";
+                    
+                    if (chatBox) {
+                        chatBox.innerHTML += `<div class="message bot"><b>[${sender}]:</b> ${msg.payload.text}</div>`;
+                        chatBox.scrollTop = chatBox.scrollHeight;
+                    }
                 }
-            }
-        };
+            };
+
+            ws.onclose = (e) => {
+                console.warn("Spojení ztraceno. Pokus o znovupřipojení za 3 sekundy...", e.reason);
+                statusIndicator.classList.remove('online');
+                setTimeout(connect, 3000);
+            };
+
+            ws.onerror = (err) => {
+                console.error("Chyba WebSocketu:", err);
+                statusIndicator.classList.remove('online');
+                ws.close(); // Vynutí zavolání onclose pro znovupřipojení
+            };
+        }
+
+        // Inicializace prvního připojení
+        connect();
 
         function sendMsg() {
-            if (!input.value.trim()) return;
+            if (!input.value.trim() || !ws || ws.readyState !== WebSocket.OPEN) return;
             
             ws.send(JSON.stringify({ type: 'player.message', payload: { text: input.value, channel: currentChannel } }));
             

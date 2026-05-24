@@ -53,19 +53,34 @@ class EscapeBotStateMachine:
         return Message("game.state", self.state.snapshot())
 
     def _handle_hello(self, message: Message) -> list[Message]:
-        self.state.phase = GamePhase.COMMS_OFFLINE
-        return [
-            reply(
-                "bot.message",
-                {
-                    "text": "*ššš*... Tady Kapitánka. Slyšíme se? Interkom konečně naběhl. Potvrď příjem!",
-                    "mood": "alert",
-                    "channel": "captain",
-                },
-                message,
-            ),
-            self._state_message(),
-        ]
+        if self.state.phase == GamePhase.BOOT:
+            self.state.phase = GamePhase.COMMS_OFFLINE
+            return [
+                reply(
+                    "bot.message",
+                    {
+                        "text": "*ššš*... Tady Kapitánka. Slyšíme se? Interkom konečně naběhl. Potvrď příjem!",
+                        "mood": "alert",
+                        "channel": "captain",
+                    },
+                    message,
+                ),
+                self._state_message(),
+            ]
+        else:
+            # Znovupřipojení během hry – neresetujeme stav
+            return [
+                reply(
+                    "bot.message",
+                    {
+                        "text": "[Systém]: Spojení bylo úspěšně obnoveno. Relace je aktivní.",
+                        "mood": "info",
+                        "channel": "general",
+                    },
+                    message,
+                ),
+                self._state_message(),
+            ]
 
     def _handle_player_message(self, message: Message) -> list[Message]:
         text = str(message.payload.get("text", "")).strip()
