@@ -31,6 +31,10 @@ echo "Aktivuji virtuální prostředí a instaluji závislosti..."
 source .venv/bin/activate
 pip install -r requirements.txt
 
+echo "==========================================================="
+echo "  Hra je připravena! Webový klient: http://localhost:8080  "
+echo "==========================================================="
+
 # Spuštění serveru
-echo "Spouštím backend server na ws://127.0.0.1:8765..."
+echo "Spouštím centrální uzel (HTTP na 8080, WS na 8765)..."
 python3 -m escape_bot.server

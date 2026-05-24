@@ -37,8 +37,12 @@ echo Aktivuji virtualni prostredi a instaluji zavislosti...
 call .venv\Scripts\activate.bat
 pip install -r requirements.txt
 
+echo ===========================================================
+echo   Hra je pripravena! Webovy klient: http://localhost:8080  
+echo ===========================================================
+
 :: Spuštění serveru
-echo Spoustim backend server na ws://127.0.0.1:8765...
+echo Spoustim centralni uzel (HTTP na 8080, WS na 8765)...
 python -m escape_bot.server
 
 endlocal

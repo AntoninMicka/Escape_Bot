@@ -9,10 +9,13 @@ from .protocol import Message, reply
 
 class GamePhase(StrEnum):
     BOOT = "boot"
-    INVESTIGATING = "investigating"
-    PUZZLE_LOCKED = "puzzle_locked"
-    PUZZLE_SOLVED = "puzzle_solved"
-    FINALE = "finale"
+    COMMS_OFFLINE = "comms_offline"
+    CAPTAIN_CONNECTED = "captain_connected"
+    SEARCHING_LOST = "searching_lost"
+    LOST_CONNECTED = "lost_connected"
+    CONNECTION_LOST = "connection_lost"
+    NAVIGATING = "navigating"
+    PORTAL_OPEN = "portal_open"
 
 
 @dataclass(slots=True)
@@ -50,13 +53,13 @@ class EscapeBotStateMachine:
         return Message("game.state", self.state.snapshot())
 
     def _handle_hello(self, message: Message) -> list[Message]:
-        self.state.phase = GamePhase.INVESTIGATING
+        self.state.phase = GamePhase.COMMS_OFFLINE
         return [
             reply(
                 "bot.message",
                 {
-                    "text": "Spojeni navazano. Zacni popisem prostoru nebo naskenuj prvni stopu.",
-                    "mood": "calm",
+                    "text": "*ššš*... Tady Kapitánka. Slyšíme se? Interkom konečně naběhl. Potvrď příjem!",
+                    "mood": "alert",
                 },
                 message,
             ),
@@ -68,12 +71,57 @@ class EscapeBotStateMachine:
         if not text:
             return [reply("error", {"message": "Text message is empty."}, message)]
 
+        if self.state.phase == GamePhase.COMMS_OFFLINE:
+            self.state.phase = GamePhase.SEARCHING_LOST
+            return [
+                reply("bot.message", {"text": "Výborně, spojení funguje. Máme krizovou situaci. Naše kolegyně uvízla v jiné dimenzi. Potřebuji, abys rozluštil její dimenzionální frekvenci z materiálů v místnosti a zadal ji sem.", "mood": "focused"}, message),
+                self._state_message(),
+            ]
+
+        if self.state.phase == GamePhase.SEARCHING_LOST:
+            # Jednoduchá demo validace fáze 2 - správná frekvence
+            if "734" in text:
+                self.state.phase = GamePhase.LOST_CONNECTED
+                return [
+                    reply("bot.message", {"text": "Frekvence 734 přijata! Přepojuji tě na ni... *píp*", "mood": "relieved"}, message),
+                    reply("bot.message", {"text": "[Ztracená]: Haló? Kapitánko? Jsi tam? Tady je hrozná tma, nevím, co mám dělat!", "mood": "tense"}, message),
+                    self._state_message(),
+                ]
+            else:
+                return [
+                    reply("bot.message", {"text": f"*šum* Frekvence '{text}' je hluchá. Zkus to znovu, musíme ji najít!", "mood": "tense"}, message),
+                    self._state_message(),
+                ]
+
+        if self.state.phase == GamePhase.LOST_CONNECTED:
+            self.state.phase = GamePhase.CONNECTION_LOST
+            return [
+                reply("bot.message", {"text": f"[Ztracená]: Snažím se postupovat podle tvých instrukcí '{text}', ale... *GLITCH* něco mě tu ruší... *šum*", "mood": "glitchy"}, message),
+                Message("effect.trigger", {"effect": "glitch", "intensity": 0.8, "duration_ms": 2000}),
+                reply("bot.message", {"text": "SYSTEM ERROR: Spojení ztraceno. Proveďte tvrdý restart systému (napište 'restart').", "mood": "error"}, message),
+                self._state_message(),
+            ]
+
+        if self.state.phase == GamePhase.CONNECTION_LOST:
+            if "restart" in text.lower():
+                self.state.phase = GamePhase.NAVIGATING
+                return [
+                    reply("bot.message", {"text": "[Ztracená]: Uf, jsem zpět! Bylo to těsné, dimenzionální bouře nás odpojila. Vidím tu teď panel se symboly. Můžeš mi pomoct je rozluštit?", "mood": "alert"}, message),
+                    self._state_message(),
+                ]
+            else:
+                return [
+                    reply("bot.message", {"text": "SYSTEM ERROR: Spojení nelze navázat. Zadejte 'restart'.", "mood": "error"}, message),
+                    self._state_message(),
+                ]
+
+        # Výchozí odpověď pro fázi NAVIGATING
         return [
             reply(
                 "bot.message",
                 {
-                    "text": "Zapsano. Jakmile pridas vizualni dukaz nebo QR stopu, muzu to overit.",
-                    "mood": "focused",
+                    "text": f"Slyším tě: '{text}'. Musíme najít ten portál ven.",
+                    "mood": "alert",
                 },
                 message,
             )
@@ -86,12 +134,11 @@ class EscapeBotStateMachine:
             return [reply("error", {"message": "Unknown QR format."}, message)]
 
         self.state.unlocked_discoveries.add(discovery_id)
-        self.state.phase = GamePhase.PUZZLE_LOCKED
         return [
             reply(
                 "bot.message",
                 {
-                    "text": f"Stopa '{discovery_id}' je aktivni. Ted potrebujeme potvrdit jeji vyznam.",
+                    "text": f"Našla jsem podivný symbol: '{discovery_id}'. To nám asi pomůže se zámkem.",
                     "mood": "tense",
                 },
                 message,
@@ -105,14 +152,13 @@ class EscapeBotStateMachine:
         if discovery_id not in self.state.unlocked_discoveries:
             return [reply("arg.result", {"verified": False, "reason": "Discovery is not unlocked."}, message)]
 
-        self.state.phase = GamePhase.PUZZLE_SOLVED
         self.state.flags[f"verified.{discovery_id}"] = True
         return [
             reply("arg.result", {"verified": True, "discovery_id": discovery_id}, message),
             reply(
                 "bot.message",
                 {
-                    "text": "Potvrzeno. Tohle neni nahoda, je to soucast zamku.",
+                    "text": "Máš pravdu! Ten symbol vážně zapadl do panelu u dveří.",
                     "mood": "alert",
                 },
                 message,
@@ -134,4 +180,3 @@ class EscapeBotStateMachine:
 
     def _handle_unknown(self, message: Message) -> list[Message]:
         return [reply("error", {"message": f"Unsupported message type: {message.type}"}, message)]
-

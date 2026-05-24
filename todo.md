@@ -30,10 +30,11 @@
 - [ ] Export scénářů a správa multimediálních assetů.
 
 ## 8. Námět na první scénář: Ztracená v jiné dimenzi
-- [ ] **Koncept**: Dvě dívky, jedna v naší realitě, druhá ztracená v jiné dimenzi. Cílem je dostat ztracenou dívku zpět pomocí komunikace přes "interkom".
-- [ ] **Fáze 1 - Zprovoznění komunikace**: Vyřešit úvodní rébus k fyzickému zprovoznění interkomu, aby bylo vůbec možné zachytit signál.
-- [ ] **Fáze 2 - Zaměření dimenze**: Rozluštit a zadat správné speciální "telefonní číslo" nebo dimenzionální souřadnice, čímž dojde ke stabilnímu propojení obou světů.
-- [ ] **Fáze 3 - Navigace k portálu**: Řešit navazující hádanky a postupně ztracenou dívku přes interkom přemisťovat a navigovat v její dimenzi až na bezpečné místo, odkud se může vrátit domů.
+- [ ] **Koncept**: Hráč se přes interkom spojí s "Kapitánkou" (první postava). Ta mu dá úkol zachránit "Ztracenou" (druhá postava v jiné dimenzi). Hra obsahuje umělé výpadky spojení pro prodloužení a zvýšení napětí.
+- [ ] **Fáze 1 - Spojení s Kapitánkou**: Zprovoznění interkomu a navázání komunikace s Kapitánkou. Přijetí úkolu a indicií.
+- [ ] **Fáze 2 - Hledání Ztracené**: Pomocí šifer a hádanek najít správnou frekvenci/souřadnice pro spojení s druhou (ztracenou) postavou.
+- [ ] **Fáze 3 - Neúspěšné pokusy a výpadky**: Ztracená je nalezena, ale spojení je nestabilní. Záměrné chybné přenosy, ztráta spojení a nutnost jeho opětovného (a složitějšího) navázání.
+- [ ] **Fáze 4 - Záchranná mise**: Komunikace se Ztracenou. Pomocí dalších hádanek a šifer ji přemisťovat správným směrem až k záchrannému portálu.
 
 ## 9. Zjednodušení architektury (Pivot k webu a hardwaru)
 - [ ] **Webový interkom (Hlavní klient)**: Opustit nutnost složitého QML klienta a přesunout hlavní komunikační rozhraní do webové aplikace (např. PWA).
@@ -46,3 +47,4 @@
 - [ ] **Správa více hráčů (Multiplayer)**: Zajištění synchronizace stavu hry mezi vícero klienty (telefony/tablety/PC) v rámci jedné herní relace.
 - [ ] **Multitasking a více instancí (Multitenancy)**: Přepracování správy stavu tak, aby backend dokázal obsluhovat více nezávislých her (místností nebo různých scénářů) naprosto paralelně a bez ovlivňování.
 - [ ] **Centrální správa hry (Game Master panel)**: Připravit rozhraní pro obsluhu únikovky, která zde uvidí stav všech běžících her, bude moci posílat nápovědy a řešit krizové situace.
+- [ ] **Captive portál (Vstupní bod hry)**: Zprovoznit captive portál (např. úpravou DNS pro přesměrování po připojení na herní Wi-Fi), který automaticky načte klientům webové rozhraní hry.

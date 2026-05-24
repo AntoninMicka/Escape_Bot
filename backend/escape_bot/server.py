@@ -1,47 +1,64 @@
-from __future__ import annotations
-
 import asyncio
 import json
-from typing import Any
-
+import logging
+import os
+import threading
+from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 import websockets
-from websockets.server import WebSocketServerProtocol
 
 from .protocol import Message
 from .state_machine import EscapeBotStateMachine
 
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+logger = logging.getLogger("EscapeBot")
 
-HOST = "127.0.0.1"
-PORT = 8765
+# Dynamické nalezení absolutní cesty do složky client/
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+CLIENT_DIR = os.path.join(BASE_DIR, "client")
 
+class ClientHTTPRequestHandler(SimpleHTTPRequestHandler):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, directory=CLIENT_DIR, **kwargs)
+        
+    def log_message(self, format, *args):
+        # Potlačení logování každého requestu na statické soubory pro čistší konzoli
+        pass
 
-async def send_message(websocket: WebSocketServerProtocol, message: Message) -> None:
-    await websocket.send(json.dumps(message.to_json(), ensure_ascii=True))
+def start_http_server():
+    port = 8080
+    httpd = ThreadingHTTPServer(("", port), ClientHTTPRequestHandler)
+    logger.info(f"Webový klient interkomu je dostupný na: http://localhost:{port}")
+    httpd.serve_forever()
 
+async def handle_client(websocket, state_machine):
+    logger.info("Nový hráč připojen k interkomu.")
+    try:
+        async for message_str in websocket:
+            try:
+                data = json.loads(message_str)
+                msg = Message.from_json(data)
+                responses = state_machine.handle(msg)
+                for response in responses:
+                    await websocket.send(json.dumps(response.to_json()))
+            except Exception as e:
+                logger.error(f"Chyba při zpracování zprávy: {e}")
+    except websockets.exceptions.ConnectionClosed:
+        pass
+    finally:
+        logger.info("Hráč odpojen.")
 
-async def handle_client(websocket: WebSocketServerProtocol) -> None:
-    machine = EscapeBotStateMachine()
+async def main():
+    # 1. Spuštění HTTP serveru (klienta) ve vedlejším vlákně
+    threading.Thread(target=start_http_server, daemon=True).start()
 
-    async for raw in websocket:
-        try:
-            data: Any = json.loads(raw)
-            if not isinstance(data, dict):
-                raise ValueError("Root message must be an object.")
-            incoming = Message.from_json(data)
-            responses = machine.handle(incoming)
-        except Exception as exc:
-            responses = [Message("error", {"message": str(exc)})]
-
-        for response in responses:
-            await send_message(websocket, response)
-
-
-async def main() -> None:
-    async with websockets.serve(handle_client, HOST, PORT):
-        print(f"Escape Bot backend listening on ws://{HOST}:{PORT}")
-        await asyncio.Future()
-
+    # 2. Inicializace herní state machine a WebSocket serveru
+    state_machine = EscapeBotStateMachine()
+    logger.info("Spouštím herní WebSocket server (port 8765)...")
+    async with websockets.serve(lambda ws: handle_client(ws, state_machine), "0.0.0.0", 8765):
+        await asyncio.Future()  # Běží donekonečna
 
 if __name__ == "__main__":
-    asyncio.run(main())
-
+    try:
+        asyncio.run(main())
+    except KeyboardInterrupt:
+        logger.info("Server byl ukončen.")

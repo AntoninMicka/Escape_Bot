@@ -1,12 +1,12 @@
 # Escape Bot
 
-Escape Bot je lokální ARG/escape-room klient s QML frontendem, Python backendem a AI vrstvou pro analýzu fyzických stop, nápovědy a atmosférické video/audio reakce.
+Escape Bot je lokální ARG/escape-room systém s odlehčeným webovým frontendem, centrálním Python backendem (orchestrátorem) a AI vrstvou pro analýzu fyzických stop, nápovědy a reakce.
 
 ## Cíle první verze
 
-- JSON protokol přes WebSocket mezi nativním klientem a backendem.
-- Python state machine pro řízení stavu hry.
-- QML komunikátor s nativní C++ obsluhou kamery a QR vstupem.
+- Backend sloužící jako herní State Machine a komunikační centrum (WebSockets / HTTP).
+- HTML/JS/CSS webový interkom (náhrada za složitý nativní klient) pro snadné nasazení na iPady a počítače v místnosti.
+- Scénář "Ztracená v jiné dimenzi" - řešení hádanek napříč dimenzemi.
 - Adaptéry pro Ollama a ComfyUI bez pevné vazby na konkrétní workflow.
 - Základní ARG verifikace fyzických objevů.
 - Připravené místo pro CRT/glitch shadery a zvukové události.
@@ -15,8 +15,8 @@ Escape Bot je lokální ARG/escape-room klient s QML frontendem, Python backende
 
 ```text
 Escape_Bot/
-  backend/          Python server, protokol a stav hry
-  client/           Qt/QML klient, kamera, QR bridge, shadery
+  backend/          Python webserver, WebSocket protokol, orchestrátor a stav hry
+  client/           HTML/JS/CSS webová aplikace interkomu a rébusů
   docs/             Návrh protokolu a architektonické poznámky
   ai/               Adaptéry pro Ollama a ComfyUI
   arg/              Definice fyzických objevů a rébusů
@@ -35,12 +35,9 @@ python3 -m escape_bot.server
 
 Server poslouchá na `ws://127.0.0.1:8765`.
 
-## Rychlý start klienta
-
-Klient je připravený jako Qt 6/CMake projekt. QR dekódování je zatím vyhrazené v `CameraQrBridge`; konkrétní implementace může použít ZXing-C++ nebo OpenCV podle cílové platformy.
+## Rychlý start klienta (Interkom)
 
 ```bash
 cd Escape_Bot/client
-cmake -S . -B build
-cmake --build build
+python3 -m http.server 8080
 ```
