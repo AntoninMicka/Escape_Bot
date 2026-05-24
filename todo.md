@@ -34,3 +34,15 @@
 - [ ] **Fáze 1 - Zprovoznění komunikace**: Vyřešit úvodní rébus k fyzickému zprovoznění interkomu, aby bylo vůbec možné zachytit signál.
 - [ ] **Fáze 2 - Zaměření dimenze**: Rozluštit a zadat správné speciální "telefonní číslo" nebo dimenzionální souřadnice, čímž dojde ke stabilnímu propojení obou světů.
 - [ ] **Fáze 3 - Navigace k portálu**: Řešit navazující hádanky a postupně ztracenou dívku přes interkom přemisťovat a navigovat v její dimenzi až na bezpečné místo, odkud se může vrátit domů.
+
+## 9. Zjednodušení architektury (Pivot k webu a hardwaru)
+- [ ] **Webový interkom (Hlavní klient)**: Opustit nutnost složitého QML klienta a přesunout hlavní komunikační rozhraní do webové aplikace (např. PWA).
+- [ ] **Klientský framework (Vlastní prohlížeč na míru)**: Pro PC vytvořit speciální prohlížeč/wrapper (např. pomocí Tauri či Electronu), který webovou aplikaci obalí a zajistí komunikaci s lokálním hardwarem, pokud standardní webové cesty nebudou stačit.
+- [ ] **Jednoúčelové webovky pro rébusy**: Vytvořit speciální oddělené webové stránky určené výhradně pro vyhrazené počítače/tablety v únikovce, které budou sloužit k řešení specifických dílčích rébusů.
+- [ ] **Hardwaroví klienti (Mikrokontroléry)**: Připravit architekturu pro dedikované klienty na mikrokontrolérech (např. ESP32), kteří budou s hrou komunikovat buď napřímo (WebSocket/MQTT), nebo přes zmiňovaný PC framework.
+
+## 10. Backend jako centrální uzel (Orchestrace a Multitasking)
+- [ ] **Webserver a orchestrátor**: Backend bude sloužit jako hlavní přístupový bod (webserver pro klientské aplikace) a postará se o orchestraci všech ostatních služeb (AI modely, HW zprávy).
+- [ ] **Správa více hráčů (Multiplayer)**: Zajištění synchronizace stavu hry mezi vícero klienty (telefony/tablety/PC) v rámci jedné herní relace.
+- [ ] **Multitasking a více instancí (Multitenancy)**: Přepracování správy stavu tak, aby backend dokázal obsluhovat více nezávislých her (místností nebo různých scénářů) naprosto paralelně a bez ovlivňování.
+- [ ] **Centrální správa hry (Game Master panel)**: Připravit rozhraní pro obsluhu únikovky, která zde uvidí stav všech běžících her, bude moci posílat nápovědy a řešit krizové situace.
