@@ -14,7 +14,71 @@
             flex-direction: column;
             height: 90vh;
         }
-        #chat {
+        .tabs {
+            display: flex;
+            gap: 5px;
+            margin-bottom: 15px;
+            border-bottom: 1px solid #333;
+            padding-bottom: 5px;
+        }
+        .tab-button {
+            background: #0a0a0a;
+            color: #0aa;
+            border: 1px solid #333;
+            padding: 10px 15px;
+            cursor: pointer;
+            font-family: inherit;
+            font-weight: bold;
+        }
+        .tab-button.active {
+            background: #0f0;
+            color: #000;
+            border-color: #0f0;
+        }
+        .tab-content {
+            display: none;
+            flex-direction: column;
+            flex-grow: 1;
+        }
+        .tab-content.active {
+            display: flex;
+        }
+        .intercom-container {
+            display: flex;
+            flex-grow: 1;
+            gap: 15px;
+            height: 100%;
+            overflow: hidden;
+        }
+        .channels-sidebar {
+            width: 150px;
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+            border-right: 1px solid #333;
+            padding-right: 15px;
+        }
+        .channel-btn {
+            background: transparent;
+            color: #555;
+            border: 1px solid #333;
+            text-align: left;
+            padding: 10px;
+            cursor: pointer;
+            font-family: inherit;
+        }
+        .channel-btn.active {
+            color: #0f0;
+            border-color: #0f0;
+            background: #002200;
+        }
+        .chat-area {
+            flex-grow: 1;
+            display: flex;
+            flex-direction: column;
+        }
+        .chat-history {
+            display: none;
             flex-grow: 1;
             border: 1px solid #333;
             padding: 15px;
@@ -23,6 +87,7 @@
             background: #0a0a0a;
             box-shadow: inset 0 0 10px #000;
         }
+        .chat-history.active-chat { display: block; }
         .message { margin-bottom: 10px; }
         .message.bot { color: #0f0; }
         .message.player { color: #0aa; text-align: right; }
@@ -47,35 +112,131 @@
             cursor: pointer;
         }
         button:hover { background: #0a0; }
+        
+        /* Styly pro mapu */
+        .map-container {
+            border: 1px solid #0f0;
+            padding: 20px;
+            background: #001100;
+            font-size: 1.2em;
+            line-height: 1.5;
+            overflow: auto;
+        }
+        .map-room { display: inline-block; width: 100px; height: 60px; border: 1px solid #0aa; text-align: center; line-height: 60px; margin: 5px; background: #000;}
+        .map-corridor { display: inline-block; width: 330px; height: 40px; border: 1px dashed #555; text-align: center; line-height: 40px; margin: 5px; }
     </style>
 </head>
 <body>
-    <h2>[ INTERKOM - SEKTOR 4 ]</h2>
-    <div id="chat"></div>
-    <div class="controls">
-        <input type="text" id="msgInput" placeholder="Zadej zprávu nebo souřadnice (např. 734)..." onkeypress="if(event.key === 'Enter') sendMsg()" />
-        <button onclick="sendMsg()">Odeslat</button>
+    <div class="tabs">
+        <button class="tab-button active" onclick="openTab('tab-intercom', this)">INTERKOM</button>
+        <button class="tab-button" onclick="openTab('tab-map', this)">MAPA HOTELU</button>
+        <button class="tab-button" onclick="openTab('tab-room', this)">MÍSTNOST (Virtuální panel)</button>
+    </div>
+
+    <div id="tab-intercom" class="tab-content active">
+        <h2>[ INTERKOM - SEKTOR 4 ]</h2>
+        <div class="intercom-container">
+            <div class="channels-sidebar">
+                <button class="channel-btn active" onclick="switchChannel('general', this)"># sys_log</button>
+                <button class="channel-btn" onclick="switchChannel('captain', this)"># kapitánka</button>
+                <button class="channel-btn" onclick="switchChannel('lost', this)"># ztracená_sig</button>
+            </div>
+            
+            <div class="chat-area">
+                <div id="chat-general" class="chat-history active-chat">
+                    <div class="message bot"><b>[Systém]:</b> Terminál nahozen. Vyberte komunikační kanál.</div>
+                </div>
+                <div id="chat-captain" class="chat-history"></div>
+                <div id="chat-lost" class="chat-history"></div>
+                
+                <div class="controls">
+                    <input type="text" id="msgInput" placeholder="Zadej zprávu do aktivního kanálu..." onkeypress="if(event.key === 'Enter') sendMsg()" />
+                    <button onclick="sendMsg()">Odeslat</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="tab-map" class="tab-content">
+        <h2>[ TOPOGRAFICKÝ SKEN: HOTEL GRAND ]</h2>
+        <div class="map-container">
+            <div>
+                <div class="map-room">Pokoj 101</div>
+                <div class="map-room">Pokoj 102</div>
+                <div class="map-room">Pokoj 103</div>
+            </div>
+            <div>
+                <div class="map-corridor">Východní chodba</div>
+            </div>
+            <div>
+                <div class="map-room" style="border-color: #f00;">Zavřeno</div>
+                <div class="map-room">Pokoj 104</div>
+                <div class="map-room" style="border-color: #ff0;">Schodiště</div>
+            </div>
+            <p style="color: #0aa; margin-top: 20px;">
+                > Cíl navigace: Ztracená se nachází někde v prvním patře. <br>
+                > Instrukce: Použijte interkom k nasměrování postavy pryč od anomálií (červené zóny).
+            </p>
+        </div>
+    </div>
+
+    <div id="tab-room" class="tab-content">
+        <h2>[ SIMULACE MÍSTNOSTI / HARDWARU ]</h2>
+        <p>Zde bude rozhraní pro zadávání hádanek a interakci s prostředím, pokud není k dispozici vyhrazený fyzický hardware (např. zámky, panely, senzory).</p>
     </div>
 
     <script>
         const ws = new WebSocket('ws://127.0.0.1:8765');
-        const chat = document.getElementById('chat');
         const input = document.getElementById('msgInput');
+        let currentChannel = 'general';
 
         ws.onopen = () => ws.send(JSON.stringify({ type: 'client.hello', payload: {} }));
 
         ws.onmessage = (event) => {
             const msg = JSON.parse(event.data);
-            if (msg.type === 'bot.message') chat.innerHTML += `<div class="message bot"><b>[Ztracená]:</b> ${msg.payload.text}</div>`;
-            chat.scrollTop = chat.scrollHeight;
+            if (msg.type === 'bot.message') {
+                const channel = msg.payload.channel || 'general';
+                const chatBox = document.getElementById('chat-' + channel);
+                
+                let sender = "Systém";
+                if (channel === 'captain') sender = "Kapitánka";
+                if (channel === 'lost') sender = "Ztracená";
+                
+                if (chatBox) {
+                    chatBox.innerHTML += `<div class="message bot"><b>[${sender}]:</b> ${msg.payload.text}</div>`;
+                    chatBox.scrollTop = chatBox.scrollHeight;
+                }
+            }
         };
 
         function sendMsg() {
             if (!input.value.trim()) return;
-            ws.send(JSON.stringify({ type: 'player.message', payload: { text: input.value } }));
-            chat.innerHTML += `<div class="message player"><b>[Ty]:</b> ${input.value}</div>`;
+            
+            ws.send(JSON.stringify({ type: 'player.message', payload: { text: input.value, channel: currentChannel } }));
+            
+            const chatBox = document.getElementById('chat-' + currentChannel);
+            chatBox.innerHTML += `<div class="message player"><b>[Ty]:</b> ${input.value}</div>`;
             input.value = '';
-            chat.scrollTop = chat.scrollHeight;
+            chatBox.scrollTop = chatBox.scrollHeight;
+        }
+
+        function openTab(tabId, btnElement) {
+            document.querySelectorAll('.tab-content').forEach(tab => tab.classList.remove('active'));
+            document.querySelectorAll('.tab-button').forEach(btn => btn.classList.remove('active'));
+            
+            document.getElementById(tabId).classList.add('active');
+            if (btnElement) {
+                btnElement.classList.add('active');
+            }
+        }
+        
+        function switchChannel(channelId, btnElement) {
+            currentChannel = channelId;
+            document.querySelectorAll('.chat-history').forEach(chat => chat.classList.remove('active-chat'));
+            document.querySelectorAll('.channel-btn').forEach(btn => btn.classList.remove('active'));
+            
+            document.getElementById('chat-' + channelId).classList.add('active-chat');
+            btnElement.classList.add('active');
         }
     </script>
 </body>

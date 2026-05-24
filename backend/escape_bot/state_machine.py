@@ -60,6 +60,7 @@ class EscapeBotStateMachine:
                 {
                     "text": "*ššš*... Tady Kapitánka. Slyšíme se? Interkom konečně naběhl. Potvrď příjem!",
                     "mood": "alert",
+                    "channel": "captain",
                 },
                 message,
             ),
@@ -74,7 +75,14 @@ class EscapeBotStateMachine:
         if self.state.phase == GamePhase.COMMS_OFFLINE:
             self.state.phase = GamePhase.SEARCHING_LOST
             return [
-                reply("bot.message", {"text": "Výborně, spojení funguje. Máme krizovou situaci. Naše kolegyně uvízla v jiné dimenzi. Potřebuji, abys rozluštil její dimenzionální frekvenci z materiálů v místnosti a zadal ji sem.", "mood": "focused"}, message),
+                reply(
+                    "bot.message",
+                    {
+                        "text": "Výborně, spojení funguje. Máme krizovou situaci. Naše kolegyně uvízla v jiné dimenzi. Potřebuji, abys rozluštil její dimenzionální frekvenci z materiálů v místnosti a zadal ji sem.",
+                        "mood": "focused",
+                        "channel": "captain",
+                    },
+                    message),
                 self._state_message(),
             ]
 
@@ -83,22 +91,22 @@ class EscapeBotStateMachine:
             if "734" in text:
                 self.state.phase = GamePhase.LOST_CONNECTED
                 return [
-                    reply("bot.message", {"text": "Frekvence 734 přijata! Přepojuji tě na ni... *píp*", "mood": "relieved"}, message),
-                    reply("bot.message", {"text": "[Ztracená]: Haló? Kapitánko? Jsi tam? Tady je hrozná tma, nevím, co mám dělat!", "mood": "tense"}, message),
+                    reply("bot.message", {"text": "Frekvence 734 přijata! Přepojuji tě na ni... *píp*", "mood": "relieved", "channel": "captain"}, message),
+                    reply("bot.message", {"text": "Haló? Kapitánko? Jsi tam? Tady je hrozná tma, nevím, co mám dělat! Můžeš mi pomoct se zorientovat v téhle budově?", "mood": "tense", "channel": "lost"}, message),
                     self._state_message(),
                 ]
             else:
                 return [
-                    reply("bot.message", {"text": f"*šum* Frekvence '{text}' je hluchá. Zkus to znovu, musíme ji najít!", "mood": "tense"}, message),
+                    reply("bot.message", {"text": f"*šum* Frekvence '{text}' je hluchá. Zkus to znovu, musíme ji najít!", "mood": "tense", "channel": "captain"}, message),
                     self._state_message(),
                 ]
 
         if self.state.phase == GamePhase.LOST_CONNECTED:
             self.state.phase = GamePhase.CONNECTION_LOST
             return [
-                reply("bot.message", {"text": f"[Ztracená]: Snažím se postupovat podle tvých instrukcí '{text}', ale... *GLITCH* něco mě tu ruší... *šum*", "mood": "glitchy"}, message),
+                reply("bot.message", {"text": f"Snažím se postupovat podle tvých instrukcí '{text}', ale... *GLITCH* něco mě tu ruší... *šum*", "mood": "glitchy", "channel": "lost"}, message),
                 Message("effect.trigger", {"effect": "glitch", "intensity": 0.8, "duration_ms": 2000}),
-                reply("bot.message", {"text": "SYSTEM ERROR: Spojení ztraceno. Proveďte tvrdý restart systému (napište 'restart').", "mood": "error"}, message),
+                reply("bot.message", {"text": "SYSTEM ERROR: Spojení ztraceno. Proveďte tvrdý restart (napište 'restart').", "mood": "error", "channel": "general"}, message),
                 self._state_message(),
             ]
 
@@ -106,12 +114,12 @@ class EscapeBotStateMachine:
             if "restart" in text.lower():
                 self.state.phase = GamePhase.NAVIGATING
                 return [
-                    reply("bot.message", {"text": "[Ztracená]: Uf, jsem zpět! Bylo to těsné, dimenzionální bouře nás odpojila. Vidím tu teď panel se symboly. Můžeš mi pomoct je rozluštit?", "mood": "alert"}, message),
+                    reply("bot.message", {"text": "Uf, jsem zpět! Bylo to těsné, dimenzionální bouře nás odpojila. Našla jsem nějaké mapy hotelu. Kam mám jít dál?", "mood": "alert", "channel": "lost"}, message),
                     self._state_message(),
                 ]
             else:
                 return [
-                    reply("bot.message", {"text": "SYSTEM ERROR: Spojení nelze navázat. Zadejte 'restart'.", "mood": "error"}, message),
+                    reply("bot.message", {"text": "SYSTEM ERROR: Spojení nelze navázat. Zadejte 'restart'.", "mood": "error", "channel": "general"}, message),
                     self._state_message(),
                 ]
 
@@ -122,6 +130,7 @@ class EscapeBotStateMachine:
                 {
                     "text": f"Slyším tě: '{text}'. Musíme najít ten portál ven.",
                     "mood": "alert",
+                    "channel": "lost",
                 },
                 message,
             )
