@@ -1,0 +1,93 @@
+{
+  "phases": {
+    "comms_offline": {
+      "enter_message": {
+        "text": "*ššš*... Tady Kapitánka. Slyšíme se? Interkom konečně naběhl. Potvrď příjem!",
+        "mood": "alert",
+        "channel": "captain"
+      }
+    },
+    "searching_lost": {
+      "enter_message": {
+        "text": "Výborně, spojení funguje. Máme krizovou situaci. Naše kolegyně uvízla v jiné dimenzi. Potřebuji, abys rozluštil její dimenzionální frekvenci z materiálů v místnosti a zadal ji sem.",
+        "mood": "focused",
+        "channel": "captain"
+      },
+      "success_keyword": "734",
+      "success_messages": [
+        {"text": "Frekvence 734 přijata! Přepojuji tě na ni... *píp*", "mood": "relieved", "channel": "captain"},
+        {"text": "Haló? Kapitánko? Jsi tam? Tady je hrozná tma, nevím, co mám dělat! Můžeš mi pomoct se zorientovat v téhle budově?", "mood": "tense", "channel": "lost"}
+      ],
+      "fail_message": {
+        "text": "*šum* Frekvence '{text}' je hluchá. Zkus to znovu, musíme ji najít!",
+        "mood": "tense",
+        "channel": "captain"
+      }
+    },
+    "lost_connected": {
+      "glitch_message": {
+        "text": "Snažím se postupovat podle tvých instrukcí '{text}', ale... *GLITCH* něco mě tu ruší... *šum*",
+        "mood": "glitchy",
+        "channel": "lost"
+      },
+      "error_message": {
+        "text": "SYSTEM ERROR: Spojení ztraceno. Proveďte tvrdý restart (napište 'restart').",
+        "mood": "error",
+        "channel": "general"
+      }
+    },
+    "connection_lost": {
+      "success_keyword": "restart",
+      "success_message": {
+         "text": "Uf, jsem zpět! Bylo to těsné, dimenzionální bouře nás odpojila. Našla jsem nějaké mapy hotelu. Kam mám jít dál?",
+         "mood": "alert",
+         "channel": "lost"
+      },
+      "fail_message": {
+         "text": "SYSTEM ERROR: Spojení nelze navázat. Zadejte 'restart'.",
+         "mood": "error",
+         "channel": "general"
+      }
+    },
+    "navigating": {
+      "default_message": {
+        "text": "Slyším tě: '{text}'. Musíme najít ten portál ven.",
+        "mood": "alert",
+        "channel": "lost"
+      }
+    }
+  },
+  "rooms": {
+    "104": {
+      "pin": "104",
+      "success_messages": [
+        {"text": "Přístupový panel 104 odemčen. Elektromagnetický zámek uvolněn.", "mood": "success", "channel": "general"},
+        {"text": "Slyšela jsem cvaknutí! Ty dveře do pokoje 104 se právě otevřely. Jdu dovnitř...", "mood": "relieved", "channel": "lost"}
+      ]
+    }
+  },
+  "room_defaults": {
+    "fail_message": {
+      "text": "Chybný PIN kód '{pin}'. Přístup odepřen.",
+      "mood": "error",
+      "channel": "general"
+    }
+  },
+  "global_events": {
+    "reconnect": {
+      "text": "[Systém]: Spojení bylo úspěšně obnoveno. Relace je aktivní.",
+      "mood": "info",
+      "channel": "general"
+    },
+    "qr_detected": {
+      "text": "Našla jsem podivný symbol: '{discovery_id}'. To nám asi pomůže se zámkem.",
+      "mood": "tense",
+      "channel": "lost"
+    },
+    "arg_verified": {
+      "text": "Máš pravdu! Ten symbol vážně zapadl do panelu u dveří.",
+      "mood": "alert",
+      "channel": "lost"
+    }
+  }
+}

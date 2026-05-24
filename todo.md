@@ -55,7 +55,7 @@
 - [ ] **Captive portál (Vstupní bod hry)**: Zprovoznit captive portál (např. úpravou DNS pro přesměrování po připojení na herní Wi-Fi), který automaticky načte klientům webové rozhraní hry.
 
 ## 11. Herní engine, nápovědy a skórování
-- [ ] **Oddělení scénáře od enginu**: Přesunout hardcodovanou logiku, fáze a texty z backendu (např. `state_machine.py`) do externích konfiguračních souborů (JSON/YAML scénáře), aby engine zůstal plně univerzální.
+- [x] **Oddělení scénáře od enginu**: Přesunout hardcodovanou logiku, fáze a texty z backendu (např. `state_machine.py`) do externích konfiguračních souborů (JSON/YAML scénáře), aby engine zůstal plně univerzální.
 - [ ] **Inteligentní reakce na vstupy**: Nahradit jednoduché kontroly (např. if "734" in text) robustnějším systémem, případně s napojením na lokální AI (Ollama) pro interaktivní a variabilní reakce na hráčské podměty.
 - [ ] **Systém postupných nápověd (Hint systém)**: Implementovat možnost vyžádat si radu v UI. Systém nabídne sekvenci nápověd pro aktivní fázi (od lehkého naťuknutí až po jasné zobrazení řešení).
 - [ ] **Bodování a penalizace**: Zavést výchozí stav bodů pro hru. Za každé vyžádání nápovědy (nebo příliš mnoho chybných pokusů) se odečtou negativní body ze skóre.

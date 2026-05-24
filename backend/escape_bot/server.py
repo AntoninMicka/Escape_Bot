@@ -8,6 +8,7 @@ import websockets
 
 from .protocol import Message
 from .state_machine import EscapeBotStateMachine
+from .scenario import ScenarioLoader
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger("EscapeBot")
@@ -33,7 +34,7 @@ def start_http_server():
     logger.info(f"Webový klient interkomu je dostupný na: http://localhost:{port}")
     httpd.serve_forever()
 
-async def handle_client(websocket):
+async def handle_client(websocket, scenario):
     logger.info("Nový klient připojen, čekám na relaci...")
     session_id = None
     state_machine = None
@@ -49,7 +50,7 @@ async def handle_client(websocket):
                     session_id = msg.payload.get("session_id", "default_session")
                     if session_id not in active_sessions:
                         logger.info(f"Vytvářím novou herní relaci pro: {session_id}")
-                        active_sessions[session_id] = EscapeBotStateMachine()
+                        active_sessions[session_id] = EscapeBotStateMachine(scenario)
                     else:
                         logger.info(f"Obnovuji existující relaci pro: {session_id}")
                         
@@ -73,9 +74,13 @@ async def main():
     # 1. Spuštění HTTP serveru (klienta) ve vedlejším vlákně
     threading.Thread(target=start_http_server, daemon=True).start()
 
+    # Načtení scénáře hry
+    scenario_path = os.path.join(BASE_DIR, "backend", "scenario.json")
+    scenario = ScenarioLoader.load(scenario_path)
+
     # 2. Inicializace WebSocket serveru s podporou relací
     logger.info("Spouštím herní WebSocket server s podporou relací (port 8765)...")
-    async with websockets.serve(handle_client, "0.0.0.0", 8765):
+    async with websockets.serve(lambda ws: handle_client(ws, scenario), "0.0.0.0", 8765):
         await asyncio.Future()  # Běží donekonečna
 
 if __name__ == "__main__":

@@ -217,8 +217,8 @@
                 <div class="map-corridor">Východní chodba</div>
             </div>
             <div>
-                <div class="map-room" style="border-color: #f00;">Zavřeno</div>
-                <div class="map-room">Pokoj 104</div>
+                <div class="map-room" style="border-color: #555;">Sklad</div>
+                <div id="map-room-104" class="map-room" style="border-color: #f00; color: #f00;">Pokoj 104</div>
                 <div class="map-room" style="border-color: #ff0;">Schodiště</div>
             </div>
             <p style="color: #0aa; margin-top: 20px;">
@@ -306,6 +306,14 @@
                     if (chatBox) {
                         chatBox.innerHTML += `<div class="message bot"><b>[${sender}]:</b> ${msg.payload.text}</div>`;
                         chatBox.scrollTop = chatBox.scrollHeight;
+                    }
+                }
+                else if (msg.type === 'game.state') {
+                    const flags = msg.payload.flags || {};
+                    const room104 = document.getElementById('map-room-104');
+                    if (room104 && flags['room_104_unlocked']) {
+                        room104.style.borderColor = '#0f0';
+                        room104.style.color = '#0f0';
                     }
                 }
                 else if (msg.type === 'room.unlock_result') {
