@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import urllib.parse
 from dataclasses import dataclass, field
 from enum import StrEnum
 from typing import Any
@@ -124,17 +125,29 @@ class EscapeBotStateMachine:
         return responses
 
     async def _handle_hello(self, message: Message) -> list[Message]:
+        # Vygenerování avatarů pro postavy pomocí promptů ze scénáře
+        avatar_msgs = []
+        characters = self.scenario.data.get("characters", {})
+        for channel, char_data in characters.items():
+            prompt = char_data.get("avatar_prompt")
+            if prompt:
+                # Zástupný AI Image Generator (Pollinations.ai). 
+                # Až budete mít ComfyUI, stačí tuto URL změnit na váš lokální uzel.
+                encoded_prompt = urllib.parse.quote(prompt)
+                url = f"https://image.pollinations.ai/prompt/{encoded_prompt}?width=128&height=128&nologo=true&seed=42"
+                avatar_msgs.append(Message("avatar.update", {"channel": channel, "url": url}))
+
         if self.state.phase == GamePhase.BOOT:
             self.state.phase = GamePhase.COMMS_OFFLINE
             p_data = self.scenario.get_phase_data("comms_offline")
-            return [
+            return avatar_msgs + [
                 reply("bot.message", p_data.get("enter_message", {}), message),
                 self._state_message(),
             ]
         else:
             # Znovupřipojení během hry – pošleme historii a neresetujeme stav
             msg_reconnect = self.scenario.data.get("global_events", {}).get("reconnect", {})
-            return [
+            return avatar_msgs + [
                 Message("chat.history", {"messages": self.state.chat_history}),
                 reply("bot.message", msg_reconnect, message),
                 self._state_message(),

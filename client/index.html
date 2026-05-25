@@ -89,9 +89,14 @@
             box-shadow: inset 0 0 10px #000;
         }
         .chat-history.active-chat { display: block; }
-        .message { margin-bottom: 10px; }
+        .message { margin-bottom: 10px; display: flex; gap: 10px; align-items: flex-start; }
+        .message.player { flex-direction: row-reverse; text-align: right; }
         .message.bot { color: #0f0; }
-        .message.player { color: #0aa; text-align: right; }
+        .message.player .msg-content { color: #0aa; }
+        .avatar { width: 32px; height: 32px; border-radius: 50%; border: 1px solid #0f0; object-fit: cover; flex-shrink: 0; background: #002200; }
+        .message.player .avatar { border-color: #0aa; background: #002222; }
+        .msg-content { display: flex; flex-direction: column; max-width: 85%; }
+        .msg-text { margin-top: 3px; word-break: break-word; }
         .controls {
             display: flex;
             gap: 10px;
@@ -174,6 +179,17 @@
         .numpad-btn.action.enter { color: #0f0; border-color: #0f0; }
         .numpad-btn.action.enter:hover { background: #0f0; color: #000; }
 
+        /* Síň slávy */
+        .leaderboard-container { border: 1px solid #0f0; padding: 20px; background: #001100; margin-top: 10px; }
+        .leaderboard-table { width: 100%; border-collapse: collapse; text-align: left; margin-bottom: 20px; font-size: 1.1em; }
+        .leaderboard-table th, .leaderboard-table td { border-bottom: 1px dashed #0a0; padding: 12px; }
+        .leaderboard-table th { color: #0aa; }
+        .leaderboard-table tr:hover { background: #002200; }
+        .save-score-section { display: flex; gap: 10px; }
+        
+        @keyframes score-update { 0% { color: #f00; transform: scale(1.3); text-shadow: 0 0 10px #f00; } 100% { color: #0aa; transform: scale(1); text-shadow: none; } }
+        .score-animate { animation: score-update 0.6s ease-out; display: inline-block; }
+
         /* Glitch efekt pro celou obrazovku */
         .glitch-active {
             animation: glitch-anim 0.15s linear infinite;
@@ -238,6 +254,7 @@
         <button class="tab-button" onclick="openTab('tab-map', this)">MAPA HOTELU</button>
         <button class="tab-button" onclick="openTab('tab-room', this)">MÍSTNOST (Virtuální panel)</button>
         <button class="tab-button" onclick="openTab('tab-scanner', this)">SKENER (Kamera)</button>
+        <button class="tab-button" onclick="openTab('tab-leaderboard', this)">SÍŇ SLÁVY</button>
     </div>
 
     <div id="tab-intercom" class="tab-content active">
@@ -254,7 +271,10 @@
             
             <div class="chat-area">
                 <div id="chat-general" class="chat-history active-chat">
-                    <div class="message bot"><b>[Systém]:</b> Terminál nahozen. Vyberte komunikační kanál.</div>
+                    <div class="message bot">
+                        <img class="avatar" src="data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%23002200'/%3E%3Ctext x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' fill='%230f0' font-size='12px' font-family='monospace'%3ESYS%3C/text%3E%3C/svg%3E" alt="Avatar">
+                        <div class="msg-content"><b>[Systém]:</b> <span class="msg-text">Terminál nahozen. Vyberte komunikační kanál.</span></div>
+                    </div>
                 </div>
                 <div id="chat-captain" class="chat-history"></div>
                 <div id="chat-lost" class="chat-history"></div>
@@ -265,6 +285,8 @@
                 
                 <div class="controls">
                     <input type="text" id="msgInput" placeholder="Zadej zprávu do aktivního kanálu..." onkeypress="if(event.key === 'Enter') sendMsg()" />
+                    <button onclick="document.getElementById('selfie-input').click()" title="Vyfotit selfie" style="padding: 10px;">📸</button>
+                    <input type="file" id="selfie-input" accept="image/*" capture="user" style="display: none;" onchange="handleSelfie(event)">
                     <button onclick="sendMsg()">Odeslat</button>
                 </div>
             </div>
@@ -325,12 +347,67 @@
         <p id="qr-status" style="text-align: center; margin-top: 10px;">Kliknutím na záložku aktivujte kameru.</p>
     </div>
 
+    <div id="tab-leaderboard" class="tab-content">
+        <h2>[ SÍŇ SLÁVY - ARCHIV ÚSPĚŠNÝCH TÝMŮ ]</h2>
+        <div class="leaderboard-container">
+            <table class="leaderboard-table">
+                <thead><tr><th>POŘADÍ</th><th>NÁZEV TÝMU</th><th>KONEČNÉ SKÓRE</th></tr></thead>
+                <tbody id="leaderboard-body">
+                    <!-- Plněno přes JS -->
+                </tbody>
+            </table>
+            <div class="save-score-section">
+                <input type="text" id="team-name" placeholder="Zadejte název vašeho záchranného týmu..." maxlength="20" />
+                <button onclick="saveScore()">Zapsat tým do Síně slávy</button>
+            </div>
+        </div>
+    </div>
+
     <script>
         let ws;
         const input = document.getElementById('msgInput');
         let currentChannel = 'general';
         const statusIndicator = document.getElementById('connection-status');
         let currentPin = '';
+
+        // --- SPRÁVA AVATARŮ ---
+        let playerAvatarBase64 = localStorage.getItem('playerAvatar') || '';
+        let botAvatars = {};
+
+        function getAvatarURL(role, channel) {
+            if (role === 'player' && playerAvatarBase64) return playerAvatarBase64;
+            if (role === 'bot' && botAvatars[channel]) return botAvatars[channel];
+            
+            let initials = 'SYS'; let color = '#0f0'; let bg = '#002200';
+            if (role === 'player') { initials = 'TY'; color = '#0aa'; bg = '#002222'; }
+            else if (channel === 'captain') { initials = 'KAP'; }
+            else if (channel === 'lost') { initials = 'ZTR'; }
+            
+            const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><rect width="32" height="32" fill="${bg}"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="${color}" font-size="12px" font-family="monospace">${initials}</text></svg>`;
+            return "data:image/svg+xml;charset=utf-8," + encodeURIComponent(svg);
+        }
+
+        function handleSelfie(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const img = new Image();
+                img.onload = function() {
+                    const canvas = document.createElement('canvas');
+                    const ctx = canvas.getContext('2d');
+                    const size = Math.min(img.width, img.height);
+                    canvas.width = 128; canvas.height = 128; // Standardizace na čtverec
+                    ctx.drawImage(img, (img.width - size) / 2, (img.height - size) / 2, size, size, 0, 0, 128, 128);
+                    playerAvatarBase64 = canvas.toDataURL('image/jpeg', 0.8);
+                    localStorage.setItem('playerAvatar', playerAvatarBase64);
+                    showNotification('Avatar úspěšně aktualizován', 'success');
+                    document.querySelectorAll('.message.player .avatar').forEach(img => img.src = playerAvatarBase64);
+                }
+                img.src = e.target.result;
+            }
+            reader.readAsDataURL(file);
+        }
 
         // 1. Správa Session ID (Udržení relace)
         let sessionId = localStorage.getItem('escapeBotSessionId');
@@ -374,6 +451,18 @@
                     gain.gain.setValueAtTime(0.03, audioCtx.currentTime); // Velmi potichu
                     gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.02); // Extrémně krátké (20ms)
                     osc.start(); osc.stop(audioCtx.currentTime + 0.02);
+                } else if (type === 'glitch') {
+                    // Generování analogového šumu pro prasknutí
+                    const bufferSize = audioCtx.sampleRate * 0.08;
+                    const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+                    const data = buffer.getChannelData(0);
+                    for (let i = 0; i < bufferSize; i++) data[i] = Math.random() * 2 - 1;
+                    const noise = audioCtx.createBufferSource(); noise.buffer = buffer;
+                    const filter = audioCtx.createBiquadFilter(); filter.type = 'highpass'; filter.frequency.value = 1500;
+                    noise.connect(filter); filter.connect(gain);
+                    gain.gain.setValueAtTime(0.06, audioCtx.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.07);
+                    noise.start(); return; // Zabránění spuštění základního oscilátoru
                 } else {
                     osc.type = 'sine';
                     osc.frequency.setValueAtTime(800, audioCtx.currentTime);
@@ -395,6 +484,39 @@
             setTimeout(() => toast.remove(), 3500);
         }
         // ------------------------------------
+        
+        // --- SÍŇ SLÁVY (LEADERBOARD) ---
+        function loadLeaderboard() {
+            const lb = JSON.parse(localStorage.getItem('escapeBotLeaderboard') || '[]');
+            const tbody = document.getElementById('leaderboard-body');
+            tbody.innerHTML = '';
+            
+            if (lb.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="3" style="text-align:center; color:#555;">Zatím žádné úspěšné týmy. Buďte první!</td></tr>';
+                return;
+            }
+            
+            lb.sort((a, b) => b.score - a.score).forEach((entry, idx) => {
+                let medal = '';
+                if (idx === 0) medal = '🥇 '; else if (idx === 1) medal = '🥈 '; else if (idx === 2) medal = '🥉 ';
+                tbody.innerHTML += `<tr><td>${medal}#${idx + 1}</td><td><b>${entry.name}</b></td><td style="color:#0aa; font-weight:bold;">${entry.score}</td></tr>`;
+            });
+        }
+        
+        function saveScore() {
+            const nameInput = document.getElementById('team-name');
+            const name = nameInput.value.trim();
+            if (!name) { showNotification('Zadejte název týmu', 'error'); return; }
+            
+            const scoreMatch = document.getElementById('score-display').innerText.match(/\d+/);
+            const score = scoreMatch ? parseInt(scoreMatch[0]) : 0;
+            const lb = JSON.parse(localStorage.getItem('escapeBotLeaderboard') || '[]');
+            if (lb.some(e => e.name === name && e.score === score)) { showNotification('Tento výsledek už je zapsán!', 'info'); return; }
+            
+            lb.push({ name, score }); localStorage.setItem('escapeBotLeaderboard', JSON.stringify(lb));
+            nameInput.value = ''; playSound('success'); showNotification('Tým byl úspěšně zapsán do Síně slávy!', 'success'); loadLeaderboard();
+        }
+        loadLeaderboard();
 
         // 2. Správa připojení a znovupřipojení
         function connect() {
@@ -425,9 +547,9 @@
 
                         if (m.role === 'bot') {
                             let sender = channel === 'captain' ? "Kapitánka" : (channel === 'lost' ? "Ztracená" : "Systém");
-                            chatBox.innerHTML += `<div class="message bot"><b>[${sender}]:</b> ${m.text}</div>`;
+                            chatBox.innerHTML += `<div class="message bot"><img class="avatar" src="${getAvatarURL('bot', channel)}" alt="Avatar"><div class="msg-content"><b>[${sender}]:</b> <span class="msg-text">${m.text}</span></div></div>`;
                         } else if (m.role === 'player') {
-                            chatBox.innerHTML += `<div class="message player"><b>[Ty]:</b> ${m.text}</div>`;
+                            chatBox.innerHTML += `<div class="message player"><img class="avatar" src="${getAvatarURL('player', channel)}" alt="Avatar"><div class="msg-content"><b>[Ty]:</b> <span class="msg-text">${m.text}</span></div></div>`;
                         }
                     });
                     document.querySelectorAll('.chat-history').forEach(el => el.scrollTop = el.scrollHeight);
@@ -444,7 +566,7 @@
                         // Vytvoření prvků pro postupný výpis
                         const msgDiv = document.createElement('div');
                         msgDiv.className = 'message bot';
-                        msgDiv.innerHTML = `<b>[${sender}]:</b> <span class="typewriter-text"></span>`;
+                        msgDiv.innerHTML = `<img class="avatar" src="${getAvatarURL('bot', channel)}" alt="Avatar"><div class="msg-content"><b>[${sender}]:</b> <span class="msg-text typewriter-text"></span></div>`;
                         chatBox.appendChild(msgDiv);
                         
                         const textSpan = msgDiv.querySelector('.typewriter-text');
@@ -473,13 +595,29 @@
                 else if (msg.type === 'game.state') {
                     const flags = msg.payload.flags || {};
                     const scoreDisplay = document.getElementById('score-display');
-                    if (scoreDisplay) scoreDisplay.innerText = `SKÓRE: ${msg.payload.score}`;
+                    if (scoreDisplay) {
+                        const currentScore = parseInt((scoreDisplay.innerText.match(/\d+/) || [1000])[0]);
+                        if (currentScore !== msg.payload.score) {
+                            scoreDisplay.innerText = `SKÓRE: ${msg.payload.score}`;
+                            scoreDisplay.classList.remove('score-animate');
+                            void scoreDisplay.offsetWidth; // Vynucení reflow pro restart animace
+                            scoreDisplay.classList.add('score-animate');
+                        }
+                    }
                     
                     const room104 = document.getElementById('map-room-104');
                     if (room104 && flags['room_104_unlocked']) {
                         room104.style.borderColor = '#0f0';
                         room104.style.color = '#0f0';
                     }
+                }
+                else if (msg.type === 'avatar.update') {
+                    // Uložení přijatého URL AI vygenerovaného avatara
+                    botAvatars[msg.payload.channel] = msg.payload.url;
+                    // Zpětně aktualizujeme obrázky u zpráv, které už na obrazovce jsou
+                    document.querySelectorAll('#chat-' + msg.payload.channel + ' .message.bot img.avatar').forEach(img => {
+                        img.src = msg.payload.url;
+                    });
                 }
                 else if (msg.type === 'room.unlock_result') {
                     const display = document.getElementById('numpad-display');
@@ -553,7 +691,7 @@
             ws.send(JSON.stringify({ type: 'player.message', payload: { text: input.value, channel: currentChannel } }));
             
             const chatBox = document.getElementById('chat-' + currentChannel);
-            chatBox.innerHTML += `<div class="message player"><b>[Ty]:</b> ${input.value}</div>`;
+            chatBox.innerHTML += `<div class="message player"><img class="avatar" src="${getAvatarURL('player', currentChannel)}" alt="Avatar"><div class="msg-content"><b>[Ty]:</b> <span class="msg-text">${input.value}</span></div></div>`;
             input.value = '';
             chatBox.scrollTop = chatBox.scrollHeight;
             
@@ -660,6 +798,7 @@
             const nextGlitchIn = 15000 + Math.random() * 30000;
             setTimeout(() => {
                 document.body.classList.add('glitch-active');
+                playSound('glitch');
                 
                 // Samotný záškub trvá jen velmi krátce (100 až 400 ms)
                 const glitchDuration = 100 + Math.random() * 300;

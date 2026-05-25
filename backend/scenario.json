@@ -1,5 +1,13 @@
 {
   "knowledge_base": "Opuštěný hotel se jmenuje 'Hotel Overlook' a je zamořený dimenzionálními trhlinami. Ztracená se jmenuje 'Elara'. Hráč je její jediná záchrana. K úniku z dimenze je nutné najít 3 krystaly a zadat jejich kódy do hlavního terminálu v recepci. V místnostech občas zhasínají světla a jsou slyšet podivné zvuky.",
+  "characters": {
+    "captain": {
+      "avatar_prompt": "sci-fi female spaceship captain portrait, confident, dark cyberpunk background, highly detailed concept art"
+    },
+    "lost": {
+      "avatar_prompt": "scared young woman portrait, dirty face, abandoned dim lighted hotel background, flashlight lighting, realistic"
+    }
+  },
   "phases": {
     "comms_offline": {
       "enter_message": {
