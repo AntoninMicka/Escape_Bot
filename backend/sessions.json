@@ -261,6 +261,26 @@
         "role": "bot",
         "channel": "general",
         "text": "[Systém]: Spojení bylo úspěšně obnoveno. Relace je aktivní."
+      },
+      {
+        "role": "bot",
+        "channel": "general",
+        "text": "[Systém]: Spojení bylo úspěšně obnoveno. Relace je aktivní."
+      },
+      {
+        "role": "bot",
+        "channel": "general",
+        "text": "[Systém]: Spojení bylo úspěšně obnoveno. Relace je aktivní."
+      },
+      {
+        "role": "bot",
+        "channel": "general",
+        "text": "[Systém]: Spojení bylo úspěšně obnoveno. Relace je aktivní."
+      },
+      {
+        "role": "bot",
+        "channel": "general",
+        "text": "[Systém]: Spojení bylo úspěšně obnoveno. Relace je aktivní."
       }
     ],
     "score": 990,
@@ -375,6 +395,36 @@
         "role": "bot",
         "channel": "lost",
         "text": "Slyšela jsem cvaknutí! Ty dveře do pokoje 104 se právě otevřely. Jdu dovnitř..."
+      }
+    ],
+    "score": 1000,
+    "hints_used": {}
+  },
+  "fbb8aa23-4fb1-4ef1-ab28-a545fc0faa61": {
+    "phase": "comms_offline",
+    "unlocked_discoveries": [],
+    "inventory": [],
+    "flags": {},
+    "chat_history": [
+      {
+        "role": "bot",
+        "channel": "captain",
+        "text": "*ššš*... Tady Kapitánka. Slyšíme se? Interkom konečně naběhl. Potvrď příjem!"
+      }
+    ],
+    "score": 1000,
+    "hints_used": {}
+  },
+  "5eda3e51-e7e8-4705-855d-907bb69e5ad2": {
+    "phase": "comms_offline",
+    "unlocked_discoveries": [],
+    "inventory": [],
+    "flags": {},
+    "chat_history": [
+      {
+        "role": "bot",
+        "channel": "captain",
+        "text": "*ššš*... Tady Kapitánka. Slyšíme se? Interkom konečně naběhl. Potvrď příjem!"
       }
     ],
     "score": 1000,

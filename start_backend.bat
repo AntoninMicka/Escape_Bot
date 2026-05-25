@@ -37,12 +37,13 @@ echo Aktivuji virtualni prostredi a instaluji zavislosti...
 call .venv\Scripts\activate.bat
 pip install -r requirements.txt
 
-echo ===========================================================
-echo   Hra je pripravena! Webovy klient: http://localhost:8088  
-echo ===========================================================
+echo =====================================================================
+echo   Hra je pripravena! Webovy klient: https://localhost:8088  
+echo   (Nebo zadejte http://localhost:8087 pro aut. presmerovani)
+echo =====================================================================
 
 :: Spuštění serveru
-echo Spoustim centralni uzel (HTTP i WebSockets spolecne na 8088)...
+echo Spoustim centralni uzel (na portu 8088)...
 python -m escape_bot.server
 
 endlocal

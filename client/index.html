@@ -4,6 +4,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#002200">
+    <link rel="icon" href="icon.svg" type="image/svg+xml">
+    <link rel="apple-touch-icon" href="icon.svg">
     <title>Interkom - Jiná Dimenze</title>
     <style>
         body {
@@ -486,23 +490,6 @@
         // ------------------------------------
         
         // --- SÍŇ SLÁVY (LEADERBOARD) ---
-        function loadLeaderboard() {
-            const lb = JSON.parse(localStorage.getItem('escapeBotLeaderboard') || '[]');
-            const tbody = document.getElementById('leaderboard-body');
-            tbody.innerHTML = '';
-            
-            if (lb.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="3" style="text-align:center; color:#555;">Zatím žádné úspěšné týmy. Buďte první!</td></tr>';
-                return;
-            }
-            
-            lb.sort((a, b) => b.score - a.score).forEach((entry, idx) => {
-                let medal = '';
-                if (idx === 0) medal = '🥇 '; else if (idx === 1) medal = '🥈 '; else if (idx === 2) medal = '🥉 ';
-                tbody.innerHTML += `<tr><td>${medal}#${idx + 1}</td><td><b>${entry.name}</b></td><td style="color:#0aa; font-weight:bold;">${entry.score}</td></tr>`;
-            });
-        }
-        
         function saveScore() {
             const nameInput = document.getElementById('team-name');
             const name = nameInput.value.trim();
@@ -510,13 +497,16 @@
             
             const scoreMatch = document.getElementById('score-display').innerText.match(/\d+/);
             const score = scoreMatch ? parseInt(scoreMatch[0]) : 0;
-            const lb = JSON.parse(localStorage.getItem('escapeBotLeaderboard') || '[]');
-            if (lb.some(e => e.name === name && e.score === score)) { showNotification('Tento výsledek už je zapsán!', 'info'); return; }
-            
-            lb.push({ name, score }); localStorage.setItem('escapeBotLeaderboard', JSON.stringify(lb));
-            nameInput.value = ''; playSound('success'); showNotification('Tým byl úspěšně zapsán do Síně slávy!', 'success'); loadLeaderboard();
+
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify({ type: 'leaderboard.save', payload: { name: name, score: score } }));
+                nameInput.value = ''; 
+                playSound('success'); 
+                showNotification('Tým odeslán do centrální Síně slávy!', 'success');
+            } else {
+                showNotification('Chyba spojení se serverem.', 'error');
+            }
         }
-        loadLeaderboard();
 
         // 2. Správa připojení a znovupřipojení
         function connect() {
@@ -528,6 +518,7 @@
                 statusIndicator.classList.add('online');
                 ws.send(JSON.stringify({ type: 'client.hello', payload: { session_id: sessionId } }));
                 showNotification('Připojeno k centrálnímu uzlu', 'success');
+                ws.send(JSON.stringify({ type: 'leaderboard.get', payload: {} }));
             };
 
             ws.onmessage = (event) => {
@@ -588,6 +579,21 @@
                         }
                         typeNextChar();
                     }
+            }
+            else if (msg.type === 'leaderboard.update') {
+                const lb = msg.payload.entries || [];
+                const tbody = document.getElementById('leaderboard-body');
+                tbody.innerHTML = '';
+                
+                if (lb.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="3" style="text-align:center; color:#555;">Zatím žádné úspěšné týmy. Buďte první!</td></tr>';
+                } else {
+                    lb.sort((a, b) => b.score - a.score).forEach((entry, idx) => {
+                        let medal = '';
+                        if (idx === 0) medal = '🥇 '; else if (idx === 1) medal = '🥈 '; else if (idx === 2) medal = '🥉 ';
+                        tbody.innerHTML += `<tr><td>${medal}#${idx + 1}</td><td><b>${entry.name}</b></td><td style="color:#0aa; font-weight:bold;">${entry.score}</td></tr>`;
+                    });
+                }
                 }
                 else if (msg.type === 'score.update') {
                     showNotification(`Identifikována žádost o pomoc. Použita nápověda (-${msg.payload.penalty} bodů).`, 'error');
@@ -810,6 +816,17 @@
         }
         
         scheduleRandomGlitch(); // Odstartování efektů po načtení
+
+        // --- REGISTRACE PWA SERVICE WORKERU ---
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('sw.js').then(registration => {
+                    console.log('ServiceWorker úspěšně registrován s rozsahem:', registration.scope);
+                }).catch(err => {
+                    console.warn('Registrace ServiceWorkeru selhala (často kvůli chybějícímu HTTPS):', err);
+                });
+            });
+        }
     </script>
 </body>
 </html>

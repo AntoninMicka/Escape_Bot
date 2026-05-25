@@ -10,8 +10,8 @@
 
 ## 3. Webová aplikace a infrastruktura (PWA / WASM)
 - [ ] Kompilace C++/Qt frontendu do WebAssembly.
-- [ ] Konfigurace PWA (Manifest, Service Workers) pro běh na mobilu ve fullscreenu bez instalace.
-- [ ] Zajištění HTTPS a nastavení webového serveru (nutnost pro přístup prohlížeče ke kameře a bezpečné spojení).
+- [x] Konfigurace PWA (Manifest, Service Workers) pro běh na mobilu ve fullscreenu bez instalace.
+- [ ] Zajištění HTTPS a nastavení webového serveru (nutnost pro přístup prohlížeče ke kameře a bezpečné spojení). **Registrace certifikátu u autority (např. Let's Encrypt)**, protože plně důvěryhodný certifikát je vyžadován i pro lokální běh PWA aplikace v místnosti.
 
 ## 4. Dynamické napojení na AI (Ollama a ComfyUI)
 - [ ] Zpracování vizuálního vstupu pro analýzu reálných lokací a naskenovaných materiálů.

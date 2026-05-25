@@ -1,0 +1,18 @@
+{
+  "name": "Interkom - Jiná Dimenze",
+  "short_name": "EscapeBot",
+  "description": "Záchranný komunikační terminál pro dimenzionální mise.",
+  "start_url": "./",
+  "display": "fullscreen",
+  "background_color": "#050505",
+  "theme_color": "#002200",
+  "orientation": "landscape",
+  "icons": [
+    {
+      "src": "icon.svg",
+      "sizes": "192x192 512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
