@@ -20,6 +20,12 @@ if ! command -v python3 &> /dev/null || ! python3 -m venv -h &> /dev/null; then
     exit 1
 fi
 
+# Zpracování argumentů
+if [ "$1" == "--reset-venv" ]; then
+    echo "Resetuji virtuální prostředí (mažu složku .venv)..."
+    rm -rf .venv
+fi
+
 # Vytvoření virtuálního prostředí, pokud neexistuje
 if [ ! -d ".venv" ]; then
     echo "Vytvářím virtuální prostředí..."

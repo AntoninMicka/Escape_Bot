@@ -21,6 +21,12 @@ if %errorlevel% neq 0 (
     exit /b 1
 )
 
+:: Zpracování argumentů
+if "%~1"=="--reset-venv" (
+    echo Resetuji virtualni prostredi (mazu slozku .venv)...
+    if exist ".venv" rmdir /s /q ".venv"
+)
+
 :: Vytvoření virtuálního prostředí, pokud neexistuje
 if not exist ".venv" (
     echo Vytvarim virtualni prostredi...

@@ -410,6 +410,16 @@
         "role": "bot",
         "channel": "captain",
         "text": "*ššš*... Tady Kapitánka. Slyšíme se? Interkom konečně naběhl. Potvrď příjem!"
+      },
+      {
+        "role": "bot",
+        "channel": "general",
+        "text": "[Systém]: Spojení bylo úspěšně obnoveno. Relace je aktivní."
+      },
+      {
+        "role": "bot",
+        "channel": "general",
+        "text": "[Systém]: Spojení bylo úspěšně obnoveno. Relace je aktivní."
       }
     ],
     "score": 1000,
