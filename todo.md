@@ -60,3 +60,121 @@
 - [x] **Systém postupných nápověd (Hint systém)**: Nápovědy jsou integrovány přímo do chatu. AI analyzuje záměr hráče z jeho zpráv, a pokud detekuje bezradnost či prosbu o pomoc, uvolní další nápovědu k aktuální fázi.
 - [x] **Bodování a penalizace**: Zaveden výchozí stav bodů (Skóre) pro hru. Za každé uvolnění nápovědy AI systémem se odečte specifikovaný počet negativních bodů.
 - [x] **Síň slávy (Leaderboard)**: Na konci scénáře vyhodnotit úspěšnost, zobrazit výsledné skóre, vyzvat hráče k zadání jména týmu a zapsat výsledek do trvalé Síně slávy.
+
+## 12. Inkrementální vývoj scénáře: Ztracená v jiné dimenzi
+
+### Inkrement 1 – Funkční prototyp komunikátoru
+**Cíl:** hráč si může zahrát celý příběh bez pohybu po hotelu.
+- [ ] Vytvořit scénář Kapitánka → Ztracená → Záchrana.
+- [ ] Implementovat fáze scénáře ve stavovém automatu.
+- [ ] Přidat kanály:
+  - `#general`
+  - `#kapitanka`
+  - `#ztracena`
+- [ ] Připravit 3–5 jednoduchých textových rébusů.
+- [ ] Implementovat přechody mezi fázemi pomocí správných odpovědí.
+- [ ] Implementovat výpadky spojení.
+- [ ] Implementovat závěrečné skóre.
+
+### Inkrement 2 – Modulární komunikátor
+**Cíl:** hráč postupně opravuje zařízení.
+- [ ] Definovat seznam modulů komunikátoru:
+  - Kamera
+  - Mapa
+  - Analýza signálu
+  - Překladač
+  - Archiv záznamů
+- [ ] Přidat systém odemykání modulů.
+- [ ] Zobrazovat neaktivní moduly v UI.
+- [ ] Přidat backendovou evidenci získaných modulů.
+- [ ] Přidat zprávy Kapitánky reagující na obnovu modulů.
+
+### Inkrement 3 – QR infrastruktura
+**Cíl:** první propojení virtuální a fyzické hry.
+- [ ] Implementovat QR scanner v klientovi.
+- [ ] Definovat formát QR payloadů.
+- [ ] Implementovat registraci nalezených QR.
+- [ ] Přidat ochranu proti opakovanému použití.
+- [ ] Přidat reakce scénáře na nalezení QR.
+
+### Inkrement 4 – Hledání dílů komunikátoru
+**Cíl:** hráč se pohybuje po hotelu.
+- [ ] Vytvořit systém "fyzických modulů".
+- [ ] Připravit QR pro:
+  - Kameru
+  - Mapu
+  - Analýzu signálu
+- [ ] Vytvořit hádanky vedoucí k umístění QR.
+- [ ] Ověřit průchodnost pouze přes společné prostory hotelu.
+- [ ] Přidat nápovědní systém pro hledání.
+
+### Inkrement 5 – Hotelová navigace
+**Cíl:** hráč získává indicie a orientuje se v budově.
+- [ ] Přidat interní mapu hotelu.
+- [ ] Vytvořit databázi zajímavých míst:
+  - recepce
+  - výtah
+  - schodiště
+  - lobby
+  - chodby
+  - okna
+- [ ] Implementovat rébusy typu:
+  - patro
+  - směr
+  - orientační bod
+- [ ] Přidat systém lokalizačních indicií.
+
+### Inkrement 6 – Venkovní GPS mise
+**Cíl:** rozšíření mimo budovu.
+- [ ] Přidat GPS geofencing.
+- [ ] Přidat ověření dosažení lokace.
+- [ ] Připravit první venkovní checkpoint.
+- [ ] Přidat QR na venkovní lokaci.
+- [ ] Implementovat GPS založené nápovědy.
+
+### Inkrement 7 – Stopy Ztracené
+**Cíl:** budování příběhu.
+- [ ] Navrhnout časovou osu pohybu Ztracené.
+- [ ] Připravit sérii nalezených záznamů.
+- [ ] Přidat hlasové zprávy.
+- [ ] Přidat fotografie z "jiné dimenze".
+- [ ] Implementovat skládání příběhu z nalezených stop.
+
+### Inkrement 8 – Anomálie a falešné stopy
+**Cíl:** zvýšit nejistotu a atmosféru.
+- [ ] Přidat falešné QR.
+- [ ] Přidat poškozené přenosy.
+- [ ] Přidat alternativní dimenze.
+- [ ] Přidat glitch efekty.
+- [ ] Přidat náhodné rušení komunikace.
+
+### Inkrement 9 – Navigace Ztracené
+**Cíl:** hráč aktivně pomáhá postavě.
+- [ ] Vytvořit systém virtuální mapy.
+- [ ] Implementovat rozhodování:
+  - vlevo
+  - vpravo
+  - vpřed
+  - zpět
+- [ ] Přidat slepé cesty.
+- [ ] Přidat nebezpečné oblasti.
+- [ ] Přidat více možných tras.
+
+### Inkrement 10 – Finále
+**Cíl:** záchrana Ztracené.
+- [ ] Stabilizace portálu.
+- [ ] Poslední série rébusů.
+- [ ] Spojení informací od Kapitánky a Ztracené.
+- [ ] Otevření portálu.
+- [ ] Závěrečné video.
+- [ ] Vyhodnocení skóre.
+- [ ] Zápis do síně slávy.
+
+### Inkrement 11 – Produkční připravenost
+**Cíl:** scénář použitelný pro více hotelů.
+- [ ] Oddělit lokace od scénáře.
+- [ ] Přidat editor lokací.
+- [ ] Generování QR kódů.
+- [ ] Import mapy objektu.
+- [ ] Konfigurovatelné GPS body.
+- [ ] Export kompletní hry jako balíčku.
