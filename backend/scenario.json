@@ -1,4 +1,6 @@
 {
+  "id": "kraskov_time_rescue",
+  "title": "Ztracená v čase: Hotel Kraskov",
   "knowledge_base": "Děj se odehrává v Hotelu Kraskov. Doktorka Elara je vědkyně, která při havárii prototypu stroje času uvízla v jiné časové vrstvě stejného hotelu. Hráči s ní komunikují přes poškozený interkom. Aby ji vrátili, musí aktivovat časové kotvy rozmístěné po hotelu a okolí a získat tři součásti stroje: Temporální motor, Fázový stabilizátor a Krystal časové kotvy. Chronomapa zaznamenává jejich postup. Elara nesmí tvrdit, že je v jiné budově nebo dimenzi; je na stejném místě v jiném čase.",
   "characters": {
     "captain": {
@@ -8,6 +10,20 @@
       "avatar_prompt": "scared young woman portrait, dirty face, abandoned dim lighted hotel background, flashlight lighting, realistic"
     }
   },
+  "scenario_flow": [
+    {"id": "comms_offline", "label": "Navázání spojení", "kind": "phase", "requires": []},
+    {"id": "searching_lost", "label": "Frekvence 734", "kind": "phase", "requires": ["comms_offline"]},
+    {"id": "lost_connected", "label": "První kontakt s Elarou", "kind": "phase", "requires": ["searching_lost"]},
+    {"id": "connection_lost", "label": "Výpadek chronosignálu", "kind": "phase", "requires": ["lost_connected"]},
+    {"id": "navigating", "label": "CHRONOMAPA aktivní", "kind": "phase", "requires": ["connection_lost"]},
+    {"id": "reception_archive", "label": "Recepční archiv", "kind": "checkpoint", "requires": ["navigating"]},
+    {"id": "staircase_signal", "label": "Signál na schodišti", "kind": "checkpoint", "requires": ["reception_archive"]},
+    {"id": "bowling_diagnostics", "label": "Diagnostika bowlingu", "kind": "checkpoint", "requires": ["staircase_signal"]},
+    {"id": "terrace_echo", "label": "Ozvěna u terasy", "kind": "checkpoint", "requires": ["bowling_diagnostics"]},
+    {"id": "sports_archive", "label": "Archiv sportovního areálu", "kind": "checkpoint", "requires": ["terrace_echo"]},
+    {"id": "room_104", "label": "Virtuální archiv 104", "kind": "room", "requires": ["reception_archive"], "completion_flag": "room_104_unlocked"},
+    {"id": "time_machine_finale", "label": "Spuštění stroje času", "kind": "finale", "requires": ["sports_archive", "room_104"]}
+  ],
   "phases": {
     "comms_offline": {
       "enter_message": {
@@ -106,6 +122,7 @@
       "label": "Recepční archiv",
       "token": "4ec67b900c4a491ba180c8a48d5309f2",
       "requires": [],
+      "requires_phase": "navigating",
       "rewards": {"flags": ["reception_archive_unlocked"]},
       "message": {"text": "Časová kotva na recepci potvrzena. CHRONOMAPA obnovila recepční archiv.", "mood": "focused", "channel": "captain"}
     },

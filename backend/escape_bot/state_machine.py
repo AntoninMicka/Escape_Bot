@@ -280,6 +280,17 @@ class EscapeBotStateMachine:
                 self._state_message(),
             ]
 
+        required_phase = checkpoint.get("requires_phase")
+        if required_phase and self.state.phase.value != required_phase:
+            return [
+                reply("qr.result", {
+                    "accepted": False,
+                    "reason": "Časová kotva zatím nereaguje. Pokračujte nejprve v hlavním příběhu.",
+                    "required_phase": required_phase,
+                }, message),
+                self._state_message(),
+            ]
+
         missing = [required for required in checkpoint.get("requires", []) if required not in self.state.checkpoint_states]
         if missing:
             return [

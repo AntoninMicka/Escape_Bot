@@ -281,6 +281,26 @@
         .demo-checkpoint-button { background: #2a2100; color: #ffd75a; border: 1px solid #fc0; font-family: inherit; text-align: left; }
         .demo-checkpoint-button:hover { background: #fc0; color: #000; }
         .demo-badge { display: inline-block; margin-left: 8px; padding: 2px 7px; color: #000; background: #fc0; font-size: .7em; vertical-align: middle; }
+        .scenario-progress { display: none; max-width: 900px; margin: 0 auto 18px; padding: 16px; border: 1px solid #0aa; background: #001416; }
+        .scenario-progress.active { display: block; }
+        .progress-summary { display: grid; grid-template-columns: repeat(4, minmax(110px, 1fr)); gap: 8px; margin: 12px 0; }
+        .progress-metric { padding: 9px; border: 1px solid #055; background: #000; }
+        .progress-metric span { display: block; color: #0aa; font-size: .75em; }
+        .progress-metric strong { color: #fff; font-size: 1.05em; overflow-wrap: anywhere; }
+        .scenario-flow { position: relative; display: grid; gap: 8px; padding-left: 18px; margin-top: 14px; }
+        .scenario-flow::before { content: ''; position: absolute; left: 7px; top: 14px; bottom: 14px; width: 2px; background: #144; }
+        .scenario-node { position: relative; display: grid; grid-template-columns: 100px 1fr auto; gap: 10px; align-items: center; padding: 9px 10px; border: 1px solid #244; background: #071011; color: #777; }
+        .scenario-node::before { content: ''; position: absolute; left: -16px; width: 9px; height: 9px; border-radius: 50%; border: 2px solid #466; background: #000; }
+        .scenario-node.complete { color: #8f8; border-color: #0a0; }
+        .scenario-node.complete::before { border-color: #0f0; background: #0f0; }
+        .scenario-node.active { color: #fff; border-color: #0ff; box-shadow: 0 0 12px #077; }
+        .scenario-node.active::before { border-color: #0ff; background: #0ff; }
+        .scenario-node.available { color: #ffd75a; border-color: #a80; }
+        .scenario-node.available::before { border-color: #fc0; }
+        .node-kind { color: #0aa; font-size: .75em; text-transform: uppercase; }
+        .node-status { font-size: .75em; text-transform: uppercase; }
+        .progress-assets { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 12px; }
+        .progress-assets div { border: 1px solid #044; padding: 8px; overflow-wrap: anywhere; }
         @media (max-width: 700px) {
             body { padding: 10px; height: 94vh; }
             .tabs { overflow-x: auto; }
@@ -289,6 +309,10 @@
             .cipher-panel { top: 12px; right: 8px; width: calc(100vw - 16px); max-height: calc(100vh - 24px); }
             .cipher-panel-body { grid-template-columns: 1fr; }
             .cipher-tool-list { border-right: 0; border-bottom: 1px solid #044; max-height: 150px; }
+            .progress-summary { grid-template-columns: 1fr 1fr; }
+            .scenario-node { grid-template-columns: 75px 1fr; }
+            .node-status { grid-column: 2; }
+            .progress-assets { grid-template-columns: 1fr; }
         }
     </style>
 </head>
@@ -399,6 +423,15 @@
 
     <div id="tab-scanner" class="tab-content">
         <h2>[ OPTICKÝ SKENER ] <span id="demo-scanner-badge" class="demo-badge" style="display:none">DEMO</span></h2>
+        <section id="scenario-progress" class="scenario-progress">
+            <strong>[ ŽIVÝ PRŮBĚH SCÉNÁŘE ]</strong>
+            <div id="progress-summary" class="progress-summary"></div>
+            <div id="scenario-flow" class="scenario-flow"></div>
+            <div class="progress-assets">
+                <div><span class="node-kind">INVENTÁŘ</span><p id="progress-inventory">—</p></div>
+                <div><span class="node-kind">POMŮCKY</span><p id="progress-tools">—</p></div>
+            </div>
+        </section>
         <div id="demo-scanner-panel" class="demo-scanner-panel">
             <strong>[ SIMULACE QR CHECKPOINTŮ ]</strong>
             <p id="demo-scanner-status">Navazuji spojení s demo backendem…</p>
@@ -815,6 +848,9 @@
                 else if (msg.type === 'demo.catalog') {
                     renderDemoScanner(msg.payload);
                 }
+                else if (msg.type === 'scenario.progress') {
+                    renderScenarioProgress(msg.payload);
+                }
                 else if (msg.type === 'avatar.update') {
                     // Uložení přijatého URL AI vygenerovaného avatara
                     botAvatars[msg.payload.channel] = msg.payload.url;
@@ -944,6 +980,38 @@
                 button.onclick = () => simulateQrScan(checkpoint.value, checkpoint.label);
                 list.appendChild(button);
             });
+        }
+
+        function renderScenarioProgress(progress) {
+            const panel = document.getElementById('scenario-progress');
+            if (!demoModeRequested) return;
+            panel.classList.add('active');
+            const percent = progress.total_nodes ? Math.round(progress.completed_nodes / progress.total_nodes * 100) : 0;
+            document.getElementById('progress-summary').innerHTML = `
+                <div class="progress-metric"><span>SCÉNÁŘ</span><strong>${escapeHtml(progress.title)}</strong></div>
+                <div class="progress-metric"><span>AKTUÁLNÍ FÁZE</span><strong>${escapeHtml(progress.current_phase)}</strong></div>
+                <div class="progress-metric"><span>POSTUP</span><strong>${progress.completed_nodes}/${progress.total_nodes} (${percent} %)</strong></div>
+                <div class="progress-metric"><span>SKÓRE</span><strong>${progress.score}</strong></div>`;
+
+            const flow = document.getElementById('scenario-flow');
+            flow.innerHTML = '';
+            (progress.nodes || []).forEach(node => {
+                const element = document.createElement('div');
+                element.className = `scenario-node ${node.status}`;
+                const dependencies = node.requires.length ? ` · po: ${node.requires.join(', ')}` : '';
+                element.innerHTML = `<span class="node-kind">${escapeHtml(node.kind)}</span><strong>${escapeHtml(node.label)}</strong><span class="node-status">${progressStatusLabel(node.status)}${escapeHtml(dependencies)}</span>`;
+                flow.appendChild(element);
+            });
+            document.getElementById('progress-inventory').textContent = (progress.inventory || []).join(' · ') || '—';
+            document.getElementById('progress-tools').textContent = (progress.unlocked_cipher_tools || []).join(' · ') || '—';
+        }
+
+        function progressStatusLabel(status) {
+            return {complete: 'HOTOVO', active: 'PRÁVĚ PROBÍHÁ', available: 'DOSTUPNÉ', locked: 'UZAMČENO'}[status] || status;
+        }
+
+        function escapeHtml(value) {
+            return String(value ?? '').replace(/[&<>'"]/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[char]));
         }
 
         function simulateQrScan(value, label) {

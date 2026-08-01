@@ -49,7 +49,7 @@ Potom otevřete:
 https://localhost:8088/?demo=1
 ```
 
-V záložce **SKENER** se místo kamery zobrazí tlačítka všech QR checkpointů. Tlačítka posílají stejné zprávy jako reálný skener, proto zůstává aktivní kontrola pořadí, odměn i duplicit. Demo katalog backend neposkytne, pokud nebyl spuštěn s `--demo`.
+V záložce **SKENER** se místo kamery zobrazí tlačítka všech QR checkpointů a živá vizualizace průchodu scénářem. Ta ukazuje aktuální fázi, dokončené, dostupné a uzamčené uzly, skóre, inventář a pomůcky. Tlačítka posílají stejné zprávy jako reálný skener, proto zůstává aktivní kontrola pořadí, odměn i duplicit. Demo katalog backend neposkytne, pokud nebyl spuštěn s `--demo`.
 
 ## Rychlý start klienta (Interkom)
 

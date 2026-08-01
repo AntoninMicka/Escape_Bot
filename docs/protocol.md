@@ -146,6 +146,8 @@ Potvrdí odemčení pomůcky a uvádí skutečně odečtené body v poli `charge
 
 Klient může v `client.hello` poslat `demo_mode: true`. Pouze backend spuštěný s proměnnou `ESCAPEBOT_DEMO_MODE=1` odpoví zprávou `demo.catalog` obsahující simulovatelné checkpointy. Produkční backend vrátí stejný typ zprávy s `enabled: false` a QR tokeny nezveřejní.
 
+Po každé herní zprávě demo klient dostane také `scenario.progress`. Jde o prezentačně nezávislý snapshot s aktuální fází, skóre, inventářem a uzly ve stavech `complete`, `active`, `available` nebo `locked`. Stejný formát je určen pro budoucí administrátorský přehled více relací; admin rozhraní později pouze seskupí jeden snapshot pro každé `session_id`.
+
 ### `bot.message`
 
 Displays bot dialogue.

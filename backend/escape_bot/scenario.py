@@ -30,3 +30,67 @@ def build_demo_checkpoint_catalog(scenario: Scenario) -> list[dict[str, Any]]:
         }
         for checkpoint_id, checkpoint in scenario.data.get("checkpoints", {}).items()
     ]
+
+
+def build_scenario_progress(scenario: Scenario, state: dict[str, Any]) -> dict[str, Any]:
+    """Build a presentation-neutral progress snapshot usable by demo and admin UIs."""
+    flow = scenario.data.get("scenario_flow", [])
+    current_phase = str(state.get("phase", "boot"))
+    checkpoint_states = state.get("checkpoint_states", {})
+    flags = state.get("flags", {})
+
+    phase_ids = [node["id"] for node in flow if node.get("kind") == "phase"]
+    current_phase_index = phase_ids.index(current_phase) if current_phase in phase_ids else -1
+    resolved: set[str] = set()
+    nodes: list[dict[str, Any]] = []
+
+    for index, phase_id in enumerate(phase_ids):
+        if index <= current_phase_index:
+            resolved.add(phase_id)
+
+    for checkpoint_id in checkpoint_states:
+        resolved.add(checkpoint_id)
+    for node in flow:
+        completion_flag = node.get("completion_flag")
+        if completion_flag and flags.get(completion_flag):
+            resolved.add(node["id"])
+
+    for node in flow:
+        node_id = node["id"]
+        kind = node.get("kind", "checkpoint")
+        requires = list(node.get("requires", []))
+        if kind == "phase":
+            phase_index = phase_ids.index(node_id)
+            if node_id == current_phase:
+                status = "active"
+            elif current_phase_index >= 0 and phase_index < current_phase_index:
+                status = "complete"
+            else:
+                status = "locked"
+        elif node_id in resolved:
+            status = "complete"
+        elif all(required in resolved for required in requires):
+            status = "available"
+        else:
+            status = "locked"
+
+        nodes.append({
+            "id": node_id,
+            "label": node.get("label", node_id),
+            "kind": kind,
+            "status": status,
+            "requires": requires,
+        })
+
+    completed = sum(node["status"] == "complete" for node in nodes)
+    return {
+        "scenario_id": scenario.data.get("id", "default"),
+        "title": scenario.data.get("title", "Escape Bot"),
+        "current_phase": current_phase,
+        "score": int(state.get("score", 0)),
+        "inventory": list(state.get("inventory", [])),
+        "unlocked_cipher_tools": list(state.get("unlocked_cipher_tools", [])),
+        "nodes": nodes,
+        "completed_nodes": completed,
+        "total_nodes": len(nodes),
+    }

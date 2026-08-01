@@ -533,6 +533,26 @@
         "role": "bot",
         "channel": "general",
         "text": "Třetí součást nalezena. KRYSTAL ČASOVÉ KOTVY je aktivní; archiv budoucnosti se otevírá."
+      },
+      {
+        "role": "bot",
+        "channel": "general",
+        "text": "[Systém]: Spojení bylo úspěšně obnoveno. Relace je aktivní."
+      },
+      {
+        "role": "bot",
+        "channel": "general",
+        "text": "[Systém]: Spojení bylo úspěšně obnoveno. Relace je aktivní."
+      },
+      {
+        "role": "bot",
+        "channel": "general",
+        "text": "Přístupový panel 104 odemčen. Elektromagnetický zámek uvolněn."
+      },
+      {
+        "role": "bot",
+        "channel": "lost",
+        "text": "Slyšela jsem cvaknutí! Ty dveře do pokoje 104 se právě otevřely. Jdu dovnitř..."
       }
     ],
     "score": 1000,

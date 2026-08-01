@@ -2,7 +2,7 @@ import unittest
 from pathlib import Path
 
 from escape_bot.protocol import Message
-from escape_bot.scenario import ScenarioLoader, build_demo_checkpoint_catalog
+from escape_bot.scenario import ScenarioLoader, build_demo_checkpoint_catalog, build_scenario_progress
 from escape_bot.state_machine import EscapeBotStateMachine, GamePhase
 
 
@@ -13,6 +13,7 @@ class StateMachineCheckpointTests(unittest.IsolatedAsyncioTestCase):
     def setUp(self) -> None:
         self.scenario = ScenarioLoader.load(str(SCENARIO_PATH))
         self.machine = EscapeBotStateMachine(self.scenario)
+        self.machine.state.phase = GamePhase.NAVIGATING
 
     async def scan(self, checkpoint_id: str):
         token = self.scenario.data["checkpoints"][checkpoint_id]["token"]
@@ -88,6 +89,22 @@ class StateMachineCheckpointTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual([item["id"] for item in catalog], list(self.scenario.data["checkpoints"]))
         self.assertTrue(all(item["value"].startswith("escapebot://checkpoint/") for item in catalog))
         self.assertNotIn("token", catalog[0])
+
+    def test_scenario_progress_marks_current_and_available_nodes(self) -> None:
+        progress = build_scenario_progress(self.scenario, self.machine.state.snapshot())
+        statuses = {node["id"]: node["status"] for node in progress["nodes"]}
+
+        self.assertEqual(statuses["navigating"], "active")
+        self.assertEqual(statuses["reception_archive"], "available")
+        self.assertEqual(statuses["staircase_signal"], "locked")
+
+    async def test_first_checkpoint_requires_navigating_phase(self) -> None:
+        self.machine.state.phase = GamePhase.SEARCHING_LOST
+        responses = await self.scan("reception_archive")
+
+        result = self.response(responses, "qr.result")
+        self.assertFalse(result.payload["accepted"])
+        self.assertEqual(result.payload["required_phase"], "navigating")
 
 
 if __name__ == "__main__":

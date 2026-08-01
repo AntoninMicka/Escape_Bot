@@ -313,6 +313,12 @@
 - [x] Simulovat tlačítkem stejnou zprávu `qr.detected` jako při skutečném skenu.
 - [x] Zachovat v demo režimu kontrolu pořadí, duplicit, odměn a podmínek.
 - [x] Nevydávat katalog QR tokenů, pokud backend nebyl explicitně spuštěn v demo režimu.
+- [x] Definovat datový graf fází, checkpointů, virtuálních místností a finále ve scénáři.
+- [x] V demo režimu zobrazit živý stav uzlů `hotovo`, `právě probíhá`, `dostupné` a `uzamčeno`.
+- [x] Ve vizualizaci zobrazit aktuální fázi, skóre, inventář a odemčené pomůcky.
+- [x] Oddělit datový snapshot postupu od vykreslení pro pozdější použití v admin panelu.
+- [ ] Vytvořit samostatnou autentizovanou admin stránku se seznamem všech aktivních relací.
+- [ ] Přidat do admin stránky detail týmu založený na stejné vizualizaci `scenario.progress`.
 
 ### 13.14 Šifrovací pomůcky v aplikaci
 **Cíl:** nabídnout hráčům pasivní referenční pomůcku inspirovanou způsobem použití aplikace Šifrovací pomůcky Absolutno, aniž aplikace sama vyřeší zadanou hádanku.

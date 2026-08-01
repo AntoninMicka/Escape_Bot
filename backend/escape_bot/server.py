@@ -12,7 +12,7 @@ from fastapi.staticfiles import StaticFiles
 
 from .protocol import Message
 from .state_machine import EscapeBotStateMachine
-from .scenario import ScenarioLoader, build_demo_checkpoint_catalog
+from .scenario import ScenarioLoader, build_demo_checkpoint_catalog, build_scenario_progress
 from .ollama_adapter import OllamaAdapter
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
@@ -84,6 +84,7 @@ async def websocket_endpoint(websocket: WebSocket):
     logger.info("Nový klient připojen přes WebSockets, čekám na relaci...")
     session_id = None
     state_machine = None
+    demo_client = False
     
     if not hasattr(app.state, "active_websockets"):
         app.state.active_websockets = set()
@@ -118,6 +119,7 @@ async def websocket_endpoint(websocket: WebSocket):
 
                 if msg.type == "client.hello":
                     session_id = msg.payload.get("session_id", "default_session")
+                    demo_client = DEMO_MODE_ENABLED and bool(msg.payload.get("demo_mode"))
                     if session_id not in active_sessions:
                         logger.info(f"Vytvářím novou herní relaci pro: {session_id}")
                         active_sessions[session_id] = EscapeBotStateMachine(scenario)
@@ -129,7 +131,7 @@ async def websocket_endpoint(websocket: WebSocket):
                 if state_machine:
                     responses = await state_machine.handle(msg)
                     if msg.type == "client.hello" and bool(msg.payload.get("demo_mode")):
-                        if DEMO_MODE_ENABLED:
+                        if demo_client:
                             checkpoints = build_demo_checkpoint_catalog(scenario)
                             responses.append(Message("demo.catalog", {"enabled": True, "checkpoints": checkpoints}))
                         else:
@@ -138,6 +140,11 @@ async def websocket_endpoint(websocket: WebSocket):
                                 "checkpoints": [],
                                 "reason": "Backend nebyl spuštěn s parametrem --demo.",
                             }))
+                    if demo_client:
+                        responses.append(Message(
+                            "scenario.progress",
+                            build_scenario_progress(scenario, state_machine.state.snapshot()),
+                        ))
                     for response in responses:
                         save_sessions()
                         await websocket.send_text(json.dumps(response.to_json()))
