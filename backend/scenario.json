@@ -1,5 +1,5 @@
 {
-  "knowledge_base": "Opuštěný hotel se jmenuje 'Hotel Overlook' a je zamořený dimenzionálními trhlinami. Ztracená se jmenuje 'Elara'. Hráč je její jediná záchrana. K úniku z dimenze je nutné najít 3 krystaly a zadat jejich kódy do hlavního terminálu v recepci. V místnostech občas zhasínají světla a jsou slyšet podivné zvuky.",
+  "knowledge_base": "Děj se odehrává v Hotelu Kraskov. Doktorka Elara je vědkyně, která při havárii prototypu stroje času uvízla v jiné časové vrstvě stejného hotelu. Hráči s ní komunikují přes poškozený interkom. Aby ji vrátili, musí aktivovat časové kotvy rozmístěné po hotelu a okolí a získat tři součásti stroje: Temporální motor, Fázový stabilizátor a Krystal časové kotvy. Chronomapa zaznamenává jejich postup. Elara nesmí tvrdit, že je v jiné budově nebo dimenzi; je na stejném místě v jiném čase.",
   "characters": {
     "captain": {
       "avatar_prompt": "sci-fi female spaceship captain portrait, confident, dark cyberpunk background, highly detailed concept art"
@@ -21,14 +21,14 @@
     },
     "searching_lost": {
       "enter_message": {
-        "text": "Výborně, spojení funguje. Máme krizovou situaci. Naše kolegyně uvízla v jiné dimenzi. Potřebuji, abys rozluštil její dimenzionální frekvenci z materiálů v místnosti a zadal ji sem.",
+        "text": "Výborně, spojení funguje. Při experimentu v Hotelu Kraskov zmizela doktorka Elara. Z nouzových záznamů musíš rozluštit frekvenci jejího chronálního vysílače a zadat ji sem.",
         "mood": "focused",
         "channel": "captain"
       },
       "success_keyword": "734",
       "success_messages": [
-        {"text": "Frekvence 734 přijata! Přepojuji tě na ni... *píp*", "mood": "relieved", "channel": "captain"},
-        {"text": "Haló? Kapitánko? Jsi tam? Tady je hrozná tma, nevím, co mám dělat! Můžeš mi pomoct se zorientovat v téhle budově?", "mood": "tense", "channel": "lost"}
+        {"text": "Frekvence 734 přijata! Zachytila jsem chronální ozvěnu. Přepojuji... *píp*", "mood": "relieved", "channel": "captain"},
+        {"text": "Haló? Tady doktorka Elara. Jsem pořád v Kraskově, ale hotel vypadá, jako by tu nikdo nebyl celá desetiletí. Stroj se rozpadl při přenosu. Slyšíte mě?", "mood": "tense", "channel": "lost"}
       ],
       "hints": [
         {"text": "Zaměř se na materiály a zprávy, které máš fyzicky k dispozici v místnosti.", "penalty": 10},
@@ -56,7 +56,7 @@
     "connection_lost": {
       "success_keyword": "restart",
       "success_message": {
-         "text": "Uf, jsem zpět! Bylo to těsné, dimenzionální bouře nás odpojila. Našla jsem nějaké mapy hotelu. Kam mám jít dál?",
+         "text": "Uf, jsem zpět! Už tomu rozumím: nejsem v jiné budově, ale v jiné časové vrstvě Kraskova. Havárie rozptýlila součásti stroje ve vašem čase. Aktivovala jsem CHRONOMAPU; první stopa vede k recepčnímu archivu.",
          "mood": "alert",
          "channel": "lost"
       },
@@ -71,26 +71,71 @@
       }
     },
     "navigating": {
-      "ai_system_prompt": "Jsi 'Ztracená', dívka uvězněná v jiné dimenzi ve strašidelném opuštěném hotelu. Hráč se s tebou právě spojil přes interkom a snaží se tě navigovat. Odpovídej vždy česky, krátce (max 2-3 věty), napjatě a ustrašeně. Plně spoléháš na rady hráče.",
+      "ai_system_prompt": "Jsi doktorka Elara, vědkyně uvězněná v jiné časové vrstvě Hotelu Kraskov po havárii stroje času. Hráči se s tebou spojili přes interkom a hledají součásti stroje ve svém čase. Odpovídej vždy česky, krátce (max 2-3 věty), napjatě, ale jako schopná vědkyně. Nevymýšlej nové lokace ani řešení hádanek. Jsi ve stejném hotelu, ne v jiné dimenzi.",
       "default_message": {
-        "text": "Slyším tě: '{text}'. Musíme najít ten portál ven.",
+        "text": "Slyším tě: '{text}'. Musíme znovu sestavit stroj a sladit naše časové vrstvy.",
         "mood": "alert",
         "channel": "lost"
       },
       "hints": [
         {"text": "Požádejte Elaru, aby se rozhlédla po místnosti a popsala vám, co přesně vidí.", "penalty": 10},
         {"text": "Nasměrujte Ztracenou směrem k hlavní recepci. Zkuste hledat zamčené dveře s číselníkem.", "penalty": 20},
-        {"text": "Vaším hlavním úkolem je teď najít 3 napájecí krystaly pro únikový portál.", "penalty": 30}
+        {"text": "Vaším hlavním úkolem je aktivovat časové kotvy a najít Temporální motor, Fázový stabilizátor a Krystal časové kotvy.", "penalty": 30}
       ]
     }
   },
   "rooms": {
     "104": {
       "pin": "104",
+      "requires_checkpoints": ["reception_archive"],
       "success_messages": [
         {"text": "Přístupový panel 104 odemčen. Elektromagnetický zámek uvolněn.", "mood": "success", "channel": "general"},
         {"text": "Slyšela jsem cvaknutí! Ty dveře do pokoje 104 se právě otevřely. Jdu dovnitř...", "mood": "relieved", "channel": "lost"}
       ]
+    }
+  },
+  "cipher_tools": {
+    "morse": {"label": "Morseova abeceda", "default_unlocked": true, "unlock_cost": 0},
+    "semaphore": {"label": "Praporová / semaforová abeceda", "default_unlocked": false, "unlock_cost": 30},
+    "pigpen": {"label": "Polský kříž", "default_unlocked": false, "unlock_cost": 35},
+    "binary_ascii": {"label": "Binární kód a ASCII", "default_unlocked": false, "unlock_cost": 25},
+    "a1z26": {"label": "A1Z26 a římské číslice", "default_unlocked": true, "unlock_cost": 0}
+  },
+  "checkpoints": {
+    "reception_archive": {
+      "label": "Recepční archiv",
+      "token": "4ec67b900c4a491ba180c8a48d5309f2",
+      "requires": [],
+      "rewards": {"flags": ["reception_archive_unlocked"]},
+      "message": {"text": "Časová kotva na recepci potvrzena. CHRONOMAPA obnovila recepční archiv.", "mood": "focused", "channel": "captain"}
+    },
+    "staircase_signal": {
+      "label": "Signál na schodišti",
+      "token": "74c67eaf38ef4b72b22f5c971b7bb7bd",
+      "requires": ["reception_archive"],
+      "rewards": {"cipher_tools": ["semaphore"]},
+      "message": {"text": "Kotva na schodišti je stabilní. Obnovila jsem referenční záznam praporové abecedy.", "mood": "relieved", "channel": "lost"}
+    },
+    "bowling_diagnostics": {
+      "label": "Binární diagnostika bowlingu",
+      "token": "a9dc930b787a4be6a5344e524d56073b",
+      "requires": ["staircase_signal"],
+      "rewards": {"inventory": ["TEMPORÁLNÍ MOTOR"], "cipher_tools": ["binary_ascii"]},
+      "message": {"text": "Diagnostika dokončena. TEMPORÁLNÍ MOTOR je znovu synchronizován s terminálem.", "mood": "success", "channel": "general"}
+    },
+    "terrace_echo": {
+      "label": "Chronální ozvěna u terasy",
+      "token": "8fd7cd0a5c844702bc384665e864d335",
+      "requires": ["bowling_diagnostics"],
+      "rewards": {"inventory": ["FÁZOVÝ STABILIZÁTOR"]},
+      "message": {"text": "Morseův přenos je kompletní. FÁZOVÝ STABILIZÁTOR odpovídá na diagnostiku.", "mood": "alert", "channel": "lost"}
+    },
+    "sports_archive": {
+      "label": "Archiv sportovního areálu",
+      "token": "de724be50829411287a0536095cc9148",
+      "requires": ["terrace_echo"],
+      "rewards": {"inventory": ["KRYSTAL ČASOVÉ KOTVY"], "cipher_tools": ["pigpen"]},
+      "message": {"text": "Třetí součást nalezena. KRYSTAL ČASOVÉ KOTVY je aktivní; archiv budoucnosti se otevírá.", "mood": "success", "channel": "general"}
     }
   },
   "room_defaults": {
@@ -107,7 +152,7 @@
       "channel": "general"
     },
     "qr_detected": {
-      "text": "Našla jsem podivný symbol: '{discovery_id}'. To nám asi pomůže se zámkem.",
+      "text": "Časová kotva '{checkpoint_id}' byla nalezena.",
       "mood": "tense",
       "channel": "lost"
     },

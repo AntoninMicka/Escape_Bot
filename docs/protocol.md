@@ -69,7 +69,22 @@ Reports a decoded QR value.
   "type": "qr.detected",
   "request_id": "qr-7",
   "payload": {
-    "value": "escapebot://clue/lobby-panel-a"
+    "value": "escapebot://checkpoint/4ec67b900c4a491ba180c8a48d5309f2"
+  }
+}
+```
+
+QR payload obsahuje neprůhledný token definovaný ve scénáři. Server odmítne neznámé tokeny a checkpointy naskenované před splněním jejich předchůdců.
+
+### `cipher_tool.unlock`
+
+Trvale odemkne pasivní šifrovací pomůcku pro aktuální relaci. Pokud ji hráč nezískal checkpointem, server jednorázově odečte cenu ze scénáře.
+
+```json
+{
+  "type": "cipher_tool.unlock",
+  "payload": {
+    "tool_id": "pigpen"
   }
 }
 ```
@@ -108,6 +123,29 @@ Broadcasts current state.
 }
 ```
 
+### `qr.result`
+
+Vrátí výsledek kontroly časové kotvy. `duplicate` znamená, že kotva již byla v dané relaci započítána.
+
+```json
+{
+  "type": "qr.result",
+  "payload": {
+    "accepted": true,
+    "duplicate": false,
+    "checkpoint_id": "reception_archive"
+  }
+}
+```
+
+### `cipher_tool.result`
+
+Potvrdí odemčení pomůcky a uvádí skutečně odečtené body v poli `charged`.
+
+## Vývojový demo režim
+
+Klient může v `client.hello` poslat `demo_mode: true`. Pouze backend spuštěný s proměnnou `ESCAPEBOT_DEMO_MODE=1` odpoví zprávou `demo.catalog` obsahující simulovatelné checkpointy. Produkční backend vrátí stejný typ zprávy s `enabled: false` a QR tokeny nezveřejní.
+
 ### `bot.message`
 
 Displays bot dialogue.
@@ -136,4 +174,3 @@ Triggers visual or audio atmosphere.
   }
 }
 ```
-

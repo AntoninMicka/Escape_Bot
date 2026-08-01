@@ -12,7 +12,7 @@ from fastapi.staticfiles import StaticFiles
 
 from .protocol import Message
 from .state_machine import EscapeBotStateMachine
-from .scenario import ScenarioLoader
+from .scenario import ScenarioLoader, build_demo_checkpoint_catalog
 from .ollama_adapter import OllamaAdapter
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
@@ -25,6 +25,7 @@ SESSIONS_FILE = os.path.join(BASE_DIR, "backend", "sessions.json")
 
 # Úložiště pro nezávislé relace hráčů (session_id -> state_machine)
 active_sessions: dict[str, EscapeBotStateMachine] = {}
+DEMO_MODE_ENABLED = os.getenv("ESCAPEBOT_DEMO_MODE", "").lower() in {"1", "true", "yes", "on"}
 
 LEADERBOARD_FILE = os.path.join(BASE_DIR, "backend", "leaderboard.json")
 global_leaderboard = []
@@ -127,6 +128,16 @@ async def websocket_endpoint(websocket: WebSocket):
 
                 if state_machine:
                     responses = await state_machine.handle(msg)
+                    if msg.type == "client.hello" and bool(msg.payload.get("demo_mode")):
+                        if DEMO_MODE_ENABLED:
+                            checkpoints = build_demo_checkpoint_catalog(scenario)
+                            responses.append(Message("demo.catalog", {"enabled": True, "checkpoints": checkpoints}))
+                        else:
+                            responses.append(Message("demo.catalog", {
+                                "enabled": False,
+                                "checkpoints": [],
+                                "reason": "Backend nebyl spuštěn s parametrem --demo.",
+                            }))
                     for response in responses:
                         save_sessions()
                         await websocket.send_text(json.dumps(response.to_json()))

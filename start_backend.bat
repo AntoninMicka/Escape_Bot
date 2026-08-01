@@ -26,6 +26,12 @@ if "%~1"=="--reset-venv" (
     echo Resetuji virtualni prostredi (mazu slozku .venv)...
     if exist ".venv" rmdir /s /q ".venv"
 )
+if "%~2"=="--reset-venv" (
+    echo Resetuji virtualni prostredi (mazu slozku .venv)...
+    if exist ".venv" rmdir /s /q ".venv"
+)
+if "%~1"=="--demo" set "ESCAPEBOT_DEMO_MODE=1"
+if "%~2"=="--demo" set "ESCAPEBOT_DEMO_MODE=1"
 
 :: Vytvoření virtuálního prostředí, pokud neexistuje
 if not exist ".venv" (
@@ -46,6 +52,7 @@ pip install -r requirements.txt
 echo =====================================================================
 echo   Hra je pripravena! Webovy klient: https://localhost:8088  
 echo   (Nebo zadejte http://localhost:8087 pro aut. presmerovani)
+if "%ESCAPEBOT_DEMO_MODE%"=="1" echo   DEMO REZIM: https://localhost:8088/?demo=1
 echo =====================================================================
 
 :: Spuštění serveru

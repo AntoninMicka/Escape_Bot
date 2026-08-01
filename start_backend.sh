@@ -21,10 +21,22 @@ if ! command -v python3 &> /dev/null || ! python3 -m venv -h &> /dev/null; then
 fi
 
 # Zpracování argumentů
-if [ "$1" == "--reset-venv" ]; then
-    echo "Resetuji virtuální prostředí (mažu složku .venv)..."
-    rm -rf .venv
-fi
+for argument in "$@"; do
+    case "$argument" in
+        --reset-venv)
+            echo "Resetuji virtuální prostředí (mažu složku .venv)..."
+            rm -rf .venv
+            ;;
+        --demo)
+            export ESCAPEBOT_DEMO_MODE=1
+            ;;
+        *)
+            echo "Neznámý parametr: $argument"
+            echo "Použití: ./start_backend.sh [--demo] [--reset-venv]"
+            exit 2
+            ;;
+    esac
+done
 
 # Vytvoření virtuálního prostředí, pokud neexistuje
 if [ ! -d ".venv" ]; then
@@ -40,6 +52,9 @@ pip install -r requirements.txt
 echo "====================================================================="
 echo "  Hra je připravena! Webový klient: https://localhost:8088  "
 echo "  (Nebo zadejte http://localhost:8087 pro aut. přesměrování)"
+if [ "${ESCAPEBOT_DEMO_MODE:-0}" = "1" ]; then
+    echo "  DEMO REŽIM: https://localhost:8088/?demo=1"
+fi
 echo "====================================================================="
 
 # Spuštění serveru

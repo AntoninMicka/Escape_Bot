@@ -18,3 +18,15 @@ class ScenarioLoader:
         with open(filepath, "r", encoding="utf-8") as f:
             data = json.load(f)
         return Scenario(data)
+
+
+def build_demo_checkpoint_catalog(scenario: Scenario) -> list[dict[str, Any]]:
+    return [
+        {
+            "id": checkpoint_id,
+            "label": checkpoint.get("label", checkpoint_id),
+            "value": f"escapebot://checkpoint/{checkpoint.get('token', '')}",
+            "requires": checkpoint.get("requires", []),
+        }
+        for checkpoint_id, checkpoint in scenario.data.get("checkpoints", {}).items()
+    ]

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import urllib.parse
 from dataclasses import dataclass, field
+from datetime import UTC, datetime
 from enum import StrEnum
 from typing import Any
 
@@ -30,6 +31,9 @@ class GameState:
     chat_history: list[dict[str, str]] = field(default_factory=list)
     score: int = 1000
     hints_used: dict[str, int] = field(default_factory=dict)
+    checkpoint_states: dict[str, dict[str, Any]] = field(default_factory=dict)
+    unlocked_cipher_tools: set[str] = field(default_factory=set)
+    paid_cipher_tools: set[str] = field(default_factory=set)
 
     def snapshot(self) -> dict[str, Any]:
         return {
@@ -40,6 +44,9 @@ class GameState:
             "chat_history": self.chat_history,
             "score": self.score,
             "hints_used": self.hints_used,
+            "checkpoint_states": self.checkpoint_states,
+            "unlocked_cipher_tools": sorted(self.unlocked_cipher_tools),
+            "paid_cipher_tools": sorted(self.paid_cipher_tools),
         }
 
     @classmethod
@@ -52,6 +59,9 @@ class GameState:
         state.chat_history = list(data.get("chat_history", []))
         state.score = int(data.get("score", 1000))
         state.hints_used = dict(data.get("hints_used", {}))
+        state.checkpoint_states = dict(data.get("checkpoint_states", {}))
+        state.unlocked_cipher_tools = set(data.get("unlocked_cipher_tools", []))
+        state.paid_cipher_tools = set(data.get("paid_cipher_tools", []))
         return state
 
 
@@ -59,10 +69,19 @@ class EscapeBotStateMachine:
     def __init__(self, scenario: Scenario) -> None:
         self.state = GameState()
         self.scenario = scenario
+        self._unlock_default_cipher_tools()
         self.ai = OllamaAdapter(model="llama3") # Možno změnit model např. na llama3.1
 
     def restore_state(self, data: dict[str, Any]) -> None:
         self.state = GameState.restore(data)
+        if self.state.phase in {GamePhase.NAVIGATING, GamePhase.PORTAL_OPEN}:
+            self.state.flags["chronomap_unlocked"] = True
+        self._unlock_default_cipher_tools()
+
+    def _unlock_default_cipher_tools(self) -> None:
+        for tool_id, tool in self.scenario.data.get("cipher_tools", {}).items():
+            if tool.get("default_unlocked", False):
+                self.state.unlocked_cipher_tools.add(tool_id)
 
     async def handle(self, message: Message) -> list[Message]:
         # Automatické uložení příchozí zprávy hráče do historie
@@ -79,6 +98,7 @@ class EscapeBotStateMachine:
             "arg.verify": self._handle_arg_verify,
             "camera.frame": self._handle_camera_frame,
             "room.unlock": self._handle_room_unlock,
+            "cipher_tool.unlock": self._handle_cipher_tool_unlock,
         }
         handler = handlers.get(message.type, self._handle_unknown)
         responses = await handler(message)
@@ -95,7 +115,18 @@ class EscapeBotStateMachine:
         return responses
 
     def _state_message(self) -> Message:
-        return Message("game.state", self.state.snapshot())
+        snapshot = self.state.snapshot()
+        tools = self.scenario.data.get("cipher_tools", {})
+        snapshot["cipher_tools"] = [
+            {
+                "id": tool_id,
+                "label": tool.get("label", tool_id),
+                "status": "unlocked" if tool_id in self.state.unlocked_cipher_tools else "available_for_points",
+                "unlock_cost": int(tool.get("unlock_cost", 0)),
+            }
+            for tool_id, tool in tools.items()
+        ]
+        return Message("game.state", snapshot)
 
     def _provide_hint(self, phase: str, message: Message) -> list[Message]:
         p_data = self.scenario.get_phase_data(phase)
@@ -198,6 +229,7 @@ class EscapeBotStateMachine:
             p_data = self.scenario.get_phase_data("connection_lost")
             if p_data.get("success_keyword", "restart") in text.lower():
                 self.state.phase = GamePhase.NAVIGATING
+                self.state.flags["chronomap_unlocked"] = True
                 return [
                     reply("bot.message", p_data.get("success_message", {}), message),
                     self._state_message(),
@@ -231,18 +263,77 @@ class EscapeBotStateMachine:
 
     async def _handle_qr_detected(self, message: Message) -> list[Message]:
         value = str(message.payload.get("value", "")).strip()
-        discovery_id = value.removeprefix("escapebot://clue/")
-        if not discovery_id or discovery_id == value:
-            return [reply("error", {"message": "Unknown QR format."}, message)]
+        prefix = "escapebot://checkpoint/"
+        token = value.removeprefix(prefix)
+        if not token or token == value:
+            return [reply("qr.result", {"accepted": False, "reason": "Neznámý formát QR kódu."}, message)]
 
-        self.state.unlocked_discoveries.add(discovery_id)
-        
-        msg_template = self.scenario.data.get("global_events", {}).get("qr_detected", {}).copy()
-        msg_template["text"] = msg_template.get("text", "").replace("{discovery_id}", discovery_id)
-        
+        checkpoints = self.scenario.data.get("checkpoints", {})
+        match = next(((checkpoint_id, data) for checkpoint_id, data in checkpoints.items() if data.get("token") == token), None)
+        if match is None:
+            return [reply("qr.result", {"accepted": False, "reason": "Tato časová kotva nepatří do aktuálního scénáře."}, message)]
+
+        checkpoint_id, checkpoint = match
+        if checkpoint_id in self.state.checkpoint_states:
+            return [
+                reply("qr.result", {"accepted": True, "duplicate": True, "checkpoint_id": checkpoint_id}, message),
+                self._state_message(),
+            ]
+
+        missing = [required for required in checkpoint.get("requires", []) if required not in self.state.checkpoint_states]
+        if missing:
+            return [
+                reply("qr.result", {
+                    "accepted": False,
+                    "reason": "Časová kotva je mimo sekvenci. Nejprve dokončete předchozí stanoviště.",
+                    "missing": missing,
+                }, message),
+                self._state_message(),
+            ]
+
+        now = datetime.now(UTC).isoformat()
+        self.state.checkpoint_states[checkpoint_id] = {"status": "found", "first_scanned_at": now}
+        self.state.unlocked_discoveries.add(checkpoint_id)
+
+        rewards = checkpoint.get("rewards", {})
+        for item in rewards.get("inventory", []):
+            if item not in self.state.inventory:
+                self.state.inventory.append(item)
+        for tool_id in rewards.get("cipher_tools", []):
+            if tool_id in self.scenario.data.get("cipher_tools", {}):
+                self.state.unlocked_cipher_tools.add(tool_id)
+        for flag in rewards.get("flags", []):
+            self.state.flags[str(flag)] = True
+
+        msg_template = checkpoint.get("message", self.scenario.data.get("global_events", {}).get("qr_detected", {})).copy()
+        msg_template["text"] = msg_template.get("text", "").replace("{checkpoint_id}", checkpoint_id)
+
         return [
+            reply("qr.result", {"accepted": True, "duplicate": False, "checkpoint_id": checkpoint_id}, message),
             reply("bot.message", msg_template, message),
             Message("effect.trigger", {"effect": "glitch", "intensity": 0.35, "duration_ms": 900}),
+            self._state_message(),
+        ]
+
+    async def _handle_cipher_tool_unlock(self, message: Message) -> list[Message]:
+        tool_id = str(message.payload.get("tool_id", "")).strip()
+        tool = self.scenario.data.get("cipher_tools", {}).get(tool_id)
+        if tool is None:
+            return [reply("cipher_tool.result", {"success": False, "reason": "Neznámá pomůcka."}, message)]
+
+        if tool_id in self.state.unlocked_cipher_tools:
+            return [reply("cipher_tool.result", {"success": True, "tool_id": tool_id, "charged": 0}, message), self._state_message()]
+
+        cost = max(0, int(tool.get("unlock_cost", 0)))
+        if self.state.score < cost:
+            return [reply("cipher_tool.result", {"success": False, "reason": "Nedostatek bodů."}, message)]
+
+        self.state.score -= cost
+        self.state.unlocked_cipher_tools.add(tool_id)
+        self.state.paid_cipher_tools.add(tool_id)
+        return [
+            reply("cipher_tool.result", {"success": True, "tool_id": tool_id, "charged": cost}, message),
+            reply("score.update", {"score": self.state.score, "penalty": cost, "reason": "cipher_tool"}, message),
             self._state_message(),
         ]
 
@@ -281,6 +372,25 @@ class EscapeBotStateMachine:
         rooms_data = self.scenario.data.get("rooms", {})
         for room_id, r_data in rooms_data.items():
             if r_data.get("pin") == pin:
+                missing_checkpoints = [
+                    checkpoint_id
+                    for checkpoint_id in r_data.get("requires_checkpoints", [])
+                    if checkpoint_id not in self.state.checkpoint_states
+                ]
+                if missing_checkpoints:
+                    return [
+                        reply("room.unlock_result", {
+                            "success": False,
+                            "reason": "missing_checkpoints",
+                            "missing": missing_checkpoints,
+                        }, message),
+                        reply("bot.message", {
+                            "text": "PIN je správný, ale zámek nemá potvrzenou předchozí časovou kotvu.",
+                            "mood": "error",
+                            "channel": "general",
+                        }, message),
+                        self._state_message(),
+                    ]
                 self.state.flags[f"room_{room_id}_unlocked"] = True
                 responses = [reply("room.unlock_result", {"success": True}, message)]
                 for msg in r_data.get("success_messages", []):

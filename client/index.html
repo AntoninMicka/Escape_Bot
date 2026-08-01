@@ -8,7 +8,7 @@
     <meta name="theme-color" content="#002200">
     <link rel="icon" href="icon.svg" type="image/svg+xml">
     <link rel="apple-touch-icon" href="icon.svg">
-    <title>Interkom - Jiná Dimenze</title>
+    <title>Chronoterminál – Hotel Kraskov</title>
     <style>
         body {
             background-color: #050505;
@@ -40,6 +40,7 @@
             color: #000;
             border-color: #0f0;
         }
+        .tab-button:disabled { color: #444; border-color: #222; cursor: not-allowed; background: #080808; }
         .tab-content {
             display: none;
             flex-direction: column;
@@ -248,6 +249,47 @@
             20% { opacity: 1; }
             100% { opacity: 0.2; }
         }
+
+        /* Plovoucí šifrovací pomůcky */
+        .utility-button { margin-left: auto; background: #001b1b; color: #0ff; border: 1px solid #0aa; }
+        .cipher-panel {
+            position: fixed; z-index: 900; top: 72px; right: 24px;
+            width: min(760px, calc(100vw - 32px)); max-height: calc(100vh - 96px);
+            display: none; flex-direction: column; overflow: hidden;
+            border: 2px solid #0aa; background: rgba(0, 10, 12, 0.98);
+            box-shadow: 0 0 28px rgba(0, 255, 255, 0.25);
+        }
+        .cipher-panel.open { display: flex; }
+        .cipher-panel-header { display: flex; align-items: center; gap: 10px; padding: 10px; background: #002222; border-bottom: 1px solid #0aa; cursor: move; touch-action: none; }
+        .cipher-panel-header strong { flex: 1; color: #0ff; }
+        .cipher-panel-header button { padding: 5px 10px; }
+        .cipher-panel-body { display: grid; grid-template-columns: 230px 1fr; min-height: 320px; overflow: hidden; }
+        .cipher-tool-list { padding: 10px; border-right: 1px solid #044; overflow-y: auto; }
+        .cipher-tool-button { display: block; width: 100%; margin-bottom: 7px; padding: 9px; text-align: left; background: #061414; color: #0cc; border: 1px solid #055; font-family: inherit; }
+        .cipher-tool-button.active { color: #000; background: #0cc; }
+        .cipher-tool-button.locked { color: #888; border-color: #444; }
+        .cipher-tool-content { padding: 16px; overflow: auto; color: #cfffff; }
+        .cipher-tool-content h3 { color: #0ff; margin-top: 0; }
+        .cipher-reference { width: 100%; border-collapse: collapse; font-size: 0.9em; }
+        .cipher-reference th, .cipher-reference td { padding: 6px; border: 1px solid #166; text-align: center; }
+        .cipher-reference th { color: #0ff; background: #002222; }
+        .tool-unlock-box { border: 1px dashed #a80; color: #fc0; padding: 15px; }
+        .tool-unlock-box button { margin-top: 10px; background: #fc0; }
+        .demo-scanner-panel { display: none; max-width: 760px; margin: 0 auto; padding: 16px; border: 2px dashed #fc0; background: #171100; color: #fc0; }
+        .demo-scanner-panel.active { display: block; }
+        .demo-checkpoint-list { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 10px; margin-top: 12px; }
+        .demo-checkpoint-button { background: #2a2100; color: #ffd75a; border: 1px solid #fc0; font-family: inherit; text-align: left; }
+        .demo-checkpoint-button:hover { background: #fc0; color: #000; }
+        .demo-badge { display: inline-block; margin-left: 8px; padding: 2px 7px; color: #000; background: #fc0; font-size: .7em; vertical-align: middle; }
+        @media (max-width: 700px) {
+            body { padding: 10px; height: 94vh; }
+            .tabs { overflow-x: auto; }
+            .tab-button { padding: 8px; white-space: nowrap; }
+            .utility-button { margin-left: 0; }
+            .cipher-panel { top: 12px; right: 8px; width: calc(100vw - 16px); max-height: calc(100vh - 24px); }
+            .cipher-panel-body { grid-template-columns: 1fr; }
+            .cipher-tool-list { border-right: 0; border-bottom: 1px solid #044; max-height: 150px; }
+        }
     </style>
 </head>
 <body>
@@ -255,11 +297,25 @@
 
     <div class="tabs">
         <button class="tab-button active" onclick="openTab('tab-intercom', this)">INTERKOM</button>
-        <button class="tab-button" onclick="openTab('tab-map', this)">MAPA HOTELU</button>
+        <button id="chronomap-tab-button" class="tab-button" onclick="openTab('tab-map', this)" disabled>CHRONOMAPA [OFFLINE]</button>
         <button class="tab-button" onclick="openTab('tab-room', this)">MÍSTNOST (Virtuální panel)</button>
         <button class="tab-button" onclick="openTab('tab-scanner', this)">SKENER (Kamera)</button>
         <button class="tab-button" onclick="openTab('tab-leaderboard', this)">SÍŇ SLÁVY</button>
+        <button class="utility-button" onclick="toggleCipherPanel()">ŠIFROVACÍ POMŮCKY</button>
     </div>
+
+    <aside id="cipher-panel" class="cipher-panel" aria-label="Šifrovací pomůcky" aria-hidden="true">
+        <div id="cipher-panel-handle" class="cipher-panel-header">
+            <strong>[ REFERENČNÍ MODUL ]</strong>
+            <button onclick="toggleCipherPanel(false)" aria-label="Zavřít pomůcky">×</button>
+        </div>
+        <div class="cipher-panel-body">
+            <nav id="cipher-tool-list" class="cipher-tool-list"></nav>
+            <section id="cipher-tool-content" class="cipher-tool-content">
+                <p>Načítám dostupné pomůcky…</p>
+            </section>
+        </div>
+    </aside>
 
     <div id="tab-intercom" class="tab-content active">
         <h2>
@@ -298,7 +354,7 @@
     </div>
 
     <div id="tab-map" class="tab-content">
-        <h2>[ TOPOGRAFICKÝ SKEN: HOTEL GRAND ]</h2>
+        <h2>[ CHRONOMAPA: HOTEL KRASKOV ]</h2>
         <div class="map-container">
             <div>
                 <div class="map-room">Pokoj 101</div>
@@ -314,8 +370,8 @@
                 <div class="map-room" style="border-color: #ff0;">Schodiště</div>
             </div>
             <p style="color: #0aa; margin-top: 20px;">
-                > Cíl navigace: Ztracená se nachází někde v prvním patře. <br>
-                > Instrukce: Použijte interkom k nasměrování postavy pryč od anomálií (červené zóny).
+                > Cíl mise: aktivujte časové kotvy a získejte tři součásti stroje času. <br>
+                > Neověřené oblasti CHRONOMAPY budou doplněny po průzkumu hotelu.
             </p>
         </div>
     </div>
@@ -342,7 +398,12 @@
     </div>
 
     <div id="tab-scanner" class="tab-content">
-        <h2>[ OPTICKÝ SKENER ]</h2>
+        <h2>[ OPTICKÝ SKENER ] <span id="demo-scanner-badge" class="demo-badge" style="display:none">DEMO</span></h2>
+        <div id="demo-scanner-panel" class="demo-scanner-panel">
+            <strong>[ SIMULACE QR CHECKPOINTŮ ]</strong>
+            <p id="demo-scanner-status">Navazuji spojení s demo backendem…</p>
+            <div id="demo-checkpoint-list" class="demo-checkpoint-list"></div>
+        </div>
         <div id="scanner-container" style="position: relative; width: 100%; max-width: 400px; margin: 0 auto; border: 2px solid #0f0;">
             <video id="qr-video" style="width: 100%; display: block;" autoplay playsinline></video>
             <canvas id="qr-canvas" style="display: none;"></canvas>
@@ -373,6 +434,116 @@
         let currentChannel = 'general';
         const statusIndicator = document.getElementById('connection-status');
         let currentPin = '';
+        let cipherToolsState = [];
+        let selectedCipherTool = null;
+        const demoModeRequested = new URLSearchParams(window.location.search).get('demo') === '1';
+
+        const MORSE = {
+            A: '.-', B: '-...', C: '-.-.', D: '-..', E: '.', F: '..-.', G: '--.', H: '....', I: '..',
+            J: '.---', K: '-.-', L: '.-..', M: '--', N: '-.', O: '---', P: '.--.', Q: '--.-', R: '.-.',
+            S: '...', T: '-', U: '..-', V: '...-', W: '.--', X: '-..-', Y: '-.--', Z: '--..',
+            0: '-----', 1: '.----', 2: '..---', 3: '...--', 4: '....-', 5: '.....',
+            6: '-....', 7: '--...', 8: '---..', 9: '----.'
+        };
+
+        function referenceTable(entries, headers = ['ZNAK', 'KÓD']) {
+            const rows = Object.entries(entries).map(([key, value]) => `<tr><td>${key}</td><td>${value}</td></tr>`).join('');
+            return `<table class="cipher-reference"><thead><tr><th>${headers[0]}</th><th>${headers[1]}</th></tr></thead><tbody>${rows}</tbody></table>`;
+        }
+
+        function toolReference(toolId) {
+            if (toolId === 'morse') {
+                return `<h3>Morseova abeceda</h3><p>Krátký signál je tečka, dlouhý signál je čárka. Delší mezera odděluje slova.</p>${referenceTable(MORSE)}`;
+            }
+            if (toolId === 'a1z26') {
+                const alphabet = Object.fromEntries(Array.from({length: 26}, (_, i) => [String.fromCharCode(65 + i), i + 1]));
+                return `<h3>A1Z26 a římské číslice</h3><p>A=1, B=2 … Z=26. Příklad: 3-1-19 = CAS.</p>${referenceTable(alphabet)}<h3>Římské číslice</h3>${referenceTable({I:1,V:5,X:10,L:50,C:100,D:500,M:1000}, ['ZNAK','HODNOTA'])}`;
+            }
+            if (toolId === 'binary_ascii') {
+                const ascii = Object.fromEntries(Array.from({length: 26}, (_, i) => {
+                    const letter = String.fromCharCode(65 + i);
+                    return [letter, (65 + i).toString(2).padStart(8, '0')];
+                }));
+                return `<h3>Binární kód a ASCII</h3><p>Čti osm bitů zleva; nejvyšší hodnota je 128. Příklad: 01000001 = 65 = A.</p>${referenceTable(ascii, ['PÍSMENO','8BIT ASCII'])}`;
+            }
+            if (toolId === 'pigpen') {
+                return `<h3>Polský kříž</h3><p>Písmeno se zapíše hranami políčka, ve kterém leží. Druhá sada stejných tvarů se rozlišuje tečkou.</p>
+                    <table class="cipher-reference"><tbody>
+                    <tr><td>A–I</td><td>┘ ┴ └ / ┤ ┼ ├ / ┐ ┬ ┌</td></tr>
+                    <tr><td>J–R</td><td>stejné tvary s tečkou uvnitř</td></tr>
+                    <tr><td>S–V</td><td>∧ &gt; ∨ &lt;</td></tr>
+                    <tr><td>W–Z</td><td>stejné klíny s tečkou</td></tr>
+                    </tbody></table><p>Orientace znaků se může mezi variantami lišit; rozhoduje mřížka přiložená k zadání.</p>`;
+            }
+            if (toolId === 'semaphore') {
+                return `<h3>Praporová / semaforová abeceda</h3><p>Každé písmeno určuje dvojice směrů paží. Zobrazení je orientováno z pohledu pozorovatele signalisty.</p>
+                    <p style="font-size:3em; letter-spacing:.25em; line-height:1.5">↙↓ ←↓ ↖↓ ↑↓ ↗↓ →↓ ↘↓</p>
+                    <p>Toto je referenční princip prvního cyklu, nikoli automatický překladač. Kompletní herní diagram je součástí artefaktu odemčeného na schodišti.</p>`;
+            }
+            return '<p>Pro tuto pomůcku zatím není dostupný referenční list.</p>';
+        }
+
+        function toggleCipherPanel(force) {
+            const panel = document.getElementById('cipher-panel');
+            const shouldOpen = typeof force === 'boolean' ? force : !panel.classList.contains('open');
+            panel.classList.toggle('open', shouldOpen);
+            panel.setAttribute('aria-hidden', String(!shouldOpen));
+            if (shouldOpen) renderCipherTools();
+        }
+
+        function renderCipherTools() {
+            const list = document.getElementById('cipher-tool-list');
+            if (!cipherToolsState.length) {
+                list.innerHTML = '<p>Čekám na stav terminálu…</p>';
+                return;
+            }
+            if (!selectedCipherTool || !cipherToolsState.some(tool => tool.id === selectedCipherTool)) {
+                selectedCipherTool = (cipherToolsState.find(tool => tool.status === 'unlocked') || cipherToolsState[0]).id;
+            }
+            list.innerHTML = '';
+            cipherToolsState.forEach(tool => {
+                const button = document.createElement('button');
+                button.className = `cipher-tool-button ${tool.id === selectedCipherTool ? 'active' : ''} ${tool.status !== 'unlocked' ? 'locked' : ''}`;
+                button.textContent = tool.status === 'unlocked' ? tool.label : `🔒 ${tool.label} (−${tool.unlock_cost})`;
+                button.onclick = () => { selectedCipherTool = tool.id; renderCipherTools(); };
+                list.appendChild(button);
+            });
+
+            const selected = cipherToolsState.find(tool => tool.id === selectedCipherTool);
+            const content = document.getElementById('cipher-tool-content');
+            if (selected.status === 'unlocked') {
+                content.innerHTML = toolReference(selected.id);
+            } else {
+                content.innerHTML = `<div class="tool-unlock-box"><h3>${selected.label}</h3><p>Pomůcka je zamčená. Lze ji objevit na bonusovém checkpointu, nebo trvale odemknout za ${selected.unlock_cost} bodů.</p><button id="confirm-tool-unlock">ODEMKNOUT ZA ${selected.unlock_cost} BODŮ</button></div>`;
+                document.getElementById('confirm-tool-unlock').onclick = () => unlockCipherTool(selected.id, selected.label, selected.unlock_cost);
+            }
+        }
+
+        function unlockCipherTool(toolId, label, cost) {
+            if (!ws || ws.readyState !== WebSocket.OPEN) { showNotification('Terminál není připojen.', 'error'); return; }
+            if (!window.confirm(`Trvale odemknout pomůcku ${label} za ${cost} bodů?`)) return;
+            ws.send(JSON.stringify({type: 'cipher_tool.unlock', payload: {tool_id: toolId}}));
+        }
+
+        // Panel lze na větší obrazovce přesunout za jeho záhlaví.
+        (() => {
+            const panel = document.getElementById('cipher-panel');
+            const handle = document.getElementById('cipher-panel-handle');
+            let drag = null;
+            handle.addEventListener('pointerdown', event => {
+                if (event.target.tagName === 'BUTTON' || window.innerWidth <= 700) return;
+                const rect = panel.getBoundingClientRect();
+                drag = {x: event.clientX - rect.left, y: event.clientY - rect.top};
+                handle.setPointerCapture(event.pointerId);
+            });
+            handle.addEventListener('pointermove', event => {
+                if (!drag) return;
+                panel.style.left = `${Math.max(0, Math.min(window.innerWidth - panel.offsetWidth, event.clientX - drag.x))}px`;
+                panel.style.top = `${Math.max(0, Math.min(window.innerHeight - 80, event.clientY - drag.y))}px`;
+                panel.style.right = 'auto';
+            });
+            handle.addEventListener('pointerup', () => { drag = null; });
+        })();
 
         // --- SPRÁVA AVATARŮ ---
         let playerAvatarBase64 = localStorage.getItem('playerAvatar') || '';
@@ -516,7 +687,7 @@
             ws.onopen = () => {
                 console.log("WebSocket připojen. Session ID:", sessionId);
                 statusIndicator.classList.add('online');
-                ws.send(JSON.stringify({ type: 'client.hello', payload: { session_id: sessionId } }));
+                ws.send(JSON.stringify({ type: 'client.hello', payload: { session_id: sessionId, demo_mode: demoModeRequested } }));
                 showNotification('Připojeno k centrálnímu uzlu', 'success');
                 ws.send(JSON.stringify({ type: 'leaderboard.get', payload: {} }));
             };
@@ -596,10 +767,13 @@
                 }
                 }
                 else if (msg.type === 'score.update') {
-                    showNotification(`Identifikována žádost o pomoc. Použita nápověda (-${msg.payload.penalty} bodů).`, 'error');
+                    const reason = msg.payload.reason === 'cipher_tool' ? 'Odemčena šifrovací pomůcka' : 'Použita nápověda';
+                    showNotification(`${reason} (-${msg.payload.penalty} bodů).`, 'error');
                 }
                 else if (msg.type === 'game.state') {
                     const flags = msg.payload.flags || {};
+                    cipherToolsState = msg.payload.cipher_tools || [];
+                    if (document.getElementById('cipher-panel').classList.contains('open')) renderCipherTools();
                     const scoreDisplay = document.getElementById('score-display');
                     if (scoreDisplay) {
                         const currentScore = parseInt((scoreDisplay.innerText.match(/\d+/) || [1000])[0]);
@@ -616,6 +790,30 @@
                         room104.style.borderColor = '#0f0';
                         room104.style.color = '#0f0';
                     }
+                    const chronomapButton = document.getElementById('chronomap-tab-button');
+                    if (flags.chronomap_unlocked) {
+                        chronomapButton.disabled = false;
+                        chronomapButton.textContent = 'CHRONOMAPA';
+                    }
+                }
+                else if (msg.type === 'cipher_tool.result') {
+                    if (msg.payload.success) {
+                        showNotification(msg.payload.charged ? `Pomůcka odemčena (-${msg.payload.charged} bodů)` : 'Pomůcka je již dostupná.', 'success');
+                    } else {
+                        showNotification(msg.payload.reason || 'Pomůcku nelze odemknout.', 'error');
+                    }
+                }
+                else if (msg.type === 'qr.result') {
+                    if (!msg.payload.accepted) {
+                        showNotification(msg.payload.reason || 'Časovou kotvu nelze aktivovat.', 'error');
+                    } else if (msg.payload.duplicate) {
+                        showNotification('Tato časová kotva už byla zaznamenána.', 'info');
+                    } else {
+                        showNotification(`Časová kotva aktivována: ${msg.payload.checkpoint_id}`, 'success');
+                    }
+                }
+                else if (msg.type === 'demo.catalog') {
+                    renderDemoScanner(msg.payload);
                 }
                 else if (msg.type === 'avatar.update') {
                     // Uložení přijatého URL AI vygenerovaného avatara
@@ -721,7 +919,41 @@
         let qrScanning = false;
         let qrStreamRef = null;
 
+        function renderDemoScanner(payload) {
+            const panel = document.getElementById('demo-scanner-panel');
+            const status = document.getElementById('demo-scanner-status');
+            const list = document.getElementById('demo-checkpoint-list');
+            document.getElementById('demo-scanner-badge').style.display = 'inline-block';
+            panel.classList.add('active');
+            document.getElementById('scanner-container').style.display = 'none';
+            qrStatus.style.display = 'none';
+            list.innerHTML = '';
+
+            if (!payload.enabled) {
+                status.textContent = payload.reason || 'Demo režim není na backendu povolen.';
+                status.style.color = '#f66';
+                return;
+            }
+
+            status.textContent = 'Kliknutí simuluje skutečné načtení QR. Backend stále kontroluje pořadí a odměny.';
+            (payload.checkpoints || []).forEach((checkpoint, index) => {
+                const button = document.createElement('button');
+                button.className = 'demo-checkpoint-button';
+                const dependency = checkpoint.requires.length ? `Vyžaduje: ${checkpoint.requires.join(', ')}` : 'První checkpoint';
+                button.textContent = `${index + 1}. ${checkpoint.label}\n${dependency}`;
+                button.onclick = () => simulateQrScan(checkpoint.value, checkpoint.label);
+                list.appendChild(button);
+            });
+        }
+
+        function simulateQrScan(value, label) {
+            if (!ws || ws.readyState !== WebSocket.OPEN) { showNotification('Terminál není připojen.', 'error'); return; }
+            showNotification(`DEMO sken: ${label}`, 'info');
+            ws.send(JSON.stringify({type: 'qr.detected', payload: {value}}));
+        }
+
         function startScanner() {
+            if (demoModeRequested) return;
             if (qrScanning) return;
             // Žádost o přístup k zadní kameře
             navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } }).then(function(stream) {
@@ -783,7 +1015,12 @@
             }
 
             if (tabId === 'tab-scanner') {
-                startScanner();
+                if (demoModeRequested) {
+                    document.getElementById('demo-scanner-panel').classList.add('active');
+                    document.getElementById('demo-scanner-badge').style.display = 'inline-block';
+                } else {
+                    startScanner();
+                }
             } else {
                 stopScanner();
             }

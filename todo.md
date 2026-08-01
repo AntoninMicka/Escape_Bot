@@ -183,14 +183,14 @@
 
 ### 13.1 Příběhové zasazení
 **Cíl:** převést současný prototyp z obecného hotelu a jiné dimenze do konkrétního příběhu o poruše stroje času v Hotelu Kraskov.
-- [ ] Přejmenovat a upravit znalostní bázi scénáře pro Hotel Kraskov.
+- [x] Přejmenovat a upravit znalostní bázi scénáře pro Hotel Kraskov.
 - [ ] Zachovat úvodní spojení s Kapitánkou a nalezení frekvence `734`.
-- [ ] Upravit roli Elary na věkyni ztracenou v jiné časové vrstvě stejného hotelu.
-- [ ] Po prvním spojení odhalit, že experiment rozptýlil součásti stroje času po hotelu a okolí.
-- [ ] Přejmenovat herní mapu na `CHRONOMAPA` a QR checkpointy na `časové kotvy`.
+- [x] Upravit roli Elary na věkyni ztracenou v jiné časové vrstvě stejného hotelu.
+- [x] Po prvním spojení odhalit, že experiment rozptýlil součásti stroje času po hotelu a okolí.
+- [x] Přejmenovat herní mapu na `CHRONOMAPA` a QR checkpointy na `časové kotvy`.
 - [ ] Definovat pravidla cestování časem, aby byly konzistentní v dialozích i hádankách.
 - [ ] Napsat časovou osu Elařina experimentu, havárie a návratu.
-- [ ] Nahradit odkazy na Hotel Overlook, dimenzionální krystaly a portál terminologií stroje času.
+- [x] Nahradit odkazy na Hotel Overlook, dimenzionální krystaly a portál terminologií stroje času.
 
 ### 13.2 Trasa a dostupné prostory
 **Cíl:** vytvořit bezpečnou trasu přes skutečné, předem schválené prostory Hotelu Kraskov.
@@ -207,9 +207,9 @@
 **Místo:** startovní konferenční místnost.
 - [ ] Dokončit hádanku vedoucí k frekvenci `734`.
 - [ ] Zachovat první výpadek spojení a příkaz `restart`.
-- [ ] Napsat Elařino odhalení, že se nachází ve stejném hotelu, ale v jiném čase.
-- [ ] Po restartu odemknout modul `CHRONOMAPA`.
-- [ ] Zpřístupnit první indicii vedoucí na recepci.
+- [x] Napsat Elařino odhalení, že se nachází ve stejném hotelu, ale v jiném čase.
+- [x] Po restartu odemknout modul `CHRONOMAPA`.
+- [x] Zpřístupnit první indicii vedoucí na recepci.
 
 ### 13.4 Checkpoint 1 – Recepční archiv
 **Typ:** logická dedukční tabulka.
@@ -270,15 +270,15 @@
 
 ### 13.11 QR checkpointy a ochrana postupu
 **Cíl:** QR kódy musí potvrzovat průchod trasou a bezpečně odemykat obsah.
-- [ ] Nahradit volný formát `escapebot://clue/<id>` seznamem povolených checkpointů ze scénáře.
-- [ ] Pro každý QR vytvořit neprůhledný náhodný token, který neprozrazuje řešení ani pořadí.
-- [ ] Definovat pro každý checkpoint povinné předchůdce.
-- [ ] Odmítnout QR naskenovaný před splněním předchozího kroku.
-- [ ] Zabránit opakovanému přidělování odměny a bodů za stejný QR.
+- [x] Nahradit volný formát `escapebot://clue/<id>` seznamem povolených checkpointů ze scénáře.
+- [x] Pro každý QR vytvořit neprůhledný náhodný token, který neprozrazuje řešení ani pořadí.
+- [x] Definovat pro každý checkpoint povinné předchůdce.
+- [x] Odmítnout QR naskenovaný před splněním předchozího kroku.
+- [x] Zabránit opakovanému přidělování odměny a bodů za stejný QR.
 - [ ] U klíčových míst doplnit lokální kontrolní otázku nebo kód z fyzického okolí.
-- [ ] Evidovat čas prvního skenu a dokončení každého checkpointu.
+- [x] Evidovat čas prvního skenu každého checkpointu.
 - [ ] Rozlišit stavy `nalezeno`, `ověřeno`, `vyřešeno` a `odměna vyzvednuta`.
-- [ ] Odemknout virtuální místnost jen při splnění všech podmínek, ne pouze znalostí PINu.
+- [x] Odemknout virtuální místnost jen při splnění všech podmínek, ne pouze znalostí PINu.
 - [ ] Připravit jednorázové nebo rotující kódy pro checkpointy vyžadující silnější kontrolu přítomnosti.
 - [ ] Připravit Game Masterovi možnost ručně potvrdit nebo přeskočit porouchaný checkpoint.
 
@@ -305,35 +305,44 @@
 - [ ] Připravit instalační a deinstalační checklist pro hotel.
 - [ ] Připravit záložní papírovou variantu pro výpadek Wi-Fi, serveru nebo telefonu.
 
+### 13.13.1 Vývojový demo režim
+- [x] Přidat explicitní spuštění backendu pomocí `--demo`.
+- [x] Aktivovat demo rozhraní klienta parametrem `?demo=1`.
+- [x] V demo režimu nevyžadovat kameru.
+- [x] Zobrazit v záložce skeneru tlačítka všech QR checkpointů.
+- [x] Simulovat tlačítkem stejnou zprávu `qr.detected` jako při skutečném skenu.
+- [x] Zachovat v demo režimu kontrolu pořadí, duplicit, odměn a podmínek.
+- [x] Nevydávat katalog QR tokenů, pokud backend nebyl explicitně spuštěn v demo režimu.
+
 ### 13.14 Šifrovací pomůcky v aplikaci
 **Cíl:** nabídnout hráčům pasivní referenční pomůcku inspirovanou způsobem použití aplikace Šifrovací pomůcky Absolutno, aniž aplikace sama vyřeší zadanou hádanku.
 - [ ] Ověřit licenci, souhlas autora a možnosti přímého použití názvu, obrazovek nebo obsahu aplikace Absolutno.
 - [ ] Bez licence nekopírovat zdrojový kód, grafiku ani konkrétní zpracování; vytvořit vlastní panel ze standardních veřejně známých abeced a šifer.
-- [ ] Přidat tlačítko `ŠIFROVACÍ POMŮCKY` dostupné z komunikátoru, mapy i obrazovek hádanek.
-- [ ] Zobrazovat pomůcky v plovoucím panelu nad aktuální obrazovkou bez ztráty rozeřešeného zadání.
-- [ ] Přizpůsobit panel mobilu, tabletu i desktopu a umožnit jeho minimalizaci a přesouvání.
-- [ ] Umožnit současně zobrazit zadání a vybranou tabulku.
+- [x] Přidat tlačítko `ŠIFROVACÍ POMŮCKY` dostupné z komunikátoru, mapy i obrazovek hádanek.
+- [x] Zobrazovat pomůcky v plovoucím panelu nad aktuální obrazovkou bez ztráty rozeřešeného zadání.
+- [x] Přizpůsobit panel mobilu, tabletu i desktopu a umožnit jeho minimalizaci a přesouvání.
+- [x] Umožnit současně zobrazit zadání a vybranou tabulku.
 - [ ] Připravit pasivní referenční listy minimálně pro Morseovu abecedu, praporovou/semaforovou abecedu, vlajkovou abecedu, malý a velký polský kříž, Braillovo písmo, A1Z26, binární zápis, ASCII a římské číslice.
 - [ ] Zvážit pasivní přehled Caesarova posunu a šifrovacího čtverce bez automatického dešifrování.
 - [ ] Nepřidávat v první verzi automatické luštění, frekvenční analýzu, OCR ani slovníkové hledání.
 - [ ] Označit u každé pomůcky její název, princip čtení, směr a jeden neutrální příklad, který neprozrazuje herní řešení.
-- [ ] Zajistit plnou funkčnost pomůcek offline bez odkazů na externí web nebo CDN.
+- [x] Zajistit plnou funkčnost pomůcek offline bez odkazů na externí web nebo CDN.
 
 #### Režimy zpřístupnění pomůcek
 - [ ] Definovat stav každé pomůcky: `skrytá`, `odemčená`, `dočasně zapůjčená` nebo `dostupná za body`.
-- [ ] Rozhodnout, které základní tabulky budou dostupné od začátku jako standardní výbava výzkumného týmu.
-- [ ] Navázat tematické pomůcky na bonusové QR checkpointy nebo nalezené moduly stroje času.
-- [ ] U bonusového checkpointu trvale odemknout pomůcku pro danou herní relaci bez bodové penalizace.
-- [ ] Nabídnout zamčenou pomůcku na vyžádání za předem zobrazenou bodovou cenu.
-- [ ] Před odečtením bodů vyžadovat potvrzení hráče a jasně ukázat, zda jde o trvalé nebo dočasné odemčení.
-- [ ] Za stejné odemčení v jedné relaci strhnout body pouze jednou.
-- [ ] Rozlišit otevření pasivní tabulky od použití stupňované nápovědy ke konkrétní hádance.
-- [ ] Zahrnout odemčené pomůcky a zaplacené penalizace do uloženého stavu relace.
+- [x] Rozhodnout, které základní tabulky budou dostupné od začátku jako standardní výbava výzkumného týmu.
+- [x] Navázat tematické pomůcky na bonusové QR checkpointy nebo nalezené moduly stroje času.
+- [x] U bonusového checkpointu trvale odemknout pomůcku pro danou herní relaci bez bodové penalizace.
+- [x] Nabídnout zamčenou pomůcku na vyžádání za předem zobrazenou bodovou cenu.
+- [x] Před odečtením bodů vyžadovat potvrzení hráče a jasně ukázat, zda jde o trvalé nebo dočasné odemčení.
+- [x] Za stejné odemčení v jedné relaci strhnout body pouze jednou.
+- [x] Rozlišit otevření pasivní tabulky od použití stupňované nápovědy ke konkrétní hádance.
+- [x] Zahrnout odemčené pomůcky a zaplacené penalizace do uloženého stavu relace.
 - [ ] Zaznamenávat použití pomůcek pro pozdější vyhodnocení obtížnosti hádanek.
 
 #### První navržené vazby na checkpointy
-- [ ] Po startu zpřístupnit základní Morseovu tabulku jako součást nouzového manuálu komunikátoru.
-- [ ] Bonusový QR u schodiště může odemknout praporovou/semaforovou tabulku bez penalizace.
-- [ ] Nalezení `TEMPORÁLNÍHO MOTORU` může odemknout binární a ASCII referenci.
-- [ ] Nalezení jedné části archivní fólie může odemknout polský kříž.
+- [x] Po startu zpřístupnit základní Morseovu tabulku jako součást nouzového manuálu komunikátoru.
+- [x] Bonusový QR u schodiště může odemknout praporovou/semaforovou tabulku bez penalizace.
+- [x] Nalezení `TEMPORÁLNÍHO MOTORU` může odemknout binární a ASCII referenci.
+- [x] Nalezení archivního checkpointu odemkne polský kříž.
 - [ ] U každé povinné šifry ověřit, že existuje dosažitelná cesta k potřebné pomůcce i při přehlédnutí bonusového QR.
