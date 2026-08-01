@@ -299,6 +299,7 @@
         .scenario-node.available::before { border-color: #fc0; }
         .node-kind { color: #0aa; font-size: .75em; text-transform: uppercase; }
         .node-status { font-size: .75em; text-transform: uppercase; }
+        .node-solution { grid-column: 2 / -1; color: #ffcf5a; font-size: .82em; border-top: 1px dotted #654; padding-top: 5px; }
         .progress-assets { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 12px; }
         .progress-assets div { border: 1px solid #044; padding: 8px; overflow-wrap: anywhere; }
         .puzzle-container { border: 1px solid #0aa; padding: 18px; background: #001214; overflow-y: auto; }
@@ -501,6 +502,15 @@
             0: '-----', 1: '.----', 2: '..---', 3: '...--', 4: '....-', 5: '.....',
             6: '-....', 7: '--...', 8: '---..', 9: '----.'
         };
+        const SEMAPHORE = {
+            A: 'LH down / RH low', B: 'LH down / RH out', C: 'LH down / RH high', D: 'LH down / RH up',
+            E: 'LH high / RH down', F: 'LH out / RH down', G: 'LH low / RH down', H: 'LH across low / RH out',
+            I: 'LH across low / RH up', J: 'LH out / RH up', K: 'LH up / RH low', L: 'LH high / RH low',
+            M: 'LH out / RH low', N: 'LH low / RH low', O: 'LH across high / RH out', P: 'LH up / RH out',
+            Q: 'LH high / RH out', R: 'LH out / RH out', S: 'LH low / RH out', T: 'LH up / RH high',
+            U: 'LH high / RH high', V: 'LH low / RH up', W: 'LH out / RH across high',
+            X: 'LH low / RH across high', Y: 'LH out / RH high', Z: 'LH out / RH across low'
+        };
 
         function referenceTable(entries, headers = ['ZNAK', 'KÓD']) {
             const rows = Object.entries(entries).map(([key, value]) => `<tr><td>${key}</td><td>${value}</td></tr>`).join('');
@@ -532,9 +542,7 @@
                     </tbody></table><p>Orientace znaků se může mezi variantami lišit; rozhoduje mřížka přiložená k zadání.</p>`;
             }
             if (toolId === 'semaphore') {
-                return `<h3>Praporová / semaforová abeceda</h3><p>Každé písmeno určuje dvojice směrů paží. Zobrazení je orientováno z pohledu pozorovatele signalisty.</p>
-                    <p style="font-size:3em; letter-spacing:.25em; line-height:1.5">↙↓ ←↓ ↖↓ ↑↓ ↗↓ →↓ ↘↓</p>
-                    <p>Toto je referenční princip prvního cyklu, nikoli automatický překladač. Kompletní herní diagram je součástí artefaktu odemčeného na schodišti.</p>`;
+                return `<h3>Praporová / semaforová abeceda</h3><p>Každé písmeno určuje dvojice směrů paží. LH je levá a RH pravá paže signalisty; polohy jsou popsané z pohledu pozorovatele stojícího proti němu.</p>${referenceTable(SEMAPHORE, ['PÍSMENO','POLOHA PAŽÍ'])}`;
             }
             return '<p>Pro tuto pomůcku zatím není dostupný referenční list.</p>';
         }
@@ -1076,7 +1084,8 @@
                 const element = document.createElement('div');
                 element.className = `scenario-node ${node.status}`;
                 const dependencies = node.requires.length ? ` · po: ${node.requires.join(', ')}` : '';
-                element.innerHTML = `<span class="node-kind">${escapeHtml(node.kind)}</span><strong>${escapeHtml(node.label)}</strong><span class="node-status">${progressStatusLabel(node.status)}${escapeHtml(dependencies)}</span>`;
+                const solution = node.solution ? `<span class="node-solution"><strong>ŘEŠENÍ:</strong> ${escapeHtml(node.solution)}</span>` : '';
+                element.innerHTML = `<span class="node-kind">${escapeHtml(node.kind)}</span><strong>${escapeHtml(node.label)}</strong><span class="node-status">${progressStatusLabel(node.status)}${escapeHtml(dependencies)}</span>${solution}`;
                 flow.appendChild(element);
             });
             document.getElementById('progress-inventory').textContent = (progress.inventory || []).join(' · ') || '—';

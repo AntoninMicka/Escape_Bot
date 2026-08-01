@@ -27,6 +27,13 @@ class StateMachineCheckpointTests(unittest.IsolatedAsyncioTestCase):
             Message("puzzle.submit", {"puzzle_id": "reception_deduction", "answer": "2147"})
         )
 
+    async def solve_staircase(self):
+        await self.solve_reception()
+        await self.scan("staircase_signal")
+        return await self.machine.handle(
+            Message("puzzle.submit", {"puzzle_id": "staircase_semaphore", "answer": "BOWLING"})
+        )
+
     @staticmethod
     def response(responses, message_type: str):
         return next(item for item in responses if item.type == message_type)
@@ -103,6 +110,9 @@ class StateMachineCheckpointTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(statuses["navigating"], "active")
         self.assertEqual(statuses["reception_archive"], "available")
         self.assertEqual(statuses["staircase_signal"], "locked")
+        solutions = {node["id"]: node["solution"] for node in progress["nodes"]}
+        self.assertEqual(solutions["searching_lost"], "734")
+        self.assertIn("2147", solutions["reception_archive"])
 
     async def test_first_checkpoint_requires_navigating_phase(self) -> None:
         self.machine.state.phase = GamePhase.SEARCHING_LOST
@@ -138,6 +148,24 @@ class StateMachineCheckpointTests(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(self.machine.state.score, 990)
         self.assertEqual(self.machine.state.hints_used["puzzle.reception_deduction"], 1)
+
+    async def test_staircase_puzzle_unlocks_bowling_checkpoint(self) -> None:
+        await self.solve_reception()
+        scanned = await self.scan("staircase_signal")
+        self.assertEqual(self.response(scanned, "qr.result").payload["status"], "found")
+        self.assertIn("semaphore", self.machine.state.unlocked_cipher_tools)
+
+        blocked = await self.scan("bowling_diagnostics")
+        self.assertFalse(self.response(blocked, "qr.result").payload["accepted"])
+
+        solved = await self.machine.handle(
+            Message("puzzle.submit", {"puzzle_id": "staircase_semaphore", "answer": "bowling"})
+        )
+        self.assertTrue(self.response(solved, "puzzle.result").payload["correct"])
+        self.assertTrue(self.machine.state.flags["bowling_route_unlocked"])
+
+        allowed = await self.scan("bowling_diagnostics")
+        self.assertTrue(self.response(allowed, "qr.result").payload["accepted"])
 
 
 if __name__ == "__main__":

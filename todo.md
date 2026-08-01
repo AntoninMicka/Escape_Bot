@@ -221,11 +221,11 @@
 
 ### 13.5 Checkpoint 2 – Schodiště
 **Typ:** praporová abeceda zamaskovaná jako polohy hodinových ručiček.
-- [ ] Připravit zašifrovanou zprávu vedoucí k bowlingu.
-- [ ] Připravit tematickou tabulku praporové abecedy.
-- [ ] Rozhodnout, zda hráči tabulku dostanou fyzicky, nebo ji odemkne QR checkpoint.
-- [ ] Zajistit, aby šifra nebyla zaměnitelná s odečítáním skutečného času.
-- [ ] Po skenu zaznamenat dosažení schodiště a odemknout další krok.
+- [x] Připravit zašifrovanou zprávu vedoucí k bowlingu.
+- [x] Připravit tematickou tabulku praporové abecedy.
+- [x] Rozhodnout, že digitální tabulku odemkne QR checkpoint na schodišti.
+- [x] Zajistit jednoznačnou orientaci levé a pravé paže z pohledu pozorovatele.
+- [x] Po skenu zaznamenat dosažení schodiště a po vyřešení odemknout bowling.
 
 ### 13.6 Checkpoint 3 – Bowling
 **Typ:** binární diagnostika pomocí stojících a spadlých kuželek.
@@ -316,6 +316,7 @@
 - [x] Definovat datový graf fází, checkpointů, virtuálních místností a finále ve scénáři.
 - [x] V demo režimu zobrazit živý stav uzlů `hotovo`, `právě probíhá`, `dostupné` a `uzamčeno`.
 - [x] Ve vizualizaci zobrazit aktuální fázi, skóre, inventář a odemčené pomůcky.
+- [x] Ve vývojové/admin vizualizaci zobrazit správné řešení každého uzlu bez odeslání do běžného hráčského stavu.
 - [x] Oddělit datový snapshot postupu od vykreslení pro pozdější použití v admin panelu.
 - [ ] Vytvořit samostatnou autentizovanou admin stránku se seznamem všech aktivních relací.
 - [ ] Přidat do admin stránky detail týmu založený na stejné vizualizaci `scenario.progress`.

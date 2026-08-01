@@ -11,11 +11,11 @@
     }
   },
   "scenario_flow": [
-    {"id": "comms_offline", "label": "Navázání spojení", "kind": "phase", "requires": []},
-    {"id": "searching_lost", "label": "Frekvence 734", "kind": "phase", "requires": ["comms_offline"]},
-    {"id": "lost_connected", "label": "První kontakt s Elarou", "kind": "phase", "requires": ["searching_lost"]},
-    {"id": "connection_lost", "label": "Výpadek chronosignálu", "kind": "phase", "requires": ["lost_connected"]},
-    {"id": "navigating", "label": "CHRONOMAPA aktivní", "kind": "phase", "requires": ["connection_lost"]},
+    {"id": "comms_offline", "label": "Navázání spojení", "kind": "phase", "requires": [], "solution": "Odeslat libovolnou zprávu"},
+    {"id": "searching_lost", "label": "Frekvence 734", "kind": "phase", "requires": ["comms_offline"], "solution": "734"},
+    {"id": "lost_connected", "label": "První kontakt s Elarou", "kind": "phase", "requires": ["searching_lost"], "solution": "Odeslat libovolnou zprávu"},
+    {"id": "connection_lost", "label": "Výpadek chronosignálu", "kind": "phase", "requires": ["lost_connected"], "solution": "restart"},
+    {"id": "navigating", "label": "CHRONOMAPA aktivní", "kind": "phase", "requires": ["connection_lost"], "solution": "Aktivovat recepční QR"},
     {"id": "reception_archive", "label": "Recepční archiv", "kind": "checkpoint", "requires": ["navigating"]},
     {"id": "staircase_signal", "label": "Signál na schodišti", "kind": "checkpoint", "requires": ["reception_archive"]},
     {"id": "bowling_diagnostics", "label": "Diagnostika bowlingu", "kind": "checkpoint", "requires": ["staircase_signal"]},
@@ -147,6 +147,37 @@
         {"text": "Pokoj 104 patří Chen. Pokoj 207 obsahoval krystal.", "penalty": 20},
         {"text": "Elaře zbývá fázový stabilizátor, pokoj 214 a pozice 7.", "penalty": 35}
       ]
+    },
+    "staircase_semaphore": {
+      "title": "Schodišťový chronosignál",
+      "type": "semaphore",
+      "checkpoint_id": "staircase_signal",
+      "instructions": "Poškozený záznam zachytil sedm poloh signalisty. Pomocí odemčené semaforové tabulky převeďte každou dvojici poloh levé (LH) a pravé (RH) paže na písmeno. Výsledné slovo určí další místo.",
+      "categories": {
+        "Zachycené polohy": [
+          "1. LH down / RH out",
+          "2. LH across high / RH out",
+          "3. LH out / RH across high",
+          "4. LH high / RH low",
+          "5. LH across low / RH up",
+          "6. LH low / RH low",
+          "7. LH low / RH down"
+        ]
+      },
+      "clues": [
+        "LH označuje levou paži signalisty, RH pravou.",
+        "Polohy se čtou z pohledu pozorovatele stojícího proti signalistovi.",
+        "Výsledkem je sedmipísmenný název místa v hotelu."
+      ],
+      "answer": "BOWLING",
+      "admin_solution": "BOWLING (B–O–W–L–I–N–G)",
+      "success_message": {"text": "Signál přeložen: BOWLING. Chronomapa zachytila diagnostické impulzy v prostoru kuželek.", "mood": "success", "channel": "lost"},
+      "failure_message": {"text": "Sekvence nesouhlasí. Ověřte orientaci levé a pravé paže signalisty.", "mood": "error", "channel": "general"},
+      "hints": [
+        {"text": "První poloha LH down / RH out znamená písmeno B.", "penalty": 10},
+        {"text": "První tři znaky jsou B, O, W.", "penalty": 20},
+        {"text": "Hledané místo je BOWLING.", "penalty": 35}
+      ]
     }
   },
   "checkpoints": {
@@ -163,8 +194,10 @@
       "label": "Signál na schodišti",
       "token": "74c67eaf38ef4b72b22f5c971b7bb7bd",
       "requires": ["reception_archive"],
-      "rewards": {"cipher_tools": ["semaphore"]},
-      "message": {"text": "Kotva na schodišti je stabilní. Obnovila jsem referenční záznam praporové abecedy.", "mood": "relieved", "channel": "lost"}
+      "puzzle_id": "staircase_semaphore",
+      "found_rewards": {"cipher_tools": ["semaphore"]},
+      "rewards": {"flags": ["bowling_route_unlocked"]},
+      "message": {"text": "Kotva na schodišti je stabilní. Obnovila jsem referenční záznam praporové abecedy a zachycenou sekvenci poloh.", "mood": "relieved", "channel": "lost"}
     },
     "bowling_diagnostics": {
       "label": "Binární diagnostika bowlingu",

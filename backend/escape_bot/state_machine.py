@@ -156,8 +156,7 @@ class EscapeBotStateMachine:
             result.append(item)
         return result
 
-    def _apply_checkpoint_rewards(self, checkpoint: dict[str, Any]) -> None:
-        rewards = checkpoint.get("rewards", {})
+    def _apply_rewards(self, rewards: dict[str, Any]) -> None:
         for item in rewards.get("inventory", []):
             if item not in self.state.inventory:
                 self.state.inventory.append(item)
@@ -166,6 +165,9 @@ class EscapeBotStateMachine:
                 self.state.unlocked_cipher_tools.add(tool_id)
         for flag in rewards.get("flags", []):
             self.state.flags[str(flag)] = True
+
+    def _apply_checkpoint_rewards(self, checkpoint: dict[str, Any]) -> None:
+        self._apply_rewards(checkpoint.get("rewards", {}))
 
     def _provide_hint(self, phase: str, message: Message) -> list[Message]:
         p_data = self.scenario.get_phase_data(phase)
@@ -351,6 +353,7 @@ class EscapeBotStateMachine:
         if checkpoint_status == "solved":
             self.state.checkpoint_states[checkpoint_id]["solved_at"] = now
         self.state.unlocked_discoveries.add(checkpoint_id)
+        self._apply_rewards(checkpoint.get("found_rewards", {}))
         if checkpoint_status == "solved":
             self._apply_checkpoint_rewards(checkpoint)
 
