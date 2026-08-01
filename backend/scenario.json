@@ -202,6 +202,26 @@
       },
       "success_message": {"text": "Oba časové proudy drží! Kalibrace 5–3–1 je dokončena a sportovní archiv se znovu objevil na Chronomapě.", "mood": "success", "channel": "lost"},
       "failure_message": {"text": "Kalibrační prostor se zahltil. Obnovte aktuální etapu a zkuste uzly rozložit úsporněji.", "mood": "error", "channel": "general"}
+    },
+    "sports_sokoban": {
+      "title": "Servisní mřížka sportovního archivu",
+      "type": "sokoban",
+      "checkpoint_id": "sports_archive",
+      "instructions": "Elara stojí v servisní vrstvě archivu. Přes interkom v kanálu # ztracená_sig ji navigujte povely NAHORU, DOLŮ, VLEVO a VPRAVO. Příkazy lze spojit čárkami a opakovat například jako „2x NAHORU“. Přesuňte oba energetické články na svítící cíle. Povel ZPĚT vrátí poslední krok a RESET obnoví mřížku.",
+      "admin_solution": "VPRAVO, NAHORU, VLEVO, DOLŮ, VLEVO, DOLŮ, VPRAVO (7 kroků, 2 zatlačení)",
+      "game": {
+        "map": [
+          "#######",
+          "#     #",
+          "# .$  #",
+          "#  @  #",
+          "#  $. #",
+          "#     #",
+          "#######"
+        ]
+      },
+      "success_message": {"text": "Oba články jsou v lůžkách. Servisní síť se rozběhla a KRYSTAL ČASOVÉ KOTVY se znovu materializoval ve vašem čase.", "mood": "success", "channel": "lost"},
+      "failure_message": {"text": "Článek se v této poloze nepohne. Potřebuji se k němu dostat z jiné strany.", "mood": "error", "channel": "lost"}
     }
   },
   "checkpoints": {
@@ -252,8 +272,9 @@
       "label": "Archiv sportovního areálu",
       "token": "de724be50829411287a0536095cc9148",
       "requires": ["timeline_calibration"],
+      "puzzle_id": "sports_sokoban",
       "rewards": {"inventory": ["KRYSTAL ČASOVÉ KOTVY"], "cipher_tools": ["pigpen"]},
-      "message": {"text": "Třetí součást nalezena. KRYSTAL ČASOVÉ KOTVY je aktivní; archiv budoucnosti se otevírá.", "mood": "success", "channel": "general"}
+      "message": {"text": "Sportovní archiv je nalezen, ale jeho servisní síť nemá napájení. Navigujte Elaru přes interkom a usaďte oba energetické články.", "mood": "focused", "channel": "captain"}
     }
   },
   "room_defaults": {

@@ -135,6 +135,24 @@ Spustí nový pokus: obnoví pětibarevnou mřížku, průběh všech tří cíl
 }
 ```
 
+### `sokoban.command`
+
+Provede deterministickou sekvenci pohybů Elary. Povolené hodnoty jsou `up`, `down`, `left` a `right`; sekvence se zastaví před první neprůchodnou stěnou nebo článkem. Stejnou zprávu vytváří parser českých povelů z kanálu Elary.
+
+```json
+{
+  "type": "sokoban.command",
+  "payload": {
+    "puzzle_id": "sports_sokoban",
+    "commands": ["right", "up", "left"]
+  }
+}
+```
+
+### `sokoban.undo` a `sokoban.reset`
+
+`undo` vrátí poslední skutečně provedený krok včetně zatlačení článku. `reset` obnoví počáteční mapu a zvýší počítadlo restartů.
+
 ### `arg.verify`
 
 Asks backend to verify a physical discovery.
@@ -195,6 +213,10 @@ Vrátí `correct`, identifikátor hádanky a aktuální počet pokusů. Aktualiz
 ### `line_game.result`
 
 Potvrdí nebo odmítne výměnu či restart. Úspěšná výměna obsahuje `scored`, počet `cascades` a `game_complete`. Při dokončení obsahuje také `score_delta`: před třetí minutou +5 bodů za každých 10 sekund náskoku, po třetí minutě −5 bodů za každých 10 sekund zpoždění. Změna je současně potvrzena zprávou `score.update`. Autoritativní mřížka, deadline, zbývající čas a průběh cílů jsou vždy poslány v následném `game.state` uvnitř příslušné hádanky.
+
+### `sokoban.result`
+
+Obsahuje počet požadovaných a skutečně provedených kroků, počet zatlačení, příznak `blocked` a případně `game_complete`. Po dokončení následuje běžný `puzzle.result`, příběhová zpráva a aktualizovaný `game.state` s odměnami checkpointu.
 
 ## Vývojový demo režim
 

@@ -10,6 +10,14 @@ from .protocol import Message, reply
 from .scenario import Scenario
 from .ollama_adapter import OllamaAdapter
 from .line_game import new_game, public_game, reset_game, swap
+from .sokoban import (
+    execute as execute_sokoban,
+    new_game as new_sokoban,
+    parse_commands as parse_sokoban_commands,
+    public_game as public_sokoban,
+    reset_game as reset_sokoban,
+    undo as undo_sokoban,
+)
 
 
 class GamePhase(StrEnum):
@@ -37,6 +45,7 @@ class GameState:
     paid_cipher_tools: set[str] = field(default_factory=set)
     puzzle_attempts: dict[str, int] = field(default_factory=dict)
     interactive_games: dict[str, dict[str, Any]] = field(default_factory=dict)
+    sokoban_games: dict[str, dict[str, Any]] = field(default_factory=dict)
 
     def snapshot(self) -> dict[str, Any]:
         return {
@@ -52,6 +61,7 @@ class GameState:
             "paid_cipher_tools": sorted(self.paid_cipher_tools),
             "puzzle_attempts": self.puzzle_attempts,
             "interactive_games": self.interactive_games,
+            "sokoban_games": self.sokoban_games,
         }
 
     @classmethod
@@ -69,6 +79,7 @@ class GameState:
         state.paid_cipher_tools = set(data.get("paid_cipher_tools", []))
         state.puzzle_attempts = dict(data.get("puzzle_attempts", {}))
         state.interactive_games = dict(data.get("interactive_games", {}))
+        state.sokoban_games = dict(data.get("sokoban_games", {}))
         return state
 
 
@@ -110,6 +121,9 @@ class EscapeBotStateMachine:
             "puzzle.hint": self._handle_puzzle_hint,
             "line_game.move": self._handle_line_game_move,
             "line_game.reset": self._handle_line_game_reset,
+            "sokoban.command": self._handle_sokoban_command,
+            "sokoban.undo": self._handle_sokoban_undo,
+            "sokoban.reset": self._handle_sokoban_reset,
         }
         handler = handlers.get(message.type, self._handle_unknown)
         responses = await handler(message)
@@ -165,6 +179,9 @@ class EscapeBotStateMachine:
                     config = puzzle.get("game", {})
                     game = self._line_game_state(puzzle_id, config)
                     item["game"] = public_game(config, game)
+                elif puzzle.get("type") == "sokoban":
+                    game = self._sokoban_state(puzzle_id, puzzle.get("game", {}))
+                    item["game"] = public_sokoban(game)
             result.append(item)
         return result
 
@@ -297,6 +314,23 @@ class EscapeBotStateMachine:
                     ]
 
         # Výchozí odpověď pro fázi NAVIGATING
+        if str(message.payload.get("channel", "general")) == "lost":
+            sokoban_id = self._active_sokoban_id()
+            if sokoban_id:
+                try:
+                    commands = parse_sokoban_commands(text)
+                except ValueError as error:
+                    return [
+                        reply("bot.message", {"text": str(error), "mood": "error", "channel": "lost"}, message),
+                        self._state_message(),
+                    ]
+                if commands == ["undo"]:
+                    return await self._handle_sokoban_undo(Message("sokoban.undo", {"puzzle_id": sokoban_id}, message.request_id))
+                if commands == ["reset"]:
+                    return await self._handle_sokoban_reset(Message("sokoban.reset", {"puzzle_id": sokoban_id}, message.request_id))
+                if commands:
+                    return await self._execute_sokoban_commands(sokoban_id, commands, message)
+
         p_data = self.scenario.get_phase_data("navigating")
         
         ai_prompt = p_data.get("ai_system_prompt")
@@ -391,7 +425,7 @@ class EscapeBotStateMachine:
         puzzle = self.scenario.data.get("puzzles", {}).get(puzzle_id)
         if puzzle is None:
             return [reply("puzzle.result", {"correct": False, "reason": "Neznámá hádanka."}, message)]
-        if puzzle.get("type") == "line_game":
+        if puzzle.get("type") in {"line_game", "sokoban"}:
             return [reply("puzzle.result", {"correct": False, "reason": "Tato úloha se řeší přímo na herní mřížce."}, message)]
 
         checkpoint_id = str(puzzle.get("checkpoint_id", ""))
@@ -527,6 +561,93 @@ class EscapeBotStateMachine:
             return [reply("line_game.result", {"success": False, "reason": str(error)}, message), self._state_message()]
         return [
             reply("line_game.result", {"success": True, "reset": True}, message),
+            self._state_message(),
+        ]
+
+    def _active_sokoban_id(self) -> str | None:
+        for puzzle_id, puzzle in self.scenario.data.get("puzzles", {}).items():
+            if puzzle.get("type") != "sokoban":
+                continue
+            checkpoint = self.state.checkpoint_states.get(str(puzzle.get("checkpoint_id", "")), {})
+            if checkpoint.get("status") == "found":
+                return puzzle_id
+        return None
+
+    def _sokoban_state(self, puzzle_id: str, config: dict[str, Any]) -> dict[str, Any]:
+        game = self.state.sokoban_games.get(puzzle_id)
+        if not isinstance(game, dict) or not isinstance(game.get("boxes"), list) or not game.get("player"):
+            game = new_sokoban(config)
+            self.state.sokoban_games[puzzle_id] = game
+        return game
+
+    def _active_sokoban(self, puzzle_id: str) -> tuple[dict[str, Any], dict[str, Any], dict[str, Any]]:
+        puzzle = self.scenario.data.get("puzzles", {}).get(puzzle_id)
+        if puzzle is None or puzzle.get("type") != "sokoban":
+            raise ValueError("Neznámá sokobanová úloha.")
+        checkpoint_state = self.state.checkpoint_states.get(str(puzzle.get("checkpoint_id", "")))
+        if checkpoint_state is None:
+            raise ValueError("Energetická mřížka zatím nebyla nalezena.")
+        if checkpoint_state.get("status") == "solved":
+            raise ValueError("Energetická mřížka už byla stabilizovaná.")
+        return puzzle, checkpoint_state, self._sokoban_state(puzzle_id, puzzle.get("game", {}))
+
+    async def _handle_sokoban_command(self, message: Message) -> list[Message]:
+        puzzle_id = str(message.payload.get("puzzle_id", "")).strip()
+        commands = message.payload.get("commands", [])
+        if not isinstance(commands, list):
+            return [reply("sokoban.result", {"success": False, "reason": "Neplatná sekvence."}, message)]
+        return await self._execute_sokoban_commands(puzzle_id, [str(command) for command in commands], message)
+
+    async def _execute_sokoban_commands(self, puzzle_id: str, commands: list[str], message: Message) -> list[Message]:
+        try:
+            puzzle, checkpoint_state, game = self._active_sokoban(puzzle_id)
+            result = execute_sokoban(game, commands)
+        except ValueError as error:
+            return [reply("sokoban.result", {"success": False, "reason": str(error)}, message), self._state_message()]
+
+        responses = [reply("sokoban.result", {"success": True, **result}, message)]
+        if result["blocked"]:
+            text = f"Provedla jsem {result['executed']} z {result['requested']} kroků. Další pohyb blokuje stěna nebo energetický článek."
+        else:
+            text = f"Sekvence potvrzena: {result['executed']} kroků, přesunuté články: {result['pushes']}."
+        responses.append(reply("bot.message", {"text": text, "mood": "focused", "channel": "lost"}, message))
+        if result["game_complete"]:
+            now = datetime.now(UTC).isoformat()
+            checkpoint_state["status"] = "solved"
+            checkpoint_state["solved_at"] = now
+            checkpoint = self.scenario.data.get("checkpoints", {}).get(puzzle.get("checkpoint_id"), {})
+            self._apply_checkpoint_rewards(checkpoint)
+            responses.extend([
+                reply("puzzle.result", {"correct": True, "puzzle_id": puzzle_id}, message),
+                reply("bot.message", puzzle.get("success_message", {}), message),
+            ])
+        responses.append(self._state_message())
+        return responses
+
+    async def _handle_sokoban_undo(self, message: Message) -> list[Message]:
+        puzzle_id = str(message.payload.get("puzzle_id", "")).strip()
+        try:
+            _, _, game = self._active_sokoban(puzzle_id)
+            changed = undo_sokoban(game)
+        except ValueError as error:
+            return [reply("sokoban.result", {"success": False, "reason": str(error)}, message), self._state_message()]
+        text = "Vrátila jsem poslední krok." if changed else "Nemám žádný krok, ke kterému se mohu vrátit."
+        return [
+            reply("sokoban.result", {"success": changed, "undo": changed, "reason": "" if changed else text}, message),
+            reply("bot.message", {"text": text, "mood": "focused", "channel": "lost"}, message),
+            self._state_message(),
+        ]
+
+    async def _handle_sokoban_reset(self, message: Message) -> list[Message]:
+        puzzle_id = str(message.payload.get("puzzle_id", "")).strip()
+        try:
+            puzzle, _, game = self._active_sokoban(puzzle_id)
+            reset_sokoban(puzzle.get("game", {}), game)
+        except ValueError as error:
+            return [reply("sokoban.result", {"success": False, "reason": str(error)}, message), self._state_message()]
+        return [
+            reply("sokoban.result", {"success": True, "reset": True}, message),
+            reply("bot.message", {"text": "Vracíme se k poslední stabilní časové kotvě. Mřížka je znovu v počáteční poloze.", "mood": "alert", "channel": "lost"}, message),
             self._state_message(),
         ]
 

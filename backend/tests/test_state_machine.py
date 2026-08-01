@@ -4,6 +4,7 @@ from pathlib import Path
 
 from escape_bot.protocol import Message
 from escape_bot.line_game import completion_time_score
+from escape_bot.sokoban import parse_commands
 from escape_bot.scenario import ScenarioLoader, build_demo_checkpoint_catalog, build_scenario_progress
 from escape_bot.state_machine import EscapeBotStateMachine, GamePhase
 
@@ -65,6 +66,13 @@ class StateMachineCheckpointTests(unittest.IsolatedAsyncioTestCase):
         game["board"][0][4] = "violet"
         game["board"][1][4] = "cyan"
         return game
+
+    async def unlock_sokoban(self):
+        await self.unlock_timeline_game()
+        game = self.prepare_five_match()
+        game["progress"] = {"3": 5, "4": 3, "5": 0}
+        await self.line_swap([0, 4], [1, 4])
+        return await self.scan("sports_archive")
 
     @staticmethod
     def response(responses, message_type: str):
@@ -344,6 +352,48 @@ class StateMachineCheckpointTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(completion_time_score(config, game, started + timedelta(seconds=60)), 60)
         self.assertEqual(completion_time_score(config, game, started + timedelta(seconds=180)), 0)
         self.assertEqual(completion_time_score(config, game, started + timedelta(seconds=240)), -30)
+
+    def test_sokoban_parser_accepts_czech_sequences_and_repetition(self) -> None:
+        self.assertEqual(
+            parse_commands("vpravo, nahoru, 2x vlevo, dolů"),
+            ["right", "up", "left", "left", "down"],
+        )
+        self.assertEqual(parse_commands("zpět"), ["undo"])
+        self.assertIsNone(parse_commands("co vidíš kolem sebe?"))
+
+    async def test_sokoban_rewards_are_delayed_until_intercom_solution(self) -> None:
+        scanned = await self.unlock_sokoban()
+        self.assertEqual(self.response(scanned, "qr.result").payload["status"], "found")
+        self.assertNotIn("KRYSTAL ČASOVÉ KOTVY", self.machine.state.inventory)
+        self.assertNotIn("pigpen", self.machine.state.unlocked_cipher_tools)
+
+        responses = await self.machine.handle(Message("player.message", {
+            "channel": "lost",
+            "text": "vpravo, nahoru, vlevo, dolů, vlevo, dolů, vpravo",
+        }))
+
+        result = self.response(responses, "sokoban.result")
+        self.assertTrue(result.payload["game_complete"])
+        self.assertEqual(result.payload["executed"], 7)
+        self.assertEqual(self.machine.state.checkpoint_states["sports_archive"]["status"], "solved")
+        self.assertIn("KRYSTAL ČASOVÉ KOTVY", self.machine.state.inventory)
+        self.assertIn("pigpen", self.machine.state.unlocked_cipher_tools)
+
+    async def test_sokoban_blocked_sequence_undo_and_restore(self) -> None:
+        await self.unlock_sokoban()
+        blocked = await self.machine.handle(Message("sokoban.command", {
+            "puzzle_id": "sports_sokoban", "commands": ["up", "up", "up"],
+        }))
+        result = self.response(blocked, "sokoban.result")
+        self.assertTrue(result.payload["blocked"])
+        self.assertEqual(result.payload["executed"], 1)
+
+        undone = await self.machine.handle(Message("sokoban.undo", {"puzzle_id": "sports_sokoban"}))
+        self.assertTrue(self.response(undone, "sokoban.result").payload["undo"])
+        game = self.machine.state.sokoban_games["sports_sokoban"]
+        restored = EscapeBotStateMachine(self.scenario)
+        restored.restore_state(self.machine.state.snapshot())
+        self.assertEqual(restored.state.sokoban_games["sports_sokoban"], game)
 
 
 if __name__ == "__main__":

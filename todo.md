@@ -345,18 +345,21 @@
 ### 13.10.2 Interkomový Sokoban
 **Cíl:** navigovat Elaru v uzavřeném prostoru a správným pořadím pohybů přesunout energetické články na cílové pozice. Hráči dávají pokyny přes interkom a sledují jejich provedení na herní mřížce.
 
-- [ ] Příběhově zasadit úkol jako opravu napájení stroje času nebo uvolnění zablokované laboratoře.
-- [ ] Navrhnout menší mapu se stěnami, Elarou, přesouvatelnými články a jasně označenými cílovými poli.
-- [ ] Zajistit, aby řešení vyžadovalo plánování, ale neobsahovalo snadno přehlédnutelný nevratný zásek bez možnosti obnovy.
-- [ ] Použít stejné deterministické interkomové příkazy jako u Robota Karla: pohyb po jednom kroku i potvrzená sekvence.
-- [ ] Nechat Elaru odmítnout nemožný pohyb a příběhově komentovat tlačení článku, překážku i blížící se dokončení.
-- [ ] Animovat pohyb Elary a článků na responzivní mřížce; zvýraznit cílová pole a již správně umístěné články.
-- [ ] Umožnit vrácení posledního tahu, restart mapy a zásah Game Mastera, aby se tým nemohl trvale zablokovat.
-- [ ] Ukládat mapu, historii tahů, počet restartů a nejlepší dosažený stav do relace.
-- [ ] V demo/admin režimu zobrazit správné řešení, optimální počet tahů a aktuální odchylku týmu.
-- [ ] Po vyřešení fyzicky nebo digitálně odemknout energetický modul, QR checkpoint či další místnost.
-- [ ] Implementovat obecný datový formát mapy a automaticky ověřit počet beden, cílů a řešitelnost úrovně.
-- [ ] Otestovat ovládání přes interkom, souběžné příkazy, undo, restart a obnovení rozehrané pozice.
+- [x] Příběhově zasadit úkol jako opravu napájení servisní sítě sportovního archivu.
+- [x] Navrhnout menší mapu se stěnami, Elarou, dvěma energetickými články a dvěma cílovými poli.
+- [x] Zajistit možnost návratu posledního kroku a úplného restartu proti nevratnému zablokování.
+- [x] Implementovat deterministické příkazy `NAHORU`, `DOLŮ`, `VLEVO`, `VPRAVO`, opakování a sekvence oddělené čárkou.
+- [x] Zpracovávat navigační povely z kanálu `# ztracená_sig` bez volného AI vyhodnocení.
+- [x] Nechat Elaru potvrdit provedené kroky, zatlačení a místo zastavení zablokované sekvence.
+- [x] Zobrazit responzivní mřížku s Elarou, stěnami, články, cíli a články správně usazenými na cíli.
+- [x] Umožnit vrácení posledního tahu a restart mapy; v demo režimu doplnit směrová tlačítka.
+- [x] Ukládat mapu, historii kroků, sekvence, počet zatlačení a restartů do relace.
+- [x] Po vyřešení přidělit `KRYSTAL ČASOVÉ KOTVY`, odemknout polský kříž a dokončit sportovní checkpoint.
+- [x] Definovat mapu znaky ve scénáři a při načtení ověřit hráče, články, cíle a obdélníkový tvar.
+- [x] Otestovat český parser, kompletní řešení, zablokovanou sekvenci, undo a obnovení relace.
+- [ ] Animovat sekvenci krok po kroku místo okamžitého překreslení do koncové polohy.
+- [ ] V budoucím admin panelu zobrazit správné řešení, optimální počet tahů a aktuální odchylku týmu.
+- [ ] Po uživatelském testu nahradit prototypovou mapu obtížnější finální úrovní.
 
 ### 13.10.3 Interaktivní Had – sběr časových fragmentů
 **Cíl:** nabídnout krátkou akční mezihru ovládanou přímo hráčem. Had představuje proud energie nebo časovou stopu, která sbírá fragmenty potřebné ke stabilizaci stroje času.

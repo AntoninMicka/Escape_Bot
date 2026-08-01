@@ -341,6 +341,17 @@
         .line-game-cell.red { color: #fff; background: #a8323e; }
         .line-game-meta { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px; color: #9dd; }
         .line-game-failed { padding: 10px; border: 1px solid #f44; color: #f66; margin: 10px 0; }
+        .sokoban-game { max-width: 620px; margin-top: 16px; padding: 14px; border: 1px solid #0a7; background: #000d0b; }
+        .sokoban-board { display: grid; gap: 3px; width: min(100%, 500px); aspect-ratio: 1; margin: 12px auto; }
+        .sokoban-cell { display: grid; place-items: center; min-width: 0; border: 1px solid #164; background: #061815; color: #9ff; font-size: clamp(1rem, 5vw, 2rem); }
+        .sokoban-cell.wall { background: repeating-linear-gradient(135deg, #151515, #151515 7px, #303030 7px, #303030 14px); border-color: #444; }
+        .sokoban-cell.target { color: #00ff9d; background: #00291c; box-shadow: inset 0 0 12px #073; }
+        .sokoban-cell.box { color: #ffb000; background: #382600; border-color: #ffb000; }
+        .sokoban-cell.box-on-target { color: #00150d; background: #00df89; border-color: #8fffc9; box-shadow: 0 0 10px #00df89; }
+        .sokoban-cell.player { color: #fff; background: #005761; border-color: #0ff; text-shadow: 0 0 7px #0ff; }
+        .sokoban-meta { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px; color: #9dd; }
+        .sokoban-controls { display: grid; grid-template-columns: repeat(3, 64px); justify-content: center; gap: 6px; margin: 12px 0; }
+        .sokoban-controls button { padding: 12px 5px; }
         @media (max-width: 700px) {
             body { padding: 10px; height: 94vh; }
             .tabs { overflow-x: auto; margin: -10px -10px 12px; scrollbar-width: thin; }
@@ -937,6 +948,12 @@
                         showNotification('Aktuální etapa byla obnovena.', 'info');
                     }
                 }
+                else if (msg.type === 'sokoban.result') {
+                    if (!msg.payload.success) showNotification(msg.payload.reason || 'Pohyb nelze provést.', 'error');
+                    else if (msg.payload.game_complete) showNotification('Energetická mřížka stabilizována!', 'success');
+                    else if (msg.payload.reset) showNotification('Servisní mřížka obnovena.', 'info');
+                    else if (msg.payload.undo) showNotification('Poslední krok vrácen.', 'info');
+                }
                 else if (msg.type === 'demo.catalog') {
                     renderDemoScanner(msg.payload);
                 }
@@ -1091,7 +1108,9 @@
                 ).join('');
                 const clues = (puzzle.clues || []).map(clue => `<li>${escapeHtml(clue)}</li>`).join('');
                 const solved = puzzle.status === 'solved';
-                const interactiveGame = puzzle.type === 'line_game' ? renderLineGame(puzzle, solved) : '';
+                const interactiveGame = puzzle.type === 'line_game'
+                    ? renderLineGame(puzzle, solved)
+                    : (puzzle.type === 'sokoban' ? renderSokoban(puzzle, solved) : '');
                 return `<article class="puzzle-card">
                     <h3>${escapeHtml(puzzle.title)}</h3>
                     <p>${escapeHtml(puzzle.instructions)}</p>
@@ -1176,6 +1195,59 @@
             });
         }
         setInterval(updateLineGameTimers, 1000);
+
+        function renderSokoban(puzzle, solved) {
+            const game = puzzle.game;
+            if (!game) return '<p class="puzzle-locked">Servisní mřížka se načítá…</p>';
+            const positions = values => new Set((values || []).map(position => `${position[0]}:${position[1]}`));
+            const walls = positions(game.walls);
+            const targets = positions(game.targets);
+            const boxes = positions(game.boxes);
+            const player = `${game.player[0]}:${game.player[1]}`;
+            let cells = '';
+            for (let row = 0; row < game.rows; row++) {
+                for (let column = 0; column < game.columns; column++) {
+                    const key = `${row}:${column}`;
+                    let cellClass = '', symbol = '', label = 'volná podlaha';
+                    if (walls.has(key)) { cellClass = 'wall'; symbol = '▓'; label = 'stěna'; }
+                    else if (boxes.has(key) && targets.has(key)) { cellClass = 'box-on-target'; symbol = '◆'; label = 'článek na cíli'; }
+                    else if (boxes.has(key)) { cellClass = 'box'; symbol = '◆'; label = 'energetický článek'; }
+                    else if (key === player) { cellClass = 'player'; symbol = 'E'; label = 'Elara'; }
+                    else if (targets.has(key)) { cellClass = 'target'; symbol = '◎'; label = 'cílové lůžko'; }
+                    cells += `<div class="sokoban-cell ${cellClass}" aria-label="${label}, pole ${row + 1}, ${column + 1}">${symbol}</div>`;
+                }
+            }
+            if (solved || game.status === 'complete') {
+                return `<div class="sokoban-game"><div class="sokoban-board" style="grid-template-columns:repeat(${game.columns},1fr)">${cells}</div><p class="puzzle-status solved">SERVISNÍ SÍŤ OBNOVENA · CHECKPOINT POTVRZEN</p></div>`;
+            }
+            const demoControls = demoModeRequested ? `<div class="sokoban-controls">
+                <span></span><button onclick="sendSokobanCommand('${escapeHtml(puzzle.id)}','up')">↑</button><span></span>
+                <button onclick="sendSokobanCommand('${escapeHtml(puzzle.id)}','left')">←</button><button onclick="sendSokobanCommand('${escapeHtml(puzzle.id)}','down')">↓</button><button onclick="sendSokobanCommand('${escapeHtml(puzzle.id)}','right')">→</button>
+            </div>` : '';
+            return `<div class="sokoban-game">
+                <div class="sokoban-meta"><span>KROKY: ${game.moves}</span><span>ZATLAČENÍ: ${game.pushes}</span><span>RESTARTY: ${game.restarts}</span></div>
+                <div class="sokoban-board" style="grid-template-columns:repeat(${game.columns},1fr)">${cells}</div>
+                <p>Pokyny posílejte Elaře v kanálu <strong># ztracená_sig</strong>.${demoModeRequested ? ' V demo režimu lze použít také tlačítka.' : ''}</p>
+                ${demoControls}
+                <div class="puzzle-actions"><button onclick="undoSokoban('${escapeHtml(puzzle.id)}')">ZPĚT</button><button onclick="resetSokoban('${escapeHtml(puzzle.id)}')">RESET</button></div>
+            </div>`;
+        }
+
+        function sendSokobanCommand(puzzleId, command) {
+            if (!ws || ws.readyState !== WebSocket.OPEN) { showNotification('Terminál není připojen.', 'error'); return; }
+            ws.send(JSON.stringify({type:'sokoban.command', payload:{puzzle_id:puzzleId, commands:[command]}}));
+        }
+
+        function undoSokoban(puzzleId) {
+            if (!ws || ws.readyState !== WebSocket.OPEN) return;
+            ws.send(JSON.stringify({type:'sokoban.undo', payload:{puzzle_id:puzzleId}}));
+        }
+
+        function resetSokoban(puzzleId) {
+            if (!window.confirm('Obnovit servisní mřížku do počáteční polohy?')) return;
+            if (!ws || ws.readyState !== WebSocket.OPEN) return;
+            ws.send(JSON.stringify({type:'sokoban.reset', payload:{puzzle_id:puzzleId}}));
+        }
 
         function submitPuzzle(puzzleId) {
             const input = document.getElementById(`puzzle-answer-${puzzleId}`);
