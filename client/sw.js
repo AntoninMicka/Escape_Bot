@@ -1,9 +1,10 @@
-const CACHE_NAME = 'escape-bot-v1';
+const CACHE_NAME = 'escape-bot-v2';
 const ASSETS_TO_CACHE = [
     './',
     './index.html',
     './manifest.json',
     './icon.svg',
+    './assets/puzzles/elara-clock-gallery.png',
     'https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js'
 ];
 

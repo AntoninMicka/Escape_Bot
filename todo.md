@@ -226,6 +226,8 @@
 - [x] Rozhodnout, že digitální tabulku odemkne QR checkpoint na schodišti.
 - [x] Zajistit jednoznačnou orientaci levé a pravé paže z pohledu pozorovatele.
 - [x] Po skenu zaznamenat dosažení schodiště a po vyřešení odemknout bowling.
+- [x] Nahradit textový popis šifry jedinou koláží sedmi dovolenkových fotografií Elary u slavných hodin.
+- [x] Zakódovat slovo `BOWLING` polohami modré a červené ručičky a neposkytovat u hádanky slovní návod.
 
 ### 13.6 Checkpoint 3 – Bowling
 **Typ:** binární diagnostika pomocí stojících a spadlých kuželek.
@@ -284,7 +286,7 @@
 
 ### 13.12 Hádanky, nápovědy a testování
 - [ ] U každé hádanky napsat zadání, řešení, mezikroky a akceptované varianty odpovědi.
-- [ ] Ke každé hádance připravit tři stupně nápovědy s rostoucí bodovou penalizací.
+- [ ] U vybraných hádanek připravit a otestovat stupňované nápovědy; obtížnější checkpointy mohou být záměrně bez nápověd.
 - [ ] Střídat logické úlohy, klasické šifry, pohyb a manipulaci s artefakty.
 - [ ] Nevkládat za sebe více než dvě substituční šifry.
 - [ ] U každé použité šifry vysvětlit její existenci v rámci příběhu.

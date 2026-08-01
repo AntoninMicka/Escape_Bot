@@ -152,32 +152,12 @@
       "title": "Schodišťový chronosignál",
       "type": "semaphore",
       "checkpoint_id": "staircase_signal",
-      "instructions": "Poškozený záznam zachytil sedm poloh signalisty. Pomocí odemčené semaforové tabulky převeďte každou dvojici poloh levé (LH) a pravé (RH) paže na písmeno. Výsledné slovo určí další místo.",
-      "categories": {
-        "Zachycené polohy": [
-          "1. LH down / RH out",
-          "2. LH across high / RH out",
-          "3. LH out / RH across high",
-          "4. LH high / RH low",
-          "5. LH across low / RH up",
-          "6. LH low / RH low",
-          "7. LH low / RH down"
-        ]
-      },
-      "clues": [
-        "LH označuje levou paži signalisty, RH pravou.",
-        "Polohy se čtou z pohledu pozorovatele stojícího proti signalistovi.",
-        "Výsledkem je sedmipísmenný název místa v hotelu."
-      ],
+      "instructions": "Nalezený obrazový soubor z Elařina osobního archivu.",
+      "image": "assets/puzzles/elara-clock-gallery.png",
       "answer": "BOWLING",
       "admin_solution": "BOWLING (B–O–W–L–I–N–G)",
       "success_message": {"text": "Signál přeložen: BOWLING. Chronomapa zachytila diagnostické impulzy v prostoru kuželek.", "mood": "success", "channel": "lost"},
-      "failure_message": {"text": "Sekvence nesouhlasí. Ověřte orientaci levé a pravé paže signalisty.", "mood": "error", "channel": "general"},
-      "hints": [
-        {"text": "První poloha LH down / RH out znamená písmeno B.", "penalty": 10},
-        {"text": "První tři znaky jsou B, O, W.", "penalty": 20},
-        {"text": "Hledané místo je BOWLING.", "penalty": 35}
-      ]
+      "failure_message": {"text": "Archivní systém v nalezeném souboru tuto odpověď nepotvrzuje.", "mood": "error", "channel": "general"}
     }
   },
   "checkpoints": {

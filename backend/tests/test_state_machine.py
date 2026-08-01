@@ -167,6 +167,20 @@ class StateMachineCheckpointTests(unittest.IsolatedAsyncioTestCase):
         allowed = await self.scan("bowling_diagnostics")
         self.assertTrue(self.response(allowed, "qr.result").payload["accepted"])
 
+    async def test_staircase_puzzle_has_no_hints(self) -> None:
+        await self.solve_reception()
+        await self.scan("staircase_signal")
+        puzzle_state = next(item for item in self.machine._puzzle_state() if item["id"] == "staircase_semaphore")
+        self.assertFalse(puzzle_state["has_hints"])
+        self.assertEqual(puzzle_state["image"], "assets/puzzles/elara-clock-gallery.png")
+        self.assertEqual(puzzle_state["categories"], {})
+        self.assertEqual(puzzle_state["clues"], [])
+
+        responses = await self.machine.handle(Message("puzzle.hint", {"puzzle_id": "staircase_semaphore"}))
+        error = self.response(responses, "error")
+        self.assertIn("Nejsou dostupné", error.payload["message"])
+        self.assertEqual(self.machine.state.score, 1000)
+
 
 if __name__ == "__main__":
     unittest.main()

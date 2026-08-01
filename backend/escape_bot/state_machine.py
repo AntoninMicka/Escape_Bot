@@ -146,10 +146,12 @@ class EscapeBotStateMachine:
                 "type": puzzle.get("type", "text"),
                 "status": status,
                 "attempts": self.state.puzzle_attempts.get(puzzle_id, 0),
+                "has_hints": bool(puzzle.get("hints")),
             }
             if status in {"found", "solved"}:
                 item.update({
                     "instructions": puzzle.get("instructions", ""),
+                    "image": puzzle.get("image"),
                     "categories": puzzle.get("categories", {}),
                     "clues": puzzle.get("clues", []),
                 })

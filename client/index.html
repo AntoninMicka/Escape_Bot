@@ -305,6 +305,7 @@
         .puzzle-container { border: 1px solid #0aa; padding: 18px; background: #001214; overflow-y: auto; }
         .puzzle-card { max-width: 950px; }
         .puzzle-card h3 { color: #0ff; }
+        .puzzle-artifact { display: block; width: 100%; max-height: 68vh; object-fit: contain; margin: 16px 0; border: 1px solid #466; background: #000; }
         .puzzle-categories { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 10px; margin: 16px 0; }
         .puzzle-category { border: 1px solid #055; padding: 10px; background: #000; }
         .puzzle-category strong { display: block; color: #0aa; margin-bottom: 7px; }
@@ -1000,6 +1001,7 @@
             }
 
             container.innerHTML = visible.map(puzzle => {
+                const artifact = puzzle.image ? `<img class="puzzle-artifact" src="${escapeHtml(puzzle.image)}" alt="Nalezený obrazový artefakt">` : '';
                 const categories = Object.entries(puzzle.categories || {}).map(([name, values]) =>
                     `<div class="puzzle-category"><strong>${escapeHtml(name)}</strong>${values.map(value => `<span>${escapeHtml(value)}</span>`).join('')}</div>`
                 ).join('');
@@ -1008,12 +1010,13 @@
                 return `<article class="puzzle-card">
                     <h3>${escapeHtml(puzzle.title)}</h3>
                     <p>${escapeHtml(puzzle.instructions)}</p>
+                    ${artifact}
                     <div class="puzzle-categories">${categories}</div>
                     <ol class="puzzle-clues">${clues}</ol>
                     ${solved
                         ? '<p class="puzzle-status solved">HÁDANKA VYŘEŠENA · CHECKPOINT POTVRZEN</p>'
                         : `<div class="puzzle-answer"><input id="puzzle-answer-${escapeHtml(puzzle.id)}" inputmode="numeric" maxlength="8" autocomplete="off" placeholder="KÓD"><button onclick="submitPuzzle('${escapeHtml(puzzle.id)}')">OVĚŘIT</button></div>
-                           <div class="puzzle-actions"><button onclick="requestPuzzleHint('${escapeHtml(puzzle.id)}')">DALŠÍ NÁPOVĚDA</button><span>Pokusy: ${puzzle.attempts || 0}</span></div>`}
+                           <div class="puzzle-actions">${puzzle.has_hints ? `<button onclick="requestPuzzleHint('${escapeHtml(puzzle.id)}')">DALŠÍ NÁPOVĚDA</button>` : ''}<span>Pokusy: ${puzzle.attempts || 0}</span></div>`}
                 </article>`;
             }).join('');
         }
