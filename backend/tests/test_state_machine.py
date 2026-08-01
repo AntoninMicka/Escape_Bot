@@ -242,7 +242,7 @@ class StateMachineCheckpointTests(unittest.IsolatedAsyncioTestCase):
         await self.scan("terrace_echo")
         puzzle_state = next(item for item in self.machine._puzzle_state() if item["id"] == "terrace_morse")
 
-        self.assertEqual(puzzle_state["image"], "assets/puzzles/terrace-morse-hriste.png")
+        self.assertEqual(puzzle_state["image"], "assets/puzzles/terrace-morse-cats-hriste-v2.png")
         self.assertFalse(puzzle_state["has_hints"])
         self.assertEqual(puzzle_state["categories"], {})
         self.assertEqual(puzzle_state["clues"], [])

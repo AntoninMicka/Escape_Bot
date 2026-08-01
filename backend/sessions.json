@@ -1037,18 +1037,21 @@
     "unlocked_discoveries": [
       "bowling_diagnostics",
       "reception_archive",
+      "sports_archive",
       "staircase_signal",
       "terrace_echo"
     ],
     "inventory": [
       "TEMPORÁLNÍ MOTOR",
-      "FÁZOVÝ STABILIZÁTOR"
+      "FÁZOVÝ STABILIZÁTOR",
+      "KRYSTAL ČASOVÉ KOTVY"
     ],
     "flags": {
       "chronomap_unlocked": true,
       "reception_archive_unlocked": true,
       "bowling_route_unlocked": true,
-      "temporal_motor_recovered": true
+      "temporal_motor_recovered": true,
+      "room_104_unlocked": true
     },
     "chat_history": [
       {
@@ -1170,6 +1173,51 @@
         "role": "bot",
         "channel": "lost",
         "text": "Morseův přenos je kompletní. FÁZOVÝ STABILIZÁTOR odpovídá na diagnostiku."
+      },
+      {
+        "role": "bot",
+        "channel": "general",
+        "text": "[Systém]: Spojení bylo úspěšně obnoveno. Relace je aktivní."
+      },
+      {
+        "role": "bot",
+        "channel": "general",
+        "text": "[Systém]: Spojení bylo úspěšně obnoveno. Relace je aktivní."
+      },
+      {
+        "role": "bot",
+        "channel": "general",
+        "text": "Třetí součást nalezena. KRYSTAL ČASOVÉ KOTVY je aktivní; archiv budoucnosti se otevírá."
+      },
+      {
+        "role": "bot",
+        "channel": "general",
+        "text": "Přístupový panel 104 odemčen. Elektromagnetický zámek uvolněn."
+      },
+      {
+        "role": "bot",
+        "channel": "lost",
+        "text": "Slyšela jsem cvaknutí! Ty dveře do pokoje 104 se právě otevřely. Jdu dovnitř..."
+      },
+      {
+        "role": "player",
+        "channel": "lost",
+        "text": "co tam je?"
+      },
+      {
+        "role": "bot",
+        "channel": "lost",
+        "text": "Slyším tě: 'co tam je?'. Musíme znovu sestavit stroj a sladit naše časové vrstvy."
+      },
+      {
+        "role": "bot",
+        "channel": "general",
+        "text": "[Systém]: Spojení bylo úspěšně obnoveno. Relace je aktivní."
+      },
+      {
+        "role": "bot",
+        "channel": "general",
+        "text": "[Systém]: Spojení bylo úspěšně obnoveno. Relace je aktivní."
       }
     ],
     "score": 1000,
@@ -1194,12 +1242,18 @@
         "status": "solved",
         "first_scanned_at": "2026-08-01T20:38:28.932419+00:00",
         "solved_at": "2026-08-01T20:38:28.932419+00:00"
+      },
+      "sports_archive": {
+        "status": "solved",
+        "first_scanned_at": "2026-08-01T20:48:54.093593+00:00",
+        "solved_at": "2026-08-01T20:48:54.093593+00:00"
       }
     },
     "unlocked_cipher_tools": [
       "a1z26",
       "binary_ascii",
       "morse",
+      "pigpen",
       "semaphore"
     ],
     "paid_cipher_tools": [],

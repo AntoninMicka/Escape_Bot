@@ -175,10 +175,10 @@
       "type": "morse_image",
       "checkpoint_id": "terrace_echo",
       "instructions": "Noční obrazový záznam z terasy u rybníka.",
-      "image": "assets/puzzles/terrace-morse-hriste.png",
+      "image": "assets/puzzles/terrace-morse-cats-hriste-v2.png",
       "answer": "HRISTE",
       "answers": ["HRISTE", "HŘIŠTĚ"],
-      "admin_solution": "HŘIŠTĚ – Morse: .... / .-. / .. / ... / - / .",
+      "admin_solution": "HŘIŠTĚ – kotě = tečka, dospělá kočka = čárka; .... / .-. / .. / ... / - / .",
       "success_message": {"text": "Světelný přenos potvrzen: HŘIŠTĚ. FÁZOVÝ STABILIZÁTOR se synchronizoval a Chronomapa označila sportovní areál.", "mood": "success", "channel": "lost"},
       "failure_message": {"text": "Chronální přenos tuto cílovou lokaci nepotvrzuje.", "mood": "error", "channel": "general"}
     }

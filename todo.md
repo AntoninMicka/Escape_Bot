@@ -248,7 +248,7 @@
 - [ ] Navrhnout navigační text bez nejednoznačných orientačních bodů.
 - [ ] Umístit druhý fyzický díl stroje: `FÁZOVÝ STABILIZÁTOR`.
 - [ ] Připravit alternativní umístění pro déšť, tmu nebo uzavření areálu.
-- [x] Vytvořit noční obrazový artefakt Elary u rybníka s přesnou sekvencí `.... / .-. / .. / ... / - / .` vedoucí na `HŘIŠTĚ`.
+- [x] Vytvořit noční obrazový artefakt Elary u rybníka s kočičí Morseovkou: kotě = tečka, dospělá kočka = čárka; sekvence `.... / .-. / .. / ... / - / .` vede na `HŘIŠTĚ`.
 - [x] Po správném řešení přidat `FÁZOVÝ STABILIZÁTOR` do digitálního inventáře a odemknout sportovní checkpoint.
 
 ### 13.8 Checkpoint 5 – Sportovní areál
