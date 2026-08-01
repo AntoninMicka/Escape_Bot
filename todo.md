@@ -275,6 +275,121 @@
 - [ ] Připravit odpočet, zvuk stroje, glitch efekt a zprávu o návratu Elary.
 - [ ] Dokončit výpočet skóre, penalizace za nápovědy a zápis do Síně slávy.
 
+### 13.10.1 Interkomová navigace – Minové pole / Robot Karel
+**Cíl:** spojit logické odhalování bezpečných polí ve stylu Min s programováním pohybu postavy ve stylu Robota Karla. Hráči navigují Elaru přes interkom a její polohu sledují na šachovnici.
+
+#### Herní princip
+- [ ] Určit vhodné zasazení do příběhu, např. nestabilní časové pole mezi Elarou a strojem času.
+- [ ] Navrhnout obdélníkovou nebo čtvercovou herní mřížku s jasně označeným startem a cílem.
+- [ ] Rozmístit skryté časové anomálie fungující jako miny.
+- [ ] Na odkrytých polích zobrazovat počet anomálií v sousedních polích.
+- [ ] Zvolit, zda se počítají čtyři ortogonální, nebo všech osm okolních polí.
+- [ ] Zajistit alespoň jednu logicky odvoditelnou bezpečnou trasu bez nutnosti náhodného hádání.
+- [ ] Určit, zda je cílem pouze dojít do cíle, nebo cestou sebrat klíč, artefakt či aktivovat spínače.
+- [ ] Navázat dokončení úkolu na konkrétní odměnu, checkpoint nebo součást stroje času.
+
+#### Ovládání ve stylu Robota Karla
+- [ ] Definovat základní příkazy `KROK`, `VLEVO`, `VPRAVO` a `ZPET`.
+- [ ] Rozhodnout, zda Elara stojí natočená určitým směrem, nebo se pohybuje přímo pomocí `NAHORU`, `DOLU`, `VLEVO`, `VPRAVO`.
+- [ ] Umožnit zadat jeden příkaz nebo celou sekvenci příkazů najednou.
+- [ ] Zvažit jednoduché programové konstrukce `OPAKUJ n`, podmínku nebo pojmenovanou sekvenci.
+- [ ] Definovat maximální délku programu a způsob jeho potvrzení před spuštěním.
+- [ ] Zobrazit náhled naplánované sekvence před jejím vykonáním.
+- [ ] Umožnit krokové provedení, pozastavení a bezpečné zrušení nevykonané části sekvence.
+- [ ] Rozlišit neplatný příkaz, náraz do stěny a vstup na nebezpečné pole.
+
+#### Interkom a odezva Elary
+- [ ] Přijímat navigační příkazy v samostatném strukturovaném vstupu nebo v kanálu Elary.
+- [ ] Nepoužívat volné AI vyhodnocení pro samotný pohyb; příkazy parsovat deterministicky.
+- [ ] Nechat Elaru před pohybem zopakovat pochopenou sekvenci.
+- [ ] Po každém kroku odeslat krátkou reakci odpovídající novému okolí.
+- [ ] Při odhalení čísla sdělit počet okolních anomálií i textově kvůli přístupnosti.
+- [ ] Připravit reakce na slepou cestu, opakované pole, chybný příkaz a blízkost anomálie.
+- [ ] Při úspěchu spustit příběhovou zprávu a odemknout navazující uzel scénáře.
+
+#### Vizualizace šachovnice
+- [ ] Přidat samostatný panel nebo záložku s responzivní šachovnicí.
+- [ ] Zobrazit Elaru jako postavu se zřetelnou orientací.
+- [ ] Rozlišit skryté, odkryté, navštívené, označené a cílové pole.
+- [ ] Zobrazit čísla okolních anomálií podobně jako ve hře Miny.
+- [ ] Animovat pohyb krok po kroku tak, aby hráči viděli, který příkaz se právě provádí.
+- [ ] Umožnit na mobilu současně sledovat šachovnici a posloupnost příkazů.
+- [ ] Vizuálně odlišit potvrzená bezpečná pole od pouhých hráčských odhadů.
+- [ ] Připravit alternativní textové zobrazení mřížky pro přístupnost a nouzový provoz.
+
+#### Chyby, penalizace a obnovení
+- [ ] Rozhodnout, zda vstup na anomálii znamená okamžitý neúspěch, odečet bodů, návrat na poslední kotvu nebo změnu mapy.
+- [ ] Zabránit nevratnému zablokování hry po chybném pohybu.
+- [ ] Ukládat aktuální pozici, orientaci, odkrytá pole a historii příkazů do stavu relace.
+- [ ] Připravit omezený počet bezpečnostních skenů nebo možnost jejich zakoupení za body.
+- [ ] Připravit volitelné nápovědy: upozornění na bezpečné pole, odhalení čísla nebo zobrazení dalšího správného kroku.
+- [ ] Umožnit Game Masterovi vrátit postavu na poslední bezpečné pole nebo úkol ručně dokončit.
+
+#### Demo a budoucí admin panel
+- [ ] V demo režimu zobrazit celé rozmístění anomálií a správnou bezpečnou trasu.
+- [ ] Umožnit v demo režimu simulovat příkazy tlačítky bez psaní do interkomu.
+- [ ] V admin snapshotu zobrazit pozici, orientaci, poslední příkaz, odkrytá pole a počet chyb.
+- [ ] Umožnit administrátorovi sledovat animaci pohybu aktivního týmu v reálném čase.
+- [ ] Zaznamenat celou historii příkazů pro pozdější vyhodnocení obtížnosti.
+
+#### Implementace a testování
+- [ ] Definovat mapu, start, cíl, anomálie a pravidla v datech scénáře, ne v UI.
+- [ ] Implementovat deterministický simulátor pohybu nezávislý na WebSocketu a vykreslení.
+- [ ] Přidat protokolové zprávy pro naplánování, potvrzení a vykonání příkazů.
+- [ ] Ošetřit souběžné povely z více klientů stejného týmu.
+- [ ] Otestovat hranice mapy, rotaci, kolize, anomálie, opakování a obnovení uložené relace.
+- [ ] Automaticky ověřit, že navržená mapa má alespoň jednu bezpečnou trasu a není řešitelná náhodným jedním krokem.
+- [ ] Udělat stolní test s hráči bez znalosti programování.
+- [ ] Změřit, zda je srozumitelná kombinace dedukce Min a sekvenčních příkazů Karla.
+
+### 13.10.2 Interkomový Sokoban
+**Cíl:** navigovat Elaru v uzavřeném prostoru a správným pořadím pohybů přesunout energetické články na cílové pozice. Hráči dávají pokyny přes interkom a sledují jejich provedení na herní mřížce.
+
+- [ ] Příběhově zasadit úkol jako opravu napájení stroje času nebo uvolnění zablokované laboratoře.
+- [ ] Navrhnout menší mapu se stěnami, Elarou, přesouvatelnými články a jasně označenými cílovými poli.
+- [ ] Zajistit, aby řešení vyžadovalo plánování, ale neobsahovalo snadno přehlédnutelný nevratný zásek bez možnosti obnovy.
+- [ ] Použít stejné deterministické interkomové příkazy jako u Robota Karla: pohyb po jednom kroku i potvrzená sekvence.
+- [ ] Nechat Elaru odmítnout nemožný pohyb a příběhově komentovat tlačení článku, překážku i blížící se dokončení.
+- [ ] Animovat pohyb Elary a článků na responzivní mřížce; zvýraznit cílová pole a již správně umístěné články.
+- [ ] Umožnit vrácení posledního tahu, restart mapy a zásah Game Mastera, aby se tým nemohl trvale zablokovat.
+- [ ] Ukládat mapu, historii tahů, počet restartů a nejlepší dosažený stav do relace.
+- [ ] V demo/admin režimu zobrazit správné řešení, optimální počet tahů a aktuální odchylku týmu.
+- [ ] Po vyřešení fyzicky nebo digitálně odemknout energetický modul, QR checkpoint či další místnost.
+- [ ] Implementovat obecný datový formát mapy a automaticky ověřit počet beden, cílů a řešitelnost úrovně.
+- [ ] Otestovat ovládání přes interkom, souběžné příkazy, undo, restart a obnovení rozehrané pozice.
+
+### 13.10.3 Interaktivní Had – sběr časových fragmentů
+**Cíl:** nabídnout krátkou akční mezihru ovládanou přímo hráčem. Had představuje proud energie nebo časovou stopu, která sbírá fragmenty potřebné ke stabilizaci stroje času.
+
+- [ ] Navrhnout hru jako samostatný interaktivní panel bez ovládání přes interkom.
+- [ ] Připravit ovládání šipkami, `WASD` a velkými dotykovými tlačítky pro mobilní zařízení.
+- [ ] Zabránit okamžitému otočení do protisměru a sjednotit rychlost hry mezi různými zařízeními.
+- [ ] Nahradit běžné jídlo časovými fragmenty, energetickými částicemi nebo ztracenými daty Elary.
+- [ ] Přidat překážky či nestabilní pole až ve vyšší obtížnosti; základní varianta musí být rychle pochopitelná.
+- [ ] Určit jasnou podmínku splnění, například sesbírat stanovený počet fragmentů nebo vydržet určitý čas.
+- [ ] Nastavit omezený počet pokusů, případně bodovou penalizaci, ale nezablokovat kvůli neúspěchu celý scénář.
+- [ ] Nabídnout pauzu, restart a sníženou rychlost jako přístupnější variantu nebo placenou nápovědu.
+- [ ] Ukládat nejlepší výsledek, počet pokusů, dosaženou délku a stav dokončení do relace.
+- [ ] V demo režimu umožnit okamžité splnění a změnu rychlosti; v admin panelu sledovat aktuální skóre hráče.
+- [ ] Po dosažení cíle udělit fragment, součást stroje nebo kód pro následující checkpoint.
+- [ ] Otestovat klávesnici, dotykové ovládání, změnu orientace telefonu, ztrátu připojení a obnovení hry.
+
+### 13.10.4 Logická variace na Tři v řadě
+**Cíl:** doplnit strategickou úlohu, v níž hráč neskládá pouze vlastní trojici, ale musí odvodit správnou posloupnost tahů nebo zabránit protivníkovi v narušení časové osy.
+
+- [ ] Vybrat konkrétní variantu: hra proti deterministickému protivníkovi, dokončení rozehrané pozice, nebo několik navazujících desek s omezeným počtem tahů.
+- [ ] Příběhově znázornit dva soupeřící časové proudy, například minulost a budoucnost místo koleček a křížků.
+- [ ] Navrhnout zadání tak, aby mělo jedno ověřitelné řešení a nešlo jen o náhodnou partii klasických piškvorek.
+- [ ] Zvážit pravidlo „vyhraj přesně za dva tahy“, povinnou obranu, zakázaná pole nebo aktivaci tří stabilizátorů v řadě.
+- [ ] Implementovat deterministické vyhodnocení tahů a případného protivníka bez závislosti na volném AI rozhodování.
+- [ ] Zobrazit jasně aktivního hráče, dostupná pole, historii tahů a stav vítězství či patu.
+- [ ] Připravit postupné úrovně nebo jedinou krátkou logickou pozici, aby úkol nezdržoval pohyb po hotelu.
+- [ ] Umožnit restart pozice a volitelnou nápovědu ukazující hrozbu nebo kandidátní pole za bodovou penalizaci.
+- [ ] V demo/admin režimu zobrazit správnou posloupnost tahů a průběžný stav řešení.
+- [ ] Napojit výhru na obnovení části časové osy, získání souřadnice nebo odemčení dalšího checkpointu.
+- [ ] Ukládat tahy, restarty, použité nápovědy a dokončení do stavu scénáře.
+- [ ] Otestovat všechny koncové stavy, více rychlých vstupů, obnovení relace a ovládání na mobilu.
+
 ### 13.11 QR checkpointy a ochrana postupu
 **Cíl:** QR kódy musí potvrzovat průchod trasou a bezpečně odemykat obsah.
 - [x] Nahradit volný formát `escapebot://clue/<id>` seznamem povolených checkpointů ze scénáře.
