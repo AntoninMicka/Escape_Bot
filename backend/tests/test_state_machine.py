@@ -4,7 +4,7 @@ from pathlib import Path
 
 from escape_bot.protocol import Message
 from escape_bot.line_game import completion_time_score
-from escape_bot.sokoban import parse_commands
+from escape_bot.sokoban import execute as execute_sokoban, new_game as new_sokoban, parse_commands
 from escape_bot.scenario import ScenarioLoader, build_demo_checkpoint_catalog, build_scenario_progress
 from escape_bot.state_machine import EscapeBotStateMachine, GamePhase
 
@@ -367,14 +367,23 @@ class StateMachineCheckpointTests(unittest.IsolatedAsyncioTestCase):
         self.assertNotIn("KRYSTAL ČASOVÉ KOTVY", self.machine.state.inventory)
         self.assertNotIn("pigpen", self.machine.state.unlocked_cipher_tools)
 
-        responses = await self.machine.handle(Message("player.message", {
-            "channel": "lost",
-            "text": "vpravo, nahoru, vlevo, dolů, vlevo, dolů, vpravo",
-        }))
+        score_before = self.machine.state.score
+        solutions = [
+            "vpravo, nahoru, vlevo, dolů, vlevo, dolů, vpravo",
+            "vlevo, nahoru, vpravo, dolů, vpravo, dolů, vlevo",
+            "nahoru, vlevo, dolů, vpravo, dolů",
+        ]
+        responses = None
+        for index, solution in enumerate(solutions):
+            responses = await self.machine.handle(Message("player.message", {"channel": "lost", "text": solution}))
+            self.assertEqual(self.response(responses, "score.update").payload["delta"], 30)
+            if index < 2:
+                self.assertTrue(self.response(responses, "sokoban.result").payload["level_complete"])
+                self.assertFalse(self.response(responses, "sokoban.result").payload["game_complete"])
 
         result = self.response(responses, "sokoban.result")
         self.assertTrue(result.payload["game_complete"])
-        self.assertEqual(result.payload["executed"], 7)
+        self.assertEqual(self.machine.state.score, score_before + 90)
         self.assertEqual(self.machine.state.checkpoint_states["sports_archive"]["status"], "solved")
         self.assertIn("KRYSTAL ČASOVÉ KOTVY", self.machine.state.inventory)
         self.assertIn("pigpen", self.machine.state.unlocked_cipher_tools)
@@ -394,6 +403,39 @@ class StateMachineCheckpointTests(unittest.IsolatedAsyncioTestCase):
         restored = EscapeBotStateMachine(self.scenario)
         restored.restore_state(self.machine.state.snapshot())
         self.assertEqual(restored.state.sokoban_games["sports_sokoban"], game)
+
+    async def test_sokoban_level_expires_and_reset_preserves_campaign_progress(self) -> None:
+        await self.unlock_sokoban()
+        game = self.machine.state.sokoban_games["sports_sokoban"]
+        game["completed_levels"] = ["sector_a"]
+        game["awarded_points"] = 30
+        game["deadline_at"] = (datetime.now(UTC) - timedelta(seconds=1)).isoformat()
+
+        expired = await self.machine.handle(Message("sokoban.command", {
+            "puzzle_id": "sports_sokoban", "commands": ["right"],
+        }))
+        self.assertFalse(self.response(expired, "sokoban.result").payload["success"])
+        self.assertEqual(game["status"], "expired")
+
+        reset = await self.machine.handle(Message("sokoban.reset", {"puzzle_id": "sports_sokoban"}))
+        self.assertTrue(self.response(reset, "sokoban.result").payload["reset"])
+        self.assertEqual(game["completed_levels"], ["sector_a"])
+        self.assertEqual(game["awarded_points"], 30)
+        self.assertEqual(game["status"], "playing")
+        self.assertGreater(datetime.fromisoformat(game["deadline_at"]), datetime.now(UTC))
+
+    def test_sokoban_reserve_levels_are_valid_and_solvable(self) -> None:
+        base = self.scenario.data["puzzles"]["sports_sokoban"]["game"]
+        solutions = {
+            "reserve_d": ["left", "left"],
+            "reserve_e": ["up", "up"],
+        }
+        for level_id, commands in solutions.items():
+            config = {**base, "active_level_ids": [level_id]}
+            game = new_sokoban(config)
+            result = execute_sokoban(game, config, commands)
+            self.assertTrue(result["game_complete"], level_id)
+            self.assertEqual(result["score_delta"], 30)
 
 
 if __name__ == "__main__":

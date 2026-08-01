@@ -216,7 +216,7 @@ Potvrdí nebo odmítne výměnu či restart. Úspěšná výměna obsahuje `scor
 
 ### `sokoban.result`
 
-Obsahuje počet požadovaných a skutečně provedených kroků, počet zatlačení, příznak `blocked` a případně `game_complete`. Po dokončení následuje běžný `puzzle.result`, příběhová zpráva a aktualizovaný `game.state` s odměnami checkpointu.
+Obsahuje počet požadovaných a skutečně provedených kroků, počet zatlačení, příznaky `blocked`, `level_complete` a případně `game_complete`. Každá poprvé dokončená úroveň vrátí `score_delta` a zprávu `score.update`; aktuálně jde o +30 bodů. Každá úroveň má vlastní dvouminutový deadline. Po dokončení celé aktivní sady následuje běžný `puzzle.result`, příběhová zpráva a aktualizovaný `game.state` s odměnami checkpointu.
 
 ## Vývojový demo režim
 

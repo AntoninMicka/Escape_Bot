@@ -346,20 +346,23 @@
 **Cíl:** navigovat Elaru v uzavřeném prostoru a správným pořadím pohybů přesunout energetické články na cílové pozice. Hráči dávají pokyny přes interkom a sledují jejich provedení na herní mřížce.
 
 - [x] Příběhově zasadit úkol jako opravu napájení servisní sítě sportovního archivu.
-- [x] Navrhnout menší mapu se stěnami, Elarou, dvěma energetickými články a dvěma cílovými poli.
+- [x] Připravit tři aktivní mapy se stěnami, Elarou, energetickými články a cílovými poli.
+- [x] Připravit dvě další validní a řešitelné mapy jako rezervu pro obměnu nebo zvýšení délky hry.
 - [x] Zajistit možnost návratu posledního kroku a úplného restartu proti nevratnému zablokování.
 - [x] Implementovat deterministické příkazy `NAHORU`, `DOLŮ`, `VLEVO`, `VPRAVO`, opakování a sekvence oddělené čárkou.
 - [x] Zpracovávat navigační povely z kanálu `# ztracená_sig` bez volného AI vyhodnocení.
 - [x] Nechat Elaru potvrdit provedené kroky, zatlačení a místo zastavení zablokované sekvence.
 - [x] Zobrazit responzivní mřížku s Elarou, stěnami, články, cíli a články správně usazenými na cíli.
 - [x] Umožnit vrácení posledního tahu a restart mapy; v demo režimu doplnit směrová tlačítka.
-- [x] Ukládat mapu, historii kroků, sekvence, počet zatlačení a restartů do relace.
+- [x] Omezit každou úroveň na dvě minuty a po vypršení umožnit restart pouze aktuální úrovně.
+- [x] Za každou poprvé dokončenou aktivní úroveň přičíst 30 bodů bez možnosti opakovaného získávání.
+- [x] Ukládat aktuální úroveň, mapu, čas, dokončené sektory, historii kroků, sekvence, počet zatlačení a restartů do relace.
 - [x] Po vyřešení přidělit `KRYSTAL ČASOVÉ KOTVY`, odemknout polský kříž a dokončit sportovní checkpoint.
 - [x] Definovat mapu znaky ve scénáři a při načtení ověřit hráče, články, cíle a obdélníkový tvar.
-- [x] Otestovat český parser, kompletní řešení, zablokovanou sekvenci, undo a obnovení relace.
+- [x] Otestovat český parser, řešení všech aktivních i rezervních map, bodování, zablokovanou sekvenci, undo a obnovení relace.
 - [ ] Animovat sekvenci krok po kroku místo okamžitého překreslení do koncové polohy.
 - [ ] V budoucím admin panelu zobrazit správné řešení, optimální počet tahů a aktuální odchylku týmu.
-- [ ] Po uživatelském testu nahradit prototypovou mapu obtížnější finální úrovní.
+- [ ] Po uživatelském testu doladit dvě minuty na úroveň, bodovou odměnu a obtížnost aktivních map.
 
 ### 13.10.3 Interaktivní Had – sběr časových fragmentů
 **Cíl:** nabídnout krátkou akční mezihru ovládanou přímo hráčem. Had představuje proud energie nebo časovou stopu, která sbírá fragmenty potřebné ke stabilizaci stroje času.

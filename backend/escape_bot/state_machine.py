@@ -15,7 +15,7 @@ from .sokoban import (
     new_game as new_sokoban,
     parse_commands as parse_sokoban_commands,
     public_game as public_sokoban,
-    reset_game as reset_sokoban,
+    reset_level as reset_sokoban,
     undo as undo_sokoban,
 )
 
@@ -181,7 +181,7 @@ class EscapeBotStateMachine:
                     item["game"] = public_game(config, game)
                 elif puzzle.get("type") == "sokoban":
                     game = self._sokoban_state(puzzle_id, puzzle.get("game", {}))
-                    item["game"] = public_sokoban(game)
+                    item["game"] = public_sokoban(puzzle.get("game", {}), game)
             result.append(item)
         return result
 
@@ -575,7 +575,13 @@ class EscapeBotStateMachine:
 
     def _sokoban_state(self, puzzle_id: str, config: dict[str, Any]) -> dict[str, Any]:
         game = self.state.sokoban_games.get(puzzle_id)
-        if not isinstance(game, dict) or not isinstance(game.get("boxes"), list) or not game.get("player"):
+        if (
+            not isinstance(game, dict)
+            or not isinstance(game.get("boxes"), list)
+            or not game.get("player")
+            or not game.get("level_id")
+            or not game.get("deadline_at")
+        ):
             game = new_sokoban(config)
             self.state.sokoban_games[puzzle_id] = game
         return game
@@ -601,7 +607,7 @@ class EscapeBotStateMachine:
     async def _execute_sokoban_commands(self, puzzle_id: str, commands: list[str], message: Message) -> list[Message]:
         try:
             puzzle, checkpoint_state, game = self._active_sokoban(puzzle_id)
-            result = execute_sokoban(game, commands)
+            result = execute_sokoban(game, puzzle.get("game", {}), commands)
         except ValueError as error:
             return [reply("sokoban.result", {"success": False, "reason": str(error)}, message), self._state_message()]
 
@@ -610,7 +616,20 @@ class EscapeBotStateMachine:
             text = f"Provedla jsem {result['executed']} z {result['requested']} kroků. Další pohyb blokuje stěna nebo energetický článek."
         else:
             text = f"Sekvence potvrzena: {result['executed']} kroků, přesunuté články: {result['pushes']}."
+        if result["level_complete"] and not result["game_complete"]:
+            text += " Úroveň je stabilní; přepínám na další servisní sektor."
         responses.append(reply("bot.message", {"text": text, "mood": "focused", "channel": "lost"}, message))
+        score_delta = int(result.get("score_delta", 0))
+        if score_delta:
+            self.state.score += score_delta
+            responses.append(reply("score.update", {
+                "score": self.state.score,
+                "delta": score_delta,
+                "bonus": score_delta,
+                "penalty": 0,
+                "reason": "sokoban_level",
+                "level_id": result.get("completed_level_id"),
+            }, message))
         if result["game_complete"]:
             now = datetime.now(UTC).isoformat()
             checkpoint_state["status"] = "solved"
