@@ -41,6 +41,10 @@
             border-color: #0f0;
         }
         .tab-button:disabled { color: #444; border-color: #222; cursor: not-allowed; background: #080808; }
+        .unread-badge { display: none; min-width: 18px; margin-left: 6px; padding: 1px 5px; border-radius: 10px; background: #ffb000; color: #000; font-size: .75em; text-align: center; box-shadow: 0 0 8px #ffb000; }
+        .unread-badge.visible { display: inline-block; }
+        .tab-button.has-unread, .channel-btn.has-unread { color: #ffcf5a; border-color: #ffb000; animation: unread-pulse 1.4s ease-in-out infinite; }
+        @keyframes unread-pulse { 50% { box-shadow: 0 0 12px rgba(255, 176, 0, .75); } }
         .tab-content {
             display: none;
             flex-direction: column;
@@ -350,7 +354,7 @@
     <div id="hud-notifications"></div>
 
     <div class="tabs">
-        <button class="tab-button active" onclick="openTab('tab-intercom', this)">INTERKOM</button>
+        <button id="intercom-tab-button" class="tab-button active" onclick="openTab('tab-intercom', this)">INTERKOM <span id="intercom-unread" class="unread-badge" aria-label="nepřečtené zprávy"></span></button>
         <button id="chronomap-tab-button" class="tab-button" onclick="openTab('tab-map', this)" disabled>CHRONOMAPA [OFFLINE]</button>
         <button id="puzzles-tab-button" class="tab-button" onclick="openTab('tab-puzzles', this)" disabled>HÁDANKY [0]</button>
         <button class="tab-button" onclick="openTab('tab-room', this)">MÍSTNOST (Virtuální panel)</button>
@@ -379,9 +383,9 @@
         </h2>
         <div class="intercom-container">
             <div class="channels-sidebar">
-                <button class="channel-btn active" onclick="switchChannel('general', this)"># sys_log</button>
-                <button class="channel-btn" onclick="switchChannel('captain', this)"># kapitánka</button>
-                <button class="channel-btn" onclick="switchChannel('lost', this)"># ztracená_sig</button>
+                <button id="channel-general" class="channel-btn active" onclick="switchChannel('general', this)"># sys_log <span id="unread-general" class="unread-badge"></span></button>
+                <button id="channel-captain" class="channel-btn" onclick="switchChannel('captain', this)"># kapitánka <span id="unread-captain" class="unread-badge"></span></button>
+                <button id="channel-lost" class="channel-btn" onclick="switchChannel('lost', this)"># ztracená_sig <span id="unread-lost" class="unread-badge"></span></button>
             </div>
             
             <div class="chat-area">
@@ -504,6 +508,7 @@
         let ws;
         const input = document.getElementById('msgInput');
         let currentChannel = 'general';
+        const unreadMessages = {general: 0, captain: 0, lost: 0};
         const statusIndicator = document.getElementById('connection-status');
         let currentPin = '';
         let cipherToolsState = [];
@@ -801,6 +806,7 @@
                 else if (msg.type === 'bot.message') {
                     const channel = msg.payload.channel || 'general';
                     const chatBox = document.getElementById('chat-' + channel);
+                    if (!isChannelVisible(channel)) markChannelUnread(channel);
                     
                     let sender = "Systém";
                     if (channel === 'captain') sender = "Kapitánka";
@@ -1025,6 +1031,40 @@
                 typingText.innerText = 'Systém zpracovává';
             }
             document.getElementById('typing-indicator').style.display = 'block';
+        }
+
+        function isChannelVisible(channel) {
+            return currentChannel === channel && document.getElementById('tab-intercom').classList.contains('active');
+        }
+
+        function markChannelUnread(channel) {
+            if (!(channel in unreadMessages)) channel = 'general';
+            unreadMessages[channel] += 1;
+            renderUnreadMessages();
+        }
+
+        function clearChannelUnread(channel) {
+            if (!(channel in unreadMessages)) return;
+            unreadMessages[channel] = 0;
+            renderUnreadMessages();
+        }
+
+        function renderUnreadMessages() {
+            let total = 0;
+            Object.entries(unreadMessages).forEach(([channel, count]) => {
+                total += count;
+                const badge = document.getElementById(`unread-${channel}`);
+                const button = document.getElementById(`channel-${channel}`);
+                if (!badge || !button) return;
+                badge.textContent = count > 99 ? '99+' : String(count);
+                badge.classList.toggle('visible', count > 0);
+                button.classList.toggle('has-unread', count > 0);
+            });
+            const badge = document.getElementById('intercom-unread');
+            const button = document.getElementById('intercom-tab-button');
+            badge.textContent = total > 99 ? '99+' : String(total);
+            badge.classList.toggle('visible', total > 0);
+            button.classList.toggle('has-unread', total > 0);
         }
 
         function renderPuzzles() {
@@ -1298,6 +1338,9 @@
             } else {
                 stopScanner();
             }
+            if (tabId === 'tab-intercom') {
+                clearChannelUnread(currentChannel);
+            }
         }
         
         function switchChannel(channelId, btnElement) {
@@ -1307,6 +1350,9 @@
             
             document.getElementById('chat-' + channelId).classList.add('active-chat');
             btnElement.classList.add('active');
+            clearChannelUnread(channelId);
+            const chatBox = document.getElementById('chat-' + channelId);
+            chatBox.scrollTop = chatBox.scrollHeight;
         }
 
         // --- NÁHODNÝ AMBIENTNÍ GLITCH EFEKT ---

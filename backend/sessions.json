@@ -1249,6 +1249,16 @@
         "role": "bot",
         "channel": "lost",
         "text": "Oba časové proudy drží! Kalibrace 5–3–1 je dokončena a sportovní archiv se znovu objevil na Chronomapě."
+      },
+      {
+        "role": "bot",
+        "channel": "general",
+        "text": "[Systém]: Spojení bylo úspěšně obnoveno. Relace je aktivní."
+      },
+      {
+        "role": "bot",
+        "channel": "general",
+        "text": "[Systém]: Spojení bylo úspěšně obnoveno. Relace je aktivní."
       }
     ],
     "score": 1000,
@@ -1300,81 +1310,105 @@
     },
     "interactive_games": {
       "timeline_lines": {
-        "stage": 2,
-        "progress": [
-          5,
-          3,
-          1
-        ],
-        "moves": 9,
-        "next_mark": "past",
-        "status": "complete",
+        "progress": {
+          "3": 0,
+          "4": 0,
+          "5": 0
+        },
+        "status": "playing",
+        "started_at": "2026-08-01T21:51:06.965802+00:00",
+        "deadline_at": "2026-08-01T21:56:06.965802+00:00",
+        "swaps": 0,
+        "rng": 1477420827,
         "board": [
           [
-            "",
-            "",
-            "",
-            "",
-            "",
-            "",
-            ""
+            "cyan",
+            "red",
+            "cyan",
+            "amber",
+            "green",
+            "amber",
+            "violet"
           ],
           [
-            "",
-            "",
-            "",
-            "",
-            "",
-            "",
-            ""
+            "amber",
+            "amber",
+            "cyan",
+            "violet",
+            "cyan",
+            "violet",
+            "cyan"
           ],
           [
-            "",
-            "",
-            "blocked",
-            "",
-            "blocked",
-            "",
-            ""
+            "violet",
+            "green",
+            "red",
+            "violet",
+            "violet",
+            "green",
+            "violet"
           ],
           [
-            "",
-            "",
-            "",
-            "",
-            "",
-            "",
-            ""
+            "green",
+            "amber",
+            "cyan",
+            "red",
+            "red",
+            "amber",
+            "red"
           ],
           [
-            "",
-            "",
-            "blocked",
-            "",
-            "blocked",
-            "",
-            ""
+            "cyan",
+            "green",
+            "red",
+            "violet",
+            "green",
+            "red",
+            "amber"
           ],
           [
-            "",
-            "future",
-            "future",
-            "future",
-            "future",
-            "",
-            ""
+            "violet",
+            "red",
+            "violet",
+            "violet",
+            "green",
+            "violet",
+            "violet"
           ],
           [
-            "",
-            "",
-            "",
-            "blocked",
-            "",
-            "",
-            ""
+            "red",
+            "cyan",
+            "cyan",
+            "green",
+            "amber",
+            "green",
+            "violet"
           ]
         ]
       }
     }
+  },
+  "80b713b4-824f-450e-be49-476835e84285": {
+    "phase": "comms_offline",
+    "unlocked_discoveries": [],
+    "inventory": [],
+    "flags": {},
+    "chat_history": [
+      {
+        "role": "bot",
+        "channel": "captain",
+        "text": "*ššš*... Tady Kapitánka. Slyšíme se? Interkom konečně naběhl. Potvrď příjem!"
+      }
+    ],
+    "score": 1000,
+    "hints_used": {},
+    "checkpoint_states": {},
+    "unlocked_cipher_tools": [
+      "a1z26",
+      "morse"
+    ],
+    "paid_cipher_tools": [],
+    "puzzle_attempts": {},
+    "interactive_games": {}
   }
 }
