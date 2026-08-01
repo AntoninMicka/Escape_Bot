@@ -169,6 +169,18 @@
       "admin_solution": "MOTOR – sedmibitové ASCII v označených řadách 4+3: 1001101 1001111 1010100 1001111 1010010; přední řady 2+1 jsou šum",
       "success_message": {"text": "Diagnostická sekvence potvrzena: MOTOR. TEMPORÁLNÍ MOTOR je znovu synchronizován s terminálem.", "mood": "success", "channel": "general"},
       "failure_message": {"text": "Diagnostická sekvence tomuto označení součásti neodpovídá.", "mood": "error", "channel": "general"}
+    },
+    "terrace_morse": {
+      "title": "Chronální ozvěna u vody",
+      "type": "morse_image",
+      "checkpoint_id": "terrace_echo",
+      "instructions": "Noční obrazový záznam z terasy u rybníka.",
+      "image": "assets/puzzles/terrace-morse-hriste.png",
+      "answer": "HRISTE",
+      "answers": ["HRISTE", "HŘIŠTĚ"],
+      "admin_solution": "HŘIŠTĚ – Morse: .... / .-. / .. / ... / - / .",
+      "success_message": {"text": "Světelný přenos potvrzen: HŘIŠTĚ. FÁZOVÝ STABILIZÁTOR se synchronizoval a Chronomapa označila sportovní areál.", "mood": "success", "channel": "lost"},
+      "failure_message": {"text": "Chronální přenos tuto cílovou lokaci nepotvrzuje.", "mood": "error", "channel": "general"}
     }
   },
   "checkpoints": {
@@ -203,8 +215,9 @@
       "label": "Chronální ozvěna u terasy",
       "token": "8fd7cd0a5c844702bc384665e864d335",
       "requires": ["bowling_diagnostics"],
-      "rewards": {"inventory": ["FÁZOVÝ STABILIZÁTOR"]},
-      "message": {"text": "Morseův přenos je kompletní. FÁZOVÝ STABILIZÁTOR odpovídá na diagnostiku.", "mood": "alert", "channel": "lost"}
+      "puzzle_id": "terrace_morse",
+      "rewards": {"inventory": ["FÁZOVÝ STABILIZÁTOR"], "flags": ["phase_stabilizer_recovered"]},
+      "message": {"text": "Kotva u terasy zachytila noční světelný přenos. Obrazový záznam byl uložen do archivu hádanek.", "mood": "alert", "channel": "lost"}
     },
     "sports_archive": {
       "label": "Archiv sportovního areálu",

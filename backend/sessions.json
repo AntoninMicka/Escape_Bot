@@ -1037,10 +1037,12 @@
     "unlocked_discoveries": [
       "bowling_diagnostics",
       "reception_archive",
-      "staircase_signal"
+      "staircase_signal",
+      "terrace_echo"
     ],
     "inventory": [
-      "TEMPORÁLNÍ MOTOR"
+      "TEMPORÁLNÍ MOTOR",
+      "FÁZOVÝ STABILIZÁTOR"
     ],
     "flags": {
       "chronomap_unlocked": true,
@@ -1163,6 +1165,11 @@
         "role": "bot",
         "channel": "general",
         "text": "Diagnostická sekvence potvrzena: MOTOR. TEMPORÁLNÍ MOTOR je znovu synchronizován s terminálem."
+      },
+      {
+        "role": "bot",
+        "channel": "lost",
+        "text": "Morseův přenos je kompletní. FÁZOVÝ STABILIZÁTOR odpovídá na diagnostiku."
       }
     ],
     "score": 1000,
@@ -1182,6 +1189,11 @@
         "status": "solved",
         "first_scanned_at": "2026-08-01T20:32:54.432549+00:00",
         "solved_at": "2026-08-01T20:34:13.408652+00:00"
+      },
+      "terrace_echo": {
+        "status": "solved",
+        "first_scanned_at": "2026-08-01T20:38:28.932419+00:00",
+        "solved_at": "2026-08-01T20:38:28.932419+00:00"
       }
     },
     "unlocked_cipher_tools": [

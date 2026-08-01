@@ -390,8 +390,12 @@ class EscapeBotStateMachine:
             return [reply("puzzle.result", {"correct": True, "puzzle_id": puzzle_id, "already_solved": True}, message), self._state_message()]
 
         self.state.puzzle_attempts[puzzle_id] = self.state.puzzle_attempts.get(puzzle_id, 0) + 1
-        expected = str(puzzle.get("answer", "")).strip().replace(" ", "").upper()
-        if answer != expected:
+        accepted_answers = puzzle.get("answers", [puzzle.get("answer", "")])
+        normalized_answers = {
+            str(candidate).strip().replace(" ", "").upper()
+            for candidate in accepted_answers
+        }
+        if answer not in normalized_answers:
             return [
                 reply("puzzle.result", {"correct": False, "puzzle_id": puzzle_id, "attempts": self.state.puzzle_attempts[puzzle_id]}, message),
                 reply("bot.message", puzzle.get("failure_message", {}), message),

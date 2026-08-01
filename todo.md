@@ -243,11 +243,13 @@
 ### 13.7 Checkpoint 4 – Terasa nebo okolí rybníka
 **Typ:** Morseova abeceda a navigační zpráva.
 - [ ] Vybrat konkrétní bezpečné venkovní místo.
-- [ ] Vytvořit poškozený přenos složený z krátkých a dlouhých impulzů.
-- [ ] Připravit Morseovu tabulku nebo logickou cestu k jejímu získání.
+- [x] Vytvořit poškozený přenos složený z krátkých a dlouhých impulzů.
+- [x] Zpřístupnit Morseovu tabulku od začátku jako součást nouzového manuálu.
 - [ ] Navrhnout navigační text bez nejednoznačných orientačních bodů.
 - [ ] Umístit druhý fyzický díl stroje: `FÁZOVÝ STABILIZÁTOR`.
 - [ ] Připravit alternativní umístění pro déšť, tmu nebo uzavření areálu.
+- [x] Vytvořit noční obrazový artefakt Elary u rybníka s přesnou sekvencí `.... / .-. / .. / ... / - / .` vedoucí na `HŘIŠTĚ`.
+- [x] Po správném řešení přidat `FÁZOVÝ STABILIZÁTOR` do digitálního inventáře a odemknout sportovní checkpoint.
 
 ### 13.8 Checkpoint 5 – Sportovní areál
 **Typ:** polský kříž a skládání šifrovací tabulky.

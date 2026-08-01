@@ -34,6 +34,13 @@ class StateMachineCheckpointTests(unittest.IsolatedAsyncioTestCase):
             Message("puzzle.submit", {"puzzle_id": "staircase_semaphore", "answer": "BOWLING"})
         )
 
+    async def solve_bowling(self):
+        await self.solve_staircase()
+        await self.scan("bowling_diagnostics")
+        return await self.machine.handle(
+            Message("puzzle.submit", {"puzzle_id": "bowling_binary", "answer": "MOTOR"})
+        )
+
     @staticmethod
     def response(responses, message_type: str):
         return next(item for item in responses if item.type == message_type)
@@ -207,6 +214,35 @@ class StateMachineCheckpointTests(unittest.IsolatedAsyncioTestCase):
         puzzle_state = next(item for item in self.machine._puzzle_state() if item["id"] == "bowling_binary")
 
         self.assertEqual(puzzle_state["image"], "assets/puzzles/bowling-binary-motor-v3.png")
+        self.assertFalse(puzzle_state["has_hints"])
+        self.assertEqual(puzzle_state["categories"], {})
+        self.assertEqual(puzzle_state["clues"], [])
+
+    async def test_terrace_morse_awards_phase_stabilizer(self) -> None:
+        await self.solve_bowling()
+        scanned = await self.scan("terrace_echo")
+
+        self.assertEqual(self.response(scanned, "qr.result").payload["status"], "found")
+        self.assertNotIn("FÁZOVÝ STABILIZÁTOR", self.machine.state.inventory)
+        blocked = await self.scan("sports_archive")
+        self.assertFalse(self.response(blocked, "qr.result").payload["accepted"])
+
+        solved = await self.machine.handle(
+            Message("puzzle.submit", {"puzzle_id": "terrace_morse", "answer": "hřiště"})
+        )
+        self.assertTrue(self.response(solved, "puzzle.result").payload["correct"])
+        self.assertIn("FÁZOVÝ STABILIZÁTOR", self.machine.state.inventory)
+        self.assertTrue(self.machine.state.flags["phase_stabilizer_recovered"])
+
+        allowed = await self.scan("sports_archive")
+        self.assertTrue(self.response(allowed, "qr.result").payload["accepted"])
+
+    async def test_terrace_puzzle_is_image_only_and_has_no_hints(self) -> None:
+        await self.solve_bowling()
+        await self.scan("terrace_echo")
+        puzzle_state = next(item for item in self.machine._puzzle_state() if item["id"] == "terrace_morse")
+
+        self.assertEqual(puzzle_state["image"], "assets/puzzles/terrace-morse-hriste.png")
         self.assertFalse(puzzle_state["has_hints"])
         self.assertEqual(puzzle_state["categories"], {})
         self.assertEqual(puzzle_state["clues"], [])
