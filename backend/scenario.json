@@ -158,6 +158,17 @@
       "admin_solution": "BOWLING (B–O–W–L–I–N–G)",
       "success_message": {"text": "Signál přeložen: BOWLING. Chronomapa zachytila diagnostické impulzy v prostoru kuželek.", "mood": "success", "channel": "lost"},
       "failure_message": {"text": "Archivní systém v nalezeném souboru tuto odpověď nepotvrzuje.", "mood": "error", "channel": "general"}
+    },
+    "bowling_binary": {
+      "title": "Diagnostika kuželkového pole",
+      "type": "binary_image",
+      "checkpoint_id": "bowling_diagnostics",
+      "instructions": "Obrazový záznam z diagnostického prostoru bowlingu.",
+      "image": "assets/puzzles/bowling-binary-motor-v3.png",
+      "answer": "MOTOR",
+      "admin_solution": "MOTOR – sedmibitové ASCII v označených řadách 4+3: 1001101 1001111 1010100 1001111 1010010; přední řady 2+1 jsou šum",
+      "success_message": {"text": "Diagnostická sekvence potvrzena: MOTOR. TEMPORÁLNÍ MOTOR je znovu synchronizován s terminálem.", "mood": "success", "channel": "general"},
+      "failure_message": {"text": "Diagnostická sekvence tomuto označení součásti neodpovídá.", "mood": "error", "channel": "general"}
     }
   },
   "checkpoints": {
@@ -183,8 +194,10 @@
       "label": "Binární diagnostika bowlingu",
       "token": "a9dc930b787a4be6a5344e524d56073b",
       "requires": ["staircase_signal"],
-      "rewards": {"inventory": ["TEMPORÁLNÍ MOTOR"], "cipher_tools": ["binary_ascii"]},
-      "message": {"text": "Diagnostika dokončena. TEMPORÁLNÍ MOTOR je znovu synchronizován s terminálem.", "mood": "success", "channel": "general"}
+      "puzzle_id": "bowling_binary",
+      "found_rewards": {"cipher_tools": ["binary_ascii"]},
+      "rewards": {"inventory": ["TEMPORÁLNÍ MOTOR"], "flags": ["temporal_motor_recovered"]},
+      "message": {"text": "Bowlingová kotva aktivní. Terminál obnovil binární diagnostický záznam a referenci ASCII.", "mood": "focused", "channel": "captain"}
     },
     "terrace_echo": {
       "label": "Chronální ozvěna u terasy",

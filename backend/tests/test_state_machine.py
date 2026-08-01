@@ -181,6 +181,36 @@ class StateMachineCheckpointTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn("Nejsou dostupné", error.payload["message"])
         self.assertEqual(self.machine.state.score, 1000)
 
+    async def test_bowling_binary_puzzle_awards_temporal_motor(self) -> None:
+        await self.solve_staircase()
+        scanned = await self.scan("bowling_diagnostics")
+
+        self.assertEqual(self.response(scanned, "qr.result").payload["status"], "found")
+        self.assertIn("binary_ascii", self.machine.state.unlocked_cipher_tools)
+        self.assertNotIn("TEMPORÁLNÍ MOTOR", self.machine.state.inventory)
+
+        wrong = await self.machine.handle(
+            Message("puzzle.submit", {"puzzle_id": "bowling_binary", "answer": "KUZELKY"})
+        )
+        self.assertFalse(self.response(wrong, "puzzle.result").payload["correct"])
+
+        solved = await self.machine.handle(
+            Message("puzzle.submit", {"puzzle_id": "bowling_binary", "answer": "motor"})
+        )
+        self.assertTrue(self.response(solved, "puzzle.result").payload["correct"])
+        self.assertIn("TEMPORÁLNÍ MOTOR", self.machine.state.inventory)
+        self.assertTrue(self.machine.state.flags["temporal_motor_recovered"])
+
+    async def test_bowling_puzzle_is_image_only_and_has_no_hints(self) -> None:
+        await self.solve_staircase()
+        await self.scan("bowling_diagnostics")
+        puzzle_state = next(item for item in self.machine._puzzle_state() if item["id"] == "bowling_binary")
+
+        self.assertEqual(puzzle_state["image"], "assets/puzzles/bowling-binary-motor-v3.png")
+        self.assertFalse(puzzle_state["has_hints"])
+        self.assertEqual(puzzle_state["categories"], {})
+        self.assertEqual(puzzle_state["clues"], [])
+
 
 if __name__ == "__main__":
     unittest.main()

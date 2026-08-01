@@ -527,11 +527,12 @@
                 return `<h3>A1Z26 a římské číslice</h3><p>A=1, B=2 … Z=26. Příklad: 3-1-19 = CAS.</p>${referenceTable(alphabet)}<h3>Římské číslice</h3>${referenceTable({I:1,V:5,X:10,L:50,C:100,D:500,M:1000}, ['ZNAK','HODNOTA'])}`;
             }
             if (toolId === 'binary_ascii') {
-                const ascii = Object.fromEntries(Array.from({length: 26}, (_, i) => {
+                const rows = Array.from({length: 26}, (_, i) => {
                     const letter = String.fromCharCode(65 + i);
-                    return [letter, (65 + i).toString(2).padStart(8, '0')];
-                }));
-                return `<h3>Binární kód a ASCII</h3><p>Čti osm bitů zleva; nejvyšší hodnota je 128. Příklad: 01000001 = 65 = A.</p>${referenceTable(ascii, ['PÍSMENO','8BIT ASCII'])}`;
+                    const sevenBit = (65 + i).toString(2).padStart(7, '0');
+                    return `<tr><td>${letter}</td><td>${sevenBit}</td><td>0${sevenBit}</td></tr>`;
+                }).join('');
+                return `<h3>Binární kód a ASCII</h3><p>ASCII lze zapsat sedmi bity nebo osmi bity s nulou na začátku. Příklad: 1000001 = 01000001 = 65 = A.</p><table class="cipher-reference"><thead><tr><th>PÍSMENO</th><th>7BIT ASCII</th><th>8BIT ASCII</th></tr></thead><tbody>${rows}</tbody></table>`;
             }
             if (toolId === 'pigpen') {
                 return `<h3>Polský kříž</h3><p>Písmeno se zapíše hranami políčka, ve kterém leží. Druhá sada stejných tvarů se rozlišuje tečkou.</p>

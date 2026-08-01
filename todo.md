@@ -231,11 +231,14 @@
 
 ### 13.6 Checkpoint 3 – Bowling
 **Typ:** binární diagnostika pomocí stojících a spadlých kuželek.
-- [ ] Navrhnout vizuální binární zprávu s jednoznačným směrem čtení.
-- [ ] Rozhodnout, zda bude výsledkem slovo, číslo nebo kód schránky.
+- [x] Navrhnout vizuální binární zprávu s jednoznačným směrem čtení.
+- [x] Použít pět sedmibitových znaků ASCII s výsledným slovem `MOTOR`.
 - [ ] Umístit QR kotvu a fyzickou schránku mimo aktivní hrací dráhu.
 - [ ] Vyrobit první fyzický díl stroje: `TEMPORÁLNÍ MOTOR`.
-- [ ] Zapsat součást do digitálního inventáře po potvrzení checkpointu.
+- [x] Zapsat součást do digitálního inventáře až po vyřešení hádanky.
+- [x] Vytvořit jediný obrazový artefakt s pěti fotografiemi Elary při hodu a samostatným PIP v každé fotografii.
+- [x] V každém PIP zobrazit kompletní trojúhelník 4–3–2–1; označené řady 4+3 kódují sedm bitů a řady 2+1 jsou obrazový šum.
+- [x] Ve všech deseti pozicích použít stojící kuželku jako `1` a prázdnou obrysovou pozici jako `0`.
 
 ### 13.7 Checkpoint 4 – Terasa nebo okolí rybníka
 **Typ:** Morseova abeceda a navigační zpráva.
