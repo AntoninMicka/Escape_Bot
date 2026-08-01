@@ -117,12 +117,45 @@
     "binary_ascii": {"label": "Binární kód a ASCII", "default_unlocked": false, "unlock_cost": 25},
     "a1z26": {"label": "A1Z26 a římské číslice", "default_unlocked": true, "unlock_cost": 0}
   },
+  "puzzles": {
+    "reception_deduction": {
+      "title": "Recepční archiv: Projekt CHRONOS",
+      "type": "logic_grid",
+      "checkpoint_id": "reception_archive",
+      "instructions": "V nočním archivu jsou záznamy čtyř členů projektu. Každý bydlel v jiném pokoji, přivezl jinou součást a jeho dokumentace skončila v jiné pozici archivu. Určete pokoj doktorky Elary a pozici jejího záznamu. Kód tvoří tři číslice pokoje a jedna číslice pozice archivu.",
+      "categories": {
+        "Vědec": ["Elara", "Novák", "Silva", "Chen"],
+        "Pokoj": ["101", "104", "207", "214"],
+        "Součást": ["Temporální motor", "Fázový stabilizátor", "Krystal kotvy", "Datový záznamník"],
+        "Pozice archivu": ["3", "5", "7", "9"]
+      },
+      "clues": [
+        "Doktor Novák bydlel v pokoji s nejnižším číslem.",
+        "Datový záznamník byl uložen v pokoji 104.",
+        "Doktorka Chen přivezla datový záznamník.",
+        "Krystal časové kotvy byl uložen v pokoji 207.",
+        "Dokumentace krystalu leží na pozici 9.",
+        "Dokumentace temporálního motoru leží na pozici 3.",
+        "Dokumentace datového záznamníku leží na pozici 5.",
+        "Elara nepřivezla ani motor, ani krystal."
+      ],
+      "answer": "2147",
+      "success_message": {"text": "Archiv potvrzuje shodu: Elara, pokoj 214, pozice 7. Záznam obsahuje schéma nouzového přístupového panelu a stopu vedoucí ke schodišti.", "mood": "success", "channel": "captain"},
+      "failure_message": {"text": "Archivní kombinace nesouhlasí. Zkontrolujte vazby mezi pokoji, součástkami a pozicemi.", "mood": "error", "channel": "general"},
+      "hints": [
+        {"text": "Začněte pevnými vazbami: Novák má nejnižší pokoj a Chen má záznamník.", "penalty": 10},
+        {"text": "Pokoj 104 patří Chen. Pokoj 207 obsahoval krystal.", "penalty": 20},
+        {"text": "Elaře zbývá fázový stabilizátor, pokoj 214 a pozice 7.", "penalty": 35}
+      ]
+    }
+  },
   "checkpoints": {
     "reception_archive": {
       "label": "Recepční archiv",
       "token": "4ec67b900c4a491ba180c8a48d5309f2",
       "requires": [],
       "requires_phase": "navigating",
+      "puzzle_id": "reception_deduction",
       "rewards": {"flags": ["reception_archive_unlocked"]},
       "message": {"text": "Časová kotva na recepci potvrzena. CHRONOMAPA obnovila recepční archiv.", "mood": "focused", "channel": "captain"}
     },

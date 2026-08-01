@@ -48,8 +48,9 @@ def build_scenario_progress(scenario: Scenario, state: dict[str, Any]) -> dict[s
         if index <= current_phase_index:
             resolved.add(phase_id)
 
-    for checkpoint_id in checkpoint_states:
-        resolved.add(checkpoint_id)
+    for checkpoint_id, checkpoint_state in checkpoint_states.items():
+        if checkpoint_state.get("status") == "solved":
+            resolved.add(checkpoint_id)
     for node in flow:
         completion_flag = node.get("completion_flag")
         if completion_flag and flags.get(completion_flag):
@@ -69,6 +70,8 @@ def build_scenario_progress(scenario: Scenario, state: dict[str, Any]) -> dict[s
                 status = "locked"
         elif node_id in resolved:
             status = "complete"
+        elif checkpoint_states.get(node_id, {}).get("status") == "found":
+            status = "active"
         elif all(required in resolved for required in requires):
             status = "available"
         else:

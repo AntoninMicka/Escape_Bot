@@ -89,6 +89,24 @@ Trvale odemkne pasivní šifrovací pomůcku pro aktuální relaci. Pokud ji hr�
 }
 ```
 
+### `puzzle.submit`
+
+Odešle řešení nalezené hádanky. Backend ověří, že její fyzický checkpoint byl skutečně nalezen, zaznamená pokus a teprve správným řešením označí checkpoint jako dokončený.
+
+```json
+{
+  "type": "puzzle.submit",
+  "payload": {
+    "puzzle_id": "reception_deduction",
+    "answer": "2147"
+  }
+}
+```
+
+### `puzzle.hint`
+
+Vyžádá další stupňovanou nápovědu. Každý stupeň odečte body pouze při prvním zobrazení.
+
 ### `arg.verify`
 
 Asks backend to verify a physical discovery.
@@ -141,6 +159,10 @@ Vrátí výsledek kontroly časové kotvy. `duplicate` znamená, že kotva již 
 ### `cipher_tool.result`
 
 Potvrdí odemčení pomůcky a uvádí skutečně odečtené body v poli `charged`.
+
+### `puzzle.result`
+
+Vrátí `correct`, identifikátor hádanky a aktuální počet pokusů. Aktualizovaný `game.state` následně obsahuje veřejné zadání hádanky a stav `found` nebo `solved`; správná odpověď se klientovi neposílá.
 
 ## Vývojový demo režim
 

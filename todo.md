@@ -213,11 +213,11 @@
 
 ### 13.4 Checkpoint 1 – Recepční archiv
 **Typ:** logická dedukční tabulka.
-- [ ] Navrhnout čtveřici vědců, pokojů, časů příjezdu a převážených součástek.
-- [ ] Sepsat jednoznačné indicie a ověřit jediné správné řešení.
-- [ ] Získat z tabulky čtyřmístný PIN virtuálního archivu.
+- [x] Navrhnout čtveřici vědců, pokojů, archivních pozic a převážených součástek.
+- [x] Sepsat jednoznačné indicie a ověřit jediné správné řešení.
+- [x] Získat z tabulky čtyřmístný PIN virtuálního archivu.
 - [ ] Umístit první časovou kotvu poblíž recepce bez omezení jejího provozu.
-- [ ] Po vyřešení zpřístupnit archivní záznam a navigaci ke schodišti.
+- [x] Po vyřešení zpřístupnit archivní záznam a navigaci ke schodišti.
 
 ### 13.5 Checkpoint 2 – Schodiště
 **Typ:** praporová abeceda zamaskovaná jako polohy hodinových ručiček.

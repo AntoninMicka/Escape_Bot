@@ -21,6 +21,12 @@ class StateMachineCheckpointTests(unittest.IsolatedAsyncioTestCase):
             Message("qr.detected", {"value": f"escapebot://checkpoint/{token}"})
         )
 
+    async def solve_reception(self):
+        await self.scan("reception_archive")
+        return await self.machine.handle(
+            Message("puzzle.submit", {"puzzle_id": "reception_deduction", "answer": "2147"})
+        )
+
     @staticmethod
     def response(responses, message_type: str):
         return next(item for item in responses if item.type == message_type)
@@ -43,7 +49,7 @@ class StateMachineCheckpointTests(unittest.IsolatedAsyncioTestCase):
         self.assertNotIn("semaphore", self.machine.state.unlocked_cipher_tools)
 
     async def test_checkpoint_reward_is_idempotent(self) -> None:
-        await self.scan("reception_archive")
+        await self.solve_reception()
         first = await self.scan("staircase_signal")
         second = await self.scan("staircase_signal")
 
@@ -65,7 +71,7 @@ class StateMachineCheckpointTests(unittest.IsolatedAsyncioTestCase):
         denied = await self.machine.handle(Message("room.unlock", {"pin": "104"}))
         self.assertFalse(self.response(denied, "room.unlock_result").payload["success"])
 
-        await self.scan("reception_archive")
+        await self.solve_reception()
         granted = await self.machine.handle(Message("room.unlock", {"pin": "104"}))
         self.assertTrue(self.response(granted, "room.unlock_result").payload["success"])
         self.assertTrue(self.machine.state.flags["room_104_unlocked"])
@@ -105,6 +111,33 @@ class StateMachineCheckpointTests(unittest.IsolatedAsyncioTestCase):
         result = self.response(responses, "qr.result")
         self.assertFalse(result.payload["accepted"])
         self.assertEqual(result.payload["required_phase"], "navigating")
+
+    async def test_reception_puzzle_controls_checkpoint_completion(self) -> None:
+        scanned = await self.scan("reception_archive")
+        self.assertEqual(self.response(scanned, "qr.result").payload["status"], "found")
+        self.assertEqual(self.machine.state.checkpoint_states["reception_archive"]["status"], "found")
+
+        blocked = await self.scan("staircase_signal")
+        self.assertFalse(self.response(blocked, "qr.result").payload["accepted"])
+
+        wrong = await self.machine.handle(
+            Message("puzzle.submit", {"puzzle_id": "reception_deduction", "answer": "1234"})
+        )
+        self.assertFalse(self.response(wrong, "puzzle.result").payload["correct"])
+
+        solved = await self.machine.handle(
+            Message("puzzle.submit", {"puzzle_id": "reception_deduction", "answer": "2147"})
+        )
+        self.assertTrue(self.response(solved, "puzzle.result").payload["correct"])
+        self.assertEqual(self.machine.state.checkpoint_states["reception_archive"]["status"], "solved")
+        self.assertTrue(self.machine.state.flags["reception_archive_unlocked"])
+
+    async def test_reception_hint_charges_each_level_only_once(self) -> None:
+        await self.scan("reception_archive")
+        await self.machine.handle(Message("puzzle.hint", {"puzzle_id": "reception_deduction"}))
+
+        self.assertEqual(self.machine.state.score, 990)
+        self.assertEqual(self.machine.state.hints_used["puzzle.reception_deduction"], 1)
 
 
 if __name__ == "__main__":

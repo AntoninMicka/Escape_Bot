@@ -34,6 +34,7 @@ class GameState:
     checkpoint_states: dict[str, dict[str, Any]] = field(default_factory=dict)
     unlocked_cipher_tools: set[str] = field(default_factory=set)
     paid_cipher_tools: set[str] = field(default_factory=set)
+    puzzle_attempts: dict[str, int] = field(default_factory=dict)
 
     def snapshot(self) -> dict[str, Any]:
         return {
@@ -47,6 +48,7 @@ class GameState:
             "checkpoint_states": self.checkpoint_states,
             "unlocked_cipher_tools": sorted(self.unlocked_cipher_tools),
             "paid_cipher_tools": sorted(self.paid_cipher_tools),
+            "puzzle_attempts": self.puzzle_attempts,
         }
 
     @classmethod
@@ -62,6 +64,7 @@ class GameState:
         state.checkpoint_states = dict(data.get("checkpoint_states", {}))
         state.unlocked_cipher_tools = set(data.get("unlocked_cipher_tools", []))
         state.paid_cipher_tools = set(data.get("paid_cipher_tools", []))
+        state.puzzle_attempts = dict(data.get("puzzle_attempts", {}))
         return state
 
 
@@ -99,6 +102,8 @@ class EscapeBotStateMachine:
             "camera.frame": self._handle_camera_frame,
             "room.unlock": self._handle_room_unlock,
             "cipher_tool.unlock": self._handle_cipher_tool_unlock,
+            "puzzle.submit": self._handle_puzzle_submit,
+            "puzzle.hint": self._handle_puzzle_hint,
         }
         handler = handlers.get(message.type, self._handle_unknown)
         responses = await handler(message)
@@ -126,7 +131,41 @@ class EscapeBotStateMachine:
             }
             for tool_id, tool in tools.items()
         ]
+        snapshot["puzzles"] = self._puzzle_state()
         return Message("game.state", snapshot)
+
+    def _puzzle_state(self) -> list[dict[str, Any]]:
+        result = []
+        for puzzle_id, puzzle in self.scenario.data.get("puzzles", {}).items():
+            checkpoint_id = puzzle.get("checkpoint_id")
+            checkpoint_state = self.state.checkpoint_states.get(checkpoint_id, {})
+            status = checkpoint_state.get("status", "locked")
+            item = {
+                "id": puzzle_id,
+                "title": puzzle.get("title", puzzle_id),
+                "type": puzzle.get("type", "text"),
+                "status": status,
+                "attempts": self.state.puzzle_attempts.get(puzzle_id, 0),
+            }
+            if status in {"found", "solved"}:
+                item.update({
+                    "instructions": puzzle.get("instructions", ""),
+                    "categories": puzzle.get("categories", {}),
+                    "clues": puzzle.get("clues", []),
+                })
+            result.append(item)
+        return result
+
+    def _apply_checkpoint_rewards(self, checkpoint: dict[str, Any]) -> None:
+        rewards = checkpoint.get("rewards", {})
+        for item in rewards.get("inventory", []):
+            if item not in self.state.inventory:
+                self.state.inventory.append(item)
+        for tool_id in rewards.get("cipher_tools", []):
+            if tool_id in self.scenario.data.get("cipher_tools", {}):
+                self.state.unlocked_cipher_tools.add(tool_id)
+        for flag in rewards.get("flags", []):
+            self.state.flags[str(flag)] = True
 
     def _provide_hint(self, phase: str, message: Message) -> list[Message]:
         p_data = self.scenario.get_phase_data(phase)
@@ -291,7 +330,10 @@ class EscapeBotStateMachine:
                 self._state_message(),
             ]
 
-        missing = [required for required in checkpoint.get("requires", []) if required not in self.state.checkpoint_states]
+        missing = [
+            required for required in checkpoint.get("requires", [])
+            if self.state.checkpoint_states.get(required, {}).get("status") != "solved"
+        ]
         if missing:
             return [
                 reply("qr.result", {
@@ -303,28 +345,92 @@ class EscapeBotStateMachine:
             ]
 
         now = datetime.now(UTC).isoformat()
-        self.state.checkpoint_states[checkpoint_id] = {"status": "found", "first_scanned_at": now}
+        puzzle_id = checkpoint.get("puzzle_id")
+        checkpoint_status = "found" if puzzle_id else "solved"
+        self.state.checkpoint_states[checkpoint_id] = {"status": checkpoint_status, "first_scanned_at": now}
+        if checkpoint_status == "solved":
+            self.state.checkpoint_states[checkpoint_id]["solved_at"] = now
         self.state.unlocked_discoveries.add(checkpoint_id)
-
-        rewards = checkpoint.get("rewards", {})
-        for item in rewards.get("inventory", []):
-            if item not in self.state.inventory:
-                self.state.inventory.append(item)
-        for tool_id in rewards.get("cipher_tools", []):
-            if tool_id in self.scenario.data.get("cipher_tools", {}):
-                self.state.unlocked_cipher_tools.add(tool_id)
-        for flag in rewards.get("flags", []):
-            self.state.flags[str(flag)] = True
+        if checkpoint_status == "solved":
+            self._apply_checkpoint_rewards(checkpoint)
 
         msg_template = checkpoint.get("message", self.scenario.data.get("global_events", {}).get("qr_detected", {})).copy()
         msg_template["text"] = msg_template.get("text", "").replace("{checkpoint_id}", checkpoint_id)
 
         return [
-            reply("qr.result", {"accepted": True, "duplicate": False, "checkpoint_id": checkpoint_id}, message),
+            reply("qr.result", {
+                "accepted": True,
+                "duplicate": False,
+                "checkpoint_id": checkpoint_id,
+                "puzzle_id": puzzle_id,
+                "status": checkpoint_status,
+            }, message),
             reply("bot.message", msg_template, message),
             Message("effect.trigger", {"effect": "glitch", "intensity": 0.35, "duration_ms": 900}),
             self._state_message(),
         ]
+
+    async def _handle_puzzle_submit(self, message: Message) -> list[Message]:
+        puzzle_id = str(message.payload.get("puzzle_id", "")).strip()
+        answer = str(message.payload.get("answer", "")).strip().replace(" ", "").upper()
+        puzzle = self.scenario.data.get("puzzles", {}).get(puzzle_id)
+        if puzzle is None:
+            return [reply("puzzle.result", {"correct": False, "reason": "Neznámá hádanka."}, message)]
+
+        checkpoint_id = str(puzzle.get("checkpoint_id", ""))
+        checkpoint_state = self.state.checkpoint_states.get(checkpoint_id)
+        if checkpoint_state is None:
+            return [reply("puzzle.result", {"correct": False, "reason": "Hádanka zatím nebyla nalezena."}, message)]
+        if checkpoint_state.get("status") == "solved":
+            return [reply("puzzle.result", {"correct": True, "puzzle_id": puzzle_id, "already_solved": True}, message), self._state_message()]
+
+        self.state.puzzle_attempts[puzzle_id] = self.state.puzzle_attempts.get(puzzle_id, 0) + 1
+        expected = str(puzzle.get("answer", "")).strip().replace(" ", "").upper()
+        if answer != expected:
+            return [
+                reply("puzzle.result", {"correct": False, "puzzle_id": puzzle_id, "attempts": self.state.puzzle_attempts[puzzle_id]}, message),
+                reply("bot.message", puzzle.get("failure_message", {}), message),
+                self._state_message(),
+            ]
+
+        now = datetime.now(UTC).isoformat()
+        checkpoint_state["status"] = "solved"
+        checkpoint_state["solved_at"] = now
+        checkpoint = self.scenario.data.get("checkpoints", {}).get(checkpoint_id, {})
+        self._apply_checkpoint_rewards(checkpoint)
+        return [
+            reply("puzzle.result", {"correct": True, "puzzle_id": puzzle_id, "attempts": self.state.puzzle_attempts[puzzle_id]}, message),
+            reply("bot.message", puzzle.get("success_message", {}), message),
+            self._state_message(),
+        ]
+
+    async def _handle_puzzle_hint(self, message: Message) -> list[Message]:
+        puzzle_id = str(message.payload.get("puzzle_id", "")).strip()
+        puzzle = self.scenario.data.get("puzzles", {}).get(puzzle_id)
+        if puzzle is None:
+            return [reply("error", {"message": "Neznámá hádanka."}, message)]
+        checkpoint_id = puzzle.get("checkpoint_id")
+        if self.state.checkpoint_states.get(checkpoint_id, {}).get("status") != "found":
+            return [reply("error", {"message": "Pro tuto hádanku nyní nelze použít nápovědu."}, message)]
+
+        hints = puzzle.get("hints", [])
+        hint_key = f"puzzle.{puzzle_id}"
+        index = self.state.hints_used.get(hint_key, 0)
+        if not hints:
+            return [reply("error", {"message": "Nejsou dostupné žádné nápovědy."}, message)]
+        charged = index < len(hints)
+        hint = hints[min(index, len(hints) - 1)]
+        responses = []
+        if charged:
+            penalty = int(hint.get("penalty", 10))
+            self.state.score -= penalty
+            self.state.hints_used[hint_key] = index + 1
+            responses.append(reply("score.update", {"score": self.state.score, "penalty": penalty, "reason": "puzzle_hint"}, message))
+        responses.extend([
+            reply("bot.message", {"text": f"NÁPOVĚDA: {hint.get('text', '')}", "mood": "info", "channel": "general"}, message),
+            self._state_message(),
+        ])
+        return responses
 
     async def _handle_cipher_tool_unlock(self, message: Message) -> list[Message]:
         tool_id = str(message.payload.get("tool_id", "")).strip()
@@ -386,7 +492,7 @@ class EscapeBotStateMachine:
                 missing_checkpoints = [
                     checkpoint_id
                     for checkpoint_id in r_data.get("requires_checkpoints", [])
-                    if checkpoint_id not in self.state.checkpoint_states
+                    if self.state.checkpoint_states.get(checkpoint_id, {}).get("status") != "solved"
                 ]
                 if missing_checkpoints:
                     return [

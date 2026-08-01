@@ -68,7 +68,8 @@
       "a1z26",
       "morse"
     ],
-    "paid_cipher_tools": []
+    "paid_cipher_tools": [],
+    "puzzle_attempts": {}
   },
   "9b7f096a-977b-4d11-bbf8-a356625baf2e": {
     "phase": "searching_lost",
@@ -298,7 +299,8 @@
       "a1z26",
       "morse"
     ],
-    "paid_cipher_tools": []
+    "paid_cipher_tools": [],
+    "puzzle_attempts": {}
   },
   "qzqaj5twdc": {
     "phase": "searching_lost",
@@ -354,7 +356,8 @@
       "a1z26",
       "morse"
     ],
-    "paid_cipher_tools": []
+    "paid_cipher_tools": [],
+    "puzzle_attempts": {}
   },
   "srxexaafxbg": {
     "phase": "comms_offline",
@@ -375,7 +378,8 @@
       "a1z26",
       "morse"
     ],
-    "paid_cipher_tools": []
+    "paid_cipher_tools": [],
+    "puzzle_attempts": {}
   },
   "90431b0b-0031-4de1-8b05-6e0455a8b4ae": {
     "phase": "searching_lost",
@@ -428,7 +432,8 @@
       "a1z26",
       "morse"
     ],
-    "paid_cipher_tools": []
+    "paid_cipher_tools": [],
+    "puzzle_attempts": {}
   },
   "fbb8aa23-4fb1-4ef1-ab28-a545fc0faa61": {
     "phase": "searching_lost",
@@ -586,7 +591,8 @@
       "pigpen",
       "semaphore"
     ],
-    "paid_cipher_tools": []
+    "paid_cipher_tools": [],
+    "puzzle_attempts": {}
   },
   "5eda3e51-e7e8-4705-855d-907bb69e5ad2": {
     "phase": "comms_offline",
@@ -607,6 +613,241 @@
       "a1z26",
       "morse"
     ],
-    "paid_cipher_tools": []
+    "paid_cipher_tools": [],
+    "puzzle_attempts": {}
+  },
+  "0806baf4-129c-4bd8-b2a1-491ffc761ba7": {
+    "phase": "navigating",
+    "unlocked_discoveries": [
+      "bowling_diagnostics",
+      "reception_archive",
+      "sports_archive",
+      "staircase_signal",
+      "terrace_echo"
+    ],
+    "inventory": [
+      "TEMPORÁLNÍ MOTOR",
+      "FÁZOVÝ STABILIZÁTOR",
+      "KRYSTAL ČASOVÉ KOTVY"
+    ],
+    "flags": {
+      "chronomap_unlocked": true,
+      "reception_archive_unlocked": true,
+      "room_104_unlocked": true
+    },
+    "chat_history": [
+      {
+        "role": "bot",
+        "channel": "captain",
+        "text": "*ššš*... Tady Kapitánka. Slyšíme se? Interkom konečně naběhl. Potvrď příjem!"
+      },
+      {
+        "role": "player",
+        "channel": "captain",
+        "text": "příjem"
+      },
+      {
+        "role": "bot",
+        "channel": "captain",
+        "text": "Výborně, spojení funguje. Při experimentu v Hotelu Kraskov zmizela doktorka Elara. Z nouzových záznamů musíš rozluštit frekvenci jejího chronálního vysílače a zadat ji sem."
+      },
+      {
+        "role": "bot",
+        "channel": "general",
+        "text": "PIN je správný, ale zámek nemá potvrzenou předchozí časovou kotvu."
+      },
+      {
+        "role": "bot",
+        "channel": "general",
+        "text": "Chybný PIN kód '734'. Přístup odepřen."
+      },
+      {
+        "role": "bot",
+        "channel": "general",
+        "text": "Chybný PIN kód '734'. Přístup odepřen."
+      },
+      {
+        "role": "bot",
+        "channel": "general",
+        "text": "PIN je správný, ale zámek nemá potvrzenou předchozí časovou kotvu."
+      },
+      {
+        "role": "bot",
+        "channel": "general",
+        "text": "Chybný PIN kód '1234'. Přístup odepřen."
+      },
+      {
+        "role": "player",
+        "channel": "captain",
+        "text": "734"
+      },
+      {
+        "role": "bot",
+        "channel": "captain",
+        "text": "Frekvence 734 přijata! Zachytila jsem chronální ozvěnu. Přepojuji... *píp*"
+      },
+      {
+        "role": "bot",
+        "channel": "lost",
+        "text": "Haló? Tady doktorka Elara. Jsem pořád v Kraskově, ale hotel vypadá, jako by tu nikdo nebyl celá desetiletí. Stroj se rozpadl při přenosu. Slyšíte mě?"
+      },
+      {
+        "role": "player",
+        "channel": "lost",
+        "text": "ano"
+      },
+      {
+        "role": "bot",
+        "channel": "lost",
+        "text": "Snažím se postupovat podle tvých instrukcí 'ano', ale... *GLITCH* něco mě tu ruší... *šum*"
+      },
+      {
+        "role": "bot",
+        "channel": "general",
+        "text": "SYSTEM ERROR: Spojení ztraceno. Proveďte tvrdý restart (napište 'restart')."
+      },
+      {
+        "role": "player",
+        "channel": "lost",
+        "text": "co máme dělat?"
+      },
+      {
+        "role": "bot",
+        "channel": "general",
+        "text": "SYSTEM ERROR: Spojení nelze navázat. Zadejte 'restart'."
+      },
+      {
+        "role": "player",
+        "channel": "lost",
+        "text": "reset"
+      },
+      {
+        "role": "bot",
+        "channel": "general",
+        "text": "SYSTEM ERROR: Spojení nelze navázat. Zadejte 'restart'."
+      },
+      {
+        "role": "player",
+        "channel": "lost",
+        "text": "restart"
+      },
+      {
+        "role": "bot",
+        "channel": "lost",
+        "text": "Uf, jsem zpět! Už tomu rozumím: nejsem v jiné budově, ale v jiné časové vrstvě Kraskova. Havárie rozptýlila součásti stroje ve vašem čase. Aktivovala jsem CHRONOMAPU; první stopa vede k recepčnímu archivu."
+      },
+      {
+        "role": "bot",
+        "channel": "general",
+        "text": "PIN je správný, ale zámek nemá potvrzenou předchozí časovou kotvu."
+      },
+      {
+        "role": "bot",
+        "channel": "captain",
+        "text": "Časová kotva na recepci potvrzena. CHRONOMAPA obnovila recepční archiv."
+      },
+      {
+        "role": "bot",
+        "channel": "general",
+        "text": "NÁPOVĚDA: Začněte pevnými vazbami: Novák má nejnižší pokoj a Chen má záznamník."
+      },
+      {
+        "role": "bot",
+        "channel": "general",
+        "text": "Archivní kombinace nesouhlasí. Zkontrolujte vazby mezi pokoji, součástkami a pozicemi."
+      },
+      {
+        "role": "bot",
+        "channel": "general",
+        "text": "Archivní kombinace nesouhlasí. Zkontrolujte vazby mezi pokoji, součástkami a pozicemi."
+      },
+      {
+        "role": "bot",
+        "channel": "captain",
+        "text": "Archiv potvrzuje shodu: Elara, pokoj 214, pozice 7. Záznam obsahuje schéma nouzového přístupového panelu a stopu vedoucí ke schodišti."
+      },
+      {
+        "role": "bot",
+        "channel": "lost",
+        "text": "Kotva na schodišti je stabilní. Obnovila jsem referenční záznam praporové abecedy."
+      },
+      {
+        "role": "bot",
+        "channel": "general",
+        "text": "Přístupový panel 104 odemčen. Elektromagnetický zámek uvolněn."
+      },
+      {
+        "role": "bot",
+        "channel": "lost",
+        "text": "Slyšela jsem cvaknutí! Ty dveře do pokoje 104 se právě otevřely. Jdu dovnitř..."
+      },
+      {
+        "role": "bot",
+        "channel": "general",
+        "text": "Diagnostika dokončena. TEMPORÁLNÍ MOTOR je znovu synchronizován s terminálem."
+      },
+      {
+        "role": "bot",
+        "channel": "lost",
+        "text": "Morseův přenos je kompletní. FÁZOVÝ STABILIZÁTOR odpovídá na diagnostiku."
+      },
+      {
+        "role": "bot",
+        "channel": "general",
+        "text": "Třetí součást nalezena. KRYSTAL ČASOVÉ KOTVY je aktivní; archiv budoucnosti se otevírá."
+      },
+      {
+        "role": "bot",
+        "channel": "general",
+        "text": "Přístupový panel 104 odemčen. Elektromagnetický zámek uvolněn."
+      },
+      {
+        "role": "bot",
+        "channel": "lost",
+        "text": "Slyšela jsem cvaknutí! Ty dveře do pokoje 104 se právě otevřely. Jdu dovnitř..."
+      }
+    ],
+    "score": 990,
+    "hints_used": {
+      "puzzle.reception_deduction": 1
+    },
+    "checkpoint_states": {
+      "reception_archive": {
+        "status": "solved",
+        "first_scanned_at": "2026-08-01T19:28:55.488729+00:00",
+        "solved_at": "2026-08-01T19:33:25.220627+00:00"
+      },
+      "staircase_signal": {
+        "status": "solved",
+        "first_scanned_at": "2026-08-01T19:33:43.454994+00:00",
+        "solved_at": "2026-08-01T19:33:43.454994+00:00"
+      },
+      "bowling_diagnostics": {
+        "status": "solved",
+        "first_scanned_at": "2026-08-01T19:35:09.494756+00:00",
+        "solved_at": "2026-08-01T19:35:09.494756+00:00"
+      },
+      "terrace_echo": {
+        "status": "solved",
+        "first_scanned_at": "2026-08-01T19:35:16.380380+00:00",
+        "solved_at": "2026-08-01T19:35:16.380380+00:00"
+      },
+      "sports_archive": {
+        "status": "solved",
+        "first_scanned_at": "2026-08-01T19:35:18.398430+00:00",
+        "solved_at": "2026-08-01T19:35:18.398430+00:00"
+      }
+    },
+    "unlocked_cipher_tools": [
+      "a1z26",
+      "binary_ascii",
+      "morse",
+      "pigpen",
+      "semaphore"
+    ],
+    "paid_cipher_tools": [],
+    "puzzle_attempts": {
+      "reception_deduction": 3
+    }
   }
 }

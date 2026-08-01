@@ -301,6 +301,19 @@
         .node-status { font-size: .75em; text-transform: uppercase; }
         .progress-assets { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 12px; }
         .progress-assets div { border: 1px solid #044; padding: 8px; overflow-wrap: anywhere; }
+        .puzzle-container { border: 1px solid #0aa; padding: 18px; background: #001214; overflow-y: auto; }
+        .puzzle-card { max-width: 950px; }
+        .puzzle-card h3 { color: #0ff; }
+        .puzzle-categories { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 10px; margin: 16px 0; }
+        .puzzle-category { border: 1px solid #055; padding: 10px; background: #000; }
+        .puzzle-category strong { display: block; color: #0aa; margin-bottom: 7px; }
+        .puzzle-category span { display: block; padding: 3px 0; }
+        .puzzle-clues { color: #dfffff; line-height: 1.5; }
+        .puzzle-answer { display: flex; gap: 10px; margin-top: 18px; max-width: 520px; }
+        .puzzle-answer input { font-size: 1.3em; letter-spacing: .2em; text-align: center; }
+        .puzzle-actions { display: flex; gap: 10px; margin-top: 10px; }
+        .puzzle-status.solved { padding: 12px; border: 1px solid #0f0; color: #0f0; background: #002200; }
+        .puzzle-locked { color: #777; border: 1px dashed #444; padding: 16px; }
         @media (max-width: 700px) {
             body { padding: 10px; height: 94vh; }
             .tabs { overflow-x: auto; }
@@ -322,6 +335,7 @@
     <div class="tabs">
         <button class="tab-button active" onclick="openTab('tab-intercom', this)">INTERKOM</button>
         <button id="chronomap-tab-button" class="tab-button" onclick="openTab('tab-map', this)" disabled>CHRONOMAPA [OFFLINE]</button>
+        <button id="puzzles-tab-button" class="tab-button" onclick="openTab('tab-puzzles', this)" disabled>HÁDANKY [0]</button>
         <button class="tab-button" onclick="openTab('tab-room', this)">MÍSTNOST (Virtuální panel)</button>
         <button class="tab-button" onclick="openTab('tab-scanner', this)">SKENER (Kamera)</button>
         <button class="tab-button" onclick="openTab('tab-leaderboard', this)">SÍŇ SLÁVY</button>
@@ -421,6 +435,13 @@
         </div>
     </div>
 
+    <div id="tab-puzzles" class="tab-content">
+        <h2>[ ARCHIV HÁDANEK ]</h2>
+        <div id="puzzle-container" class="puzzle-container">
+            <p>Žádná hádanka zatím nebyla nalezena.</p>
+        </div>
+    </div>
+
     <div id="tab-scanner" class="tab-content">
         <h2>[ OPTICKÝ SKENER ] <span id="demo-scanner-badge" class="demo-badge" style="display:none">DEMO</span></h2>
         <section id="scenario-progress" class="scenario-progress">
@@ -434,6 +455,7 @@
         </section>
         <div id="demo-scanner-panel" class="demo-scanner-panel">
             <strong>[ SIMULACE QR CHECKPOINTŮ ]</strong>
+            <button onclick="startFreshDemoSession()" style="float:right; padding:6px 10px; background:#fc0">NOVÁ DEMO RELACE</button>
             <p id="demo-scanner-status">Navazuji spojení s demo backendem…</p>
             <div id="demo-checkpoint-list" class="demo-checkpoint-list"></div>
         </div>
@@ -468,6 +490,7 @@
         const statusIndicator = document.getElementById('connection-status');
         let currentPin = '';
         let cipherToolsState = [];
+        let puzzlesState = [];
         let selectedCipherTool = null;
         const demoModeRequested = new URLSearchParams(window.location.search).get('demo') === '1';
 
@@ -806,6 +829,8 @@
                 else if (msg.type === 'game.state') {
                     const flags = msg.payload.flags || {};
                     cipherToolsState = msg.payload.cipher_tools || [];
+                    puzzlesState = msg.payload.puzzles || [];
+                    renderPuzzles();
                     if (document.getElementById('cipher-panel').classList.contains('open')) renderCipherTools();
                     const scoreDisplay = document.getElementById('score-display');
                     if (scoreDisplay) {
@@ -843,6 +868,14 @@
                         showNotification('Tato časová kotva už byla zaznamenána.', 'info');
                     } else {
                         showNotification(`Časová kotva aktivována: ${msg.payload.checkpoint_id}`, 'success');
+                        if (msg.payload.puzzle_id) showNotification('V archivu byla zpřístupněna nová hádanka.', 'success');
+                    }
+                }
+                else if (msg.type === 'puzzle.result') {
+                    if (msg.payload.correct) {
+                        showNotification(msg.payload.already_solved ? 'Hádanka už byla vyřešena.' : 'Správné řešení. Checkpoint dokončen.', 'success');
+                    } else {
+                        showNotification(msg.payload.reason || 'Kombinace není správná.', 'error');
                     }
                 }
                 else if (msg.type === 'demo.catalog') {
@@ -947,6 +980,50 @@
             document.getElementById('typing-indicator').style.display = 'block';
         }
 
+        function renderPuzzles() {
+            const container = document.getElementById('puzzle-container');
+            const tabButton = document.getElementById('puzzles-tab-button');
+            const visible = puzzlesState.filter(puzzle => puzzle.status === 'found' || puzzle.status === 'solved');
+            tabButton.disabled = visible.length === 0;
+            tabButton.textContent = `HÁDANKY [${visible.length}]`;
+            if (!visible.length) {
+                container.innerHTML = '<p>Žádná hádanka zatím nebyla nalezena.</p>';
+                return;
+            }
+
+            container.innerHTML = visible.map(puzzle => {
+                const categories = Object.entries(puzzle.categories || {}).map(([name, values]) =>
+                    `<div class="puzzle-category"><strong>${escapeHtml(name)}</strong>${values.map(value => `<span>${escapeHtml(value)}</span>`).join('')}</div>`
+                ).join('');
+                const clues = (puzzle.clues || []).map(clue => `<li>${escapeHtml(clue)}</li>`).join('');
+                const solved = puzzle.status === 'solved';
+                return `<article class="puzzle-card">
+                    <h3>${escapeHtml(puzzle.title)}</h3>
+                    <p>${escapeHtml(puzzle.instructions)}</p>
+                    <div class="puzzle-categories">${categories}</div>
+                    <ol class="puzzle-clues">${clues}</ol>
+                    ${solved
+                        ? '<p class="puzzle-status solved">HÁDANKA VYŘEŠENA · CHECKPOINT POTVRZEN</p>'
+                        : `<div class="puzzle-answer"><input id="puzzle-answer-${escapeHtml(puzzle.id)}" inputmode="numeric" maxlength="8" autocomplete="off" placeholder="KÓD"><button onclick="submitPuzzle('${escapeHtml(puzzle.id)}')">OVĚŘIT</button></div>
+                           <div class="puzzle-actions"><button onclick="requestPuzzleHint('${escapeHtml(puzzle.id)}')">DALŠÍ NÁPOVĚDA</button><span>Pokusy: ${puzzle.attempts || 0}</span></div>`}
+                </article>`;
+            }).join('');
+        }
+
+        function submitPuzzle(puzzleId) {
+            const input = document.getElementById(`puzzle-answer-${puzzleId}`);
+            const answer = input ? input.value.trim() : '';
+            if (!answer) { showNotification('Zadejte výsledný kód.', 'error'); return; }
+            if (!ws || ws.readyState !== WebSocket.OPEN) { showNotification('Terminál není připojen.', 'error'); return; }
+            ws.send(JSON.stringify({type: 'puzzle.submit', payload: {puzzle_id: puzzleId, answer}}));
+        }
+
+        function requestPuzzleHint(puzzleId) {
+            if (!window.confirm('Zobrazit další nápovědu? Při prvním zobrazení tohoto stupně se odečtou body.')) return;
+            if (!ws || ws.readyState !== WebSocket.OPEN) { showNotification('Terminál není připojen.', 'error'); return; }
+            ws.send(JSON.stringify({type: 'puzzle.hint', payload: {puzzle_id: puzzleId}}));
+        }
+
         // --- LOGIKA OPTICKÉHO SKENERU ---
         const qrVideo = document.getElementById("qr-video");
         const qrCanvas = document.getElementById("qr-canvas");
@@ -1018,6 +1095,13 @@
             if (!ws || ws.readyState !== WebSocket.OPEN) { showNotification('Terminál není připojen.', 'error'); return; }
             showNotification(`DEMO sken: ${label}`, 'info');
             ws.send(JSON.stringify({type: 'qr.detected', payload: {value}}));
+        }
+
+        function startFreshDemoSession() {
+            if (!window.confirm('Založit novou prázdnou demo relaci? Dosavadní relace zůstane uložena na backendu.')) return;
+            const freshId = window.crypto && crypto.randomUUID ? crypto.randomUUID() : `demo-${Date.now()}`;
+            localStorage.setItem('escapeBotSessionId', freshId);
+            window.location.reload();
         }
 
         function startScanner() {
