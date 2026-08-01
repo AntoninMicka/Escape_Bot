@@ -1389,26 +1389,312 @@
     }
   },
   "80b713b4-824f-450e-be49-476835e84285": {
-    "phase": "comms_offline",
-    "unlocked_discoveries": [],
-    "inventory": [],
-    "flags": {},
+    "phase": "navigating",
+    "unlocked_discoveries": [
+      "bowling_diagnostics",
+      "reception_archive",
+      "sports_archive",
+      "staircase_signal",
+      "terrace_echo",
+      "timeline_calibration"
+    ],
+    "inventory": [
+      "TEMPORÁLNÍ MOTOR",
+      "FÁZOVÝ STABILIZÁTOR",
+      "KRYSTAL ČASOVÉ KOTVY"
+    ],
+    "flags": {
+      "chronomap_unlocked": true,
+      "reception_archive_unlocked": true,
+      "bowling_route_unlocked": true,
+      "temporal_motor_recovered": true,
+      "phase_stabilizer_recovered": true,
+      "timeline_calibrated": true,
+      "room_104_unlocked": true
+    },
     "chat_history": [
       {
         "role": "bot",
         "channel": "captain",
         "text": "*ššš*... Tady Kapitánka. Slyšíme se? Interkom konečně naběhl. Potvrď příjem!"
+      },
+      {
+        "role": "bot",
+        "channel": "general",
+        "text": "[Systém]: Spojení bylo úspěšně obnoveno. Relace je aktivní."
+      },
+      {
+        "role": "bot",
+        "channel": "general",
+        "text": "[Systém]: Spojení bylo úspěšně obnoveno. Relace je aktivní."
+      },
+      {
+        "role": "bot",
+        "channel": "general",
+        "text": "[Systém]: Spojení bylo úspěšně obnoveno. Relace je aktivní."
+      },
+      {
+        "role": "player",
+        "channel": "captain",
+        "text": "ano"
+      },
+      {
+        "role": "bot",
+        "channel": "captain",
+        "text": "Výborně, spojení funguje. Při experimentu v Hotelu Kraskov zmizela doktorka Elara. Z nouzových záznamů musíš rozluštit frekvenci jejího chronálního vysílače a zadat ji sem."
+      },
+      {
+        "role": "player",
+        "channel": "captain",
+        "text": "735"
+      },
+      {
+        "role": "bot",
+        "channel": "captain",
+        "text": "*šum* Frekvence '735' je hluchá. Zkus to znovu, musíme ji najít!"
+      },
+      {
+        "role": "player",
+        "channel": "captain",
+        "text": "734"
+      },
+      {
+        "role": "bot",
+        "channel": "captain",
+        "text": "Frekvence 734 přijata! Zachytila jsem chronální ozvěnu. Přepojuji... *píp*"
+      },
+      {
+        "role": "bot",
+        "channel": "lost",
+        "text": "Haló? Tady doktorka Elara. Jsem pořád v Kraskově, ale hotel vypadá, jako by tu nikdo nebyl celá desetiletí. Stroj se rozpadl při přenosu. Slyšíte mě?"
+      },
+      {
+        "role": "player",
+        "channel": "lost",
+        "text": "ano"
+      },
+      {
+        "role": "bot",
+        "channel": "lost",
+        "text": "Snažím se postupovat podle tvých instrukcí 'ano', ale... *GLITCH* něco mě tu ruší... *šum*"
+      },
+      {
+        "role": "bot",
+        "channel": "general",
+        "text": "SYSTEM ERROR: Spojení ztraceno. Proveďte tvrdý restart (napište 'restart')."
+      },
+      {
+        "role": "player",
+        "channel": "general",
+        "text": "restart"
+      },
+      {
+        "role": "bot",
+        "channel": "lost",
+        "text": "Uf, jsem zpět! Už tomu rozumím: nejsem v jiné budově, ale v jiné časové vrstvě Kraskova. Havárie rozptýlila součásti stroje ve vašem čase. Aktivovala jsem CHRONOMAPU; první stopa vede k recepčnímu archivu."
+      },
+      {
+        "role": "bot",
+        "channel": "captain",
+        "text": "Časová kotva na recepci potvrzena. CHRONOMAPA obnovila recepční archiv."
+      },
+      {
+        "role": "bot",
+        "channel": "captain",
+        "text": "Archiv potvrzuje shodu: Elara, pokoj 214, pozice 7. Záznam obsahuje schéma nouzového přístupového panelu a stopu vedoucí ke schodišti."
+      },
+      {
+        "role": "bot",
+        "channel": "lost",
+        "text": "Kotva na schodišti je stabilní. Obnovila jsem referenční záznam praporové abecedy a zachycenou sekvenci poloh."
+      },
+      {
+        "role": "bot",
+        "channel": "lost",
+        "text": "Signál přeložen: BOWLING. Chronomapa zachytila diagnostické impulzy v prostoru kuželek."
+      },
+      {
+        "role": "bot",
+        "channel": "captain",
+        "text": "Bowlingová kotva aktivní. Terminál obnovil binární diagnostický záznam a referenci ASCII."
+      },
+      {
+        "role": "bot",
+        "channel": "general",
+        "text": "Diagnostická sekvence potvrzena: MOTOR. TEMPORÁLNÍ MOTOR je znovu synchronizován s terminálem."
+      },
+      {
+        "role": "bot",
+        "channel": "lost",
+        "text": "Kotva u terasy zachytila noční světelný přenos. Obrazový záznam byl uložen do archivu hádanek."
+      },
+      {
+        "role": "bot",
+        "channel": "lost",
+        "text": "Světelný přenos potvrzen: HŘIŠTĚ. FÁZOVÝ STABILIZÁTOR se synchronizoval a Chronomapa označila sportovní areál."
+      },
+      {
+        "role": "bot",
+        "channel": "captain",
+        "text": "Kalibrační terminál je aktivní. Dva časové proudy se rozpadají; srovnejte jejich uzly do stabilních řad."
+      },
+      {
+        "role": "bot",
+        "channel": "lost",
+        "text": "Oba časové proudy drží! Kalibrace 5–3–1 je dokončena a sportovní archiv se znovu objevil na Chronomapě."
+      },
+      {
+        "role": "bot",
+        "channel": "general",
+        "text": "Třetí součást nalezena. KRYSTAL ČASOVÉ KOTVY je aktivní; archiv budoucnosti se otevírá."
+      },
+      {
+        "role": "bot",
+        "channel": "general",
+        "text": "Přístupový panel 104 odemčen. Elektromagnetický zámek uvolněn."
+      },
+      {
+        "role": "bot",
+        "channel": "lost",
+        "text": "Slyšela jsem cvaknutí! Ty dveře do pokoje 104 se právě otevřely. Jdu dovnitř..."
+      },
+      {
+        "role": "bot",
+        "channel": "general",
+        "text": "[Systém]: Spojení bylo úspěšně obnoveno. Relace je aktivní."
+      },
+      {
+        "role": "bot",
+        "channel": "general",
+        "text": "[Systém]: Spojení bylo úspěšně obnoveno. Relace je aktivní."
       }
     ],
-    "score": 1000,
+    "score": 975,
     "hints_used": {},
-    "checkpoint_states": {},
+    "checkpoint_states": {
+      "reception_archive": {
+        "status": "solved",
+        "first_scanned_at": "2026-08-01T21:55:44.631749+00:00",
+        "solved_at": "2026-08-01T21:56:22.122970+00:00"
+      },
+      "staircase_signal": {
+        "status": "solved",
+        "first_scanned_at": "2026-08-01T21:56:37.984711+00:00",
+        "solved_at": "2026-08-01T21:56:54.845427+00:00"
+      },
+      "bowling_diagnostics": {
+        "status": "solved",
+        "first_scanned_at": "2026-08-01T21:57:06.912994+00:00",
+        "solved_at": "2026-08-01T21:57:39.359305+00:00"
+      },
+      "terrace_echo": {
+        "status": "solved",
+        "first_scanned_at": "2026-08-01T21:58:05.074827+00:00",
+        "solved_at": "2026-08-01T21:58:30.818037+00:00"
+      },
+      "timeline_calibration": {
+        "status": "solved",
+        "first_scanned_at": "2026-08-01T21:59:01.381071+00:00",
+        "solved_at": "2026-08-01T22:02:51.096679+00:00"
+      },
+      "sports_archive": {
+        "status": "solved",
+        "first_scanned_at": "2026-08-01T22:03:22.117955+00:00",
+        "solved_at": "2026-08-01T22:03:22.117955+00:00"
+      }
+    },
     "unlocked_cipher_tools": [
       "a1z26",
-      "morse"
+      "binary_ascii",
+      "morse",
+      "pigpen",
+      "semaphore"
     ],
     "paid_cipher_tools": [],
-    "puzzle_attempts": {},
-    "interactive_games": {}
+    "puzzle_attempts": {
+      "reception_deduction": 1,
+      "staircase_semaphore": 1,
+      "bowling_binary": 1,
+      "terrace_morse": 1
+    },
+    "interactive_games": {
+      "timeline_lines": {
+        "progress": {
+          "3": 5,
+          "4": 3,
+          "5": 1
+        },
+        "status": "complete",
+        "started_at": "2026-08-01T21:59:01.381113+00:00",
+        "deadline_at": "2026-08-01T22:04:01.381113+00:00",
+        "swaps": 36,
+        "rng": 1899515404,
+        "board": [
+          [
+            "green",
+            "violet",
+            "violet",
+            "cyan",
+            "red",
+            "green",
+            "red"
+          ],
+          [
+            "green",
+            "red",
+            "amber",
+            "red",
+            "cyan",
+            "amber",
+            "green"
+          ],
+          [
+            "cyan",
+            "violet",
+            "red",
+            "amber",
+            "green",
+            "red",
+            "green"
+          ],
+          [
+            "amber",
+            "violet",
+            "violet",
+            "red",
+            "red",
+            "cyan",
+            "violet"
+          ],
+          [
+            "cyan",
+            "green",
+            "green",
+            "violet",
+            "red",
+            "red",
+            "green"
+          ],
+          [
+            "cyan",
+            "amber",
+            "red",
+            "amber",
+            "violet",
+            "violet",
+            "amber"
+          ],
+          [
+            "red",
+            "green",
+            "cyan",
+            "violet",
+            "green",
+            "green",
+            "violet"
+          ]
+        ]
+      }
+    }
   }
 }

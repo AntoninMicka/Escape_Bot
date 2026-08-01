@@ -22,9 +22,15 @@
         .tabs {
             display: flex;
             gap: 5px;
-            margin-bottom: 15px;
+            position: sticky;
+            top: 0;
+            z-index: 800;
+            margin: -10px -10px 15px;
             border-bottom: 1px solid #333;
-            padding-bottom: 5px;
+            padding: 10px 10px 8px;
+            background: rgba(5, 5, 5, 0.96);
+            box-shadow: 0 10px 22px rgba(0, 0, 0, 0.72);
+            backdrop-filter: blur(8px);
         }
         .tab-button {
             background: #0a0a0a;
@@ -337,7 +343,7 @@
         .line-game-failed { padding: 10px; border: 1px solid #f44; color: #f66; margin: 10px 0; }
         @media (max-width: 700px) {
             body { padding: 10px; height: 94vh; }
-            .tabs { overflow-x: auto; }
+            .tabs { overflow-x: auto; margin: -10px -10px 12px; scrollbar-width: thin; }
             .tab-button { padding: 8px; white-space: nowrap; }
             .utility-button { margin-left: 0; }
             .cipher-panel { top: 12px; right: 8px; width: calc(100vw - 16px); max-height: calc(100vh - 24px); }
@@ -1070,11 +1076,11 @@
         function renderPuzzles() {
             const container = document.getElementById('puzzle-container');
             const tabButton = document.getElementById('puzzles-tab-button');
-            const visible = puzzlesState.filter(puzzle => puzzle.status === 'found' || puzzle.status === 'solved');
+            const visible = puzzlesState.filter(puzzle => puzzle.status === 'found');
             tabButton.disabled = visible.length === 0;
             tabButton.textContent = `HÁDANKY [${visible.length}]`;
             if (!visible.length) {
-                container.innerHTML = '<p>Žádná hádanka zatím nebyla nalezena.</p>';
+                container.innerHTML = '<p>Momentálně není rozehraná žádná hádanka.</p>';
                 return;
             }
 
