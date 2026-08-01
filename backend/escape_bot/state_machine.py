@@ -9,6 +9,7 @@ from typing import Any
 from .protocol import Message, reply
 from .scenario import Scenario
 from .ollama_adapter import OllamaAdapter
+from .line_game import new_game, public_game, reset_game, swap
 
 
 class GamePhase(StrEnum):
@@ -35,6 +36,7 @@ class GameState:
     unlocked_cipher_tools: set[str] = field(default_factory=set)
     paid_cipher_tools: set[str] = field(default_factory=set)
     puzzle_attempts: dict[str, int] = field(default_factory=dict)
+    interactive_games: dict[str, dict[str, Any]] = field(default_factory=dict)
 
     def snapshot(self) -> dict[str, Any]:
         return {
@@ -49,6 +51,7 @@ class GameState:
             "unlocked_cipher_tools": sorted(self.unlocked_cipher_tools),
             "paid_cipher_tools": sorted(self.paid_cipher_tools),
             "puzzle_attempts": self.puzzle_attempts,
+            "interactive_games": self.interactive_games,
         }
 
     @classmethod
@@ -65,6 +68,7 @@ class GameState:
         state.unlocked_cipher_tools = set(data.get("unlocked_cipher_tools", []))
         state.paid_cipher_tools = set(data.get("paid_cipher_tools", []))
         state.puzzle_attempts = dict(data.get("puzzle_attempts", {}))
+        state.interactive_games = dict(data.get("interactive_games", {}))
         return state
 
 
@@ -104,6 +108,8 @@ class EscapeBotStateMachine:
             "cipher_tool.unlock": self._handle_cipher_tool_unlock,
             "puzzle.submit": self._handle_puzzle_submit,
             "puzzle.hint": self._handle_puzzle_hint,
+            "line_game.move": self._handle_line_game_move,
+            "line_game.reset": self._handle_line_game_reset,
         }
         handler = handlers.get(message.type, self._handle_unknown)
         responses = await handler(message)
@@ -155,6 +161,10 @@ class EscapeBotStateMachine:
                     "categories": puzzle.get("categories", {}),
                     "clues": puzzle.get("clues", []),
                 })
+                if puzzle.get("type") == "line_game":
+                    config = puzzle.get("game", {})
+                    game = self._line_game_state(puzzle_id, config)
+                    item["game"] = public_game(config, game)
             result.append(item)
         return result
 
@@ -381,6 +391,8 @@ class EscapeBotStateMachine:
         puzzle = self.scenario.data.get("puzzles", {}).get(puzzle_id)
         if puzzle is None:
             return [reply("puzzle.result", {"correct": False, "reason": "Neznámá hádanka."}, message)]
+        if puzzle.get("type") == "line_game":
+            return [reply("puzzle.result", {"correct": False, "reason": "Tato úloha se řeší přímo na herní mřížce."}, message)]
 
         checkpoint_id = str(puzzle.get("checkpoint_id", ""))
         checkpoint_state = self.state.checkpoint_states.get(checkpoint_id)
@@ -440,6 +452,83 @@ class EscapeBotStateMachine:
             self._state_message(),
         ])
         return responses
+
+    def _active_line_game(self, puzzle_id: str) -> tuple[dict[str, Any], dict[str, Any], dict[str, Any]]:
+        puzzle = self.scenario.data.get("puzzles", {}).get(puzzle_id)
+        if puzzle is None or puzzle.get("type") != "line_game":
+            raise ValueError("Neznámá interaktivní úloha.")
+        checkpoint_id = str(puzzle.get("checkpoint_id", ""))
+        checkpoint_state = self.state.checkpoint_states.get(checkpoint_id)
+        if checkpoint_state is None:
+            raise ValueError("Interaktivní úloha zatím nebyla nalezena.")
+        if checkpoint_state.get("status") == "solved":
+            raise ValueError("Interaktivní úloha už byla dokončena.")
+        config = puzzle.get("game", {})
+        game = self._line_game_state(puzzle_id, config)
+        return puzzle, checkpoint_state, game
+
+    def _line_game_state(self, puzzle_id: str, config: dict[str, Any]) -> dict[str, Any]:
+        game = self.state.interactive_games.get(puzzle_id)
+        is_current_format = (
+            isinstance(game, dict)
+            and isinstance(game.get("progress"), dict)
+            and isinstance(game.get("board"), list)
+            and bool(game.get("deadline_at"))
+        )
+        if not is_current_format:
+            game = new_game(config)
+            self.state.interactive_games[puzzle_id] = game
+        return game
+
+    async def _handle_line_game_move(self, message: Message) -> list[Message]:
+        puzzle_id = str(message.payload.get("puzzle_id", "")).strip()
+        try:
+            puzzle, checkpoint_state, game = self._active_line_game(puzzle_id)
+            first = message.payload.get("first", [])
+            second = message.payload.get("second", [])
+            if not isinstance(first, list) or not isinstance(second, list) or len(first) != 2 or len(second) != 2:
+                raise ValueError("Tah musí obsahovat dvě souřadnice.")
+            result = swap(
+                puzzle.get("game", {}), game,
+                (int(first[0]), int(first[1])), (int(second[0]), int(second[1])),
+            )
+        except (TypeError, ValueError) as error:
+            return [reply("line_game.result", {"success": False, "reason": str(error)}, message), self._state_message()]
+
+        responses = [reply("line_game.result", {"success": True, **result}, message)]
+        if result["game_complete"]:
+            now = datetime.now(UTC).isoformat()
+            checkpoint_state["status"] = "solved"
+            checkpoint_state["solved_at"] = now
+            checkpoint = self.scenario.data.get("checkpoints", {}).get(puzzle.get("checkpoint_id"), {})
+            self._apply_checkpoint_rewards(checkpoint)
+            score_delta = int(result.get("score_delta", 0))
+            self.state.score += score_delta
+            responses.append(reply("score.update", {
+                "score": self.state.score,
+                "delta": score_delta,
+                "bonus": max(0, score_delta),
+                "penalty": max(0, -score_delta),
+                "reason": "line_game_time",
+            }, message))
+            responses.extend([
+                reply("puzzle.result", {"correct": True, "puzzle_id": puzzle_id}, message),
+                reply("bot.message", puzzle.get("success_message", {}), message),
+            ])
+        responses.append(self._state_message())
+        return responses
+
+    async def _handle_line_game_reset(self, message: Message) -> list[Message]:
+        puzzle_id = str(message.payload.get("puzzle_id", "")).strip()
+        try:
+            puzzle, _, game = self._active_line_game(puzzle_id)
+            reset_game(puzzle.get("game", {}), game)
+        except ValueError as error:
+            return [reply("line_game.result", {"success": False, "reason": str(error)}, message), self._state_message()]
+        return [
+            reply("line_game.result", {"success": True, "reset": True}, message),
+            self._state_message(),
+        ]
 
     async def _handle_cipher_tool_unlock(self, message: Message) -> list[Message]:
         tool_id = str(message.payload.get("tool_id", "")).strip()

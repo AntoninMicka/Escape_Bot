@@ -1,7 +1,9 @@
 import unittest
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 from escape_bot.protocol import Message
+from escape_bot.line_game import completion_time_score
 from escape_bot.scenario import ScenarioLoader, build_demo_checkpoint_catalog, build_scenario_progress
 from escape_bot.state_machine import EscapeBotStateMachine, GamePhase
 
@@ -40,6 +42,29 @@ class StateMachineCheckpointTests(unittest.IsolatedAsyncioTestCase):
         return await self.machine.handle(
             Message("puzzle.submit", {"puzzle_id": "bowling_binary", "answer": "MOTOR"})
         )
+
+    async def unlock_timeline_game(self):
+        await self.solve_bowling()
+        await self.scan("terrace_echo")
+        await self.machine.handle(
+            Message("puzzle.submit", {"puzzle_id": "terrace_morse", "answer": "HŘIŠTĚ"})
+        )
+        return await self.scan("timeline_calibration")
+
+    async def line_swap(self, first: list[int], second: list[int]):
+        return await self.machine.handle(Message("line_game.move", {
+            "puzzle_id": "timeline_lines", "first": first, "second": second,
+        }))
+
+    def prepare_five_match(self):
+        game = self.machine.state.interactive_games["timeline_lines"]
+        colors = self.scenario.data["puzzles"]["timeline_lines"]["game"]["colors"]
+        game["board"] = [[colors[(row + column) % len(colors)] for column in range(7)] for row in range(7)]
+        for column in range(4):
+            game["board"][0][column] = "cyan"
+        game["board"][0][4] = "violet"
+        game["board"][1][4] = "cyan"
+        return game
 
     @staticmethod
     def response(responses, message_type: str):
@@ -234,8 +259,10 @@ class StateMachineCheckpointTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn("FÁZOVÝ STABILIZÁTOR", self.machine.state.inventory)
         self.assertTrue(self.machine.state.flags["phase_stabilizer_recovered"])
 
-        allowed = await self.scan("sports_archive")
-        self.assertTrue(self.response(allowed, "qr.result").payload["accepted"])
+        timeline = await self.scan("timeline_calibration")
+        self.assertTrue(self.response(timeline, "qr.result").payload["accepted"])
+        sports = await self.scan("sports_archive")
+        self.assertFalse(self.response(sports, "qr.result").payload["accepted"])
 
     async def test_terrace_puzzle_is_image_only_and_has_no_hints(self) -> None:
         await self.solve_bowling()
@@ -246,6 +273,77 @@ class StateMachineCheckpointTests(unittest.IsolatedAsyncioTestCase):
         self.assertFalse(puzzle_state["has_hints"])
         self.assertEqual(puzzle_state["categories"], {})
         self.assertEqual(puzzle_state["clues"], [])
+
+    async def test_line_game_is_locked_until_its_qr_is_scanned(self) -> None:
+        responses = await self.line_swap([0, 0], [0, 1])
+
+        result = self.response(responses, "line_game.result")
+        self.assertFalse(result.payload["success"])
+        self.assertNotIn("timeline_lines", self.machine.state.interactive_games)
+
+    async def test_line_game_rejects_non_adjacent_swap_and_persists_state(self) -> None:
+        await self.unlock_timeline_game()
+        game = self.machine.state.interactive_games["timeline_lines"]
+        original_board = [row[:] for row in game["board"]]
+        rejected = await self.line_swap([0, 0], [2, 2])
+
+        self.assertFalse(self.response(rejected, "line_game.result").payload["success"])
+        self.assertEqual(game["board"], original_board)
+        self.assertEqual(game["swaps"], 0)
+        restored = EscapeBotStateMachine(self.scenario)
+        restored.restore_state(self.machine.state.snapshot())
+        self.assertEqual(restored.state.interactive_games["timeline_lines"], game)
+
+    async def test_line_game_objectives_can_be_completed_in_free_order(self) -> None:
+        await self.unlock_timeline_game()
+        game = self.prepare_five_match()
+        response = await self.line_swap([0, 4], [1, 4])
+
+        self.assertTrue(self.response(response, "line_game.result").payload["success"])
+        self.assertEqual(game["progress"]["5"], 1)
+        self.assertLess(game["progress"]["3"], 5)
+        self.assertLess(game["progress"]["4"], 3)
+        self.assertEqual(game["status"], "playing")
+
+    async def test_line_game_completion_unlocks_sports(self) -> None:
+        await self.unlock_timeline_game()
+        game = self.prepare_five_match()
+        game["progress"] = {"3": 5, "4": 3, "5": 0}
+        final_response = await self.line_swap([0, 4], [1, 4])
+
+        self.assertTrue(self.response(final_response, "line_game.result").payload["game_complete"])
+        score_update = self.response(final_response, "score.update")
+        self.assertGreater(score_update.payload["delta"], 0)
+        self.assertEqual(self.machine.state.score, 1000 + score_update.payload["delta"])
+        self.assertEqual(self.machine.state.checkpoint_states["timeline_calibration"]["status"], "solved")
+        self.assertTrue(self.machine.state.flags["timeline_calibrated"])
+        sports = await self.scan("sports_archive")
+        self.assertTrue(self.response(sports, "qr.result").payload["accepted"])
+
+    async def test_line_game_time_limit_and_reset(self) -> None:
+        await self.unlock_timeline_game()
+        game = self.machine.state.interactive_games["timeline_lines"]
+        game["progress"] = {"3": 4, "4": 2, "5": 0}
+        game["deadline_at"] = (datetime.now(UTC) - timedelta(seconds=1)).isoformat()
+        expired = await self.line_swap([0, 0], [0, 1])
+        self.assertFalse(self.response(expired, "line_game.result").payload["success"])
+        self.assertEqual(game["status"], "expired")
+
+        responses = await self.machine.handle(Message("line_game.reset", {"puzzle_id": "timeline_lines"}))
+
+        self.assertTrue(self.response(responses, "line_game.result").payload["reset"])
+        self.assertEqual(game["progress"], {"3": 0, "4": 0, "5": 0})
+        self.assertEqual(game["swaps"], 0)
+        self.assertEqual(game["status"], "playing")
+
+    def test_line_game_time_score_changes_sign_at_three_minutes(self) -> None:
+        config = self.scenario.data["puzzles"]["timeline_lines"]["game"]
+        started = datetime(2026, 8, 1, 12, 0, tzinfo=UTC)
+        game = {"started_at": started.isoformat()}
+
+        self.assertEqual(completion_time_score(config, game, started + timedelta(seconds=60)), 60)
+        self.assertEqual(completion_time_score(config, game, started + timedelta(seconds=180)), 0)
+        self.assertEqual(completion_time_score(config, game, started + timedelta(seconds=240)), -30)
 
 
 if __name__ == "__main__":

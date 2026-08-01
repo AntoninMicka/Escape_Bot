@@ -316,6 +316,21 @@
         .puzzle-actions { display: flex; gap: 10px; margin-top: 10px; }
         .puzzle-status.solved { padding: 12px; border: 1px solid #0f0; color: #0f0; background: #002200; }
         .puzzle-locked { color: #777; border: 1px dashed #444; padding: 16px; }
+        .line-game { max-width: 620px; margin-top: 16px; padding: 14px; border: 1px solid #066; background: #000b0d; }
+        .line-game-progress { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 12px; }
+        .line-game-objective { padding: 8px; border: 1px solid #244; color: #688; text-align: center; }
+        .line-game-objective.complete { border-color: #0a0; color: #0f0; }
+        .line-game-board { display: grid; gap: 4px; width: min(100%, 520px); aspect-ratio: 1; margin: 12px auto; }
+        .line-game-cell { min-width: 0; padding: 0; border: 1px solid #075; background: #001719; color: #fff; font-size: clamp(1rem, 5vw, 2rem); font-family: inherit; }
+        .line-game-cell:hover:enabled { background: #06383b; }
+        .line-game-cell.selected { outline: 3px solid #fff; transform: scale(.9); }
+        .line-game-cell.cyan { color: #00191d; background: #00d9f5; box-shadow: inset 0 0 12px #8ff; }
+        .line-game-cell.amber { color: #241600; background: #ffb000; box-shadow: inset 0 0 12px #ffe08a; }
+        .line-game-cell.violet { color: #fff; background: #7135a8; }
+        .line-game-cell.green { color: #fff; background: #267a43; }
+        .line-game-cell.red { color: #fff; background: #a8323e; }
+        .line-game-meta { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px; color: #9dd; }
+        .line-game-failed { padding: 10px; border: 1px solid #f44; color: #f66; margin: 10px 0; }
         @media (max-width: 700px) {
             body { padding: 10px; height: 94vh; }
             .tabs { overflow-x: auto; }
@@ -493,6 +508,7 @@
         let currentPin = '';
         let cipherToolsState = [];
         let puzzlesState = [];
+        let selectedLineCell = null;
         let selectedCipherTool = null;
         const demoModeRequested = new URLSearchParams(window.location.search).get('demo') === '1';
 
@@ -833,8 +849,15 @@
                 }
                 }
                 else if (msg.type === 'score.update') {
-                    const reason = msg.payload.reason === 'cipher_tool' ? 'Odemčena šifrovací pomůcka' : 'Použita nápověda';
-                    showNotification(`${reason} (-${msg.payload.penalty} bodů).`, 'error');
+                    if (msg.payload.reason === 'line_game_time') {
+                        const delta = Number(msg.payload.delta) || 0;
+                        if (delta > 0) showNotification(`Časový bonus: +${delta} bodů.`, 'success');
+                        else if (delta < 0) showNotification(`Časová penalizace: ${delta} bodů.`, 'error');
+                        else showNotification('Dokončeno přesně v neutrálním čase bez změny skóre.', 'info');
+                    } else {
+                        const reason = msg.payload.reason === 'cipher_tool' ? 'Odemčena šifrovací pomůcka' : 'Použita nápověda';
+                        showNotification(`${reason} (-${msg.payload.penalty} bodů).`, 'error');
+                    }
                 }
                 else if (msg.type === 'game.state') {
                     const flags = msg.payload.flags || {};
@@ -886,6 +909,20 @@
                         showNotification(msg.payload.already_solved ? 'Hádanka už byla vyřešena.' : 'Správné řešení. Checkpoint dokončen.', 'success');
                     } else {
                         showNotification(msg.payload.reason || 'Kombinace není správná.', 'error');
+                    }
+                }
+                else if (msg.type === 'line_game.result') {
+                    if (!msg.payload.success) {
+                        showNotification(msg.payload.reason || 'Tah nelze provést.', 'error');
+                    } else if (msg.payload.game_complete) {
+                        showNotification('Kalibrace časové osy dokončena!', 'success');
+                    } else if (msg.payload.scored && Object.values(msg.payload.scored).some(value => value > 0)) {
+                        const gained = Object.entries(msg.payload.scored).filter(([, value]) => value > 0).map(([length, value]) => `${value}× řada ${length}`).join(', ');
+                        showNotification(`Časová kalibrace: ${gained}.`, 'success');
+                    } else if (msg.payload.cascades) {
+                        showNotification('Řada odstraněna, ale její barva se do kalibrace nepočítá.', 'info');
+                    } else if (msg.payload.reset) {
+                        showNotification('Aktuální etapa byla obnovena.', 'info');
                     }
                 }
                 else if (msg.type === 'demo.catalog') {
@@ -1008,19 +1045,91 @@
                 ).join('');
                 const clues = (puzzle.clues || []).map(clue => `<li>${escapeHtml(clue)}</li>`).join('');
                 const solved = puzzle.status === 'solved';
+                const interactiveGame = puzzle.type === 'line_game' ? renderLineGame(puzzle, solved) : '';
                 return `<article class="puzzle-card">
                     <h3>${escapeHtml(puzzle.title)}</h3>
                     <p>${escapeHtml(puzzle.instructions)}</p>
                     ${artifact}
                     <div class="puzzle-categories">${categories}</div>
                     <ol class="puzzle-clues">${clues}</ol>
-                    ${solved
+                    ${interactiveGame || (solved
                         ? '<p class="puzzle-status solved">HÁDANKA VYŘEŠENA · CHECKPOINT POTVRZEN</p>'
                         : `<div class="puzzle-answer"><input id="puzzle-answer-${escapeHtml(puzzle.id)}" inputmode="numeric" maxlength="8" autocomplete="off" placeholder="KÓD"><button onclick="submitPuzzle('${escapeHtml(puzzle.id)}')">OVĚŘIT</button></div>
-                           <div class="puzzle-actions">${puzzle.has_hints ? `<button onclick="requestPuzzleHint('${escapeHtml(puzzle.id)}')">DALŠÍ NÁPOVĚDA</button>` : ''}<span>Pokusy: ${puzzle.attempts || 0}</span></div>`}
+                           <div class="puzzle-actions">${puzzle.has_hints ? `<button onclick="requestPuzzleHint('${escapeHtml(puzzle.id)}')">DALŠÍ NÁPOVĚDA</button>` : ''}<span>Pokusy: ${puzzle.attempts || 0}</span></div>`)}
                 </article>`;
             }).join('');
         }
+
+        function renderLineGame(puzzle, solved) {
+            const game = puzzle.game;
+            if (!game) return '<p class="puzzle-locked">Kalibrační mřížka se načítá…</p>';
+            const objectives = Object.entries(game.objectives || {}).map(([length, required]) => {
+                const progress = (game.progress || {})[length] || 0;
+                const stateClass = progress >= required || solved ? 'complete' : '';
+                return `<div class="line-game-objective ${stateClass}"><strong>${required}× ŘADA ${length}</strong><br>${progress}/${required}</div>`;
+            }).join('');
+            if (solved || game.status === 'complete') {
+                return `<div class="line-game"><div class="line-game-progress">${objectives}</div><p class="puzzle-status solved">KALIBRACE 5–3–1 DOKONČENA · CHECKPOINT POTVRZEN</p></div>`;
+            }
+            const cells = game.board.map((row, rowIndex) => row.map((cell, columnIndex) => {
+                const label = `${cell}, pole ${rowIndex + 1}, ${columnIndex + 1}`;
+                return `<button class="line-game-cell ${cell}" aria-label="${label}" data-row="${rowIndex}" data-column="${columnIndex}" onclick="selectLineGameCell(this, '${escapeHtml(puzzle.id)}', ${rowIndex}, ${columnIndex})">●</button>`;
+            }).join('')).join('');
+            const failed = game.status === 'expired' ? '<div class="line-game-failed">ČAS VYPRŠEL · spusťte nový pokus</div>' : '';
+            return `<div class="line-game">
+                <div class="line-game-progress">${objectives}</div>
+                <div class="line-game-meta"><span>POČÍTAJÍ SE: AZUROVÁ + JANTAROVÁ</span><span>VÝMĚNY: ${game.swaps}</span><strong class="line-game-timer" data-deadline="${escapeHtml(game.deadline_at)}">ČAS ${formatLineGameTime(game.remaining_seconds)}</strong></div>
+                ${failed}
+                <div class="line-game-board" style="grid-template-columns: repeat(${game.size}, 1fr)">${cells}</div>
+                <div class="puzzle-actions"><button onclick="resetLineGame('${escapeHtml(puzzle.id)}')">NOVÝ POKUS</button></div>
+            </div>`;
+        }
+
+        function selectLineGameCell(element, puzzleId, row, column) {
+            if (!selectedLineCell || selectedLineCell.puzzleId !== puzzleId) {
+                document.querySelectorAll('.line-game-cell.selected').forEach(cell => cell.classList.remove('selected'));
+                selectedLineCell = {puzzleId, row, column};
+                element.classList.add('selected');
+                return;
+            }
+            if (selectedLineCell.row === row && selectedLineCell.column === column) {
+                element.classList.remove('selected');
+                selectedLineCell = null;
+                return;
+            }
+            const distance = Math.abs(selectedLineCell.row - row) + Math.abs(selectedLineCell.column - column);
+            if (distance !== 1) {
+                document.querySelectorAll('.line-game-cell.selected').forEach(cell => cell.classList.remove('selected'));
+                selectedLineCell = {puzzleId, row, column};
+                element.classList.add('selected');
+                return;
+            }
+            if (!ws || ws.readyState !== WebSocket.OPEN) { showNotification('Terminál není připojen.', 'error'); return; }
+            const first = [selectedLineCell.row, selectedLineCell.column];
+            selectedLineCell = null;
+            document.querySelectorAll('.line-game-cell.selected').forEach(cell => cell.classList.remove('selected'));
+            ws.send(JSON.stringify({type: 'line_game.move', payload: {puzzle_id: puzzleId, first, second: [row, column]}}));
+        }
+
+        function resetLineGame(puzzleId) {
+            if (!window.confirm('Spustit nový pokus? Dosavadní kombinace i čas budou resetovány.')) return;
+            if (!ws || ws.readyState !== WebSocket.OPEN) { showNotification('Terminál není připojen.', 'error'); return; }
+            ws.send(JSON.stringify({type: 'line_game.reset', payload: {puzzle_id: puzzleId}}));
+        }
+
+        function formatLineGameTime(seconds) {
+            const safe = Math.max(0, Number(seconds) || 0);
+            return `${Math.floor(safe / 60)}:${String(Math.floor(safe % 60)).padStart(2, '0')}`;
+        }
+
+        function updateLineGameTimers() {
+            document.querySelectorAll('.line-game-timer').forEach(timer => {
+                const remaining = Math.max(0, Math.floor((new Date(timer.dataset.deadline).getTime() - Date.now()) / 1000));
+                timer.textContent = `ČAS ${formatLineGameTime(remaining)}`;
+                if (remaining === 0) timer.style.color = '#f44';
+            });
+        }
+        setInterval(updateLineGameTimers, 1000);
 
         function submitPuzzle(puzzleId) {
             const input = document.getElementById(`puzzle-answer-${puzzleId}`);

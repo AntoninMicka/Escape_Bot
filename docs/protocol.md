@@ -2,7 +2,7 @@
 
 Transport: JSON messages over WebSocket.
 
-Default endpoint: `ws://127.0.0.1:8765`.
+Default endpoint: `/ws` na stejném hostiteli jako webový klient (při lokálním HTTPS typicky `wss://localhost:8088/ws`).
 
 Every message has:
 
@@ -107,6 +107,34 @@ Odešle řešení nalezené hádanky. Backend ověří, že její fyzický check
 
 Vyžádá další stupňovanou nápovědu. Každý stupeň odečte body pouze při prvním zobrazení.
 
+### `line_game.move`
+
+Prohodí dvě ortogonálně sousední barvy v interaktivní kalibrační mřížce. Souřadnice jsou indexované od nuly; backend kontroluje odemčení checkpointu, časový limit a to, zda výměna vytvořila alespoň jednu řadu.
+
+```json
+{
+  "type": "line_game.move",
+  "payload": {
+    "puzzle_id": "timeline_lines",
+    "first": [2, 4],
+    "second": [2, 5]
+  }
+}
+```
+
+### `line_game.reset`
+
+Spustí nový pokus: obnoví pětibarevnou mřížku, průběh všech tří cílů i časový limit.
+
+```json
+{
+  "type": "line_game.reset",
+  "payload": {
+    "puzzle_id": "timeline_lines"
+  }
+}
+```
+
 ### `arg.verify`
 
 Asks backend to verify a physical discovery.
@@ -163,6 +191,10 @@ Potvrdí odemčení pomůcky a uvádí skutečně odečtené body v poli `charge
 ### `puzzle.result`
 
 Vrátí `correct`, identifikátor hádanky a aktuální počet pokusů. Aktualizovaný `game.state` následně obsahuje veřejné zadání hádanky a stav `found` nebo `solved`; správná odpověď se klientovi neposílá.
+
+### `line_game.result`
+
+Potvrdí nebo odmítne výměnu či restart. Úspěšná výměna obsahuje `scored`, počet `cascades` a `game_complete`. Při dokončení obsahuje také `score_delta`: před třetí minutou +5 bodů za každých 10 sekund náskoku, po třetí minutě −5 bodů za každých 10 sekund zpoždění. Změna je současně potvrzena zprávou `score.update`. Autoritativní mřížka, deadline, zbývající čas a průběh cílů jsou vždy poslány v následném `game.state` uvnitř příslušné hádanky.
 
 ## Vývojový demo režim
 

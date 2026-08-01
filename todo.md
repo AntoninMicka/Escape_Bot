@@ -375,20 +375,25 @@
 - [ ] Otestovat klávesnici, dotykové ovládání, změnu orientace telefonu, ztrátu připojení a obnovení hry.
 
 ### 13.10.4 Logická variace na Tři v řadě
-**Cíl:** doplnit strategickou úlohu, v níž hráč neskládá pouze vlastní trojici, ale musí odvodit správnou posloupnost tahů nebo zabránit protivníkovi v narušení časové osy.
+**Cíl:** v klasickém pětibarevném puzzle prohazovat sousední kameny a pomocí dvou aktivních časových barev splnit v libovolném pořadí cíle 5× trojice, 3× čtveřice a 1× pětice.
 
-- [ ] Vybrat konkrétní variantu: hra proti deterministickému protivníkovi, dokončení rozehrané pozice, nebo několik navazujících desek s omezeným počtem tahů.
-- [ ] Příběhově znázornit dva soupeřící časové proudy, například minulost a budoucnost místo koleček a křížků.
-- [ ] Navrhnout zadání tak, aby mělo jedno ověřitelné řešení a nešlo jen o náhodnou partii klasických piškvorek.
-- [ ] Zvážit pravidlo „vyhraj přesně za dva tahy“, povinnou obranu, zakázaná pole nebo aktivaci tří stabilizátorů v řadě.
-- [ ] Implementovat deterministické vyhodnocení tahů a případného protivníka bez závislosti na volném AI rozhodování.
-- [ ] Zobrazit jasně aktivního hráče, dostupná pole, historii tahů a stav vítězství či patu.
-- [ ] Připravit postupné úrovně nebo jedinou krátkou logickou pozici, aby úkol nezdržoval pohyb po hotelu.
-- [ ] Umožnit restart pozice a volitelnou nápovědu ukazující hrozbu nebo kandidátní pole za bodovou penalizaci.
-- [ ] V demo/admin režimu zobrazit správnou posloupnost tahů a průběžný stav řešení.
-- [ ] Napojit výhru na obnovení části časové osy, získání souřadnice nebo odemčení dalšího checkpointu.
-- [ ] Ukládat tahy, restarty, použité nápovědy a dokončení do stavu scénáře.
-- [ ] Otestovat všechny koncové stavy, více rychlých vstupů, obnovení relace a ovládání na mobilu.
+- [x] Zvolit pětibarevnou mřížku 7×7 s výměnou dvou ortogonálně sousedících kamenů.
+- [x] Příběhově označit azurovou a jantarovou jako aktivní proudy minulosti a budoucnosti.
+- [x] Použít zbývající tři barvy jako neutrální výplň, jejíž řady se odstraní, ale nezapočítají.
+- [x] Po platné výměně odstranit vodorovné a svislé řady, nechat kameny propadnout a deterministicky doplnit nové.
+- [x] Podporovat a započítávat navazující kaskády.
+- [x] Implementovat cíle 5× řada délky 3, 3× řada délky 4 a 1× řada délky 5 v libovolném pořadí.
+- [x] Nahradit limit tahů společným pětiminutovým limitem kontrolovaným backendem.
+- [x] Při dokončení před třetí minutou přičítat 5 bodů za každých 10 sekund; po třetí minutě stejným tempem body odečítat až do limitu.
+- [x] Umožnit nový pokus, který obnoví mřížku, cíle i časovač.
+- [x] Implementovat deterministické vyhodnocení výměn na backendu bez závislosti na AI.
+- [x] Zobrazit vybraný kámen, obě bodované barvy, počet platných výměn, čas a průběh všech cílů.
+- [x] Napojit výhru na příběhovou kalibraci časové osy a odemčení sportovního archivu.
+- [x] Ukládat celou rozehranou mřížku a průběh etap do stavu relace.
+- [x] Zařadit samostatný QR checkpoint mezi terasu a sportovní archiv.
+- [x] Otestovat pořadí checkpointů, neplatnou výměnu, volné pořadí cílů, časový limit, kladné i záporné časové skóre, restart a obnovení relace.
+- [ ] Po uživatelském testu doladit časový limit, četnost kombinací a obtížnost náhodně doplňované mřížky.
+- [ ] V budoucím admin panelu přidat živý náhled mřížky a možnost dokončit či restartovat pokus.
 
 ### 13.11 QR checkpointy a ochrana postupu
 **Cíl:** QR kódy musí potvrzovat průchod trasou a bezpečně odemykat obsah.

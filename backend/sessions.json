@@ -69,7 +69,8 @@
       "morse"
     ],
     "paid_cipher_tools": [],
-    "puzzle_attempts": {}
+    "puzzle_attempts": {},
+    "interactive_games": {}
   },
   "9b7f096a-977b-4d11-bbf8-a356625baf2e": {
     "phase": "searching_lost",
@@ -300,7 +301,8 @@
       "morse"
     ],
     "paid_cipher_tools": [],
-    "puzzle_attempts": {}
+    "puzzle_attempts": {},
+    "interactive_games": {}
   },
   "qzqaj5twdc": {
     "phase": "searching_lost",
@@ -357,7 +359,8 @@
       "morse"
     ],
     "paid_cipher_tools": [],
-    "puzzle_attempts": {}
+    "puzzle_attempts": {},
+    "interactive_games": {}
   },
   "srxexaafxbg": {
     "phase": "comms_offline",
@@ -379,7 +382,8 @@
       "morse"
     ],
     "paid_cipher_tools": [],
-    "puzzle_attempts": {}
+    "puzzle_attempts": {},
+    "interactive_games": {}
   },
   "90431b0b-0031-4de1-8b05-6e0455a8b4ae": {
     "phase": "searching_lost",
@@ -433,7 +437,8 @@
       "morse"
     ],
     "paid_cipher_tools": [],
-    "puzzle_attempts": {}
+    "puzzle_attempts": {},
+    "interactive_games": {}
   },
   "fbb8aa23-4fb1-4ef1-ab28-a545fc0faa61": {
     "phase": "searching_lost",
@@ -592,7 +597,8 @@
       "semaphore"
     ],
     "paid_cipher_tools": [],
-    "puzzle_attempts": {}
+    "puzzle_attempts": {},
+    "interactive_games": {}
   },
   "5eda3e51-e7e8-4705-855d-907bb69e5ad2": {
     "phase": "comms_offline",
@@ -614,7 +620,8 @@
       "morse"
     ],
     "paid_cipher_tools": [],
-    "puzzle_attempts": {}
+    "puzzle_attempts": {},
+    "interactive_games": {}
   },
   "0806baf4-129c-4bd8-b2a1-491ffc761ba7": {
     "phase": "navigating",
@@ -848,7 +855,8 @@
     "paid_cipher_tools": [],
     "puzzle_attempts": {
       "reception_deduction": 3
-    }
+    },
+    "interactive_games": {}
   },
   "14b68524-4cc6-4d02-9eaf-e57406fda902": {
     "phase": "navigating",
@@ -1030,7 +1038,8 @@
     "paid_cipher_tools": [],
     "puzzle_attempts": {
       "reception_deduction": 1
-    }
+    },
+    "interactive_games": {}
   },
   "1ed8ffe1-548e-421b-b923-979e706dc3dc": {
     "phase": "navigating",
@@ -1039,7 +1048,8 @@
       "reception_archive",
       "sports_archive",
       "staircase_signal",
-      "terrace_echo"
+      "terrace_echo",
+      "timeline_calibration"
     ],
     "inventory": [
       "TEMPORÁLNÍ MOTOR",
@@ -1051,7 +1061,8 @@
       "reception_archive_unlocked": true,
       "bowling_route_unlocked": true,
       "temporal_motor_recovered": true,
-      "room_104_unlocked": true
+      "room_104_unlocked": true,
+      "timeline_calibrated": true
     },
     "chat_history": [
       {
@@ -1218,6 +1229,26 @@
         "role": "bot",
         "channel": "general",
         "text": "[Systém]: Spojení bylo úspěšně obnoveno. Relace je aktivní."
+      },
+      {
+        "role": "bot",
+        "channel": "general",
+        "text": "[Systém]: Spojení bylo úspěšně obnoveno. Relace je aktivní."
+      },
+      {
+        "role": "bot",
+        "channel": "general",
+        "text": "[Systém]: Spojení bylo úspěšně obnoveno. Relace je aktivní."
+      },
+      {
+        "role": "bot",
+        "channel": "captain",
+        "text": "Kalibrační terminál je aktivní. Dva časové proudy se rozpadají; srovnejte jejich uzly do stabilních řad."
+      },
+      {
+        "role": "bot",
+        "channel": "lost",
+        "text": "Oba časové proudy drží! Kalibrace 5–3–1 je dokončena a sportovní archiv se znovu objevil na Chronomapě."
       }
     ],
     "score": 1000,
@@ -1247,6 +1278,11 @@
         "status": "solved",
         "first_scanned_at": "2026-08-01T20:48:54.093593+00:00",
         "solved_at": "2026-08-01T20:48:54.093593+00:00"
+      },
+      "timeline_calibration": {
+        "status": "solved",
+        "first_scanned_at": "2026-08-01T21:38:22.612023+00:00",
+        "solved_at": "2026-08-01T21:40:21.637973+00:00"
       }
     },
     "unlocked_cipher_tools": [
@@ -1261,6 +1297,84 @@
       "reception_deduction": 1,
       "staircase_semaphore": 1,
       "bowling_binary": 1
+    },
+    "interactive_games": {
+      "timeline_lines": {
+        "stage": 2,
+        "progress": [
+          5,
+          3,
+          1
+        ],
+        "moves": 9,
+        "next_mark": "past",
+        "status": "complete",
+        "board": [
+          [
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            ""
+          ],
+          [
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            ""
+          ],
+          [
+            "",
+            "",
+            "blocked",
+            "",
+            "blocked",
+            "",
+            ""
+          ],
+          [
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            ""
+          ],
+          [
+            "",
+            "",
+            "blocked",
+            "",
+            "blocked",
+            "",
+            ""
+          ],
+          [
+            "",
+            "future",
+            "future",
+            "future",
+            "future",
+            "",
+            ""
+          ],
+          [
+            "",
+            "",
+            "",
+            "blocked",
+            "",
+            "",
+            ""
+          ]
+        ]
+      }
     }
   }
 }
