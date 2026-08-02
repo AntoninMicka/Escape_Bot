@@ -1,1 +1,19 @@
-[]
+[
+  {
+    "session_id": "30c575aa0e264cc894e085181326844d",
+    "mode": "solo",
+    "creator_id": "46c4b312-8a98-4aea-abca-527300ba58e5",
+    "team_name": "Pokus",
+    "join_code": null,
+    "started": true,
+    "players": {
+      "46c4b312-8a98-4aea-abca-527300ba58e5": {
+        "id": "46c4b312-8a98-4aea-abca-527300ba58e5",
+        "name": "PC",
+        "joined_at": "2026-08-02T19:15:27.643257+00:00"
+      }
+    },
+    "max_players": 1,
+    "applied_score_adjustment": 20
+  }
+]

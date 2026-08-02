@@ -535,6 +535,10 @@
 - [x] Doplnit filtrování týmů a detailní časovou osu administrátorských i herních událostí.
 - [x] Generovat v admin režimu tiskovou A4 sadu startovního a checkpointových QR přímo z aktuálního scénářového datasetu.
 - [x] Přidat globální přepínač fyzického/online režimu; v online režimu nahradit QR checkpointy akčními body v Chronomapě a nastavení uchovat po restartu.
+- [x] Přidat týmový kanál podpory s perzistentní historií a trvale dostupnou odpovědí Game Mastera.
+- [x] Oddělit trvale dostupné týmové chaty od dočasného read-only náhledu celé hry v hráčském rozhraní.
+- [x] Rozdělit administrační záhlaví na Týmy, Chaty, Síň slávy a Nástroje.
+- [x] Zobrazit v admin detailu správná řešení a serverem řízené předvolby postihů pro ruční dokončení či technický skip bez postihu.
 
 ## 14. Migrace na cloud
 

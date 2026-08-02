@@ -38,6 +38,14 @@ session_connections: dict[str, set[WebSocket]] = {}
 connection_info: dict[WebSocket, dict[str, object]] = {}
 waiting_players: dict[str, dict[str, object]] = {}
 recovery_tokens: dict[str, dict[str, object]] = {}
+admin_support_sessions: dict[WebSocket, set[str]] = {}
+admin_spectator_sessions: dict[WebSocket, str] = {}
+ADMIN_RESOLUTION_PRESETS = {
+    "technical": {"label": "Technická chyba / uznat bez postihu", "penalty": 0},
+    "minor_help": {"label": "Drobná pomoc Game Mastera", "penalty": 20},
+    "minigame_skip": {"label": "Přeskočení minihry", "penalty": 50},
+    "cipher_solved": {"label": "Šifra vyřešená Game Masterem", "penalty": 75},
+}
 DEMO_MODE_ENABLED = os.getenv("ESCAPEBOT_DEMO_MODE", "").lower() in {"1", "true", "yes", "on"}
 ADMIN_TOKEN = os.getenv("ESCAPEBOT_ADMIN_TOKEN", "")
 runtime_settings = {"online_mode": False}
@@ -160,6 +168,14 @@ async def broadcast_session(session_id: str, messages: list[Message], exclude: W
                 await send_message(websocket, message)
             except Exception:
                 pass
+    for admin_socket, watched_session in list(admin_spectator_sessions.items()):
+        if watched_session != session_id or admin_socket is exclude:
+            continue
+        for message in messages:
+            try:
+                await send_message(admin_socket, message)
+            except Exception:
+                pass
 
 
 async def broadcast_lobby(lobby: Lobby) -> None:
@@ -217,7 +233,7 @@ def require_admin(payload: dict[str, object]) -> None:
         raise ValueError("Neplatné administrátorské heslo.")
 
 
-def admin_overview() -> list[dict[str, object]]:
+def admin_overview(watched_sessions: set[str] | None = None) -> list[dict[str, object]]:
     teams: list[dict[str, object]] = []
     for lobby in lobby_registry.by_session.values():
         machine = active_sessions.get(lobby.session_id)
@@ -271,6 +287,8 @@ def admin_overview() -> list[dict[str, object]]:
             "hints_used": dict(state.get("hints_used", {})),
             "puzzle_attempts": dict(state.get("puzzle_attempts", {})),
             "recent_messages": list(state.get("chat_history", []))[-8:],
+            "support_chat": [item for item in state.get("chat_history", []) if item.get("channel") == "support"],
+            "admin_support_joined": lobby.session_id in (watched_sessions or set()),
             "game_metrics": {
                 "line": [{"id": game_id, "status": game.get("status", ""), "swaps": game.get("swaps", 0),
                           "progress": dict(game.get("progress", {}))}
@@ -296,9 +314,10 @@ def admin_overview() -> list[dict[str, object]]:
 
 async def send_admin_overview(websocket: WebSocket) -> None:
     await send_message(websocket, Message("admin.overview", {
-        "teams": admin_overview(),
+        "teams": admin_overview(admin_support_sessions.get(websocket, set())),
         "leaderboard": leaderboard_entries(),
         "abandonment_thresholds": {"suspicious_seconds": 1800, "abandoned_seconds": 3600},
+        "resolution_presets": ADMIN_RESOLUTION_PRESETS,
     }))
 
 
@@ -361,7 +380,7 @@ async def websocket_endpoint(websocket: WebSocket):
                 data = json.loads(message_str)
                 msg = Message.from_json(data)
 
-                if msg.type in {"admin.list", "admin.penalty", "admin.delete", "admin.qr_set", "admin.online_mode", "admin.checkpoint", "admin.game_reset", "admin.player_recovery", "admin.leaderboard_delete"}:
+                if msg.type in {"admin.list", "admin.penalty", "admin.delete", "admin.qr_set", "admin.online_mode", "admin.checkpoint", "admin.game_reset", "admin.player_recovery", "admin.leaderboard_delete", "admin.support_join", "admin.support_leave", "admin.support_message", "admin.spectate_start", "admin.spectate_stop"}:
                     try:
                         require_admin(msg.payload)
                         if msg.type == "admin.list":
@@ -398,6 +417,48 @@ async def websocket_endpoint(websocket: WebSocket):
                         lobby = lobby_registry.by_session.get(target_session)
                         if lobby is None:
                             raise ValueError("Týmová relace už neexistuje.")
+
+                        if msg.type == "admin.spectate_start":
+                            machine = ensure_state_machine(target_session)
+                            admin_spectator_sessions[websocket] = target_session
+                            await send_message(websocket, Message("admin.spectate_started", {"session_id": target_session, "team_name": lobby.team_name}))
+                            await send_message(websocket, Message("chat.history", {"messages": machine.state.chat_history}))
+                            await send_message(websocket, machine._state_message())
+                            await send_message(websocket, Message("scenario.progress", build_scenario_progress(scenario, machine.state.snapshot())))
+                            await send_message(websocket, Message("runtime.settings", {**runtime_settings, "checkpoints": build_demo_checkpoint_catalog(scenario)}))
+                            continue
+                        if msg.type == "admin.spectate_stop":
+                            admin_spectator_sessions.pop(websocket, None)
+                            await send_message(websocket, Message("admin.spectate_stopped", {}))
+                            await send_admin_overview(websocket)
+                            continue
+
+                        if msg.type in {"admin.support_join", "admin.support_leave", "admin.support_message"}:
+                            watched = admin_support_sessions.setdefault(websocket, set())
+                            machine = ensure_state_machine(target_session)
+                            if msg.type == "admin.support_join":
+                                watched.add(target_session)
+                                notice = {"role": "bot", "channel": "support", "text": "Game Master se připojil k podpoře týmu.", "at": datetime.now(UTC).isoformat()}
+                                machine.state.chat_history.append(notice)
+                                save_sessions()
+                                await broadcast_session(target_session, [Message("bot.message", notice)])
+                            elif msg.type == "admin.support_leave":
+                                watched.discard(target_session)
+                                notice = {"role": "bot", "channel": "support", "text": "Game Master ukončil přímé připojení k týmu.", "at": datetime.now(UTC).isoformat()}
+                                machine.state.chat_history.append(notice)
+                                save_sessions()
+                                await broadcast_session(target_session, [Message("bot.message", notice)])
+                            else:
+                                text_value = " ".join(str(msg.payload.get("text", "")).strip().split())[:500]
+                                if not text_value:
+                                    raise ValueError("Zpráva podpory je prázdná.")
+                                support_message = {"role": "bot", "channel": "support", "text": text_value, "sender": "Game Master", "at": datetime.now(UTC).isoformat()}
+                                machine.state.chat_history.append(support_message)
+                                machine.state.last_activity_at = support_message["at"]
+                                save_sessions()
+                                await broadcast_session(target_session, [Message("bot.message", support_message)])
+                            await send_admin_overview(websocket)
+                            continue
 
                         if msg.type == "admin.player_recovery":
                             player_id = str(msg.payload.get("player_id", "")).strip()
@@ -459,17 +520,28 @@ async def websocket_endpoint(websocket: WebSocket):
                             checkpoint_id = str(msg.payload.get("checkpoint_id", "")).strip()
                             status = str(msg.payload.get("status", "")).strip()
                             machine = ensure_state_machine(target_session)
+                            preset_id = str(msg.payload.get("penalty_preset", "technical"))
+                            preset = ADMIN_RESOLUTION_PRESETS.get(preset_id)
+                            if preset is None:
+                                raise ValueError("Neznámá předvolba postihu.")
+                            penalty = int(preset["penalty"]) if status == "solved" else 0
                             result = machine.admin_set_checkpoint(checkpoint_id, status)
-                            label = f"Checkpoint {checkpoint_id}: {status}"
+                            label = f"Checkpoint {checkpoint_id}: {status} · {preset['label']}"
+                            if penalty:
+                                machine.state.score -= penalty
+                                machine.state.flags.setdefault("admin_penalties", []).append({"amount": penalty, "reason": str(preset["label"]), "at": datetime.now(UTC).isoformat()})
                             machine.state.flags.setdefault("admin_actions", []).append({
                                 "action": "checkpoint", "label": label, "at": datetime.now(UTC).isoformat(), **result,
                             })
                             save_sessions()
-                            await broadcast_session(target_session, [
+                            updates = [
                                 Message("bot.message", {"text": f"Game Master upravil postup: {label}.", "mood": "info", "channel": "general"}),
                                 machine._state_message(),
                                 Message("scenario.progress", build_scenario_progress(scenario, machine.state.snapshot())),
-                            ])
+                            ]
+                            if penalty:
+                                updates.insert(0, Message("score.update", {"score": machine.state.score, "delta": -penalty, "penalty": penalty, "reason": "admin_resolution", "description": preset["label"]}))
+                            await broadcast_session(target_session, updates)
                             await send_admin_overview(websocket)
                             continue
 
@@ -679,6 +751,23 @@ async def websocket_endpoint(websocket: WebSocket):
                 if state_machine:
                     if client_id:
                         msg.payload["_client_id"] = client_id
+                    if msg.type == "player.message" and str(msg.payload.get("channel", "")) == "support" and session_id:
+                        text_value = " ".join(str(msg.payload.get("text", "")).strip().split())[:500]
+                        if not text_value:
+                            await send_message(websocket, Message("error", {"message": "Zpráva podpory je prázdná."}))
+                            continue
+                        lobby = lobby_registry.by_session.get(str(session_id))
+                        player = lobby.players.get(str(client_id), {}) if lobby else {}
+                        support_message = {"role": "player", "channel": "support", "text": text_value, "sender": str(player.get("name", "Hráč")), "at": datetime.now(UTC).isoformat()}
+                        state_machine.state.chat_history.append(support_message)
+                        state_machine.state.last_activity_at = support_message["at"]
+                        save_sessions()
+                        await broadcast_session(str(session_id), [Message("team.player_message", {"client_id": client_id, "channel": "support", "text": text_value})], exclude=websocket)
+                        for admin_socket, watched in list(admin_support_sessions.items()):
+                            if str(session_id) in watched:
+                                try: await send_admin_overview(admin_socket)
+                                except Exception: pass
+                        continue
                     responses = await state_machine.handle(msg)
                     if msg.type == "client.hello" and bool(msg.payload.get("demo_mode")):
                         if demo_client:
@@ -729,6 +818,8 @@ async def websocket_endpoint(websocket: WebSocket):
                 logger.error(f"Chyba při zpracování zprávy: {e}")
     except WebSocketDisconnect:
         app.state.active_websockets.discard(websocket)
+        admin_support_sessions.pop(websocket, None)
+        admin_spectator_sessions.pop(websocket, None)
         info = connection_info.pop(websocket, {})
         player_code = str(info.get("player_code", ""))
         if player_code:

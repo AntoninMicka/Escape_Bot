@@ -2684,5 +2684,53 @@
     "triad_games": {},
     "archive_games": {},
     "event_history": []
+  },
+  "30c575aa0e264cc894e085181326844d": {
+    "phase": "comms_offline",
+    "unlocked_discoveries": [],
+    "inventory": [],
+    "flags": {},
+    "chat_history": [
+      {
+        "role": "bot",
+        "channel": "captain",
+        "text": "*ššš*... Tady Kapitánka. Slyšíme se? Interkom konečně naběhl. Potvrď příjem!"
+      },
+      {
+        "role": "bot",
+        "channel": "support",
+        "text": "Game Master se připojil k podpoře týmu.",
+        "at": "2026-08-02T19:15:44.427719+00:00"
+      },
+      {
+        "role": "player",
+        "channel": "support",
+        "text": "pomoc",
+        "sender": "PC",
+        "at": "2026-08-02T19:16:11.637109+00:00"
+      },
+      {
+        "role": "bot",
+        "channel": "support",
+        "text": "Game Master ukončil přímé připojení k týmu.",
+        "at": "2026-08-02T19:16:56.666497+00:00"
+      }
+    ],
+    "score": 1020,
+    "hints_used": {},
+    "checkpoint_states": {},
+    "unlocked_cipher_tools": [
+      "a1z26",
+      "morse"
+    ],
+    "paid_cipher_tools": [],
+    "puzzle_attempts": {},
+    "interactive_games": {},
+    "sokoban_games": {},
+    "karel_games": {},
+    "last_activity_at": "2026-08-02T19:16:11.637109+00:00",
+    "triad_games": {},
+    "archive_games": {},
+    "event_history": []
   }
 }
