@@ -29,6 +29,7 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__fil
 CLIENT_DIR = os.path.join(BASE_DIR, "client")
 SESSIONS_FILE = os.path.join(BASE_DIR, "backend", "sessions.json")
 LOBBIES_FILE = os.path.join(BASE_DIR, "backend", "lobbies.json")
+RUNTIME_SETTINGS_FILE = os.path.join(BASE_DIR, "backend", "runtime_settings.json")
 
 # Úložiště pro nezávislé relace hráčů (session_id -> state_machine)
 active_sessions: dict[str, EscapeBotStateMachine] = {}
@@ -38,6 +39,7 @@ connection_info: dict[WebSocket, dict[str, object]] = {}
 waiting_players: dict[str, dict[str, object]] = {}
 DEMO_MODE_ENABLED = os.getenv("ESCAPEBOT_DEMO_MODE", "").lower() in {"1", "true", "yes", "on"}
 ADMIN_TOKEN = os.getenv("ESCAPEBOT_ADMIN_TOKEN", "")
+runtime_settings = {"online_mode": False}
 
 LEADERBOARD_FILE = os.path.join(BASE_DIR, "backend", "leaderboard.json")
 global_leaderboard = []
@@ -87,6 +89,15 @@ def load_lobbies():
     except Exception as error:
         logger.error(f"Chyba při načítání týmových lobby: {error}")
 
+def load_runtime_settings():
+    if os.path.exists(RUNTIME_SETTINGS_FILE):
+        try:
+            with open(RUNTIME_SETTINGS_FILE, "r", encoding="utf-8") as file: runtime_settings.update(json.load(file))
+        except Exception as error: logger.error(f"Chyba nastavení režimu: {error}")
+
+def save_runtime_settings():
+    with open(RUNTIME_SETTINGS_FILE, "w", encoding="utf-8") as file: json.dump(runtime_settings, file, indent=2, ensure_ascii=False)
+
 scenario_path = os.path.join(BASE_DIR, "backend", "scenario.json")
 scenario = ScenarioLoader.load(scenario_path)
 
@@ -94,6 +105,7 @@ scenario = ScenarioLoader.load(scenario_path)
 async def lifespan(app: FastAPI):
     load_leaderboard()
     load_lobbies()
+    load_runtime_settings()
     # 1. Načtení uložených stavů her z předchozího běhu
     load_sessions(scenario)
     # 2. Kontrola AI modelů na pozadí 
@@ -247,6 +259,7 @@ async def sync_started_client(websocket: WebSocket, state_machine: EscapeBotStat
             "enabled": True,
             "checkpoints": build_demo_checkpoint_catalog(scenario),
         }))
+    await send_message(websocket, Message("runtime.settings", {**runtime_settings, "checkpoints": build_demo_checkpoint_catalog(scenario)}))
 
 
 @app.get("/api/qr")
@@ -265,7 +278,7 @@ async def qr_code(data: str) -> Response:
 
 @app.get("/api/health")
 async def health() -> dict[str, object]:
-    return {"status": "ok", "admin_enabled": bool(ADMIN_TOKEN)}
+    return {"status": "ok", "admin_enabled": bool(ADMIN_TOKEN), "online_mode": bool(runtime_settings.get("online_mode"))}
 
 
 @app.get("/admin")
@@ -292,14 +305,23 @@ async def websocket_endpoint(websocket: WebSocket):
                 data = json.loads(message_str)
                 msg = Message.from_json(data)
 
-                if msg.type in {"admin.list", "admin.penalty", "admin.delete", "admin.qr_set"}:
+                if msg.type in {"admin.list", "admin.penalty", "admin.delete", "admin.qr_set", "admin.online_mode"}:
                     try:
                         require_admin(msg.payload)
                         if msg.type == "admin.list":
                             await send_admin_overview(websocket)
+                            await send_message(websocket, Message("runtime.settings", {**runtime_settings, "checkpoints": build_demo_checkpoint_catalog(scenario)}))
                             continue
                         if msg.type == "admin.qr_set":
                             await send_message(websocket, Message("admin.qr_set", {"scenario": scenario.data.get("title", "Escape Bot"), "checkpoints": build_checkpoint_qr_set(scenario)}))
+                            continue
+                        if msg.type == "admin.online_mode":
+                            runtime_settings["online_mode"] = bool(msg.payload.get("enabled"))
+                            save_runtime_settings()
+                            update = Message("runtime.settings", {**runtime_settings, "checkpoints": build_demo_checkpoint_catalog(scenario)})
+                            for active_socket in list(app.state.active_websockets):
+                                try: await send_message(active_socket, update)
+                                except Exception: pass
                             continue
 
                         target_session = str(msg.payload.get("session_id", "")).strip()
@@ -455,6 +477,7 @@ async def websocket_endpoint(websocket: WebSocket):
                                 await sync_started_client(websocket, state_machine, demo_client)
                                 if score_messages:
                                     await broadcast_session(session_id, score_messages)
+                            await send_message(websocket, Message("runtime.settings", {**runtime_settings, "checkpoints": build_demo_checkpoint_catalog(scenario)}))
                         continue
                     except ValueError as error:
                         await send_message(websocket, Message("lobby.error", {"message": str(error)}))

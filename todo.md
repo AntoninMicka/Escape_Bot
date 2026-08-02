@@ -531,3 +531,4 @@
 - [x] Umožnit po potvrzení odstranit tým, jeho uložený herní stav a ukončit aktivní připojení.
 - [ ] Doplnit filtrování týmů a detailní časovou osu administrátorských i herních událostí.
 - [x] Generovat v admin režimu tiskovou A4 sadu startovního a checkpointových QR přímo z aktuálního scénářového datasetu.
+- [x] Přidat globální přepínač fyzického/online režimu; v online režimu nahradit QR checkpointy akčními body v Chronomapě a nastavení uchovat po restartu.

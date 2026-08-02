@@ -473,6 +473,7 @@
             <input id="admin-token" type="password" placeholder="Administrátorské heslo" autocomplete="current-password">
             <button onclick="loadAdminOverview()">NAČÍST / OBNOVIT</button>
             <button onclick="requestAdminQrSet()">PŘIPRAVIT QR SADU</button>
+            <button id="admin-online-toggle" onclick="toggleAdminOnlineMode()">ONLINE REŽIM: ?</button>
             <span id="admin-status">Čekám na spojení…</span>
         </div>
         <div id="admin-team-grid" class="admin-grid"></div>
@@ -615,6 +616,7 @@
                 > Cíl mise: aktivujte časové kotvy a získejte tři součásti stroje času. <br>
                 > Neověřené oblasti CHRONOMAPY budou doplněny po průzkumu hotelu.
             </p>
+            <section id="online-map-actions" class="demo-scanner-panel" style="margin-top:14px"></section>
         </div>
     </div>
 
@@ -701,6 +703,9 @@
         let pendingSokobanAnimation = null;
         let deferredPuzzlesState = null;
         let selectedCipherTool = null;
+        let onlineModeEnabled = false;
+        let runtimeCheckpoints = [];
+        let latestScenarioProgress = null;
         let deviceRole = localStorage.getItem('escapeBotDeviceRole') || 'free';
         const demoModeRequested = new URLSearchParams(window.location.search).get('demo') === '1';
         const adminModeRequested = new URLSearchParams(window.location.search).get('admin') === '1' || window.location.pathname.replace(/\/$/, '') === '/admin';
@@ -903,6 +908,10 @@
 
         function loadAdminOverview() { sendAdmin('admin.list'); }
         function requestAdminQrSet() { sendAdmin('admin.qr_set'); }
+        function toggleAdminOnlineMode() {
+            if (!window.confirm(`${onlineModeEnabled ? 'Vypnout' : 'Zapnout'} online režim pro všechny týmy?`)) return;
+            sendAdmin('admin.online_mode', {enabled:!onlineModeEnabled});
+        }
 
         function renderAdminQrSet(payload) {
             const startUrl = new URL('/', window.location.origin);
@@ -1320,6 +1329,28 @@
                 }
                 else if (msg.type === 'admin.qr_set') {
                     renderAdminQrSet(msg.payload);
+                }
+                else if (msg.type === 'runtime.settings') {
+                    onlineModeEnabled = Boolean(msg.payload.online_mode);
+                    runtimeCheckpoints = msg.payload.checkpoints || [];
+                    const toggle = document.getElementById('admin-online-toggle');
+                    if (toggle) toggle.textContent = `ONLINE REŽIM: ${onlineModeEnabled ? 'ZAPNUT' : 'VYPNUT'}`;
+                    renderOnlineMapActions();
+                    const scannerContainer = document.getElementById('scanner-container');
+                    const scannerTab = document.querySelector('[onclick*="tab-scanner"]');
+                    if (onlineModeEnabled) {
+                        stopScanner();
+                        scannerContainer.style.display = 'none';
+                        qrStatus.style.display = 'block';
+                        qrStatus.textContent = 'Online režim: checkpointy aktivujte přímo v CHRONOMAPĚ.';
+                        if (scannerTab) scannerTab.textContent = 'SKENER [ONLINE]';
+                    } else if (!demoModeRequested) {
+                        scannerContainer.style.display = 'block';
+                        qrStatus.style.display = 'block';
+                        qrStatus.textContent = 'Kliknutím na záložku aktivujte kameru.';
+                        if (scannerTab) scannerTab.textContent = 'SKENER (Kamera)';
+                    }
+                    showNotification(onlineModeEnabled ? 'Online herní režim je aktivní.' : 'Fyzický QR režim je aktivní.', 'info');
                 }
                 else if (msg.type === 'admin.error') {
                     document.getElementById('admin-status').textContent = msg.payload.message || 'Chyba administrace.';
@@ -2074,6 +2105,8 @@
         }
 
         function renderScenarioProgress(progress) {
+            latestScenarioProgress = progress;
+            renderOnlineMapActions();
             const panel = document.getElementById('scenario-progress');
             if (!demoModeRequested) return;
             panel.classList.add('active');
@@ -2098,6 +2131,19 @@
             document.getElementById('progress-tools').textContent = (progress.unlocked_cipher_tools || []).join(' · ') || '—';
         }
 
+        function renderOnlineMapActions() {
+            const panel = document.getElementById('online-map-actions');
+            if (!panel) return;
+            panel.classList.toggle('active', onlineModeEnabled);
+            if (!onlineModeEnabled) { panel.innerHTML = ''; return; }
+            const statusById = Object.fromEntries(((latestScenarioProgress || {}).nodes || []).map(node => [node.id, node.status]));
+            panel.innerHTML = `<strong>[ ONLINE CHECKPOINTY ]</strong><p>V online režimu nahrazují fyzické QR body akce v Chronomapě.</p><div class="demo-checkpoint-list">${runtimeCheckpoints.map((checkpoint, index) => {
+                const status = statusById[checkpoint.id] || 'locked';
+                const enabled = status === 'available';
+                return `<button class="demo-checkpoint-button" ${enabled ? `onclick="simulateQrScan('${escapeHtml(checkpoint.value)}','${escapeHtml(checkpoint.label)}')"` : 'disabled'}>${index + 1}. ${escapeHtml(checkpoint.label)}\n${progressStatusLabel(status)}</button>`;
+            }).join('')}</div>`;
+        }
+
         function progressStatusLabel(status) {
             return {complete: 'HOTOVO', active: 'PRÁVĚ PROBÍHÁ', available: 'DOSTUPNÉ', locked: 'UZAMČENO'}[status] || status;
         }
@@ -2108,7 +2154,7 @@
 
         function simulateQrScan(value, label) {
             if (!ws || ws.readyState !== WebSocket.OPEN) { showNotification('Terminál není připojen.', 'error'); return; }
-            showNotification(`DEMO sken: ${label}`, 'info');
+            showNotification(`${onlineModeEnabled ? 'Online checkpoint' : 'Demo sken'}: ${label}`, 'info');
             ws.send(JSON.stringify({type: 'qr.detected', payload: {value}}));
         }
 
@@ -2119,7 +2165,7 @@
         }
 
         function startScanner() {
-            if (demoModeRequested) return;
+            if (demoModeRequested || onlineModeEnabled) return;
             if (qrScanning) return;
             // Žádost o přístup k zadní kameře
             navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } }).then(function(stream) {
