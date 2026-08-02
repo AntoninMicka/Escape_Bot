@@ -419,6 +419,9 @@
         .admin-detail summary { cursor: pointer; color: #0cc; }
         .admin-detail-list { max-height: 230px; overflow-y: auto; padding-left: 20px; }
         .admin-detail-list li { margin: 4px 0; }
+        .admin-node-actions { display: flex; flex-wrap: wrap; gap: 5px; margin: 4px 0 9px 20px; }
+        .admin-node-actions button { padding: 5px 8px; font-size: .78rem; }
+        .admin-node-actions .danger { border-color: #d66; color: #f99; }
         .qr-print-sheet { display: none; }
         .qr-print-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10mm; }
         .qr-print-card { break-inside: avoid; border: 1.5px dashed #000; padding: 6mm; color: #000; background: #fff; text-align: center; }
@@ -942,6 +945,17 @@
             sendAdmin('admin.delete', {session_id:sessionId});
         }
 
+        function setAdminCheckpoint(sessionId, checkpointId, status) {
+            const verb = status === 'solved' ? 'ručně dokončit / přeskočit' : 'ručně potvrdit jako nalezený';
+            if (!window.confirm(`Opravdu ${verb} checkpoint „${checkpointId}“? Zásah se zapíše do časové osy.`)) return;
+            sendAdmin('admin.checkpoint', {session_id:sessionId, checkpoint_id:checkpointId, status});
+        }
+
+        function resetAdminGame(sessionId, puzzleId) {
+            if (!window.confirm(`Restartovat aktivní minihru „${puzzleId}“ do výchozího stavu aktuální úrovně?`)) return;
+            sendAdmin('admin.game_reset', {session_id:sessionId, puzzle_id:puzzleId});
+        }
+
         function renderAdminOverview(teams) {
             const grid = document.getElementById('admin-team-grid');
             const openDetails = new Set([...grid.querySelectorAll('details[open][data-detail]')].map(detail => detail.dataset.detail));
@@ -960,12 +974,21 @@
                 const activeNodes = ((team.progress || {}).nodes || []).filter(node => node.status === 'active' || node.status === 'available').map(node => escapeHtml(node.label)).join(', ') || '—';
                 const penalties = (team.admin_penalties || []).map(item => `−${Number(item.amount)}: ${escapeHtml(item.reason)}`).join('<br>') || 'žádné';
                 const lastActivity = team.last_activity ? new Date(team.last_activity).toLocaleString('cs-CZ') : 'bez zaznamenané události';
-                const progressNodes = ((team.progress || {}).nodes || []).map(node => `<li>${node.status === 'complete' ? '✓' : (node.status === 'active' ? '▶' : (node.status === 'available' ? '○' : '·'))} ${escapeHtml(node.label)} <small>[${escapeHtml(node.status)}]</small></li>`).join('');
+                const progressNodes = ((team.progress || {}).nodes || []).map(node => {
+                    const isCheckpoint = node.kind === 'checkpoint';
+                    const canFind = isCheckpoint && (node.status === 'available' || node.status === 'locked');
+                    const canSolve = isCheckpoint && node.status !== 'complete';
+                    const restartable = node.status === 'active' && ['line_game', 'mine_karel', 'triad', 'sokoban'].includes(node.puzzle_type);
+                    const actions = !isCheckpoint ? '' : `<div class="admin-node-actions">${canFind ? `<button onclick="setAdminCheckpoint('${team.session_id}','${node.id}','found')">POTVRDIT NÁLEZ</button>` : ''}${restartable ? `<button onclick="resetAdminGame('${team.session_id}','${node.puzzle_id}')">RESTART MINIHRY</button>` : ''}${canSolve ? `<button class="danger" onclick="setAdminCheckpoint('${team.session_id}','${node.id}','solved')">DOKONČIT / PŘESKOČIT</button>` : ''}</div>`;
+                    return `<li>${node.status === 'complete' ? '✓' : (node.status === 'active' ? '▶' : (node.status === 'available' ? '○' : '·'))} ${escapeHtml(node.label)} <small>[${escapeHtml(node.status)}]</small></li>${actions}`;
+                }).join('');
                 const hints = Object.entries(team.hints_used || {}).map(([id, count]) => `${escapeHtml(id)}: ${Number(count)}`).join(', ') || 'žádné';
                 const attempts = Object.entries(team.puzzle_attempts || {}).map(([id, count]) => `${escapeHtml(id)}: ${Number(count)}`).join(', ') || 'žádné';
-                const karel = ((team.game_metrics || {}).karel || []).map(game => `Karel ${escapeHtml(game.level)}: ${game.completed} hotovo, ${game.moves} kroků, ${game.strikes} min, ${game.restarts} restartů`).join('<br>') || 'Karel dosud neaktivní';
-                const sokoban = ((team.game_metrics || {}).sokoban || []).map(game => `Sokoban ${escapeHtml(game.level)}: ${game.completed} hotovo, ${game.moves} kroků, ${game.pushes} zatlačení, ${game.restarts} restartů`).join('<br>') || 'Sokoban dosud neaktivní';
-                const timeline = (team.timeline || []).map(item => `<li>${item.at ? new Date(item.at).toLocaleTimeString('cs-CZ') : '—'} · ${item.type === 'checkpoint_solved' ? 'vyřešeno' : (item.type === 'checkpoint_found' ? 'nalezeno' : `malus −${Number(item.amount)}`)} · ${escapeHtml(item.label)}</li>`).join('') || '<li>Žádné události</li>';
+                const lineGame = ((team.game_metrics || {}).line || []).map(game => `Kalibrace [${escapeHtml(game.status)}]: ${game.swaps} výměn · cíle ${Object.entries(game.progress || {}).map(([length, count]) => `${length}×: ${count}`).join(', ')}`).join('<br>') || 'Kalibrace dosud neaktivní';
+                const karel = ((team.game_metrics || {}).karel || []).map(game => `Karel ${escapeHtml(game.level)}: pozice ${escapeHtml((game.player || []).join(','))}, ${game.completed} hotovo, ${game.moves} kroků, ${game.strikes} min, ${game.restarts} restartů`).join('<br>') || 'Karel dosud neaktivní';
+                const sokoban = ((team.game_metrics || {}).sokoban || []).map(game => `Sokoban ${escapeHtml(game.level)}: pozice ${escapeHtml((game.player || []).join(','))}, články na cíli ${(game.boxes || []).filter(box => (game.targets || []).some(target => target[0] === box[0] && target[1] === box[1])).length}/${(game.boxes || []).length}, ${game.moves} kroků, ${game.pushes} zatlačení, ${game.restarts} restartů`).join('<br>') || 'Sokoban dosud neaktivní';
+                const triad = ((team.game_metrics || {}).triad || []).map(game => `Tři v řadě [${escapeHtml(game.status)}]: ${game.placements} kamenů · směry ${(game.completed_orientations || []).map(escapeHtml).join(', ') || 'žádné'}`).join('<br>') || 'Tři v řadě dosud neaktivní';
+                const timeline = (team.timeline || []).map(item => `<li>${item.at ? new Date(item.at).toLocaleTimeString('cs-CZ') : '—'} · ${item.type === 'checkpoint_solved' ? 'vyřešeno' : (item.type === 'checkpoint_found' ? 'nalezeno' : (item.type === 'admin_action' ? 'zásah GM' : `malus −${Number(item.amount)}`))} · ${escapeHtml(item.label)}</li>`).join('') || '<li>Žádné události</li>';
                 const recentMessages = (team.recent_messages || []).map(item => `<li><strong>${escapeHtml(item.channel || 'general')}</strong> · ${item.role === 'player' ? 'hráč' : 'systém'}: ${escapeHtml(String(item.text || '').slice(0, 180))}</li>`).join('') || '<li>Žádné zprávy</li>';
                 return `<article class="admin-team ${online ? '' : 'offline'}">
                     <h2>${escapeHtml(team.team_name)}</h2>
@@ -976,7 +999,7 @@
                     <p>Postup: ${complete}/${total} (${percent} %) · aktuální: ${activeNodes}</p>
                     <p>Poslední aktivita: <strong>${lastActivity}</strong></p>
                     <details data-detail="${team.session_id}:penalties"><summary>Udělené malusy</summary><p>${penalties}</p></details>
-                    <details class="admin-detail" data-detail="${team.session_id}:progress"><summary>Detail postupu a her</summary><ul class="admin-detail-list">${progressNodes}</ul><p><strong>Nápovědy:</strong> ${hints}</p><p><strong>Pokusy:</strong> ${attempts}</p><p>${karel}</p><p>${sokoban}</p></details>
+                    <details class="admin-detail" data-detail="${team.session_id}:progress"><summary>Detail postupu a her</summary><ul class="admin-detail-list">${progressNodes}</ul><p><strong>Nápovědy:</strong> ${hints}</p><p><strong>Pokusy:</strong> ${attempts}</p><p>${lineGame}</p><p>${karel}</p><p>${triad}</p><p>${sokoban}</p></details>
                     <details class="admin-detail" data-detail="${team.session_id}:timeline"><summary>Časová osa</summary><ul class="admin-detail-list">${timeline}</ul></details>
                     <details class="admin-detail" data-detail="${team.session_id}:messages"><summary>Poslední zprávy</summary><ul class="admin-detail-list">${recentMessages}</ul></details>
                     <div class="admin-actions">

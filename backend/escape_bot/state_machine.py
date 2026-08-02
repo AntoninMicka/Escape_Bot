@@ -219,6 +219,58 @@ class EscapeBotStateMachine:
     def _apply_checkpoint_rewards(self, checkpoint: dict[str, Any]) -> None:
         self._apply_rewards(checkpoint.get("rewards", {}))
 
+    def admin_set_checkpoint(self, checkpoint_id: str, status: str) -> dict[str, Any]:
+        """Apply an explicit Game Master override without gameplay score bonuses."""
+        checkpoint = self.scenario.data.get("checkpoints", {}).get(checkpoint_id)
+        if checkpoint is None:
+            raise ValueError("Neznámý checkpoint.")
+        if status not in {"found", "solved"}:
+            raise ValueError("Neplatný cílový stav checkpointu.")
+
+        now = datetime.now(UTC).isoformat()
+        checkpoint_state = self.state.checkpoint_states.get(checkpoint_id)
+        previous_status = checkpoint_state.get("status") if checkpoint_state else "locked"
+        if previous_status == "solved":
+            raise ValueError("Checkpoint už je dokončený.")
+        if previous_status == "found" and status == "found":
+            raise ValueError("Checkpoint už byl potvrzen jako nalezený.")
+
+        if checkpoint_state is None:
+            checkpoint_state = {"status": "found", "first_scanned_at": now}
+            self.state.checkpoint_states[checkpoint_id] = checkpoint_state
+            self.state.unlocked_discoveries.add(checkpoint_id)
+            self._apply_rewards(checkpoint.get("found_rewards", {}))
+        checkpoint_state["status"] = status
+        checkpoint_state["admin_override_at"] = now
+        if status == "solved":
+            checkpoint_state["solved_at"] = now
+            self._apply_checkpoint_rewards(checkpoint)
+        self.state.last_activity_at = now
+        return {"checkpoint_id": checkpoint_id, "previous_status": previous_status, "status": status}
+
+    def admin_reset_game(self, puzzle_id: str) -> dict[str, Any]:
+        puzzle = self.scenario.data.get("puzzles", {}).get(puzzle_id)
+        if puzzle is None:
+            raise ValueError("Neznámá minihra.")
+        checkpoint_id = str(puzzle.get("checkpoint_id", ""))
+        checkpoint_state = self.state.checkpoint_states.get(checkpoint_id)
+        if not checkpoint_state or checkpoint_state.get("status") != "found":
+            raise ValueError("Restartovat lze pouze aktivní, nedokončenou minihru.")
+        config = puzzle.get("game", {})
+        game_type = puzzle.get("type")
+        if game_type == "line_game":
+            reset_game(config, self._line_game_state(puzzle_id, config))
+        elif game_type == "mine_karel":
+            reset_karel(config, self._karel_state(puzzle_id, config))
+        elif game_type == "triad":
+            reset_triad(config, self._triad_state(puzzle_id, config))
+        elif game_type == "sokoban":
+            reset_sokoban(config, self._sokoban_state(puzzle_id, config))
+        else:
+            raise ValueError("Tato hádanka nemá restartovatelnou minihru.")
+        self.state.last_activity_at = datetime.now(UTC).isoformat()
+        return {"puzzle_id": puzzle_id, "checkpoint_id": checkpoint_id, "game_type": game_type}
+
     def _provide_hint(self, phase: str, message: Message) -> list[Message]:
         p_data = self.scenario.get_phase_data(phase)
         hints = p_data.get("hints", [])

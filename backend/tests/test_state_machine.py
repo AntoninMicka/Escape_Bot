@@ -566,6 +566,34 @@ class StateMachineCheckpointTests(unittest.IsolatedAsyncioTestCase):
         with self.assertRaisesRegex(ValueError, "už existuje"):
             registry.create("other", "team", "Bob", " časoví skokani ")
 
+    def test_admin_can_confirm_and_complete_checkpoint_without_score_bonus(self) -> None:
+        score_before = self.machine.state.score
+        found = self.machine.admin_set_checkpoint("sports_archive", "found")
+        self.assertEqual(found["previous_status"], "locked")
+        self.assertEqual(self.machine.state.checkpoint_states["sports_archive"]["status"], "found")
+
+        solved = self.machine.admin_set_checkpoint("sports_archive", "solved")
+        self.assertEqual(solved["previous_status"], "found")
+        self.assertEqual(self.machine.state.checkpoint_states["sports_archive"]["status"], "solved")
+        self.assertIn("KRYSTAL ČASOVÉ KOTVY", self.machine.state.inventory)
+        self.assertIn("pigpen", self.machine.state.unlocked_cipher_tools)
+        self.assertEqual(self.machine.state.score, score_before)
+        with self.assertRaisesRegex(ValueError, "už je dokončený"):
+            self.machine.admin_set_checkpoint("sports_archive", "solved")
+
+    def test_admin_can_reset_only_active_interactive_game(self) -> None:
+        self.machine.admin_set_checkpoint("courtyard_minefield", "found")
+        game = self.machine._karel_state("courtyard_karel", self.scenario.data["puzzles"]["courtyard_karel"]["game"])
+        game["player"] = [1, 0]
+        result = self.machine.admin_reset_game("courtyard_karel")
+        self.assertEqual(result["game_type"], "mine_karel")
+        self.assertEqual(game["player"], game["start"])
+        self.assertEqual(game["restarts"], 1)
+
+        self.machine.admin_set_checkpoint("courtyard_minefield", "solved")
+        with self.assertRaisesRegex(ValueError, "aktivní"):
+            self.machine.admin_reset_game("courtyard_karel")
+
 
 if __name__ == "__main__":
     unittest.main()

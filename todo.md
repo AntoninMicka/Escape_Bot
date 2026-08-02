@@ -423,7 +423,7 @@
 - [ ] Rozlišit stavy `nalezeno`, `ověřeno`, `vyřešeno` a `odměna vyzvednuta`.
 - [x] Odemknout virtuální místnost jen při splnění všech podmínek, ne pouze znalostí PINu.
 - [ ] Připravit jednorázové nebo rotující kódy pro checkpointy vyžadující silnější kontrolu přítomnosti.
-- [ ] Připravit Game Masterovi možnost ručně potvrdit nebo přeskočit porouchaný checkpoint.
+- [x] Připravit Game Masterovi možnost ručně potvrdit nebo přeskočit porouchaný checkpoint.
 
 ### 13.12 Hádanky, nápovědy a testování
 - [ ] U každé hádanky napsat zadání, řešení, mezikroky a akceptované varianty odpovědi.
@@ -461,8 +461,8 @@
 - [x] Ve vizualizaci zobrazit aktuální fázi, skóre, inventář a odemčené pomůcky.
 - [x] Ve vývojové/admin vizualizaci zobrazit správné řešení každého uzlu bez odeslání do běžného hráčského stavu.
 - [x] Oddělit datový snapshot postupu od vykreslení pro pozdější použití v admin panelu.
-- [ ] Vytvořit samostatnou autentizovanou admin stránku se seznamem všech aktivních relací.
-- [ ] Přidat do admin stránky detail týmu založený na stejné vizualizaci `scenario.progress`.
+- [x] Vytvořit samostatnou autentizovanou admin stránku se seznamem všech aktivních relací.
+- [x] Přidat do admin stránky detail týmu založený na stejné vizualizaci `scenario.progress`.
 
 ### 13.14 Šifrovací pomůcky v aplikaci
 **Cíl:** nabídnout hráčům pasivní referenční pomůcku inspirovanou způsobem použití aplikace Šifrovací pomůcky Absolutno, aniž aplikace sama vyřeší zadanou hádanku.

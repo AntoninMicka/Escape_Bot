@@ -207,15 +207,20 @@ def admin_overview() -> list[dict[str, object]]:
         checkpoint_states = dict(state.get("checkpoint_states", {}))
         timeline: list[dict[str, object]] = []
         for checkpoint_id, checkpoint in checkpoint_states.items():
-            if checkpoint.get("found_at"):
-                timeline.append({"at": checkpoint["found_at"], "type": "checkpoint_found", "label": checkpoint_id})
+            found_at = checkpoint.get("first_scanned_at") or checkpoint.get("found_at")
+            if found_at:
+                timeline.append({"at": found_at, "type": "checkpoint_found", "label": checkpoint_id})
             if checkpoint.get("solved_at"):
                 timeline.append({"at": checkpoint["solved_at"], "type": "checkpoint_solved", "label": checkpoint_id})
         for penalty in penalties:
             timeline.append({"at": penalty.get("at", ""), "type": "admin_penalty", "label": penalty.get("reason", ""), "amount": penalty.get("amount", 0)})
+        for action in flags.get("admin_actions", []):
+            timeline.append({"at": action.get("at", ""), "type": "admin_action", "label": action.get("label", "")})
         timeline.sort(key=lambda item: str(item.get("at", "")), reverse=True)
         karel_games = dict(state.get("karel_games", {}))
         sokoban_games = dict(state.get("sokoban_games", {}))
+        line_games = dict(state.get("interactive_games", {}))
+        triad_games = dict(state.get("triad_games", {}))
         last_activity = str(state.get("last_activity_at", "")) or (str(timeline[0].get("at", "")) if timeline else "")
         teams.append({
             **lobby.public("", connected_client_ids(lobby.session_id)),
@@ -231,12 +236,20 @@ def admin_overview() -> list[dict[str, object]]:
             "puzzle_attempts": dict(state.get("puzzle_attempts", {})),
             "recent_messages": list(state.get("chat_history", []))[-8:],
             "game_metrics": {
+                "line": [{"id": game_id, "status": game.get("status", ""), "swaps": game.get("swaps", 0),
+                          "progress": dict(game.get("progress", {}))}
+                         for game_id, game in line_games.items()],
                 "karel": [{"id": game_id, "level": game.get("level_label", ""), "completed": len(game.get("completed_levels", [])),
-                           "moves": game.get("total_moves", 0), "strikes": game.get("total_strikes", 0), "restarts": game.get("restarts", 0)}
+                           "moves": game.get("total_moves", 0), "strikes": game.get("total_strikes", 0), "restarts": game.get("restarts", 0),
+                           "player": list(game.get("player", []))}
                           for game_id, game in karel_games.items()],
                 "sokoban": [{"id": game_id, "level": game.get("level_label", ""), "completed": len(game.get("completed_levels", [])),
-                              "moves": game.get("total_moves", 0), "pushes": game.get("total_pushes", 0), "restarts": game.get("restarts", 0)}
+                              "moves": game.get("total_moves", 0), "pushes": game.get("total_pushes", 0), "restarts": game.get("restarts", 0),
+                              "player": list(game.get("player", [])), "boxes": list(game.get("boxes", [])), "targets": list(game.get("targets", []))}
                              for game_id, game in sokoban_games.items()],
+                "triad": [{"id": game_id, "status": game.get("status", ""), "placements": game.get("placements", 0),
+                           "completed_orientations": list(game.get("completed_orientations", []))}
+                          for game_id, game in triad_games.items()],
             },
         })
     return sorted(teams, key=lambda team: str(team.get("team_name", "")).casefold())
@@ -305,7 +318,7 @@ async def websocket_endpoint(websocket: WebSocket):
                 data = json.loads(message_str)
                 msg = Message.from_json(data)
 
-                if msg.type in {"admin.list", "admin.penalty", "admin.delete", "admin.qr_set", "admin.online_mode"}:
+                if msg.type in {"admin.list", "admin.penalty", "admin.delete", "admin.qr_set", "admin.online_mode", "admin.checkpoint", "admin.game_reset"}:
                     try:
                         require_admin(msg.payload)
                         if msg.type == "admin.list":
@@ -359,6 +372,41 @@ async def websocket_endpoint(websocket: WebSocket):
                                     "channel": "general",
                                 }),
                                 machine._state_message(),
+                            ])
+                            await send_admin_overview(websocket)
+                            continue
+
+                        if msg.type == "admin.checkpoint":
+                            checkpoint_id = str(msg.payload.get("checkpoint_id", "")).strip()
+                            status = str(msg.payload.get("status", "")).strip()
+                            machine = ensure_state_machine(target_session)
+                            result = machine.admin_set_checkpoint(checkpoint_id, status)
+                            label = f"Checkpoint {checkpoint_id}: {status}"
+                            machine.state.flags.setdefault("admin_actions", []).append({
+                                "action": "checkpoint", "label": label, "at": datetime.now(UTC).isoformat(), **result,
+                            })
+                            save_sessions()
+                            await broadcast_session(target_session, [
+                                Message("bot.message", {"text": f"Game Master upravil postup: {label}.", "mood": "info", "channel": "general"}),
+                                machine._state_message(),
+                                Message("scenario.progress", build_scenario_progress(scenario, machine.state.snapshot())),
+                            ])
+                            await send_admin_overview(websocket)
+                            continue
+
+                        if msg.type == "admin.game_reset":
+                            puzzle_id = str(msg.payload.get("puzzle_id", "")).strip()
+                            machine = ensure_state_machine(target_session)
+                            result = machine.admin_reset_game(puzzle_id)
+                            label = f"Restart minihry {puzzle_id}"
+                            machine.state.flags.setdefault("admin_actions", []).append({
+                                "action": "game_reset", "label": label, "at": datetime.now(UTC).isoformat(), **result,
+                            })
+                            save_sessions()
+                            await broadcast_session(target_session, [
+                                Message("bot.message", {"text": f"Game Master provedl: {label}.", "mood": "info", "channel": "general"}),
+                                machine._state_message(),
+                                Message("scenario.progress", build_scenario_progress(scenario, machine.state.snapshot())),
                             ])
                             await send_admin_overview(websocket)
                             continue
