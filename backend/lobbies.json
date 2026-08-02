@@ -1,165 +1,24 @@
 [
   {
-    "session_id": "fcfadc4a511d4f6e8bf0e2ca249ca6fb",
+    "session_id": "68934de748364808a3fbfa92115c4e6f",
     "mode": "team",
     "creator_id": "46c4b312-8a98-4aea-abca-527300ba58e5",
-    "team_name": "Obnovený tým fcfadc",
-    "join_code": "3B0B6C3E",
+    "team_name": "Pokus",
+    "join_code": "A7BD5896",
     "started": true,
     "players": {
       "46c4b312-8a98-4aea-abca-527300ba58e5": {
         "id": "46c4b312-8a98-4aea-abca-527300ba58e5",
-        "name": "Hráč 1",
-        "joined_at": "2026-08-02T06:25:27.397409+00:00"
-      }
-    },
-    "max_players": 1,
-    "applied_score_adjustment": 20
-  },
-  {
-    "session_id": "841a077b422347ff907d62fac39e1162",
-    "mode": "team",
-    "creator_id": "46c4b312-8a98-4aea-abca-527300ba58e5",
-    "team_name": "Obnovený tým 841a07",
-    "join_code": "42DE622F",
-    "started": true,
-    "players": {
-      "46c4b312-8a98-4aea-abca-527300ba58e5": {
-        "id": "46c4b312-8a98-4aea-abca-527300ba58e5",
-        "name": "Hráč 1",
-        "joined_at": "2026-08-02T06:26:57.331499+00:00"
-      }
-    },
-    "max_players": 1,
-    "applied_score_adjustment": 20
-  },
-  {
-    "session_id": "fcd8ade9c74349dab795c4d4102740c4",
-    "mode": "team",
-    "creator_id": "46c4b312-8a98-4aea-abca-527300ba58e5",
-    "team_name": "Obnovený tým fcd8ad",
-    "join_code": "4BA0C83F",
-    "started": true,
-    "players": {
-      "46c4b312-8a98-4aea-abca-527300ba58e5": {
-        "id": "46c4b312-8a98-4aea-abca-527300ba58e5",
-        "name": "Hráč 1",
-        "joined_at": "2026-08-02T06:27:46.141221+00:00"
-      }
-    },
-    "max_players": 1,
-    "applied_score_adjustment": 20
-  },
-  {
-    "session_id": "3c01bbecc8af477683dc9c4b1cc8d822",
-    "mode": "team",
-    "creator_id": "46c4b312-8a98-4aea-abca-527300ba58e5",
-    "team_name": "Obnovený tým 3c01bb",
-    "join_code": "1135144B",
-    "started": true,
-    "players": {
-      "46c4b312-8a98-4aea-abca-527300ba58e5": {
-        "id": "46c4b312-8a98-4aea-abca-527300ba58e5",
-        "name": "Hráč 1",
-        "joined_at": "2026-08-02T06:28:27.862846+00:00"
-      }
-    },
-    "max_players": 1,
-    "applied_score_adjustment": 20
-  },
-  {
-    "session_id": "97f73cdf270a4b8ebb810bd14e752e84",
-    "mode": "solo",
-    "creator_id": "46c4b312-8a98-4aea-abca-527300ba58e5",
-    "team_name": "Obnovený tým 97f73c",
-    "join_code": null,
-    "started": true,
-    "players": {
-      "46c4b312-8a98-4aea-abca-527300ba58e5": {
-        "id": "46c4b312-8a98-4aea-abca-527300ba58e5",
-        "name": "Hráč 1",
-        "joined_at": "2026-08-02T06:33:59.566674+00:00"
-      }
-    },
-    "max_players": 1,
-    "applied_score_adjustment": 20
-  },
-  {
-    "session_id": "dca2948fad484190ae13352d8026ae32",
-    "mode": "solo",
-    "creator_id": "46c4b312-8a98-4aea-abca-527300ba58e5",
-    "team_name": "Obnovený tým dca294",
-    "join_code": null,
-    "started": true,
-    "players": {
-      "46c4b312-8a98-4aea-abca-527300ba58e5": {
-        "id": "46c4b312-8a98-4aea-abca-527300ba58e5",
-        "name": "Hráč 1",
-        "joined_at": "2026-08-02T06:34:30.885679+00:00"
-      }
-    },
-    "max_players": 1,
-    "applied_score_adjustment": 20
-  },
-  {
-    "session_id": "97403ee8074e49cab8bdd928e646baea",
-    "mode": "team",
-    "creator_id": "46c4b312-8a98-4aea-abca-527300ba58e5",
-    "team_name": "Obnovený tým 97403e",
-    "join_code": "EB33165C",
-    "started": true,
-    "players": {
-      "46c4b312-8a98-4aea-abca-527300ba58e5": {
-        "id": "46c4b312-8a98-4aea-abca-527300ba58e5",
-        "name": "Hráč 1",
-        "joined_at": "2026-08-02T06:41:51.491031+00:00"
+        "name": "PC",
+        "joined_at": "2026-08-02T07:17:21.744276+00:00"
       },
       "717cae3e-f2ef-4bcc-891c-31f1e3144353": {
         "id": "717cae3e-f2ef-4bcc-891c-31f1e3144353",
         "name": "Tony",
-        "joined_at": "2026-08-02T06:42:04.646712+00:00"
+        "joined_at": "2026-08-02T07:17:39.219531+00:00"
       }
     },
     "max_players": 2,
-    "applied_score_adjustment": 10
-  },
-  {
-    "session_id": "0865a1dc973e4a25bd42373c34c99c31",
-    "mode": "team",
-    "creator_id": "717cae3e-f2ef-4bcc-891c-31f1e3144353",
-    "team_name": "Pokus2",
-    "join_code": "16C07683",
-    "started": false,
-    "players": {
-      "717cae3e-f2ef-4bcc-891c-31f1e3144353": {
-        "id": "717cae3e-f2ef-4bcc-891c-31f1e3144353",
-        "name": "Tony",
-        "joined_at": "2026-08-02T06:51:05.008401+00:00"
-      }
-    },
-    "max_players": 1,
     "applied_score_adjustment": 0
-  },
-  {
-    "session_id": "0f2a70b6890d447998940e8df0e3f87f",
-    "mode": "team",
-    "creator_id": "717cae3e-f2ef-4bcc-891c-31f1e3144353",
-    "team_name": "Pokus3",
-    "join_code": "65E68DD7",
-    "started": true,
-    "players": {
-      "717cae3e-f2ef-4bcc-891c-31f1e3144353": {
-        "id": "717cae3e-f2ef-4bcc-891c-31f1e3144353",
-        "name": "Tony",
-        "joined_at": "2026-08-02T06:54:00.032590+00:00"
-      },
-      "46c4b312-8a98-4aea-abca-527300ba58e5": {
-        "id": "46c4b312-8a98-4aea-abca-527300ba58e5",
-        "name": "tony",
-        "joined_at": "2026-08-02T06:54:04.970114+00:00"
-      }
-    },
-    "max_players": 2,
-    "applied_score_adjustment": 10
   }
 ]

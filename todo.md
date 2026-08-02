@@ -514,3 +514,10 @@
 - [ ] Přidat možnost dobrovolně změnit přezdívku hráče během čekání.
 - [ ] Přidat speech-to-text jako alternativní vstup do stejného deterministického parseru interkomových povelů.
 - [ ] Otestovat synchronizaci a souběžné povely na třech a více fyzických telefonech.
+
+### 13.16 Administrační dohled
+
+- [x] Přidat heslem chráněný administrační režim se seznamem týmů, hráčů, online stavem, skóre a postupem scénářem.
+- [x] Umožnit správci udělit bodový malus s povinným důvodem a zapsat jej do historie relace.
+- [x] Umožnit po potvrzení odstranit tým, jeho uložený herní stav a ukončit aktivní připojení.
+- [ ] Doplnit filtrování týmů a detailní časovou osu administrátorských i herních událostí.

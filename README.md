@@ -47,6 +47,16 @@ Hráč na vlastním telefonu otevře úvodní lobby, vyplní své jméno, zvolí
 
 Notebook bez pohodlné kamery může zvolit **PŘIPOJIT NOTEBOOK** a zobrazit vlastní hráčský QR. Zakladatel ho načte telefonem ve své čekárně nebo opíše osmimístné ID. Jde o běžného hráče a zařízení se započítá do velikosti týmu. Doporučené uspořádání je jeden hráč na notebooku a ostatní na vlastních telefonech či noteboocích, vždy právě jedno zařízení na hráče.
 
+### Administrační režim
+
+Administrační konzoli povolte při startu vlastním heslem:
+
+```bash
+./start_backend.sh --demo --admin-token=ZVOLENE_HESLO
+```
+
+Poté otevřete `https://ADRESA-SERVERU:8088/admin` (případně `/?admin=1`). Konzole ukazuje týmy, hráče a jejich online stav, skóre, fázi a postup scénářem. Umožňuje udělit bodový malus s povinným důvodem nebo po potvrzení tým a jeho rozehranou relaci odstranit. Heslo se drží pouze v aktuální kartě prohlížeče (`sessionStorage`); bez proměnné `ESCAPEBOT_ADMIN_TOKEN` zůstává administrační API vypnuté. Dostupnost backendu lze ověřit na `/api/health`.
+
 ### Vývojový demo režim
 
 Pro ladění checkpointů bez kamery spusťte backend z kořene projektu:

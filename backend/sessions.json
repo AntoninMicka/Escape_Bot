@@ -2625,7 +2625,7 @@
       }
     }
   },
-  "0f2a70b6890d447998940e8df0e3f87f": {
+  "68934de748364808a3fbfa92115c4e6f": {
     "phase": "navigating",
     "unlocked_discoveries": [
       "bowling_diagnostics",
@@ -2646,8 +2646,7 @@
       "bowling_route_unlocked": true,
       "temporal_motor_recovered": true,
       "phase_stabilizer_recovered": true,
-      "timeline_calibrated": true,
-      "room_104_unlocked": true
+      "timeline_calibrated": true
     },
     "chat_history": [
       {
@@ -2658,7 +2657,7 @@
       {
         "role": "player",
         "channel": "captain",
-        "text": "ok"
+        "text": "734"
       },
       {
         "role": "bot",
@@ -2683,12 +2682,12 @@
       {
         "role": "player",
         "channel": "lost",
-        "text": "ok"
+        "text": "OK"
       },
       {
         "role": "bot",
         "channel": "lost",
-        "text": "Snažím se postupovat podle tvých instrukcí 'ok', ale... *GLITCH* něco mě tu ruší... *šum*"
+        "text": "Snažím se postupovat podle tvých instrukcí 'OK', ale... *GLITCH* něco mě tu ruší... *šum*"
       },
       {
         "role": "bot",
@@ -2697,28 +2696,8 @@
       },
       {
         "role": "player",
-        "channel": "lost",
-        "text": "reset"
-      },
-      {
-        "role": "bot",
         "channel": "general",
-        "text": "SYSTEM ERROR: Spojení nelze navázat. Zadejte 'restart'."
-      },
-      {
-        "role": "player",
-        "channel": "general",
-        "text": "reset"
-      },
-      {
-        "role": "bot",
-        "channel": "general",
-        "text": "SYSTEM ERROR: Spojení nelze navázat. Zadejte 'restart'."
-      },
-      {
-        "role": "player",
-        "channel": "general",
-        "text": "restart"
+        "text": "Restart"
       },
       {
         "role": "bot",
@@ -2869,50 +2848,40 @@
         "role": "bot",
         "channel": "lost",
         "text": "Všechny tři servisní sektory jsou stabilní. Síť se rozběhla a KRYSTAL ČASOVÉ KOTVY se znovu materializoval ve vašem čase."
-      },
-      {
-        "role": "bot",
-        "channel": "general",
-        "text": "Přístupový panel 104 odemčen. Elektromagnetický zámek uvolněn."
-      },
-      {
-        "role": "bot",
-        "channel": "lost",
-        "text": "Slyšela jsem cvaknutí! Ty dveře do pokoje 104 se právě otevřely. Jdu dovnitř..."
       }
     ],
-    "score": 1170,
+    "score": 1155,
     "hints_used": {},
     "checkpoint_states": {
       "reception_archive": {
         "status": "solved",
-        "first_scanned_at": "2026-08-02T06:57:47.072938+00:00",
-        "solved_at": "2026-08-02T06:58:02.339529+00:00"
+        "first_scanned_at": "2026-08-02T07:19:19.450363+00:00",
+        "solved_at": "2026-08-02T07:19:30.699545+00:00"
       },
       "staircase_signal": {
         "status": "solved",
-        "first_scanned_at": "2026-08-02T06:58:20.901702+00:00",
-        "solved_at": "2026-08-02T06:58:37.011705+00:00"
+        "first_scanned_at": "2026-08-02T07:19:44.425112+00:00",
+        "solved_at": "2026-08-02T07:21:23.567562+00:00"
       },
       "bowling_diagnostics": {
         "status": "solved",
-        "first_scanned_at": "2026-08-02T06:58:55.140154+00:00",
-        "solved_at": "2026-08-02T06:59:16.037194+00:00"
+        "first_scanned_at": "2026-08-02T07:21:39.813501+00:00",
+        "solved_at": "2026-08-02T07:21:50.266980+00:00"
       },
       "terrace_echo": {
         "status": "solved",
-        "first_scanned_at": "2026-08-02T06:59:30.833162+00:00",
-        "solved_at": "2026-08-02T06:59:58.958939+00:00"
+        "first_scanned_at": "2026-08-02T07:22:14.471256+00:00",
+        "solved_at": "2026-08-02T07:22:26.823200+00:00"
       },
       "timeline_calibration": {
         "status": "solved",
-        "first_scanned_at": "2026-08-02T07:00:12.488521+00:00",
-        "solved_at": "2026-08-02T07:00:53.512014+00:00"
+        "first_scanned_at": "2026-08-02T07:22:42.153685+00:00",
+        "solved_at": "2026-08-02T07:23:56.807612+00:00"
       },
       "sports_archive": {
         "status": "solved",
-        "first_scanned_at": "2026-08-02T07:01:15.007725+00:00",
-        "solved_at": "2026-08-02T07:02:05.723720+00:00"
+        "first_scanned_at": "2026-08-02T07:24:14.568089+00:00",
+        "solved_at": "2026-08-02T07:25:55.173138+00:00"
       }
     },
     "unlocked_cipher_tools": [
@@ -2937,72 +2906,72 @@
           "5": 1
         },
         "status": "complete",
-        "started_at": "2026-08-02T07:00:12.488561+00:00",
-        "deadline_at": "2026-08-02T07:05:12.488561+00:00",
-        "swaps": 8,
-        "rng": 1698650791,
+        "started_at": "2026-08-02T07:22:42.153738+00:00",
+        "deadline_at": "2026-08-02T07:27:42.153738+00:00",
+        "swaps": 13,
+        "rng": 1330194624,
         "board": [
           [
-            "cyan",
             "green",
             "amber",
             "amber",
-            "cyan",
-            "cyan",
-            "green"
-          ],
-          [
-            "violet",
-            "red",
-            "red",
-            "cyan",
-            "red",
-            "green",
-            "violet"
-          ],
-          [
-            "cyan",
-            "violet",
             "green",
             "violet",
-            "green",
             "red",
             "cyan"
           ],
           [
+            "cyan",
             "amber",
-            "red",
-            "cyan",
-            "cyan",
-            "violet",
-            "cyan",
-            "violet"
-          ],
-          [
-            "cyan",
-            "violet",
             "amber",
             "green",
-            "red",
-            "amber",
+            "green",
+            "cyan",
             "green"
           ],
           [
             "violet",
+            "violet",
+            "red",
             "red",
             "violet",
+            "green",
+            "violet"
+          ],
+          [
+            "green",
+            "amber",
             "amber",
             "red",
+            "green",
+            "green",
+            "red"
+          ],
+          [
+            "cyan",
+            "green",
             "red",
+            "cyan",
+            "cyan",
+            "red",
+            "amber"
+          ],
+          [
+            "violet",
+            "red",
+            "red",
+            "green",
+            "cyan",
+            "violet",
             "violet"
           ],
           [
             "red",
             "cyan",
             "cyan",
+            "green",
             "violet",
-            "amber",
-            "violet",
+            "green",
             "violet"
           ]
         ]
@@ -3031,34 +3000,6 @@
         "command_history": [
           {
             "commands": [
-              "right"
-            ],
-            "executed": 1,
-            "blocked": false
-          },
-          {
-            "commands": [
-              "up"
-            ],
-            "executed": 1,
-            "blocked": false
-          },
-          {
-            "commands": [
-              "left"
-            ],
-            "executed": 1,
-            "blocked": false
-          },
-          {
-            "commands": [
-              "down"
-            ],
-            "executed": 1,
-            "blocked": false
-          },
-          {
-            "commands": [
               "left"
             ],
             "executed": 1,
@@ -3074,41 +3015,6 @@
           {
             "commands": [
               "right"
-            ],
-            "executed": 1,
-            "blocked": false
-          },
-          {
-            "commands": [
-              "right"
-            ],
-            "executed": 1,
-            "blocked": false
-          },
-          {
-            "commands": [
-              "down"
-            ],
-            "executed": 1,
-            "blocked": false
-          },
-          {
-            "commands": [
-              "left"
-            ],
-            "executed": 1,
-            "blocked": false
-          },
-          {
-            "commands": [
-              "up"
-            ],
-            "executed": 1,
-            "blocked": false
-          },
-          {
-            "commands": [
-              "left"
             ],
             "executed": 1,
             "blocked": false
@@ -3136,7 +3042,28 @@
           },
           {
             "commands": [
-              "down"
+              "left"
+            ],
+            "executed": 1,
+            "blocked": false
+          },
+          {
+            "commands": [
+              "left"
+            ],
+            "executed": 1,
+            "blocked": false
+          },
+          {
+            "commands": [
+              "up"
+            ],
+            "executed": 1,
+            "blocked": false
+          },
+          {
+            "commands": [
+              "right"
             ],
             "executed": 1,
             "blocked": false
@@ -3144,13 +3071,55 @@
           {
             "commands": [
               "down"
+            ],
+            "executed": 1,
+            "blocked": false
+          },
+          {
+            "commands": [
+              "right"
+            ],
+            "executed": 1,
+            "blocked": false
+          },
+          {
+            "commands": [
+              "down"
+            ],
+            "executed": 1,
+            "blocked": false
+          },
+          {
+            "commands": [
+              "left"
+            ],
+            "executed": 1,
+            "blocked": false
+          },
+          {
+            "commands": [
+              "down"
+            ],
+            "executed": 1,
+            "blocked": false
+          },
+          {
+            "commands": [
+              "up"
+            ],
+            "executed": 1,
+            "blocked": false
+          },
+          {
+            "commands": [
+              "up"
             ],
             "executed": 1,
             "blocked": false
           }
         ],
         "player": [
-          4,
+          2,
           3
         ],
         "boxes": [
@@ -3298,16 +3267,16 @@
           },
           {
             "player": [
-              2,
+              4,
               3
             ],
             "boxes": [
               [
-                1,
+                2,
                 3
               ],
               [
-                4,
+                5,
                 3
               ]
             ],
@@ -3323,11 +3292,11 @@
             ],
             "boxes": [
               [
-                1,
+                2,
                 3
               ],
               [
-                4,
+                5,
                 3
               ]
             ],
@@ -3340,27 +3309,9 @@
         "level_speakers": [
           "46c4b312-8a98-4aea-abca-527300ba58e5"
         ],
-        "started_at": "2026-08-02T07:01:59.962041+00:00",
-        "deadline_at": "2026-08-02T07:03:59.962041+00:00"
+        "started_at": "2026-08-02T07:25:50.357646+00:00",
+        "deadline_at": "2026-08-02T07:27:50.357646+00:00"
       }
     }
-  },
-  "97403ee8074e49cab8bdd928e646baea": {
-    "phase": "boot",
-    "unlocked_discoveries": [],
-    "inventory": [],
-    "flags": {},
-    "chat_history": [],
-    "score": 1000,
-    "hints_used": {},
-    "checkpoint_states": {},
-    "unlocked_cipher_tools": [
-      "a1z26",
-      "morse"
-    ],
-    "paid_cipher_tools": [],
-    "puzzle_attempts": {},
-    "interactive_games": {},
-    "sokoban_games": {}
   }
 }

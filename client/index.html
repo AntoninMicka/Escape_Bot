@@ -375,6 +375,18 @@
         .sokoban-command.blocked { border-color: #f44; color: #f66; background: #240505; }
         .sokoban-controls { display: grid; grid-template-columns: repeat(3, 64px); justify-content: center; gap: 6px; margin: 12px 0; }
         .sokoban-controls button { padding: 12px 5px; }
+        .admin-overlay { position: fixed; inset: 0; z-index: 1200; overflow: auto; padding: 24px; background: #020707; }
+        .admin-overlay.hidden { display: none; }
+        .admin-toolbar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-bottom: 18px; }
+        .admin-toolbar input { max-width: 340px; }
+        .admin-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 14px; }
+        .admin-team { border: 1px solid #077; background: #001416; padding: 14px; }
+        .admin-team h2 { margin-top: 0; color: #0ff; }
+        .admin-team.offline { border-color: #555; opacity: .82; }
+        .admin-progress { height: 10px; border: 1px solid #066; background: #000; margin: 8px 0; }
+        .admin-progress > span { display: block; height: 100%; background: #0c8; }
+        .admin-actions { display: grid; grid-template-columns: 90px 1fr auto; gap: 7px; margin-top: 12px; }
+        .admin-delete { background: #d33; color: #fff; }
         @media (max-width: 700px) {
             body { padding: 10px; height: 94vh; }
             .lobby-modes { grid-template-columns: 1fr; }
@@ -392,6 +404,15 @@
     </style>
 </head>
 <body>
+    <section id="admin-overlay" class="admin-overlay hidden" aria-label="Administrace hry">
+        <h1>[ ADMINISTRACE CHRONOTERMINÁLU ]</h1>
+        <div class="admin-toolbar">
+            <input id="admin-token" type="password" placeholder="Administrátorské heslo" autocomplete="current-password">
+            <button onclick="loadAdminOverview()">NAČÍST / OBNOVIT</button>
+            <span id="admin-status">Čekám na spojení…</span>
+        </div>
+        <div id="admin-team-grid" class="admin-grid"></div>
+    </section>
     <section id="lobby-overlay" class="lobby-overlay" aria-label="Zahájení hry">
         <div class="lobby-card">
             <h1>[ CHRONOTERMINÁL: NOVÁ MISE ]</h1>
@@ -613,6 +634,8 @@
         let deferredPuzzlesState = null;
         let selectedCipherTool = null;
         const demoModeRequested = new URLSearchParams(window.location.search).get('demo') === '1';
+        const adminModeRequested = new URLSearchParams(window.location.search).get('admin') === '1' || window.location.pathname.replace(/\/$/, '') === '/admin';
+        let adminRefreshTimer = null;
 
         const MORSE = {
             A: '.-', B: '-...', C: '-.-.', D: '-..', E: '.', F: '..-.', G: '--.', H: '....', I: '..',
@@ -786,6 +809,78 @@
 
         function lobbyPlayerName() {
             return document.getElementById('lobby-player-name').value.trim();
+        }
+
+        function adminToken() {
+            return document.getElementById('admin-token').value;
+        }
+
+        function sendAdmin(type, payload = {}) {
+            if (!ws || ws.readyState !== WebSocket.OPEN) {
+                showNotification('Admin konzole není připojena.', 'error');
+                return;
+            }
+            const token = adminToken();
+            if (!token) {
+                document.getElementById('admin-status').textContent = 'Zadejte administrátorské heslo.';
+                document.getElementById('admin-token').focus();
+                return;
+            }
+            sessionStorage.setItem('escapeBotAdminToken', token);
+            ws.send(JSON.stringify({type, payload:{admin_token:token, ...payload}}));
+        }
+
+        function loadAdminOverview() { sendAdmin('admin.list'); }
+
+        function applyAdminPenalty(sessionId) {
+            const amount = Number(document.getElementById(`admin-amount-${sessionId}`).value);
+            const reason = document.getElementById(`admin-reason-${sessionId}`).value.trim();
+            if (!Number.isInteger(amount) || amount < 1 || amount > 1000) {
+                showNotification('Malus musí být celé číslo od 1 do 1000.', 'error');
+                return;
+            }
+            if (!reason) { showNotification('Doplňte důvod malusu.', 'error'); return; }
+            if (!window.confirm(`Odečíst týmu ${amount} bodů?\nDůvod: ${reason}`)) return;
+            sendAdmin('admin.penalty', {session_id:sessionId, amount, reason});
+        }
+
+        function deleteAdminTeam(sessionId) {
+            if (!window.confirm('Opravdu trvale odstranit tento tým a ukončit jeho relaci?')) return;
+            sendAdmin('admin.delete', {session_id:sessionId});
+        }
+
+        function renderAdminOverview(teams) {
+            const grid = document.getElementById('admin-team-grid');
+            document.getElementById('admin-status').textContent = `Týmů: ${teams.length} · aktualizováno ${new Date().toLocaleTimeString('cs-CZ')}`;
+            if (!teams.length) {
+                grid.innerHTML = '<p>Nejsou evidované žádné týmy.</p>';
+                return;
+            }
+            grid.innerHTML = teams.map(team => {
+                const size = Number(team.registered_players || 0);
+                const online = Number(team.online_count || 0);
+                const complete = Number(team.completed_nodes || 0);
+                const total = Number(team.total_nodes || 0);
+                const percent = total ? Math.round(complete * 100 / total) : 0;
+                const players = (team.players || []).map(player => `${player.connected ? '●' : '○'} ${escapeHtml(player.name)}`).join(', ');
+                const activeNodes = ((team.progress || {}).nodes || []).filter(node => node.status === 'active' || node.status === 'available').map(node => escapeHtml(node.label)).join(', ') || '—';
+                const penalties = (team.admin_penalties || []).map(item => `−${Number(item.amount)}: ${escapeHtml(item.reason)}`).join('<br>') || 'žádné';
+                return `<article class="admin-team ${online ? '' : 'offline'}">
+                    <h2>${escapeHtml(team.team_name)}</h2>
+                    <p><strong>${team.mode === 'solo' ? 'SÓLO' : 'TÝM'}</strong> · ${size} hráčů · ${online} online · ${team.started ? 'hra spuštěna' : 'lobby'}</p>
+                    <p>Hráči: ${players || '—'}</p>
+                    <p>Fáze: <strong>${escapeHtml(team.phase)}</strong> · skóre: <strong>${Number(team.score)}</strong></p>
+                    <div class="admin-progress"><span style="width:${percent}%"></span></div>
+                    <p>Postup: ${complete}/${total} (${percent} %) · aktuální: ${activeNodes}</p>
+                    <details><summary>Udělené malusy</summary><p>${penalties}</p></details>
+                    <div class="admin-actions">
+                        <input id="admin-amount-${team.session_id}" type="number" min="1" max="1000" value="30" aria-label="Výše malusu">
+                        <input id="admin-reason-${team.session_id}" maxlength="160" placeholder="Důvod: více hráčů, prozrazování…">
+                        <button onclick="applyAdminPenalty('${team.session_id}')">− BODY</button>
+                    </div>
+                    <button class="admin-delete" onclick="deleteAdminTeam('${team.session_id}')" style="width:100%; margin-top:10px">ODSTRANIT TÝM</button>
+                </article>`;
+            }).join('');
         }
 
         function lobbyTeamName() {
@@ -1096,8 +1191,18 @@
                 console.log("WebSocket připojen. Zařízení:", clientId);
                 statusIndicator.classList.add('online');
                 showNotification('Připojeno k centrálnímu uzlu', 'success');
-                ws.send(JSON.stringify({ type: 'leaderboard.get', payload: {} }));
-                beginLobbyConnection();
+                if (adminModeRequested) {
+                    document.getElementById('lobby-overlay').classList.add('hidden');
+                    document.getElementById('admin-overlay').classList.remove('hidden');
+                    document.getElementById('admin-token').value = sessionStorage.getItem('escapeBotAdminToken') || '';
+                    document.getElementById('admin-status').textContent = 'Připojeno. Zadejte heslo.';
+                    if (adminToken()) loadAdminOverview();
+                    clearInterval(adminRefreshTimer);
+                    adminRefreshTimer = setInterval(() => { if (adminToken()) loadAdminOverview(); }, 5000);
+                } else {
+                    ws.send(JSON.stringify({ type: 'leaderboard.get', payload: {} }));
+                    beginLobbyConnection();
+                }
             };
 
             ws.onmessage = (event) => {
@@ -1106,7 +1211,18 @@
                 // Skrytí indikátoru při přijetí jakékoliv odpovědi od serveru
                 document.getElementById('typing-indicator').style.display = 'none';
                 
-                if (msg.type === 'lobby.player_identity') {
+                if (msg.type === 'admin.overview') {
+                    renderAdminOverview(msg.payload.teams || []);
+                }
+                else if (msg.type === 'admin.error') {
+                    document.getElementById('admin-status').textContent = msg.payload.message || 'Chyba administrace.';
+                    showNotification(msg.payload.message || 'Chyba administrace.', 'error');
+                }
+                else if (msg.type === 'admin.session_removed') {
+                    localStorage.removeItem('escapeBotLobby');
+                    showNotification(msg.payload.message || 'Relace byla odstraněna.', 'error');
+                }
+                else if (msg.type === 'lobby.player_identity') {
                     const code = msg.payload.player_code;
                     document.getElementById('player-identity-code').textContent = code;
                     document.getElementById('player-identity-qr').src = `/api/qr?data=${encodeURIComponent(`escapebot://player/${code}`)}`;
@@ -1208,6 +1324,8 @@
                     } else if (msg.payload.reason === 'team_size') {
                         const delta = Number(msg.payload.delta) || 0;
                         showNotification(delta >= 0 ? `Úprava za velikost týmu: +${delta} bodů.` : `Malus za velikost týmu: ${delta} bodů.`, delta >= 0 ? 'success' : 'error');
+                    } else if (msg.payload.reason === 'admin_penalty') {
+                        showNotification(`Malus správce: −${msg.payload.penalty} bodů · ${msg.payload.description || ''}`, 'error');
                     } else {
                         const reason = msg.payload.reason === 'cipher_tool' ? 'Odemčena šifrovací pomůcka' : 'Použita nápověda';
                         showNotification(`${reason} (-${msg.payload.penalty} bodů).`, 'error');

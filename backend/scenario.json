@@ -73,7 +73,7 @@
     "connection_lost": {
       "success_keyword": "restart",
       "success_message": {
-         "text": "Uf, jsem zpět! Už tomu rozumím: nejsem v jiné budově, ale v jiné časové vrstvě Kraskova. Havárie rozptýlila součásti stroje ve vašem čase. Aktivovala jsem CHRONOMAPU; první stopa vede k recepčnímu archivu.",
+         "text": "Uf, jsem zpět! Už tomu rozumím: nejsem v jiné budově, ale v jiné časové vrstvě Kraskova. Havárie rozptýlila součásti stroje ve vašem čase. CHRONOMAPA je znovu online, ale její záznamy jsou poškozené. Zkuste v nich najít první použitelnou stopu.",
          "mood": "alert",
          "channel": "lost"
       },
@@ -262,7 +262,7 @@
       "puzzle_id": "staircase_semaphore",
       "found_rewards": {"cipher_tools": ["semaphore"]},
       "rewards": {"flags": ["bowling_route_unlocked"]},
-      "message": {"text": "Kotva na schodišti je stabilní. Obnovila jsem referenční záznam praporové abecedy a zachycenou sekvenci poloh.", "mood": "relieved", "channel": "lost"}
+      "message": {"text": "Další časová kotva drží. Z trosek se podařilo obnovit poškozený obrazový záznam; jeho význam ale nedokážu z této vrstvy spolehlivě určit.", "mood": "relieved", "channel": "lost"}
     },
     "bowling_diagnostics": {
       "label": "Binární diagnostika bowlingu",

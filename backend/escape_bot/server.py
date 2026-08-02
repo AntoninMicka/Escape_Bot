@@ -6,11 +6,13 @@ import subprocess
 import socket
 import secrets
 import threading
+import hmac
 import uvicorn
 from io import BytesIO
 from contextlib import asynccontextmanager
+from datetime import UTC, datetime
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
-from fastapi.responses import Response
+from fastapi.responses import RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
 
 from .protocol import Message
@@ -35,6 +37,7 @@ session_connections: dict[str, set[WebSocket]] = {}
 connection_info: dict[WebSocket, dict[str, object]] = {}
 waiting_players: dict[str, dict[str, object]] = {}
 DEMO_MODE_ENABLED = os.getenv("ESCAPEBOT_DEMO_MODE", "").lower() in {"1", "true", "yes", "on"}
+ADMIN_TOKEN = os.getenv("ESCAPEBOT_ADMIN_TOKEN", "")
 
 LEADERBOARD_FILE = os.path.join(BASE_DIR, "backend", "leaderboard.json")
 global_leaderboard = []
@@ -172,6 +175,37 @@ def apply_lobby_score(lobby: Lobby, state_machine: EscapeBotStateMachine) -> lis
     ]
 
 
+def require_admin(payload: dict[str, object]) -> None:
+    supplied = str(payload.get("admin_token", ""))
+    if not ADMIN_TOKEN:
+        raise ValueError("Admin režim není na backendu povolen.")
+    if not hmac.compare_digest(supplied, ADMIN_TOKEN):
+        raise ValueError("Neplatné administrátorské heslo.")
+
+
+def admin_overview() -> list[dict[str, object]]:
+    teams: list[dict[str, object]] = []
+    for lobby in lobby_registry.by_session.values():
+        machine = active_sessions.get(lobby.session_id)
+        state = machine.state.snapshot() if machine else {}
+        progress = build_scenario_progress(scenario, state) if machine else {"nodes": []}
+        nodes = list(progress.get("nodes", []))
+        teams.append({
+            **lobby.public("", connected_client_ids(lobby.session_id)),
+            "score": int(state.get("score", 1000)),
+            "phase": str(state.get("phase", "boot")),
+            "completed_nodes": sum(node.get("status") == "complete" for node in nodes),
+            "total_nodes": len(nodes),
+            "progress": progress,
+            "admin_penalties": list(state.get("flags", {}).get("admin_penalties", [])),
+        })
+    return sorted(teams, key=lambda team: str(team.get("team_name", "")).casefold())
+
+
+async def send_admin_overview(websocket: WebSocket) -> None:
+    await send_message(websocket, Message("admin.overview", {"teams": admin_overview()}))
+
+
 @app.get("/api/qr")
 async def qr_code(data: str) -> Response:
     if not data or len(data) > 500:
@@ -184,6 +218,16 @@ async def qr_code(data: str) -> Response:
         return Response(content=output.getvalue(), media_type="image/png", headers={"Cache-Control": "no-store"})
     except ImportError:
         return Response(content="QR generator není nainstalován.", status_code=503, media_type="text/plain")
+
+
+@app.get("/api/health")
+async def health() -> dict[str, object]:
+    return {"status": "ok", "admin_enabled": bool(ADMIN_TOKEN)}
+
+
+@app.get("/admin")
+async def admin_page() -> RedirectResponse:
+    return RedirectResponse(url="/?admin=1", status_code=307)
 
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
@@ -204,6 +248,74 @@ async def websocket_endpoint(websocket: WebSocket):
             try:
                 data = json.loads(message_str)
                 msg = Message.from_json(data)
+
+                if msg.type in {"admin.list", "admin.penalty", "admin.delete"}:
+                    try:
+                        require_admin(msg.payload)
+                        if msg.type == "admin.list":
+                            await send_admin_overview(websocket)
+                            continue
+
+                        target_session = str(msg.payload.get("session_id", "")).strip()
+                        lobby = lobby_registry.by_session.get(target_session)
+                        if lobby is None:
+                            raise ValueError("Týmová relace už neexistuje.")
+
+                        if msg.type == "admin.penalty":
+                            amount = int(msg.payload.get("amount", 0))
+                            reason = " ".join(str(msg.payload.get("reason", "")).strip().split())[:160]
+                            if amount < 1 or amount > 1000:
+                                raise ValueError("Malus musí být v rozsahu 1 až 1000 bodů.")
+                            if not reason:
+                                raise ValueError("U malusu je povinný důvod.")
+                            machine = ensure_state_machine(target_session)
+                            machine.state.score -= amount
+                            machine.state.flags.setdefault("admin_penalties", []).append({
+                                "amount": amount,
+                                "reason": reason,
+                                "at": datetime.now(UTC).isoformat(),
+                            })
+                            save_sessions()
+                            await broadcast_session(target_session, [
+                                Message("score.update", {
+                                    "score": machine.state.score,
+                                    "delta": -amount,
+                                    "bonus": 0,
+                                    "penalty": amount,
+                                    "reason": "admin_penalty",
+                                    "description": reason,
+                                }),
+                                Message("bot.message", {
+                                    "text": f"Administrátorský malus −{amount} bodů: {reason}",
+                                    "mood": "tense",
+                                    "channel": "general",
+                                }),
+                                machine._state_message(),
+                            ])
+                            await send_admin_overview(websocket)
+                            continue
+
+                        affected = list(session_connections.get(target_session, set()))
+                        for player_socket in affected:
+                            try:
+                                await send_message(player_socket, Message("admin.session_removed", {
+                                    "message": "Týmová relace byla odstraněna administrátorem.",
+                                }))
+                                await player_socket.close(code=4001, reason="Session removed by administrator")
+                            except Exception:
+                                pass
+                        if lobby.join_code:
+                            lobby_registry.by_join_code.pop(lobby.join_code, None)
+                        lobby_registry.by_session.pop(target_session, None)
+                        active_sessions.pop(target_session, None)
+                        session_connections.pop(target_session, None)
+                        save_lobbies()
+                        save_sessions()
+                        await send_admin_overview(websocket)
+                        continue
+                    except (ValueError, TypeError) as error:
+                        await send_message(websocket, Message("admin.error", {"message": str(error)}))
+                        continue
 
                 if msg.type in {"lobby.solo", "lobby.create", "lobby.join", "lobby.resume", "lobby.start", "lobby.identify", "lobby.add_player"}:
                     try:

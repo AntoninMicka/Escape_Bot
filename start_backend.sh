@@ -30,9 +30,16 @@ for argument in "$@"; do
         --demo)
             export ESCAPEBOT_DEMO_MODE=1
             ;;
+        --admin-token=*)
+            export ESCAPEBOT_ADMIN_TOKEN="${argument#--admin-token=}"
+            if [ -z "$ESCAPEBOT_ADMIN_TOKEN" ]; then
+                echo "Chyba: administrátorské heslo nesmí být prázdné."
+                exit 2
+            fi
+            ;;
         *)
             echo "Neznámý parametr: $argument"
-            echo "Použití: ./start_backend.sh [--demo] [--reset-venv]"
+            echo "Použití: ./start_backend.sh [--demo] [--admin-token=HESLO] [--reset-venv]"
             exit 2
             ;;
     esac
@@ -54,6 +61,9 @@ echo "  Hra je připravena! Webový klient: https://localhost:8088  "
 echo "  (Nebo zadejte http://localhost:8087 pro aut. přesměrování)"
 if [ "${ESCAPEBOT_DEMO_MODE:-0}" = "1" ]; then
     echo "  DEMO REŽIM: https://localhost:8088/?demo=1"
+fi
+if [ -n "${ESCAPEBOT_ADMIN_TOKEN:-}" ]; then
+    echo "  ADMIN REŽIM: https://localhost:8088/?admin=1"
 fi
 echo "====================================================================="
 
