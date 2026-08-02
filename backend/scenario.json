@@ -209,8 +209,18 @@
       "type": "mine_karel",
       "checkpoint_id": "courtyard_minefield",
       "instructions": "Číselné sondy udávají počet nestabilních polí v osmi sousedních pozicích. Elara musí dojít ze startu S k východu X. Mřížku sleduje operátor terminálu, pohyby zadává navigátor v interkomu. Vstup na minu vrátí Elaru na start a odečte 20 bodů.",
-      "admin_solution": "DOLŮ×4, VPRAVO×2, DOLŮ, VPRAVO×2, DOLŮ, VPRAVO×2",
-      "game": {"rows": 7, "columns": 7, "start": [0,0], "exit": [6,6], "mines": [[0,3],[1,1],[1,5],[2,3],[3,1],[3,5],[4,3],[5,1],[5,5],[6,3]], "revealed": [[0,0],[0,1],[1,0],[2,2],[2,4],[3,3],[4,2],[4,4],[5,6],[6,5],[6,6]], "time_limit_seconds": 240, "mine_penalty": 20, "completion_bonus": 50},
+      "admin_solution": "A: DOLŮ×4, VPRAVO×2, DOLŮ, VPRAVO×2, DOLŮ, VPRAVO×2. B: NAHORU×2, VPRAVO×2, NAHORU×2, VPRAVO×2, NAHORU×2, VPRAVO×2. C: DOLŮ×3, VPRAVO×2, NAHORU, VPRAVO×3, DOLŮ×3, VPRAVO×2, DOLŮ×2.",
+      "game": {
+        "level_time_seconds": 180, "mine_penalty": 20, "points_per_level": 40,
+        "active_level_ids": ["field_a", "field_b", "field_c"],
+        "levels": [
+          {"id":"field_a","label":"Pole A","rows":7,"columns":7,"start":[0,0],"exit":[6,6],"mines":[[0,3],[1,1],[1,5],[2,3],[3,1],[3,5],[4,3],[5,1],[5,5],[6,3]],"revealed":[[0,1],[1,0],[2,2],[2,4],[3,3],[4,2],[4,4],[5,6],[6,5]]},
+          {"id":"field_b","label":"Pole B","rows":7,"columns":7,"start":[6,0],"exit":[0,6],"mines":[[6,3],[5,1],[5,5],[4,3],[3,1],[3,5],[2,5],[1,1],[1,3],[0,1]],"revealed":[[5,0],[4,1],[4,2],[3,2],[2,3],[2,4],[1,4],[0,5]]},
+          {"id":"field_c","label":"Pole C","rows":8,"columns":8,"start":[0,0],"exit":[7,7],"mines":[[0,2],[1,1],[1,3],[1,4],[2,6],[3,4],[3,7],[4,2],[4,6],[5,3],[6,1],[6,5],[7,3]],"revealed":[[1,0],[2,1],[3,2],[2,2],[2,4],[3,5],[5,5],[5,6],[6,7]]},
+          {"id":"reserve_d","label":"Rezervní pole D","rows":7,"columns":7,"start":[0,6],"exit":[6,0],"mines":[[0,3],[1,1],[1,5],[2,3],[3,1],[3,5],[4,3],[5,1],[5,5],[6,3]],"revealed":[[0,5],[1,6],[2,4],[3,3],[4,2],[5,0],[6,1]]},
+          {"id":"reserve_e","label":"Rezervní pole E","rows":8,"columns":8,"start":[7,0],"exit":[0,7],"mines":[[0,2],[1,1],[1,5],[2,3],[2,6],[3,1],[3,5],[4,3],[5,1],[5,6],[6,2],[6,5],[7,4]],"revealed":[[6,0],[5,2],[4,2],[3,3],[2,4],[1,4],[0,6]]}
+        ]
+      },
       "success_message": {"text": "Jsem na druhé straně. Trasa je stabilní a přístup k dalšímu hotelovému uzlu se otevřel.", "mood": "relieved", "channel": "lost"}
     },
     "sports_sokoban": {

@@ -48,7 +48,15 @@ class StateMachineCheckpointTests(unittest.IsolatedAsyncioTestCase):
 
     async def solve_karel(self):
         await self.scan("courtyard_minefield")
-        return await self.machine.handle(Message("karel.command", {"puzzle_id": "courtyard_karel", "commands": ["down"] * 4 + ["right"] * 2 + ["down"] + ["right"] * 2 + ["down"] + ["right"] * 2}))
+        solutions = [
+            ["down"] * 4 + ["right"] * 2 + ["down"] + ["right"] * 2 + ["down"] + ["right"] * 2,
+            ["up"] * 2 + ["right"] * 2 + ["up"] * 2 + ["right"] * 2 + ["up"] * 2 + ["right"] * 2,
+            ["down"] * 3 + ["right"] * 2 + ["up"] + ["right"] * 3 + ["down"] * 3 + ["right"] * 2 + ["down"] * 2,
+        ]
+        response = None
+        for commands in solutions:
+            response = await self.machine.handle(Message("karel.command", {"puzzle_id": "courtyard_karel", "commands": commands}))
+        return response
 
     async def unlock_timeline_game(self):
         await self.solve_bowling()
@@ -488,6 +496,9 @@ class StateMachineCheckpointTests(unittest.IsolatedAsyncioTestCase):
         completed = await self.solve_karel()
         self.assertTrue(self.response(completed, "karel.result").payload["game_complete"])
         self.assertEqual(self.machine.state.checkpoint_states["courtyard_minefield"]["status"], "solved")
+        game = self.machine.state.karel_games["courtyard_karel"]
+        self.assertEqual(game["completed_levels"], ["field_a", "field_b", "field_c"])
+        self.assertEqual(game["awarded_points"], 120)
         bowling = await self.scan("bowling_diagnostics")
         self.assertTrue(self.response(bowling, "qr.result").payload["accepted"])
 
