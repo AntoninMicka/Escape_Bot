@@ -2757,9 +2757,84 @@
         "role": "bot",
         "channel": "captain",
         "text": "Sportovní archiv je nalezen, ale jeho servisní síť nemá napájení. Elara je v úplné tmě a mřížku vidíte jen vy na terminálu. Jeden z vás musí sledovat mapu a druhý ji navigovat přes interkom."
+      },
+      {
+        "role": "bot",
+        "channel": "lost",
+        "text": "Vracíme se k poslední stabilní časové kotvě. Mřížka je znovu v počáteční poloze."
+      },
+      {
+        "role": "bot",
+        "channel": "lost",
+        "text": "Sekvence potvrzena: 1 kroků, přesunuté články: 1."
+      },
+      {
+        "role": "bot",
+        "channel": "lost",
+        "text": "Sekvence potvrzena: 1 kroků, přesunuté články: 1."
+      },
+      {
+        "role": "bot",
+        "channel": "lost",
+        "text": "Sekvence potvrzena: 1 kroků, přesunuté články: 0."
+      },
+      {
+        "role": "bot",
+        "channel": "lost",
+        "text": "Sekvence potvrzena: 1 kroků, přesunuté články: 0."
+      },
+      {
+        "role": "bot",
+        "channel": "lost",
+        "text": "Sekvence potvrzena: 1 kroků, přesunuté články: 0."
+      },
+      {
+        "role": "bot",
+        "channel": "lost",
+        "text": "Sekvence potvrzena: 1 kroků, přesunuté články: 0."
+      },
+      {
+        "role": "bot",
+        "channel": "lost",
+        "text": "Sekvence potvrzena: 1 kroků, přesunuté články: 0."
+      },
+      {
+        "role": "bot",
+        "channel": "lost",
+        "text": "Sekvence potvrzena: 1 kroků, přesunuté články: 0."
+      },
+      {
+        "role": "bot",
+        "channel": "lost",
+        "text": "Sekvence potvrzena: 1 kroků, přesunuté články: 0."
+      },
+      {
+        "role": "bot",
+        "channel": "lost",
+        "text": "Sekvence potvrzena: 1 kroků, přesunuté články: 1."
+      },
+      {
+        "role": "bot",
+        "channel": "lost",
+        "text": "Sekvence potvrzena: 1 kroků, přesunuté články: 1."
+      },
+      {
+        "role": "bot",
+        "channel": "lost",
+        "text": "Sekvence potvrzena: 1 kroků, přesunuté články: 0."
+      },
+      {
+        "role": "bot",
+        "channel": "lost",
+        "text": "Sekvence potvrzena: 1 kroků, přesunuté články: 0."
+      },
+      {
+        "role": "bot",
+        "channel": "lost",
+        "text": "Sekvence potvrzena: 1 kroků, přesunuté články: 1. Úroveň je stabilní; přepínám na další servisní sektor."
       }
     ],
-    "score": 1050,
+    "score": 1080,
     "hints_used": {},
     "checkpoint_states": {
       "reception_archive": {
@@ -2891,19 +2966,120 @@
           "sector_b",
           "sector_c"
         ],
-        "level_index": 0,
-        "completed_levels": [],
-        "awarded_points": 0,
+        "level_index": 1,
+        "completed_levels": [
+          "sector_a"
+        ],
+        "awarded_points": 30,
         "moves": 0,
         "pushes": 0,
-        "total_moves": 0,
-        "total_pushes": 0,
-        "restarts": 0,
+        "total_moves": 14,
+        "total_pushes": 5,
+        "restarts": 1,
         "status": "playing",
-        "command_history": [],
+        "command_history": [
+          {
+            "commands": [
+              "left"
+            ],
+            "executed": 1,
+            "blocked": false
+          },
+          {
+            "commands": [
+              "left"
+            ],
+            "executed": 1,
+            "blocked": false
+          },
+          {
+            "commands": [
+              "right"
+            ],
+            "executed": 1,
+            "blocked": false
+          },
+          {
+            "commands": [
+              "right"
+            ],
+            "executed": 1,
+            "blocked": false
+          },
+          {
+            "commands": [
+              "up"
+            ],
+            "executed": 1,
+            "blocked": false
+          },
+          {
+            "commands": [
+              "up"
+            ],
+            "executed": 1,
+            "blocked": false
+          },
+          {
+            "commands": [
+              "up"
+            ],
+            "executed": 1,
+            "blocked": false
+          },
+          {
+            "commands": [
+              "up"
+            ],
+            "executed": 1,
+            "blocked": false
+          },
+          {
+            "commands": [
+              "left"
+            ],
+            "executed": 1,
+            "blocked": false
+          },
+          {
+            "commands": [
+              "down"
+            ],
+            "executed": 1,
+            "blocked": false
+          },
+          {
+            "commands": [
+              "down"
+            ],
+            "executed": 1,
+            "blocked": false
+          },
+          {
+            "commands": [
+              "right"
+            ],
+            "executed": 1,
+            "blocked": false
+          },
+          {
+            "commands": [
+              "down"
+            ],
+            "executed": 1,
+            "blocked": false
+          },
+          {
+            "commands": [
+              "left"
+            ],
+            "executed": 1,
+            "blocked": false
+          }
+        ],
         "player": [
           3,
-          3
+          2
         ],
         "boxes": [
           [
@@ -2911,8 +3087,8 @@
             3
           ],
           [
-            4,
-            3
+            3,
+            4
           ]
         ],
         "walls": [
@@ -2945,92 +3121,136 @@
             6
           ],
           [
-            1,
-            0
+            0,
+            7
           ],
           [
             1,
-            6
-          ],
-          [
-            2,
             0
           ],
           [
-            2,
-            6
-          ],
-          [
-            3,
-            0
-          ],
-          [
-            3,
-            6
-          ],
-          [
-            4,
-            0
-          ],
-          [
-            4,
-            6
-          ],
-          [
-            5,
-            0
-          ],
-          [
-            5,
-            6
-          ],
-          [
-            6,
-            0
-          ],
-          [
-            6,
-            1
-          ],
-          [
-            6,
+            1,
             2
           ],
           [
-            6,
+            1,
             3
           ],
           [
-            6,
-            4
+            1,
+            7
           ],
           [
-            6,
+            2,
+            0
+          ],
+          [
+            2,
+            1
+          ],
+          [
+            2,
+            6
+          ],
+          [
+            2,
+            7
+          ],
+          [
+            3,
+            0
+          ],
+          [
+            3,
+            7
+          ],
+          [
+            4,
+            0
+          ],
+          [
+            4,
+            1
+          ],
+          [
+            4,
+            2
+          ],
+          [
+            4,
+            7
+          ],
+          [
+            5,
+            0
+          ],
+          [
+            5,
             5
           ],
           [
+            5,
+            7
+          ],
+          [
             6,
+            0
+          ],
+          [
+            6,
+            7
+          ],
+          [
+            7,
+            0
+          ],
+          [
+            7,
+            1
+          ],
+          [
+            7,
+            2
+          ],
+          [
+            7,
+            3
+          ],
+          [
+            7,
+            4
+          ],
+          [
+            7,
+            5
+          ],
+          [
+            7,
             6
+          ],
+          [
+            7,
+            7
           ]
         ],
         "targets": [
           [
-            2,
-            2
+            3,
+            5
           ],
           [
-            4,
-            4
+            5,
+            2
           ]
         ],
-        "rows": 7,
-        "columns": 7,
-        "level_id": "sector_a",
-        "level_label": "Servisní sektor A",
+        "rows": 8,
+        "columns": 8,
+        "level_id": "sector_b",
+        "level_label": "Servisní sektor B",
         "history": [],
         "level_speakers": [],
-        "started_at": "2026-08-02T07:50:26.840279+00:00",
-        "deadline_at": "2026-08-02T07:52:26.840279+00:00"
+        "started_at": "2026-08-02T08:02:35.173381+00:00",
+        "deadline_at": "2026-08-02T08:04:35.173381+00:00"
       }
     }
   }

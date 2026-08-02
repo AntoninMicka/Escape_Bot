@@ -208,7 +208,7 @@
       "type": "sokoban",
       "checkpoint_id": "sports_archive",
       "instructions": "Elara prochází třemi servisními sektory v naprosté tmě: její lokální displej nefunguje a sama mřížku nevidí. Tým musí sdílet informace mezi člověkem sledujícím mapu a navigátorem u interkomu. V kanálu # ztracená_sig používejte povely NAHORU, DOLŮ, VLEVO a VPRAVO; lze je spojit čárkami a opakovat například jako „2x NAHORU“. Přesuňte články na svítící cíle před vypršením času. Každý sektor přidá 30 bodů. Povel ZPĚT vrátí poslední krok a RESET obnoví aktuální úroveň i její čas.",
-      "admin_solution": "3 aktivní úrovně: A = VPRAVO, NAHORU, VLEVO, DOLŮ, VLEVO, DOLŮ, VPRAVO; B = VLEVO, NAHORU, VPRAVO, DOLŮ, VPRAVO, DOLŮ, VLEVO; C = NAHORU, VLEVO, DOLŮ, VPRAVO, DOLŮ. Rezervní úrovně D a E jsou připravené ve scénáři.",
+      "admin_solution": "3 aktivní úrovně: A = NAHORU×4, VLEVO, DOLŮ×2, VPRAVO, DOLŮ, VLEVO, VPRAVO, DOLŮ, VLEVO×2; B = NAHORU, VPRAVO×2, DOLŮ, VPRAVO, DOLŮ, VLEVO, NAHORU×3, VPRAVO, DOLŮ, VLEVO, DOLŮ, VLEVO, DOLŮ, VPRAVO, DOLŮ, VLEVO; C = NAHORU, VPRAVO×3, DOLŮ, VLEVO, NAHORU, VLEVO, DOLŮ, VPRAVO, DOLŮ, VLEVO×2, DOLŮ×2, VPRAVO×2, NAHORU, VPRAVO×2, DOLŮ×2, VLEVO, NAHORU. Rezervní úrovně D a E jsou připravené ve scénáři.",
       "game": {
         "level_time_seconds": 120,
         "points_per_level": 30,
@@ -217,27 +217,27 @@
           {
             "id": "sector_a",
             "label": "Servisní sektor A",
-            "map": ["#######", "#     #", "# .$  #", "#  @  #", "#  $. #", "#     #", "#######"]
+            "map": ["########", "##  #  #", "#    $ #", "###    #", "#   .  #", "#  . $@#", "#      #", "########"]
           },
           {
             "id": "sector_b",
             "label": "Servisní sektor B",
-            "map": ["#######", "#     #", "#  $. #", "#  @  #", "# .$  #", "#     #", "#######"]
+            "map": ["########", "# ##   #", "## $  ##", "# @ $. #", "###    #", "# .  # #", "#      #", "########"]
           },
           {
             "id": "sector_c",
             "label": "Servisní sektor C",
-            "map": ["#######", "#  .  #", "#  $  #", "#  @  #", "#  $  #", "#  .  #", "#######"]
+            "map": ["########", "##     #", "# @ $  #", "#.   # #", "#    . #", "##  $  #", "### #  #", "########"]
           },
           {
             "id": "reserve_d",
             "label": "Rezervní sektor D",
-            "map": ["#######", "#     #", "#     #", "# . $@#", "#     #", "#     #", "#######"]
+            "map": ["########", "##  ##@#", "#      #", "#   $  #", "#   # .#", "#   $. #", "#      #", "########"]
           },
           {
             "id": "reserve_e",
             "label": "Rezervní sektor E",
-            "map": ["#######", "#  .  #", "#     #", "#  $  #", "#  @  #", "#     #", "#######"]
+            "map": ["########", "#####  #", "#  @ ..#", "#      #", "#  $# ##", "#  $ # #", "#      #", "########"]
           }
         ]
       },

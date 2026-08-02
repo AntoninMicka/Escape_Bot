@@ -370,9 +370,9 @@ class StateMachineCheckpointTests(unittest.IsolatedAsyncioTestCase):
 
         score_before = self.machine.state.score
         solutions = [
-            "vpravo, nahoru, vlevo, dolů, vlevo, dolů, vpravo",
-            "vlevo, nahoru, vpravo, dolů, vpravo, dolů, vlevo",
-            "nahoru, vlevo, dolů, vpravo, dolů",
+            "4x nahoru, vlevo, 2x dolů, vpravo, dolů, vlevo, vpravo, dolů, 2x vlevo",
+            "nahoru, 2x vpravo, dolů, vpravo, dolů, vlevo, 3x nahoru, vpravo, dolů, vlevo, dolů, vlevo, dolů, vpravo, dolů, vlevo",
+            "nahoru, 3x vpravo, dolů, vlevo, nahoru, vlevo, dolů, vpravo, dolů, 2x vlevo, 2x dolů, 2x vpravo, nahoru, 2x vpravo, 2x dolů, vlevo, nahoru",
         ]
         responses = None
         for index, solution in enumerate(solutions):
@@ -397,13 +397,13 @@ class StateMachineCheckpointTests(unittest.IsolatedAsyncioTestCase):
     async def test_sokoban_blocked_sequence_undo_and_restore(self) -> None:
         await self.unlock_sokoban()
         blocked = await self.machine.handle(Message("sokoban.command", {
-            "puzzle_id": "sports_sokoban", "commands": ["up", "up", "up"],
+            "puzzle_id": "sports_sokoban", "commands": ["up", "right"],
         }))
         result = self.response(blocked, "sokoban.result")
         self.assertTrue(result.payload["blocked"])
         self.assertEqual(result.payload["executed"], 1)
         self.assertEqual(len(result.payload["frames"]), 1)
-        self.assertEqual(result.payload["blocked_command"], "up")
+        self.assertEqual(result.payload["blocked_command"], "right")
 
         undone = await self.machine.handle(Message("sokoban.undo", {"puzzle_id": "sports_sokoban"}))
         self.assertTrue(self.response(undone, "sokoban.result").payload["undo"])
@@ -435,13 +435,16 @@ class StateMachineCheckpointTests(unittest.IsolatedAsyncioTestCase):
     def test_sokoban_reserve_levels_are_valid_and_solvable(self) -> None:
         base = self.scenario.data["puzzles"]["sports_sokoban"]["game"]
         solutions = {
-            "reserve_d": ["left", "left"],
-            "reserve_e": ["up", "up"],
+            "reserve_d": ["down", "left", "left", "left", "down", "down", "down", "right", "left", "up", "up", "right", "right", "up", "right", "down"],
+            "reserve_e": ["down", "left", "down", "down", "down", "right", "right", "up", "left", "up", "up", "left", "up", "right", "right", "right", "down", "left", "left", "down", "down", "down", "left", "up", "up", "up", "left", "up", "right", "right", "right"],
         }
         for level_id, commands in solutions.items():
             config = {**base, "active_level_ids": [level_id]}
             game = new_sokoban(config)
-            result = execute_sokoban(game, config, commands)
+            result = None
+            for offset in range(0, len(commands), 30):
+                result = execute_sokoban(game, config, commands[offset:offset + 30])
+            self.assertIsNotNone(result)
             self.assertTrue(result["game_complete"], level_id)
             self.assertEqual(result["score_delta"], 30)
 
