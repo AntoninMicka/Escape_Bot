@@ -539,6 +539,7 @@
 - [x] Oddělit trvale dostupné týmové chaty od dočasného read-only náhledu celé hry v hráčském rozhraní.
 - [x] Rozdělit administrační záhlaví na Týmy, Chaty, Síň slávy a Nástroje.
 - [x] Upozorňovat přihlášené administrátory na nové týmové zprávy badge počítadlem a obrazovkovou notifikací.
+- [x] Aktualizovat podpůrné chaty samostatným WebSocket push přenosem a polling omezit pouze na právě otevřený přehled týmů.
 - [x] Zobrazit v admin detailu správná řešení a serverem řízené předvolby postihů pro ruční dokončení či technický skip bez postihu.
 
 ## 14. Migrace na cloud

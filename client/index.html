@@ -451,7 +451,7 @@
         .admin-nav { position: sticky; top: -24px; z-index: 2; display: flex; flex-wrap: wrap; gap: 8px; padding: 12px 0; background: #020707; border-bottom: 1px solid #077; }
         .admin-nav button.active { background: #0aa; color: #001; }
         .admin-section.hidden { display: none; }
-        .admin-spectator-bar { position: fixed; top: 0; left: 0; right: 0; z-index: 1300; display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 8px 14px; background: #240; border-bottom: 2px solid #fc0; color: #fff; }
+        .admin-spectator-bar { position: relative; z-index: 900; flex: 0 0 auto; display: flex; justify-content: space-between; align-items: center; gap: 12px; margin: -10px -10px 10px; padding: 8px 14px; background: #240; border-bottom: 2px solid #fc0; color: #fff; }
         .admin-spectator-bar.hidden { display: none; }
         .admin-toolbar input { max-width: 340px; }
         .admin-filters { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 14px; }
@@ -499,6 +499,7 @@
             body { padding: 6px 8px max(6px, env(safe-area-inset-bottom)); height: 100vh; height: 100dvh; }
             .lobby-modes { grid-template-columns: 1fr; }
             .tabs { top: 0; margin: -6px -8px 6px; padding: max(6px, env(safe-area-inset-top)) 8px 6px; max-width: calc(100vw + 0px); min-height: 48px; }
+            .admin-spectator-bar { margin: -6px -8px 6px; padding-top: max(8px, env(safe-area-inset-top)); }
             .tab-button { padding: 8px 10px; white-space: nowrap; flex: 0 0 auto; }
             .utility-button { margin-left: 0; }
             .cipher-panel { top: 12px; right: 8px; width: calc(100vw - 16px); max-height: calc(100vh - 24px); }
@@ -1674,7 +1675,9 @@
                     document.getElementById('admin-status').textContent = 'Připojeno. Zadejte heslo.';
                     if (adminToken()) loadAdminOverview();
                     clearInterval(adminRefreshTimer);
-                    adminRefreshTimer = setInterval(() => { if (adminToken()) loadAdminOverview(); }, 5000);
+                    adminRefreshTimer = setInterval(() => {
+                        if (adminToken() && activeAdminTab === 'teams' && !document.getElementById('admin-overlay').classList.contains('hidden')) loadAdminOverview();
+                    }, 5000);
                 } else {
                     ws.send(JSON.stringify({ type: 'leaderboard.get', payload: {} }));
                     beginLobbyConnection();
@@ -1689,6 +1692,15 @@
                 
                 if (msg.type === 'admin.overview') {
                     renderAdminOverview(msg.payload);
+                }
+                else if (msg.type === 'admin.support_update') {
+                    if (latestAdminPayload) {
+                        const team = (latestAdminPayload.teams || []).find(item => item.session_id === msg.payload.session_id);
+                        if (team) team.support_chat = msg.payload.support_chat || [];
+                        else latestAdminPayload.teams.push({session_id:msg.payload.session_id, team_name:msg.payload.team_name, support_chat:msg.payload.support_chat || [], players:[]});
+                        updateAdminChatNotifications(latestAdminPayload.teams || []);
+                        renderAdminChats(latestAdminPayload.teams || []);
+                    }
                 }
                 else if (msg.type === 'admin.qr_set') {
                     renderAdminQrSet(msg.payload);
@@ -1824,6 +1836,10 @@
             }
             else if (msg.type === 'leaderboard.update') {
                 const lb = msg.payload.entries || [];
+                if (adminModeRequested && latestAdminPayload) {
+                    latestAdminPayload.leaderboard = lb;
+                    renderAdminLeaderboard(lb);
+                }
                 const tbody = document.getElementById('leaderboard-body');
                 tbody.innerHTML = '';
                 

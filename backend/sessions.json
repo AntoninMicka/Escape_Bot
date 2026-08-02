@@ -2686,7 +2686,7 @@
     "event_history": []
   },
   "30c575aa0e264cc894e085181326844d": {
-    "phase": "comms_offline",
+    "phase": "searching_lost",
     "unlocked_discoveries": [],
     "inventory": [],
     "flags": {},
@@ -2721,6 +2721,30 @@
         "text": "help",
         "sender": "PC",
         "at": "2026-08-02T19:25:24.403282+00:00"
+      },
+      {
+        "role": "player",
+        "channel": "captain",
+        "text": "jo"
+      },
+      {
+        "role": "bot",
+        "channel": "captain",
+        "text": "Výborně, spojení funguje. Při experimentu v Hotelu Kraskov zmizela doktorka Elara. Z poškozeného chronálního vysílače zůstal jediný nouzový záznam:\n\nNOSNÁ VLNA C-17\n━━  ━━  ●  ●  ●   /   ●  ●  ●  ━━  ━━   /   ●  ●  ●  ●  ━━\n\nZáznam tvoří tři oddělené skupiny. Obnovenou třícifernou frekvenci odešli do interkomu."
+      },
+      {
+        "role": "player",
+        "channel": "support",
+        "text": "help",
+        "sender": "PC",
+        "at": "2026-08-02T19:31:46.477944+00:00"
+      },
+      {
+        "role": "bot",
+        "channel": "support",
+        "text": "wtf?",
+        "sender": "Game Master",
+        "at": "2026-08-02T19:32:10.311080+00:00"
       }
     ],
     "score": 1020,
@@ -2735,9 +2759,17 @@
     "interactive_games": {},
     "sokoban_games": {},
     "karel_games": {},
-    "last_activity_at": "2026-08-02T19:25:24.403282+00:00",
+    "last_activity_at": "2026-08-02T19:32:10.311080+00:00",
     "triad_games": {},
     "archive_games": {},
-    "event_history": []
+    "event_history": [
+      {
+        "at": "2026-08-02T19:30:54.625421+00:00",
+        "type": "player.message",
+        "details": {
+          "channel": "captain"
+        }
+      }
+    ]
   }
 }

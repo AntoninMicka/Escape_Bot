@@ -322,6 +322,23 @@ async def send_admin_overview(websocket: WebSocket) -> None:
     }))
 
 
+async def push_admin_support_update(session_id: str) -> None:
+    lobby = lobby_registry.by_session.get(session_id)
+    machine = active_sessions.get(session_id)
+    if not lobby or not machine:
+        return
+    payload = {
+        "session_id": session_id,
+        "team_name": lobby.team_name,
+        "support_chat": [item for item in machine.state.chat_history if item.get("channel") == "support"],
+    }
+    for admin_socket in list(authenticated_admin_sockets):
+        try:
+            await send_message(admin_socket, Message("admin.support_update", payload))
+        except Exception:
+            pass
+
+
 async def sync_started_client(websocket: WebSocket, state_machine: EscapeBotStateMachine, demo_client: bool) -> None:
     """Send a complete authoritative snapshot after join, resume, or device wake-up."""
     await send_message(websocket, Message("chat.history", {"messages": state_machine.state.chat_history}))
@@ -459,6 +476,8 @@ async def websocket_endpoint(websocket: WebSocket):
                                 machine.state.last_activity_at = support_message["at"]
                                 save_sessions()
                                 await broadcast_session(target_session, [Message("bot.message", support_message)])
+                                await push_admin_support_update(target_session)
+                                continue
                             await send_admin_overview(websocket)
                             continue
 
@@ -765,9 +784,7 @@ async def websocket_endpoint(websocket: WebSocket):
                         state_machine.state.last_activity_at = support_message["at"]
                         save_sessions()
                         await broadcast_session(str(session_id), [Message("team.player_message", {"client_id": client_id, "channel": "support", "text": text_value})], exclude=websocket)
-                        for admin_socket in list(authenticated_admin_sockets):
-                            try: await send_admin_overview(admin_socket)
-                            except Exception: pass
+                        await push_admin_support_update(str(session_id))
                         continue
                     responses = await state_machine.handle(msg)
                     if msg.type == "client.hello" and bool(msg.payload.get("demo_mode")):

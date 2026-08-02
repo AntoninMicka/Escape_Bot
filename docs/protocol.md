@@ -63,6 +63,8 @@ Kanál `support` je vyhrazený pro komunikaci týmu s Game Masterem. Backend jej
 
 Podpůrný chat je správci dostupný trvale přes `admin.support_message`; zpráva obsahuje `session_id`, administrační token a `text`.
 
+Nová zpráva týmu nebo Game Mastera vyvolá samostatný serverový push `admin.support_update` s identifikátorem týmu a aktuální historií podpory. Klient díky tomu nepřekresluje celý `admin.overview`; periodický refresh používá pouze na otevřené záložce týmového přehledu.
+
 Živý náhled celé hry se spouští pomocí `admin.spectate_start` a ukončuje přes `admin.spectate_stop`. Server po připojení pošle standardní `chat.history`, `game.state`, `scenario.progress` a následně stejný živý broadcast jako hráčům týmu. Admin zůstává read-only a není přidán mezi hráčská zařízení relace.
 
 Ruční dokončení checkpointu přes `admin.checkpoint` přijímá `penalty_preset`. Povolené předvolby definuje server a posílá je v `admin.overview`; zahrnují technický skip bez postihu, drobnou pomoc, přeskočení minihry a šifru vyřešenou Game Masterem.
