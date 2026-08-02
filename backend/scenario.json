@@ -118,7 +118,10 @@
     "semaphore": {"label": "Praporová / semaforová abeceda", "default_unlocked": false, "unlock_cost": 30},
     "pigpen": {"label": "Polský kříž", "default_unlocked": false, "unlock_cost": 35},
     "binary_ascii": {"label": "Binární kód a ASCII", "default_unlocked": false, "unlock_cost": 25},
-    "a1z26": {"label": "A1Z26 a římské číslice", "default_unlocked": true, "unlock_cost": 0}
+    "a1z26": {"label": "A1Z26 a římské číslice", "default_unlocked": true, "unlock_cost": 0},
+    "braille": {"label": "Braillovo písmo", "default_unlocked": false, "unlock_cost": 20},
+    "signal_flags": {"label": "Námořní vlajková abeceda", "default_unlocked": false, "unlock_cost": 20},
+    "classical": {"label": "Caesar a šifrovací čtverec", "default_unlocked": false, "unlock_cost": 25}
   },
   "puzzles": {
     "reception_deduction": {

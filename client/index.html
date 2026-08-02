@@ -329,6 +329,14 @@
         .cipher-reference { width: 100%; border-collapse: collapse; font-size: 0.9em; }
         .cipher-reference th, .cipher-reference td { padding: 6px; border: 1px solid #166; text-align: center; }
         .cipher-reference th { color: #0ff; background: #002222; }
+        .cipher-reference code { color: #fff; font-size: 1.05em; }
+        .cipher-note { padding: 9px 11px; border-left: 3px solid #0aa; background: #002124; }
+        .cipher-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(92px, 1fr)); gap: 6px; margin: 10px 0 16px; }
+        .cipher-card { padding: 8px; border: 1px solid #166; background: #001719; text-align: center; }
+        .cipher-card strong { display: block; color: #0ff; font-size: 1.05em; }
+        .cipher-card span { display: block; margin-top: 4px; overflow-wrap: anywhere; }
+        .braille-cell { font-size: 1.8rem; line-height: 1.2; }
+        .caesar-strip { font-family: monospace; letter-spacing: .12em; overflow-wrap: anywhere; }
         .tool-unlock-box { border: 1px dashed #a80; color: #fc0; padding: 15px; }
         .tool-unlock-box button { margin-top: 10px; background: #fc0; }
         .demo-scanner-panel { display: none; max-width: 760px; margin: 0 auto; padding: 16px; border: 2px dashed #fc0; background: #171100; color: #fc0; }
@@ -730,39 +738,76 @@
             U: 'LH high / RH high', V: 'LH low / RH up', W: 'LH out / RH across high',
             X: 'LH low / RH across high', Y: 'LH out / RH high', Z: 'LH out / RH across low'
         };
+        const BRAILLE = {
+            A:'⠁', B:'⠃', C:'⠉', D:'⠙', E:'⠑', F:'⠋', G:'⠛', H:'⠓', I:'⠊', J:'⠚',
+            K:'⠅', L:'⠇', M:'⠍', N:'⠝', O:'⠕', P:'⠏', Q:'⠟', R:'⠗', S:'⠎', T:'⠞',
+            U:'⠥', V:'⠧', W:'⠺', X:'⠭', Y:'⠽', Z:'⠵'
+        };
+        const SIGNAL_FLAGS = {
+            A:'bílo-modrá, vlaštovčí ocas', B:'červená, vlaštovčí ocas', C:'vodorovně modrá–bílá–červená–bílá–modrá',
+            D:'vodorovně žlutá–modrá–žlutá', E:'vodorovně modrá / červená', F:'bílá s červeným kosočtvercem',
+            G:'svislé modro-žluté pruhy', H:'svisle bílá / červená', I:'žlutá s černým kruhem',
+            J:'vodorovně modrá–bílá–modrá', K:'svisle žlutá / modrá', L:'žluto-černá šachovnice 2×2',
+            M:'modrá s bílým ondřejským křížem', N:'modro-bílá šachovnice 4×4', O:'úhlopříčně žlutá / červená',
+            P:'modrá s bílým středovým čtvercem', Q:'celá žlutá', R:'červená se žlutým středovým křížem',
+            S:'bílá s modrým středovým čtvercem', T:'svisle červená / bílá / modrá', U:'červeno-bílá šachovnice 2×2',
+            V:'bílá s červeným ondřejským křížem', W:'modrá–bílá–červená soustředná pole',
+            X:'bílá s modrým středovým křížem', Y:'šikmé žluto-červené pruhy', Z:'čtyři trojúhelníky: žlutý, modrý, červený, černý'
+        };
 
         function referenceTable(entries, headers = ['ZNAK', 'KÓD']) {
-            const rows = Object.entries(entries).map(([key, value]) => `<tr><td>${key}</td><td>${value}</td></tr>`).join('');
-            return `<table class="cipher-reference"><thead><tr><th>${headers[0]}</th><th>${headers[1]}</th></tr></thead><tbody>${rows}</tbody></table>`;
+            const rows = Object.entries(entries).map(([key, value]) => `<tr><td>${escapeHtml(key)}</td><td>${escapeHtml(value)}</td></tr>`).join('');
+            return `<table class="cipher-reference"><thead><tr><th>${escapeHtml(headers[0])}</th><th>${escapeHtml(headers[1])}</th></tr></thead><tbody>${rows}</tbody></table>`;
+        }
+
+        function referenceCards(entries, valueClass = '') {
+            return `<div class="cipher-grid">${Object.entries(entries).map(([key, value]) => `<div class="cipher-card"><strong>${escapeHtml(key)}</strong><span class="${valueClass}">${escapeHtml(value)}</span></div>`).join('')}</div>`;
         }
 
         function toolReference(toolId) {
             if (toolId === 'morse') {
-                return `<h3>Morseova abeceda</h3><p>Krátký signál je tečka, dlouhý signál je čárka. Delší mezera odděluje slova.</p>${referenceTable(MORSE)}`;
+                return `<h3>Morseova abeceda</h3><p><strong>Princip:</strong> krátký signál je tečka, dlouhý signál je čárka. Čti zleva doprava; mezera odděluje písmena a lomítko slova.</p><p class="cipher-note"><strong>Neutrální příklad:</strong> <code>.- / .... --- .---</code> = A / HOJ.</p>${referenceTable(MORSE)}`;
             }
             if (toolId === 'a1z26') {
                 const alphabet = Object.fromEntries(Array.from({length: 26}, (_, i) => [String.fromCharCode(65 + i), i + 1]));
-                return `<h3>A1Z26 a římské číslice</h3><p>A=1, B=2 … Z=26. Příklad: 3-1-19 = CAS.</p>${referenceTable(alphabet)}<h3>Římské číslice</h3>${referenceTable({I:1,V:5,X:10,L:50,C:100,D:500,M:1000}, ['ZNAK','HODNOTA'])}`;
+                return `<h3>A1Z26</h3><p><strong>Princip:</strong> A=1, B=2 … Z=26. Čísla čti v pořadí zápisu; oddělovače značí hranice písmen.</p><p class="cipher-note"><strong>Příklad:</strong> <code>13-1-16-1</code> = MAPA.</p>${referenceTable(alphabet)}<h3>Římské číslice</h3><p>Menší znak před větším se odečítá, jinak se hodnoty sčítají. <strong>Příklad:</strong> XIV = 10 + (5 − 1) = 14.</p>${referenceTable({I:1,V:5,X:10,L:50,C:100,D:500,M:1000}, ['ZNAK','HODNOTA'])}`;
             }
             if (toolId === 'binary_ascii') {
                 const rows = Array.from({length: 26}, (_, i) => {
                     const letter = String.fromCharCode(65 + i);
                     const sevenBit = (65 + i).toString(2).padStart(7, '0');
-                    return `<tr><td>${letter}</td><td>${sevenBit}</td><td>0${sevenBit}</td></tr>`;
+                    return `<tr><td>${letter}</td><td>${65 + i}</td><td>${sevenBit}</td><td>0${sevenBit}</td></tr>`;
                 }).join('');
-                return `<h3>Binární kód a ASCII</h3><p>ASCII lze zapsat sedmi bity nebo osmi bity s nulou na začátku. Příklad: 1000001 = 01000001 = 65 = A.</p><table class="cipher-reference"><thead><tr><th>PÍSMENO</th><th>7BIT ASCII</th><th>8BIT ASCII</th></tr></thead><tbody>${rows}</tbody></table>`;
+                return `<h3>Binární kód a ASCII</h3><p><strong>Směr:</strong> nejvyšší řád je vlevo. Pro 7 bitů mají pozice hodnoty <code>64 32 16 8 4 2 1</code>; sečti hodnoty nad jedničkami.</p><p class="cipher-note"><strong>Příklad:</strong> <code>1000001</code> = 64 + 1 = 65 = A. Osmibitový zápis je <code>01000001</code>.</p><table class="cipher-reference"><thead><tr><th>PÍSMENO</th><th>DEC</th><th>7BIT ASCII</th><th>8BIT ASCII</th></tr></thead><tbody>${rows}</tbody></table>`;
             }
             if (toolId === 'pigpen') {
-                return `<h3>Polský kříž</h3><p>Písmeno se zapíše hranami políčka, ve kterém leží. Druhá sada stejných tvarů se rozlišuje tečkou.</p>
+                return `<h3>Malý polský kříž (pigpen)</h3><p>Písmeno nahraď hranami políčka, ve kterém leží. Čti mřížky zleva doprava a shora dolů; druhá sada tvarů má uvnitř tečku.</p>
                     <table class="cipher-reference"><tbody>
                     <tr><td>A–I</td><td>┘ ┴ └ / ┤ ┼ ├ / ┐ ┬ ┌</td></tr>
                     <tr><td>J–R</td><td>stejné tvary s tečkou uvnitř</td></tr>
                     <tr><td>S–V</td><td>∧ &gt; ∨ &lt;</td></tr>
                     <tr><td>W–Z</td><td>stejné klíny s tečkou</td></tr>
-                    </tbody></table><p>Orientace znaků se může mezi variantami lišit; rozhoduje mřížka přiložená k zadání.</p>`;
+                    </tbody></table><p class="cipher-note"><strong>Příklad principu:</strong> A převezme okraje levého horního pole první mřížky.</p>
+                    <h3>Velký polský kříž</h3><p>Všechna písmena leží v jedné velké křížové tabulce. Obrys určuje rameno/pole kříže a <strong>poloha tečky uvnitř obrysu</strong> vybírá konkrétní písmeno z dané trojice. Nezaměňuj polohu tečky za počet teček.</p><p class="cipher-note">Rozložení velkého kříže není mezi sadami jednotné. Vždy použij tabulku přiloženou ke konkrétní šifře; referenční princip sám neurčuje pořadí písmen.</p>`;
             }
             if (toolId === 'semaphore') {
-                return `<h3>Praporová / semaforová abeceda</h3><p>Každé písmeno určuje dvojice směrů paží. LH je levá a RH pravá paže signalisty; polohy jsou popsané z pohledu pozorovatele stojícího proti němu.</p>${referenceTable(SEMAPHORE, ['PÍSMENO','POLOHA PAŽÍ'])}`;
+                const directions = Object.fromEntries(Object.entries(SEMAPHORE).map(([letter, position]) => [letter, position
+                    .replaceAll('across low', 'přes tělo dolů').replaceAll('across high', 'přes tělo nahoru')
+                    .replaceAll('LH', 'levá').replaceAll('RH', 'pravá').replaceAll('down', 'dolů')
+                    .replaceAll('low', 'šikmo dolů').replaceAll('out', 'vodorovně').replaceAll('high', 'šikmo nahoru').replaceAll('up', 'nahoru')]));
+                return `<h3>Praporová / semaforová abeceda</h3><p>Každé písmeno určuje dvojice směrů paží. Zde jsou polohy vždy <strong>z pohledu pozorovatele stojícího proti signalistovi</strong>. Čti jednotlivé postoje v pořadí záznamu.</p><p class="cipher-note"><strong>Příklad principu:</strong> dvě fotografie = dvě písmena, nikoli jeden složený znak.</p>${referenceTable(directions, ['PÍSMENO','POLOHA PAŽÍ'])}`;
+            }
+            if (toolId === 'braille') {
+                return `<h3>Braillovo písmo</h3><p>Každý znak je buňka 2×3 bodů. Body se číslují shora dolů: levý sloupec 1–2–3, pravý 4–5–6. Buňky čti zleva doprava.</p><p class="cipher-note"><strong>Příklad:</strong> ⠍ ⠁ ⠏ ⠁ = MAPA. Českou diakritiku v jednoduchých šifrách obvykle nahraď základním písmenem, pokud zadání neurčí jinak.</p>${referenceCards(BRAILLE, 'braille-cell')}`;
+            }
+            if (toolId === 'signal_flags') {
+                return `<h3>Námořní vlajková abeceda</h3><p>Každé písmeno má vlastní mezinárodní signální vlajku. Vlajky na laně čti <strong>shora dolů</strong>. Jde o jiný systém než semafor, kde se mění poloha dvou praporků v rukou.</p><p class="cipher-note"><strong>Příklad principu:</strong> čtyři vlajky M–A–P–A tvoří slovo MAPA. Popisy barev slouží jako nouzová textová alternativa k obrazové sadě.</p>${referenceCards(SIGNAL_FLAGS)}`;
+            }
+            if (toolId === 'classical') {
+                const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+                const shifts = Array.from({length: 26}, (_, shift) => `<tr><td>${shift}</td><td class="caesar-strip">${alphabet.slice(shift)}${alphabet.slice(0, shift)}</td></tr>`).join('');
+                return `<h3>Caesarův posun</h3><p>Každé písmeno nahraď písmenem o stejný počet míst dál. Při dešifrování postupuj opačným směrem. Klíč musí určit směr i velikost posunu.</p><p class="cipher-note"><strong>Příklad:</strong> při posunu +1 platí A→B, B→C; MAPA→NBQB.</p><table class="cipher-reference"><thead><tr><th>POSUN</th><th>POSUNUTÁ ABECEDA POD A–Z</th></tr></thead><tbody>${shifts}</tbody></table>
+                    <h3>Šifrovací čtverec 5×5</h3><p>Písmeno určuje dvojice souřadnic: nejprve řádek, potom sloupec. I/J sdílejí pole, pokud zadání neurčí jinak.</p><table class="cipher-reference"><tbody><tr><th></th><th>1</th><th>2</th><th>3</th><th>4</th><th>5</th></tr><tr><th>1</th><td>A</td><td>B</td><td>C</td><td>D</td><td>E</td></tr><tr><th>2</th><td>F</td><td>G</td><td>H</td><td>I/J</td><td>K</td></tr><tr><th>3</th><td>L</td><td>M</td><td>N</td><td>O</td><td>P</td></tr><tr><th>4</th><td>Q</td><td>R</td><td>S</td><td>T</td><td>U</td></tr><tr><th>5</th><td>V</td><td>W</td><td>X</td><td>Y</td><td>Z</td></tr></tbody></table><p class="cipher-note"><strong>Příklad:</strong> 32 = M, 11 = A, 35 = P, 11 = A.</p>`;
             }
             return '<p>Pro tuto pomůcku zatím není dostupný referenční list.</p>';
         }

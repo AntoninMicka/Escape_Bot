@@ -472,10 +472,10 @@
 - [x] Zobrazovat pomůcky v plovoucím panelu nad aktuální obrazovkou bez ztráty rozeřešeného zadání.
 - [x] Přizpůsobit panel mobilu, tabletu i desktopu a umožnit jeho minimalizaci a přesouvání.
 - [x] Umožnit současně zobrazit zadání a vybranou tabulku.
-- [ ] Připravit pasivní referenční listy minimálně pro Morseovu abecedu, praporovou/semaforovou abecedu, vlajkovou abecedu, malý a velký polský kříž, Braillovo písmo, A1Z26, binární zápis, ASCII a římské číslice.
-- [ ] Zvážit pasivní přehled Caesarova posunu a šifrovacího čtverce bez automatického dešifrování.
-- [ ] Nepřidávat v první verzi automatické luštění, frekvenční analýzu, OCR ani slovníkové hledání.
-- [ ] Označit u každé pomůcky její název, princip čtení, směr a jeden neutrální příklad, který neprozrazuje herní řešení.
+- [x] Připravit pasivní referenční listy minimálně pro Morseovu abecedu, praporovou/semaforovou abecedu, vlajkovou abecedu, malý a velký polský kříž, Braillovo písmo, A1Z26, binární zápis, ASCII a římské číslice.
+- [x] Zvážit pasivní přehled Caesarova posunu a šifrovacího čtverce bez automatického dešifrování.
+- [x] Nepřidávat v první verzi automatické luštění, frekvenční analýzu, OCR ani slovníkové hledání.
+- [x] Označit u každé pomůcky její název, princip čtení, směr a jeden neutrální příklad, který neprozrazuje herní řešení.
 - [x] Zajistit plnou funkčnost pomůcek offline bez odkazů na externí web nebo CDN.
 
 #### Režimy zpřístupnění pomůcek
@@ -495,7 +495,7 @@
 - [x] Bonusový QR u schodiště může odemknout praporovou/semaforovou tabulku bez penalizace.
 - [x] Nalezení `TEMPORÁLNÍHO MOTORU` může odemknout binární a ASCII referenci.
 - [x] Nalezení archivního checkpointu odemkne polský kříž.
-- [ ] U každé povinné šifry ověřit, že existuje dosažitelná cesta k potřebné pomůcce i při přehlédnutí bonusového QR.
+- [x] U každé povinné šifry ověřit, že existuje dosažitelná cesta k potřebné pomůcce i při přehlédnutí bonusového QR.
 
 ### 13.15 Sólo a týmové lobby
 **Cíl:** před začátkem zvolit sólo nebo sdílenou týmovou relaci a synchronizovat průběh mezi telefony.
