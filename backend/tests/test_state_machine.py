@@ -568,6 +568,23 @@ class StateMachineCheckpointTests(unittest.IsolatedAsyncioTestCase):
         with self.assertRaisesRegex(ValueError, "už existuje"):
             registry.create("other", "team", "Bob", " časoví skokani ")
 
+    def test_player_identity_transfer_preserves_team_size_and_creator(self) -> None:
+        registry = LobbyRegistry()
+        lobby = registry.create("old-device", "team", "Alice", "Chrononauti")
+        lobby.join_code and registry.join(lobby.join_code, "navigator", "Bob")
+        maximum_before = lobby.max_players
+
+        player = lobby.transfer_player("old-device", "new-device")
+
+        self.assertEqual(player["name"], "Alice")
+        self.assertNotIn("old-device", lobby.players)
+        self.assertIn("new-device", lobby.players)
+        self.assertEqual(lobby.creator_id, "new-device")
+        self.assertEqual(lobby.max_players, maximum_before)
+        self.assertEqual(len(lobby.players), 2)
+        with self.assertRaisesRegex(ValueError, "jinému hráči"):
+            lobby.transfer_player("new-device", "navigator")
+
     def test_admin_can_confirm_and_complete_checkpoint_without_score_bonus(self) -> None:
         score_before = self.machine.state.score
         found = self.machine.admin_set_checkpoint("sports_archive", "found")

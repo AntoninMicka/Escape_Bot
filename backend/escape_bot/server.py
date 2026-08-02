@@ -37,6 +37,7 @@ lobby_registry = LobbyRegistry()
 session_connections: dict[str, set[WebSocket]] = {}
 connection_info: dict[WebSocket, dict[str, object]] = {}
 waiting_players: dict[str, dict[str, object]] = {}
+recovery_tokens: dict[str, dict[str, object]] = {}
 DEMO_MODE_ENABLED = os.getenv("ESCAPEBOT_DEMO_MODE", "").lower() in {"1", "true", "yes", "on"}
 ADMIN_TOKEN = os.getenv("ESCAPEBOT_ADMIN_TOKEN", "")
 runtime_settings = {"online_mode": False}
@@ -318,7 +319,7 @@ async def websocket_endpoint(websocket: WebSocket):
                 data = json.loads(message_str)
                 msg = Message.from_json(data)
 
-                if msg.type in {"admin.list", "admin.penalty", "admin.delete", "admin.qr_set", "admin.online_mode", "admin.checkpoint", "admin.game_reset"}:
+                if msg.type in {"admin.list", "admin.penalty", "admin.delete", "admin.qr_set", "admin.online_mode", "admin.checkpoint", "admin.game_reset", "admin.player_recovery"}:
                     try:
                         require_admin(msg.payload)
                         if msg.type == "admin.list":
@@ -341,6 +342,28 @@ async def websocket_endpoint(websocket: WebSocket):
                         lobby = lobby_registry.by_session.get(target_session)
                         if lobby is None:
                             raise ValueError("Týmová relace už neexistuje.")
+
+                        if msg.type == "admin.player_recovery":
+                            player_id = str(msg.payload.get("player_id", "")).strip()
+                            player = lobby.players.get(player_id)
+                            if player is None:
+                                raise ValueError("Hráč v této relaci neexistuje.")
+                            for token, item in list(recovery_tokens.items()):
+                                if item.get("session_id") == target_session and item.get("player_id") == player_id:
+                                    recovery_tokens.pop(token, None)
+                            token = secrets.token_hex(8).upper()
+                            recovery_tokens[token] = {
+                                "session_id": target_session,
+                                "player_id": player_id,
+                                "expires_at": (datetime.now(UTC).timestamp() + 600),
+                            }
+                            await send_message(websocket, Message("admin.player_recovery", {
+                                "token": token,
+                                "player_name": player.get("name", ""),
+                                "team_name": lobby.team_name,
+                                "expires_in_seconds": 600,
+                            }))
+                            continue
 
                         if msg.type == "admin.penalty":
                             amount = int(msg.payload.get("amount", 0))
@@ -433,7 +456,7 @@ async def websocket_endpoint(websocket: WebSocket):
                         await send_message(websocket, Message("admin.error", {"message": str(error)}))
                         continue
 
-                if msg.type in {"lobby.solo", "lobby.create", "lobby.join", "lobby.resume", "lobby.start", "lobby.identify", "lobby.add_player"}:
+                if msg.type in {"lobby.solo", "lobby.create", "lobby.join", "lobby.resume", "lobby.start", "lobby.identify", "lobby.add_player", "lobby.recover"}:
                     try:
                         requested_client_id = str(msg.payload.get("client_id", "")).strip()
                         if not requested_client_id:
@@ -441,6 +464,33 @@ async def websocket_endpoint(websocket: WebSocket):
                         name = str(msg.payload.get("name", "")).strip()
                         team_name = str(msg.payload.get("team_name", "")).strip()
                         requested_demo = DEMO_MODE_ENABLED and bool(msg.payload.get("demo_mode"))
+                        if msg.type == "lobby.recover":
+                            token = str(msg.payload.get("recovery_token", "")).strip().upper().removeprefix("ESCAPEBOT://RECOVER/")
+                            recovery = recovery_tokens.pop(token, None)
+                            if recovery is None or float(recovery.get("expires_at", 0)) < datetime.now(UTC).timestamp():
+                                raise ValueError("Návratový kód není platný, už byl použit nebo vypršel.")
+                            lobby = lobby_registry.by_session.get(str(recovery.get("session_id", "")))
+                            if lobby is None:
+                                raise ValueError("Týmová relace už neexistuje.")
+                            old_client_id = str(recovery.get("player_id", ""))
+                            player = lobby.transfer_player(old_client_id, requested_client_id)
+                            for old_socket in list(session_connections.get(lobby.session_id, set())):
+                                if str(connection_info.get(old_socket, {}).get("client_id", "")) == old_client_id:
+                                    try:
+                                        await send_message(old_socket, Message("admin.session_removed", {"message": "Identita hráče byla obnovena na novém zařízení."}))
+                                        await old_socket.close(code=4002, reason="Player identity transferred")
+                                    except Exception: pass
+                            session_id = lobby.session_id
+                            client_id = requested_client_id
+                            demo_client = requested_demo
+                            attach_to_lobby(websocket, lobby, client_id, demo_client)
+                            state_machine = ensure_state_machine(session_id)
+                            save_lobbies()
+                            await broadcast_lobby(lobby)
+                            await send_message(websocket, Message("lobby.recovered", {"player_name": player.get("name", ""), "team_name": lobby.team_name}))
+                            if lobby.started:
+                                await sync_started_client(websocket, state_machine, demo_client)
+                            continue
                         if msg.type == "lobby.identify":
                             if not name:
                                 raise ValueError("Před zobrazením hráčského QR zadejte jméno hráče.")

@@ -305,7 +305,7 @@
 - [x] Připravit tři aktivní úrovně s rostoucí obtížností, body za každou dokončenou mapu a dvě rezervní mapy.
 - [x] Zpřesnit rozdělení informací lokálním režimem zařízení `MAPA / INTERKOM / VOLNĚ`; role lze kdykoli měnit, mapové indicie se neposílají v odpovědích interkomu a mapový režim nemá ovládací šipky.
 - [x] Rozšířit admin detail o poslední aktivitu, stav checkpointů, zásahy min, restarty, pohyby, nápovědy, pokusy, poslední zprávy a časovou osu událostí.
-- [ ] Umožnit adminovi obnovit identitu hráče na novém zařízení pomocí návratového QR.
+- [x] Umožnit adminovi obnovit identitu hráče na novém zařízení pomocí návratového QR.
 - [x] Vložit časovanou variaci na tři v řadě mezi Morseovu úlohu a Sokoban: pole 5×5, dvě barvy, blokovaná pole a povinná vodorovná, svislá a diagonální trojice v libovolném pořadí.
 - [ ] Nepoužívat volné AI vyhodnocení pro samotný pohyb; příkazy parsovat deterministicky.
 - [ ] Nechat Elaru před pohybem zopakovat pochopenou sekvenci.

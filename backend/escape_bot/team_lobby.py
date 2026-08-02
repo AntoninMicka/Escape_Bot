@@ -50,6 +50,21 @@ class Lobby:
         self.applied_score_adjustment = desired
         return delta
 
+    def transfer_player(self, old_client_id: str, new_client_id: str) -> dict[str, Any]:
+        if old_client_id not in self.players:
+            raise ValueError("Původní hráč v týmu neexistuje.")
+        if not new_client_id:
+            raise ValueError("Chybí identifikátor nového zařízení.")
+        if new_client_id in self.players and new_client_id != old_client_id:
+            raise ValueError("Nové zařízení už v tomto týmu patří jinému hráči.")
+        player = self.players.pop(old_client_id)
+        player["id"] = new_client_id
+        player["recovered_at"] = datetime.now(UTC).isoformat()
+        self.players[new_client_id] = player
+        if self.creator_id == old_client_id:
+            self.creator_id = new_client_id
+        return player
+
     def public(self, client_id: str, connected_ids: set[str]) -> dict[str, Any]:
         online_count = sum(player_id in connected_ids for player_id in self.players)
         return {

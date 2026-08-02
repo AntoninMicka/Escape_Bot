@@ -444,6 +444,8 @@
         .admin-detail summary { cursor: pointer; color: #0cc; }
         .admin-detail-list { max-height: 230px; overflow-y: auto; padding-left: 20px; }
         .admin-detail-list li { margin: 4px 0; }
+        .recovery-dialog { max-width: 430px; border: 2px solid #0cc; background: #001416; color: #dfffff; padding: 20px; text-align: center; }
+        .recovery-dialog::backdrop { background: #000c; }
         .admin-node-actions { display: flex; flex-wrap: wrap; gap: 5px; margin: 4px 0 9px 20px; }
         .admin-node-actions button { padding: 5px 8px; font-size: .78rem; }
         .admin-node-actions .danger { border-color: #d66; color: #f99; }
@@ -507,6 +509,7 @@
         <div id="admin-team-grid" class="admin-grid"></div>
     </section>
     <section id="qr-print-sheet" class="qr-print-sheet"></section>
+    <dialog id="recovery-dialog" class="recovery-dialog"><h2>[ NÁVRAT HRÁČE ]</h2><p id="recovery-dialog-info"></p><img id="recovery-dialog-qr" class="join-qr" alt="Jednorázový návratový QR"><div id="recovery-dialog-code" class="join-code"></div><p>Kód platí 10 minut a lze ho použít pouze jednou.</p><button onclick="document.getElementById('recovery-dialog').close()">ZAVŘÍT</button></dialog>
     <section id="lobby-overlay" class="lobby-overlay" aria-label="Zahájení hry">
         <div class="lobby-card">
             <h1>[ CHRONOTERMINÁL: NOVÁ MISE ]</h1>
@@ -520,6 +523,7 @@
                 <button onclick="createTeamMode()">ZALOŽIT TÝM<br><small>ideálně 3 hráči</small></button>
                 <button onclick="showJoinTeamPanel()">PŘIPOJIT SE K TÝMU<br><small>zadat kód týmu</small></button>
                 <button onclick="showPlayerIdentity()">PŘIPOJIT NOTEBOOK<br><small>leader načte váš QR</small></button>
+                <button onclick="showRecoveryPanel()">OBNOVIT HRÁČE<br><small>návratový kód od správce</small></button>
             </div>
             <div id="lobby-status">Čekám na spojení se serverem…</div>
             <div id="lobby-team" class="lobby-team">
@@ -556,6 +560,12 @@
                 <video id="join-team-video" class="reverse-scanner" autoplay playsinline></video>
                 <canvas id="join-team-canvas" style="display:none"></canvas>
                 <div style="display:flex; gap:8px"><input id="manual-team-code" maxlength="16" placeholder="KÓD TÝMU" style="flex:1; text-transform:uppercase"><button onclick="joinTeamByCode()">PŘIPOJIT</button></div>
+                <button onclick="returnToLobbyModes()" style="margin-top:10px">ZPĚT</button>
+            </div>
+            <div id="recovery-panel" class="join-team-panel">
+                <h2>[ OBNOVA HRÁČE ]</h2>
+                <p>Zadejte jednorázový návratový kód z administrační konzole.</p>
+                <div style="display:flex; gap:8px"><input id="manual-recovery-code" maxlength="32" placeholder="NÁVRATOVÝ KÓD" style="flex:1; text-transform:uppercase"><button onclick="recoverPlayer()">OBNOVIT</button></div>
                 <button onclick="returnToLobbyModes()" style="margin-top:10px">ZPĚT</button>
             </div>
         </div>
@@ -999,6 +1009,7 @@
         let joinTeamStream = null;
         let joinTeamScanning = false;
         const requestedJoinCode = new URLSearchParams(window.location.search).get('join');
+        const requestedRecoveryToken = new URLSearchParams(window.location.search).get('recover');
         let savedLobby = null;
         let lobbySyncTimer = null;
         let reconnectTimer = null;
@@ -1074,6 +1085,21 @@
             sendAdmin('admin.game_reset', {session_id:sessionId, puzzle_id:puzzleId});
         }
 
+        function requestPlayerRecovery(sessionId, playerId) {
+            if (!window.confirm('Vystavit tomuto hráči jednorázový návratový QR?')) return;
+            sendAdmin('admin.player_recovery', {session_id:sessionId, player_id:playerId});
+        }
+
+        function renderPlayerRecovery(payload) {
+            const url = new URL(window.location.pathname || '/', window.location.origin);
+            url.searchParams.set('recover', payload.token);
+            if (demoModeRequested) url.searchParams.set('demo', '1');
+            document.getElementById('recovery-dialog-info').textContent = `${payload.player_name} · tým ${payload.team_name}`;
+            document.getElementById('recovery-dialog-code').textContent = payload.token;
+            document.getElementById('recovery-dialog-qr').src = `/api/qr?data=${encodeURIComponent(url.toString())}`;
+            document.getElementById('recovery-dialog').showModal();
+        }
+
         function renderAdminOverview(teams) {
             const grid = document.getElementById('admin-team-grid');
             const openDetails = new Set([...grid.querySelectorAll('details[open][data-detail]')].map(detail => detail.dataset.detail));
@@ -1088,7 +1114,7 @@
                 const complete = Number(team.completed_nodes || 0);
                 const total = Number(team.total_nodes || 0);
                 const percent = total ? Math.round(complete * 100 / total) : 0;
-                const players = (team.players || []).map(player => `${player.connected ? '●' : '○'} ${escapeHtml(player.name)}`).join(', ');
+                const players = (team.players || []).map(player => `<span>${player.connected ? '●' : '○'} ${escapeHtml(player.name)} <button onclick="requestPlayerRecovery('${team.session_id}','${player.id}')">NÁVRATOVÝ QR</button></span>`).join('<br>');
                 const activeNodes = ((team.progress || {}).nodes || []).filter(node => node.status === 'active' || node.status === 'available').map(node => escapeHtml(node.label)).join(', ') || '—';
                 const penalties = (team.admin_penalties || []).map(item => `−${Number(item.amount)}: ${escapeHtml(item.reason)}`).join('<br>') || 'žádné';
                 const lastActivity = team.last_activity ? new Date(team.last_activity).toLocaleString('cs-CZ') : 'bez zaznamenané události';
@@ -1171,14 +1197,29 @@
             document.getElementById('lobby-modes').style.display = 'none';
             document.getElementById('player-identity').classList.remove('visible');
             document.getElementById('join-team-panel').classList.add('visible');
+            document.getElementById('recovery-panel').classList.remove('visible');
             document.getElementById('lobby-status').textContent = 'Načtěte QR nebo zadejte týmový kód.';
         }
         function returnToLobbyModes() {
             stopJoinTeamScanner();
             document.getElementById('join-team-panel').classList.remove('visible');
             document.getElementById('player-identity').classList.remove('visible');
+            document.getElementById('recovery-panel').classList.remove('visible');
             document.getElementById('lobby-modes').style.display = 'grid';
             document.getElementById('lobby-status').textContent = 'Vyberte způsob připojení.';
+        }
+        function showRecoveryPanel() {
+            document.getElementById('lobby-modes').style.display = 'none';
+            document.getElementById('join-team-panel').classList.remove('visible');
+            document.getElementById('player-identity').classList.remove('visible');
+            document.getElementById('recovery-panel').classList.add('visible');
+            document.getElementById('lobby-status').textContent = 'Zadejte návratový kód vystavený správcem.';
+        }
+        function recoverPlayer(token) {
+            const value = String(token || document.getElementById('manual-recovery-code').value).trim().toUpperCase();
+            if (!value) { showNotification('Zadejte návratový kód.', 'error'); return; }
+            ws.send(JSON.stringify({type:'lobby.recover', payload:{client_id:clientId, recovery_token:value, demo_mode:demoModeRequested}}));
+            document.getElementById('lobby-status').textContent = 'Obnovuji identitu hráče…';
         }
         function joinTeamByCode(code) {
             const input = document.getElementById('manual-team-code');
@@ -1200,7 +1241,11 @@
             const savedTeamName = localStorage.getItem('escapeBotTeamName') || '';
             document.getElementById('lobby-player-name').value = savedName;
             document.getElementById('lobby-team-name').value = savedTeamName;
-            if (requestedJoinCode) {
+            if (requestedRecoveryToken) {
+                document.getElementById('manual-recovery-code').value = requestedRecoveryToken.toUpperCase();
+                showRecoveryPanel();
+                recoverPlayer(requestedRecoveryToken);
+            } else if (requestedJoinCode) {
                 document.getElementById('manual-team-code').value = requestedJoinCode.toUpperCase();
                 document.getElementById('lobby-intro').textContent = 'Před připojením ke společné relaci zadejte své jméno.';
                 showJoinTeamPanel();
@@ -1471,6 +1516,9 @@
                 else if (msg.type === 'admin.qr_set') {
                     renderAdminQrSet(msg.payload);
                 }
+                else if (msg.type === 'admin.player_recovery') {
+                    renderPlayerRecovery(msg.payload);
+                }
                 else if (msg.type === 'runtime.settings') {
                     onlineModeEnabled = Boolean(msg.payload.online_mode);
                     runtimeCheckpoints = msg.payload.checkpoints || [];
@@ -1506,6 +1554,11 @@
                     document.getElementById('player-identity-code').textContent = code;
                     document.getElementById('player-identity-qr').src = `/api/qr?data=${encodeURIComponent(`escapebot://player/${code}`)}`;
                     document.getElementById('lobby-status').textContent = 'ID je připravené. Čekám na leadera…';
+                }
+                else if (msg.type === 'lobby.recovered') {
+                    localStorage.setItem('escapeBotPlayerName', msg.payload.player_name || '');
+                    showNotification(`Identita ${msg.payload.player_name} byla obnovena v týmu ${msg.payload.team_name}.`, 'success');
+                    history.replaceState({}, '', window.location.pathname + (demoModeRequested ? '?demo=1' : ''));
                 }
                 else if (msg.type === 'lobby.state') {
                     document.getElementById('player-identity').classList.remove('visible');
