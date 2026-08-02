@@ -360,7 +360,10 @@
 - [x] Po vyřešení přidělit `KRYSTAL ČASOVÉ KOTVY`, odemknout polský kříž a dokončit sportovní checkpoint.
 - [x] Definovat mapu znaky ve scénáři a při načtení ověřit hráče, články, cíle a obdélníkový tvar.
 - [x] Otestovat český parser, řešení všech aktivních i rezervních map, bodování, zablokovanou sekvenci, undo a obnovení relace.
-- [ ] Animovat sekvenci krok po kroku místo okamžitého překreslení do koncové polohy.
+- [x] Posílat z backendu autoritativní mezistav každého skutečně provedeného kroku a zatlačení.
+- [x] Animovat sekvenci krok po kroku, zvýraznit aktuální povel a neproveditelný krok při překážce.
+- [x] Umožnit pozastavit a znovu spustit přehrávání sekvence; během přehrávání blokovat další povely z téhož klienta.
+- [ ] V budoucí víceklientské verzi vysílat průběh animace synchronně všem zařízením týmu.
 - [ ] V budoucím admin panelu zobrazit správné řešení, optimální počet tahů a aktuální odchylku týmu.
 - [ ] Po uživatelském testu doladit dvě minuty na úroveň, bodovou odměnu a obtížnost aktivních map.
 

@@ -377,6 +377,11 @@ class StateMachineCheckpointTests(unittest.IsolatedAsyncioTestCase):
         for index, solution in enumerate(solutions):
             responses = await self.machine.handle(Message("player.message", {"channel": "lost", "text": solution}))
             self.assertEqual(self.response(responses, "score.update").payload["delta"], 30)
+            animation = self.response(responses, "sokoban.result").payload["frames"]
+            self.assertTrue(animation)
+            self.assertIn(animation[0]["command"], {"up", "down", "left", "right"})
+            self.assertIn("player", animation[0])
+            self.assertIn("boxes", animation[0])
             if index < 2:
                 self.assertTrue(self.response(responses, "sokoban.result").payload["level_complete"])
                 self.assertFalse(self.response(responses, "sokoban.result").payload["game_complete"])
@@ -396,6 +401,8 @@ class StateMachineCheckpointTests(unittest.IsolatedAsyncioTestCase):
         result = self.response(blocked, "sokoban.result")
         self.assertTrue(result.payload["blocked"])
         self.assertEqual(result.payload["executed"], 1)
+        self.assertEqual(len(result.payload["frames"]), 1)
+        self.assertEqual(result.payload["blocked_command"], "up")
 
         undone = await self.machine.handle(Message("sokoban.undo", {"puzzle_id": "sports_sokoban"}))
         self.assertTrue(self.response(undone, "sokoban.result").payload["undo"])

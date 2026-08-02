@@ -74,7 +74,9 @@ def execute(
 
     executed = 0
     blocked = False
+    blocked_command: str | None = None
     pushed = 0
+    frames: list[dict[str, Any]] = []
     for command in commands:
         snapshot = {
             "player": list(state["player"]),
@@ -87,6 +89,7 @@ def execute(
         moved, did_push = _move(state, command)
         if not moved:
             blocked = True
+            blocked_command = command
             break
         state["history"].append(snapshot)
         state["history"] = state["history"][-200:]
@@ -96,6 +99,14 @@ def execute(
         state["total_pushes"] += int(did_push)
         executed += 1
         pushed += int(did_push)
+        frames.append({
+            "command": command,
+            "player": list(state["player"]),
+            "boxes": deepcopy(state["boxes"]),
+            "moves": state["moves"],
+            "pushes": state["pushes"],
+            "did_push": did_push,
+        })
         if _is_complete(state):
             break
 
@@ -122,7 +133,9 @@ def execute(
         "executed": executed,
         "requested": len(commands),
         "blocked": blocked,
+        "blocked_command": blocked_command,
         "pushes": pushed,
+        "frames": frames,
         "level_complete": level_complete,
         "completed_level_id": completed_level_id,
         "score_delta": score_delta,
