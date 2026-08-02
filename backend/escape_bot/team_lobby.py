@@ -18,6 +18,16 @@ def team_size_adjustment(mode: str, max_players: int) -> int:
     return 0
 
 
+def classify_activity(started: bool, completed: bool, inactive_seconds: int) -> str:
+    if not started or completed:
+        return "active"
+    if inactive_seconds >= 3600:
+        return "abandoned"
+    if inactive_seconds >= 1800:
+        return "suspicious"
+    return "active"
+
+
 @dataclass
 class Lobby:
     session_id: str

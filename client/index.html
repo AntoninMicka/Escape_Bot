@@ -453,6 +453,15 @@
         .admin-team { border: 1px solid #077; background: #001416; padding: 14px; }
         .admin-team h2 { margin-top: 0; color: #0ff; }
         .admin-team.offline { border-color: #555; opacity: .82; }
+        .admin-team.suspicious { border-color: #fc0; box-shadow: inset 0 0 18px #a704; }
+        .admin-team.abandoned { border-color: #f44; box-shadow: inset 0 0 22px #a004; }
+        .admin-activity { display: inline-block; padding: 3px 7px; border: 1px solid currentColor; }
+        .admin-activity.suspicious { color: #fc0; } .admin-activity.abandoned { color: #f66; } .admin-activity.active { color: #5f8; }
+        .admin-summary { display: grid; grid-template-columns: repeat(4, minmax(120px, 1fr)); gap: 8px; margin: 12px 0; }
+        .admin-summary div { padding: 9px; border: 1px solid #066; background: #001416; }
+        .admin-leaderboard { margin-top: 22px; border-top: 2px solid #077; padding-top: 14px; }
+        .admin-leaderboard table { width: 100%; border-collapse: collapse; }
+        .admin-leaderboard th, .admin-leaderboard td { padding: 8px; border-bottom: 1px solid #044; text-align: left; }
         .admin-progress { height: 10px; border: 1px solid #066; background: #000; margin: 8px 0; }
         .admin-progress > span { display: block; height: 100%; background: #0c8; }
         .admin-actions { display: grid; grid-template-columns: 90px 1fr auto; gap: 7px; margin-top: 12px; }
@@ -523,7 +532,9 @@
             <button id="admin-online-toggle" onclick="toggleAdminOnlineMode()">ONLINE REŽIM: ?</button>
             <span id="admin-status">Čekám na spojení…</span>
         </div>
+        <div id="admin-summary" class="admin-summary"></div>
         <div id="admin-team-grid" class="admin-grid"></div>
+        <section class="admin-leaderboard"><h2>[ SPRÁVA SÍNĚ SLÁVY ]</h2><div id="admin-leaderboard"></div></section>
     </section>
     <section id="qr-print-sheet" class="qr-print-sheet"></section>
     <dialog id="recovery-dialog" class="recovery-dialog"><h2>[ NÁVRAT HRÁČE ]</h2><p id="recovery-dialog-info"></p><img id="recovery-dialog-qr" class="join-qr" alt="Jednorázový návratový QR"><div id="recovery-dialog-code" class="join-code"></div><p>Kód platí 10 minut a lze ho použít pouze jednou.</p><button onclick="document.getElementById('recovery-dialog').close()">ZAVŘÍT</button></dialog>
@@ -1110,6 +1121,25 @@
             sendAdmin('admin.game_reset', {session_id:sessionId, puzzle_id:puzzleId});
         }
 
+        function deleteLeaderboardEntry(entryId) {
+            if (!window.confirm('Odstranit tento výsledek ze Síně slávy? Rozehraná relace tím nebude dotčena.')) return;
+            sendAdmin('admin.leaderboard_delete', {entry_id:entryId});
+        }
+
+        function inactivityLabel(seconds) {
+            const value = Math.max(0, Number(seconds) || 0);
+            if (value < 60) return 'méně než minutu';
+            if (value < 3600) return `${Math.floor(value / 60)} min`;
+            if (value < 86400) return `${Math.floor(value / 3600)} h ${Math.floor(value % 3600 / 60)} min`;
+            return `${Math.floor(value / 86400)} d ${Math.floor(value % 86400 / 3600)} h`;
+        }
+
+        function renderAdminLeaderboard(entries) {
+            const container = document.getElementById('admin-leaderboard');
+            if (!entries.length) { container.innerHTML = '<p>Síň slávy je prázdná.</p>'; return; }
+            container.innerHTML = `<table><thead><tr><th>#</th><th>Tým</th><th>Skóre</th><th>Dokončeno</th><th>Akce</th></tr></thead><tbody>${entries.map((entry, index) => `<tr><td>${index + 1}</td><td>${escapeHtml(entry.name)}</td><td><strong>${Number(entry.score)}</strong></td><td>${entry.completed_at ? new Date(entry.completed_at).toLocaleString('cs-CZ') : 'starší záznam'}</td><td><button class="admin-delete" onclick="deleteLeaderboardEntry('${entry.entry_id}')">SMAZAT</button></td></tr>`).join('')}</tbody></table>`;
+        }
+
         function requestPlayerRecovery(sessionId, playerId) {
             if (!window.confirm('Vystavit tomuto hráči jednorázový návratový QR?')) return;
             sendAdmin('admin.player_recovery', {session_id:sessionId, player_id:playerId});
@@ -1125,15 +1155,22 @@
             document.getElementById('recovery-dialog').showModal();
         }
 
-        function renderAdminOverview(teams) {
+        function renderAdminOverview(payload) {
+            const teams = payload.teams || [];
             const grid = document.getElementById('admin-team-grid');
             const openDetails = new Set([...grid.querySelectorAll('details[open][data-detail]')].map(detail => detail.dataset.detail));
+            const suspicious = teams.filter(team => team.activity_status === 'suspicious').length;
+            const abandoned = teams.filter(team => team.activity_status === 'abandoned').length;
+            const onlinePlayers = teams.reduce((sum, team) => sum + Number(team.online_count || 0), 0);
             document.getElementById('admin-status').textContent = `Týmů: ${teams.length} · aktualizováno ${new Date().toLocaleTimeString('cs-CZ')}`;
+            document.getElementById('admin-summary').innerHTML = `<div>RELACE<br><strong>${teams.length}</strong></div><div>HRÁČI ONLINE<br><strong>${onlinePlayers}</strong></div><div>PODEZŘELÉ<br><strong>${suspicious}</strong></div><div>OPUŠTĚNÉ<br><strong>${abandoned}</strong></div>`;
+            renderAdminLeaderboard(payload.leaderboard || []);
             if (!teams.length) {
                 grid.innerHTML = '<p>Nejsou evidované žádné týmy.</p>';
                 return;
             }
-            grid.innerHTML = teams.map(team => {
+            const priority = {abandoned:0, suspicious:1, active:2};
+            grid.innerHTML = [...teams].sort((a, b) => (priority[a.activity_status] ?? 3) - (priority[b.activity_status] ?? 3)).map(team => {
                 const size = Number(team.registered_players || 0);
                 const online = Number(team.online_count || 0);
                 const complete = Number(team.completed_nodes || 0);
@@ -1157,10 +1194,15 @@
                 const karel = ((team.game_metrics || {}).karel || []).map(game => `Karel ${escapeHtml(game.level)}: pozice ${escapeHtml((game.player || []).join(','))}, ${game.completed} hotovo, ${game.moves} kroků, ${game.strikes} min, ${game.restarts} restartů`).join('<br>') || 'Karel dosud neaktivní';
                 const sokoban = ((team.game_metrics || {}).sokoban || []).map(game => `Sokoban ${escapeHtml(game.level)}: pozice ${escapeHtml((game.player || []).join(','))}, články na cíli ${(game.boxes || []).filter(box => (game.targets || []).some(target => target[0] === box[0] && target[1] === box[1])).length}/${(game.boxes || []).length}, ${game.moves} kroků, ${game.pushes} zatlačení, ${game.restarts} restartů`).join('<br>') || 'Sokoban dosud neaktivní';
                 const triad = ((team.game_metrics || {}).triad || []).map(game => `Tři v řadě [${escapeHtml(game.status)}]: ${game.placements} kamenů · směry ${(game.completed_orientations || []).map(escapeHtml).join(', ') || 'žádné'}`).join('<br>') || 'Tři v řadě dosud neaktivní';
+                const archive = ((team.game_metrics || {}).archive || []).map(game => `Archiv budoucnosti: ${game.assembled ? 'sestaven' : 'rozložen'} · ${game.moves} manipulací · pořadí ${(game.order || []).map(escapeHtml).join(' → ')}`).join('<br>') || 'Archiv budoucnosti dosud neaktivní';
                 const timeline = (team.timeline || []).map(item => `<li>${item.at ? new Date(item.at).toLocaleTimeString('cs-CZ') : '—'} · ${item.type === 'checkpoint_solved' ? 'vyřešeno' : (item.type === 'checkpoint_found' ? 'nalezeno' : (item.type === 'admin_action' ? 'zásah GM' : `malus −${Number(item.amount)}`))} · ${escapeHtml(item.label)}</li>`).join('') || '<li>Žádné události</li>';
                 const recentMessages = (team.recent_messages || []).map(item => `<li><strong>${escapeHtml(item.channel || 'general')}</strong> · ${item.role === 'player' ? 'hráč' : 'systém'}: ${escapeHtml(String(item.text || '').slice(0, 180))}</li>`).join('') || '<li>Žádné zprávy</li>';
-                return `<article class="admin-team ${online ? '' : 'offline'}">
+                const activityText = team.game_completed ? 'DOKONČENO' : (team.activity_status === 'abandoned' ? 'PRAVDĚPODOBNĚ OPUŠTĚNÁ' : (team.activity_status === 'suspicious' ? 'PODEZŘELÁ NEAKTIVITA' : 'AKTIVNÍ'));
+                const inventory = ((team.progress || {}).inventory || []).map(escapeHtml).join(', ') || 'prázdný';
+                const tools = ((team.progress || {}).unlocked_cipher_tools || []).map(escapeHtml).join(', ') || 'žádné';
+                return `<article class="admin-team ${online ? '' : 'offline'} ${escapeHtml(team.activity_status)}">
                     <h2>${escapeHtml(team.team_name)}</h2>
+                    <p><strong class="admin-activity ${escapeHtml(team.activity_status)}">${activityText}</strong> · bez aktivity ${inactivityLabel(team.inactive_seconds)}</p>
                     <p><strong>${team.mode === 'solo' ? 'SÓLO' : 'TÝM'}</strong> · ${size} hráčů · ${online} online · ${team.started ? 'hra spuštěna' : 'lobby'}</p>
                     <p>Hráči: ${players || '—'}</p>
                     <p>Fáze: <strong>${escapeHtml(team.phase)}</strong> · skóre: <strong>${Number(team.score)}</strong></p>
@@ -1168,7 +1210,7 @@
                     <p>Postup: ${complete}/${total} (${percent} %) · aktuální: ${activeNodes}</p>
                     <p>Poslední aktivita: <strong>${lastActivity}</strong></p>
                     <details data-detail="${team.session_id}:penalties"><summary>Udělené malusy</summary><p>${penalties}</p></details>
-                    <details class="admin-detail" data-detail="${team.session_id}:progress"><summary>Detail postupu a her</summary><ul class="admin-detail-list">${progressNodes}</ul><p><strong>Nápovědy:</strong> ${hints}</p><p><strong>Pokusy:</strong> ${attempts}</p><p>${lineGame}</p><p>${karel}</p><p>${triad}</p><p>${sokoban}</p></details>
+                    <details class="admin-detail" data-detail="${team.session_id}:progress"><summary>Detail postupu a her</summary><ul class="admin-detail-list">${progressNodes}</ul><p><strong>Inventář:</strong> ${inventory}</p><p><strong>Pomůcky:</strong> ${tools}</p><p><strong>Nápovědy:</strong> ${hints}</p><p><strong>Pokusy:</strong> ${attempts}</p><p>${lineGame}</p><p>${karel}</p><p>${triad}</p><p>${sokoban}</p><p>${archive}</p></details>
                     <details class="admin-detail" data-detail="${team.session_id}:timeline"><summary>Časová osa</summary><ul class="admin-detail-list">${timeline}</ul></details>
                     <details class="admin-detail" data-detail="${team.session_id}:messages"><summary>Poslední zprávy</summary><ul class="admin-detail-list">${recentMessages}</ul></details>
                     <div class="admin-actions">
@@ -1536,7 +1578,7 @@
                 document.getElementById('typing-indicator').style.display = 'none';
                 
                 if (msg.type === 'admin.overview') {
-                    renderAdminOverview(msg.payload.teams || []);
+                    renderAdminOverview(msg.payload);
                 }
                 else if (msg.type === 'admin.qr_set') {
                     renderAdminQrSet(msg.payload);

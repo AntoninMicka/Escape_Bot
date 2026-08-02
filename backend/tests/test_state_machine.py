@@ -5,7 +5,7 @@ from pathlib import Path
 from escape_bot.protocol import Message
 from escape_bot.line_game import completion_time_score
 from escape_bot.sokoban import execute as execute_sokoban, new_game as new_sokoban, parse_commands
-from escape_bot.team_lobby import LobbyRegistry, team_size_adjustment
+from escape_bot.team_lobby import LobbyRegistry, classify_activity, team_size_adjustment
 from escape_bot.scenario import ScenarioLoader, build_checkpoint_qr_set, build_demo_checkpoint_catalog, build_scenario_progress
 from escape_bot.state_machine import EscapeBotStateMachine, GamePhase
 
@@ -538,6 +538,13 @@ class StateMachineCheckpointTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(team_size_adjustment("team", 3), 0)
         self.assertEqual(team_size_adjustment("team", 4), -30)
         self.assertEqual(team_size_adjustment("team", 5), -60)
+
+    def test_inactive_game_classification_ignores_lobbies_and_completed_games(self) -> None:
+        self.assertEqual(classify_activity(True, False, 1799), "active")
+        self.assertEqual(classify_activity(True, False, 1800), "suspicious")
+        self.assertEqual(classify_activity(True, False, 3600), "abandoned")
+        self.assertEqual(classify_activity(False, False, 7200), "active")
+        self.assertEqual(classify_activity(True, True, 7200), "active")
 
     def test_team_lobby_join_code_and_maximum_player_count(self) -> None:
         registry = LobbyRegistry()

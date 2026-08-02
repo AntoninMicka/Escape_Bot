@@ -19,7 +19,7 @@ from .protocol import Message
 from .state_machine import EscapeBotStateMachine
 from .scenario import ScenarioLoader, build_checkpoint_qr_set, build_demo_checkpoint_catalog, build_scenario_progress
 from .ollama_adapter import OllamaAdapter
-from .team_lobby import Lobby, LobbyRegistry
+from .team_lobby import Lobby, LobbyRegistry, classify_activity
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger("EscapeBot")
@@ -55,6 +55,13 @@ def load_leaderboard():
         try:
             with open(LEADERBOARD_FILE, "r", encoding="utf-8") as f:
                 global_leaderboard = json.load(f)
+            changed = False
+            for entry in global_leaderboard:
+                if not entry.get("entry_id"):
+                    entry["entry_id"] = secrets.token_hex(8)
+                    changed = True
+            if changed:
+                save_leaderboard()
             logger.info(f"Úspěšně načtena Síň slávy ({len(global_leaderboard)} záznamů).")
         except Exception as e:
             logger.error(f"Chyba při načítání Síně slávy: {e}")
@@ -222,7 +229,17 @@ def admin_overview() -> list[dict[str, object]]:
         sokoban_games = dict(state.get("sokoban_games", {}))
         line_games = dict(state.get("interactive_games", {}))
         triad_games = dict(state.get("triad_games", {}))
+        archive_games = dict(state.get("archive_games", {}))
         last_activity = str(state.get("last_activity_at", "")) or (str(timeline[0].get("at", "")) if timeline else "")
+        if not last_activity:
+            joined = [str(player.get("joined_at", "")) for player in lobby.players.values() if player.get("joined_at")]
+            last_activity = min(joined) if joined else ""
+        inactive_seconds = 0
+        if last_activity:
+            try: inactive_seconds = max(0, int((datetime.now(UTC) - datetime.fromisoformat(last_activity)).total_seconds()))
+            except ValueError: pass
+        game_completed = bool(flags.get("game_completed"))
+        activity_status = classify_activity(lobby.started, game_completed, inactive_seconds)
         teams.append({
             **lobby.public("", connected_client_ids(lobby.session_id)),
             "score": int(state.get("score", 1000)),
@@ -232,6 +249,9 @@ def admin_overview() -> list[dict[str, object]]:
             "progress": progress,
             "admin_penalties": penalties,
             "last_activity": last_activity,
+            "inactive_seconds": inactive_seconds,
+            "activity_status": activity_status,
+            "game_completed": game_completed,
             "timeline": timeline[:30],
             "hints_used": dict(state.get("hints_used", {})),
             "puzzle_attempts": dict(state.get("puzzle_attempts", {})),
@@ -251,13 +271,20 @@ def admin_overview() -> list[dict[str, object]]:
                 "triad": [{"id": game_id, "status": game.get("status", ""), "placements": game.get("placements", 0),
                            "completed_orientations": list(game.get("completed_orientations", []))}
                           for game_id, game in triad_games.items()],
+                "archive": [{"id": game_id, "assembled": bool(game.get("assembled")), "moves": int(game.get("moves", 0)),
+                             "order": list(game.get("order", [])), "rotations": dict(game.get("rotations", {}))}
+                            for game_id, game in archive_games.items()],
             },
         })
     return sorted(teams, key=lambda team: str(team.get("team_name", "")).casefold())
 
 
 async def send_admin_overview(websocket: WebSocket) -> None:
-    await send_message(websocket, Message("admin.overview", {"teams": admin_overview()}))
+    await send_message(websocket, Message("admin.overview", {
+        "teams": admin_overview(),
+        "leaderboard": sorted(global_leaderboard, key=lambda entry: int(entry.get("score", 0)), reverse=True),
+        "abandonment_thresholds": {"suspicious_seconds": 1800, "abandoned_seconds": 3600},
+    }))
 
 
 async def sync_started_client(websocket: WebSocket, state_machine: EscapeBotStateMachine, demo_client: bool) -> None:
@@ -319,7 +346,7 @@ async def websocket_endpoint(websocket: WebSocket):
                 data = json.loads(message_str)
                 msg = Message.from_json(data)
 
-                if msg.type in {"admin.list", "admin.penalty", "admin.delete", "admin.qr_set", "admin.online_mode", "admin.checkpoint", "admin.game_reset", "admin.player_recovery"}:
+                if msg.type in {"admin.list", "admin.penalty", "admin.delete", "admin.qr_set", "admin.online_mode", "admin.checkpoint", "admin.game_reset", "admin.player_recovery", "admin.leaderboard_delete"}:
                     try:
                         require_admin(msg.payload)
                         if msg.type == "admin.list":
@@ -336,6 +363,20 @@ async def websocket_endpoint(websocket: WebSocket):
                             for active_socket in list(app.state.active_websockets):
                                 try: await send_message(active_socket, update)
                                 except Exception: pass
+                            continue
+                        if msg.type == "admin.leaderboard_delete":
+                            entry_id = str(msg.payload.get("entry_id", "")).strip()
+                            index = next((index for index, entry in enumerate(global_leaderboard) if str(entry.get("entry_id", "")) == entry_id), None)
+                            if index is None:
+                                raise ValueError("Záznam v Síni slávy už neexistuje.")
+                            removed = global_leaderboard.pop(index)
+                            save_leaderboard()
+                            update = Message("leaderboard.update", {"entries": global_leaderboard})
+                            for active_socket in list(app.state.active_websockets):
+                                try: await send_message(active_socket, update)
+                                except Exception: pass
+                            await send_admin_overview(websocket)
+                            logger.info("Admin odstranil výsledek týmu %s ze Síně slávy.", removed.get("name", ""))
                             continue
 
                         target_session = str(msg.payload.get("session_id", "")).strip()
@@ -595,7 +636,7 @@ async def websocket_endpoint(websocket: WebSocket):
                     name = lobby.team_name
                     score = machine.state.score
                     if not any(e.get("session_id") == session_id for e in global_leaderboard):
-                        global_leaderboard.append({"session_id": session_id, "name": name, "score": score, "completed_at": machine.state.flags.get("completed_at", "")})
+                        global_leaderboard.append({"entry_id": secrets.token_hex(8), "session_id": session_id, "name": name, "score": score, "completed_at": machine.state.flags.get("completed_at", "")})
                         save_leaderboard()
                     
                     update_msg = json.dumps(Message("leaderboard.update", {"entries": global_leaderboard}).to_json())
@@ -649,6 +690,7 @@ async def websocket_endpoint(websocket: WebSocket):
                         completed_lobby = lobby_registry.by_session.get(str(session_id))
                         if completed_lobby and not any(entry.get("session_id") == session_id for entry in global_leaderboard):
                             global_leaderboard.append({
+                                "entry_id": secrets.token_hex(8),
                                 "session_id": session_id,
                                 "name": completed_lobby.team_name,
                                 "score": state_machine.state.score,
