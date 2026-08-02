@@ -537,10 +537,15 @@ async def websocket_endpoint(websocket: WebSocket):
                     continue
                     
                 if msg.type == "leaderboard.save":
-                    name = str(msg.payload.get("name", "")).strip()
-                    score = int(msg.payload.get("score", 0))
-                    if name and not any(e["name"] == name and e["score"] == score for e in global_leaderboard):
-                        global_leaderboard.append({"name": name, "score": score})
+                    lobby = lobby_registry.by_session.get(str(session_id))
+                    machine = active_sessions.get(str(session_id))
+                    if not lobby or not machine or not machine.state.flags.get("game_completed"):
+                        await send_message(websocket, Message("error", {"message": "Výsledek lze zapsat až po dokončení hry."}))
+                        continue
+                    name = lobby.team_name
+                    score = machine.state.score
+                    if not any(e.get("session_id") == session_id for e in global_leaderboard):
+                        global_leaderboard.append({"session_id": session_id, "name": name, "score": score, "completed_at": machine.state.flags.get("completed_at", "")})
                         save_leaderboard()
                     
                     update_msg = json.dumps(Message("leaderboard.update", {"entries": global_leaderboard}).to_json())
@@ -590,6 +595,20 @@ async def websocket_endpoint(websocket: WebSocket):
                             "text": msg.payload.get("text", ""),
                         })], exclude=websocket)
                     save_sessions()
+                    if session_id and any(response.type == "game.complete" for response in responses):
+                        completed_lobby = lobby_registry.by_session.get(str(session_id))
+                        if completed_lobby and not any(entry.get("session_id") == session_id for entry in global_leaderboard):
+                            global_leaderboard.append({
+                                "session_id": session_id,
+                                "name": completed_lobby.team_name,
+                                "score": state_machine.state.score,
+                                "completed_at": state_machine.state.flags.get("completed_at", ""),
+                            })
+                            save_leaderboard()
+                            leaderboard_update = Message("leaderboard.update", {"entries": global_leaderboard})
+                            for active_socket in list(app.state.active_websockets):
+                                try: await send_message(active_socket, leaderboard_update)
+                                except Exception: pass
                     if session_id:
                         await broadcast_session(session_id, responses)
                     else:

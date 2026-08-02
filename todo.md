@@ -254,26 +254,26 @@
 ### 13.8 Checkpoint 5 – Sportovní areál
 **Typ:** polský kříž a skládání šifrovací tabulky.
 - [ ] Připravit dvě části tabulky nebo průhledné fólie získané na předchozích stanovištích.
-- [ ] Zakódovat zprávu odkazující na konkrétní hodiny nebo jiný výrazný objekt v hotelu.
+- [x] Zakódovat zprávu odkazující na konkrétní hodiny nebo jiný výrazný objekt v hotelu.
 - [ ] Ověřit, že bez obou fyzických částí nelze řešení snadno odhadnout.
 - [ ] Umístit třetí fyzický díl stroje: `KRYSTAL ČASOVÉ KOTVY`.
-- [ ] Zpřístupnit vstup do virtuálního archivu budoucnosti.
+- [x] Zpřístupnit vstup do virtuálního archivu budoucnosti.
 
 ### 13.9 Checkpoint 6 – Archiv budoucnosti
 **Typ:** kombinace fyzické skládačky a klasické šifry.
 - [ ] Navrhnout tři díly tak, aby po složení vytvořily šifrovací kotouč nebo tabulku.
 - [ ] Umístit na díly symboly, barvy a části číselné stupnice určující správné pořadí.
-- [ ] Vybrat finální klasickou šifru, např. Caesarovu nebo Vigenèrovu.
+- [x] Vybrat finální klasickou šifru, např. Caesarovu nebo Vigenèrovu.
 - [ ] Zajistit, aby klíč k šifře vznikl až správným složením fyzických dílů.
-- [ ] Nechat hráče získat rok, přesný čas a pořadí modulů pro návrat Elary.
+- [x] Nechat hráče získat rok, přesný čas a pořadí modulů pro návrat Elary.
 
 ### 13.10 Checkpoint 7 – Finále stroje času
 **Místo:** startovní/finální konferenční místnost.
 - [ ] Vyrobit základnu, do které lze vložit tři fyzické díly stroje.
-- [ ] Implementovat zadání roku, času a pořadí modulů do terminálu.
-- [ ] Před spuštěním ověřit všechny povinné QR checkpointy a inventář.
-- [ ] Připravit odpočet, zvuk stroje, glitch efekt a zprávu o návratu Elary.
-- [ ] Dokončit výpočet skóre, penalizace za nápovědy a zápis do Síně slávy.
+- [x] Implementovat zadání roku, času a pořadí modulů do terminálu.
+- [x] Před spuštěním ověřit všechny povinné QR checkpointy a inventář.
+- [x] Připravit odpočet, zvuk stroje, glitch efekt a zprávu o návratu Elary.
+- [x] Dokončit výpočet skóre, penalizace za nápovědy a zápis do Síně slávy.
 
 ### 13.10.1 Interkomová navigace – Minové pole / Robot Karel
 **Cíl:** spojit logické odhalování bezpečných polí ve stylu Min s programováním pohybu postavy ve stylu Robota Karla. Hráči navigují Elaru přes interkom a její polohu sledují na šachovnici.

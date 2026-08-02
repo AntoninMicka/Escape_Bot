@@ -140,6 +140,7 @@ class EscapeBotStateMachine:
             "karel.reset": self._handle_karel_reset,
             "triad.place": self._handle_triad_place,
             "triad.reset": self._handle_triad_reset,
+            "finale.activate": self._handle_finale_activate,
         }
         handler = handlers.get(message.type, self._handle_unknown)
         responses = await handler(message)
@@ -203,6 +204,11 @@ class EscapeBotStateMachine:
                     item["game"] = public_karel(puzzle.get("game", {}), game)
                 elif puzzle.get("type") == "triad":
                     game = self._triad_state(puzzle_id, puzzle.get("game", {})); item["game"] = public_triad(puzzle.get("game", {}), game)
+                elif puzzle.get("type") == "finale":
+                    item["finale"] = {
+                        "module_labels": list(puzzle.get("module_labels", [])),
+                        "countdown_seconds": int(puzzle.get("countdown_seconds", 10)),
+                    }
             result.append(item)
         return result
 
@@ -508,7 +514,7 @@ class EscapeBotStateMachine:
         puzzle = self.scenario.data.get("puzzles", {}).get(puzzle_id)
         if puzzle is None:
             return [reply("puzzle.result", {"correct": False, "reason": "Neznámá hádanka."}, message)]
-        if puzzle.get("type") in {"line_game", "sokoban", "mine_karel", "triad"}:
+        if puzzle.get("type") in {"line_game", "sokoban", "mine_karel", "triad", "finale"}:
             return [reply("puzzle.result", {"correct": False, "reason": "Tato úloha se řeší přímo na herní mřížce."}, message)]
 
         checkpoint_id = str(puzzle.get("checkpoint_id", ""))
@@ -925,6 +931,76 @@ class EscapeBotStateMachine:
             reply("bot.message", fail_msg, message),
             self._state_message(),
         ]
+
+    async def _handle_finale_activate(self, message: Message) -> list[Message]:
+        puzzle_id = str(message.payload.get("puzzle_id", "")).strip()
+        puzzle = self.scenario.data.get("puzzles", {}).get(puzzle_id)
+        if not puzzle or puzzle.get("type") != "finale":
+            return [reply("finale.result", {"success": False, "reason": "Neznámý finální terminál."}, message)]
+        checkpoint_id = str(puzzle.get("checkpoint_id", ""))
+        checkpoint_state = self.state.checkpoint_states.get(checkpoint_id)
+        if not checkpoint_state:
+            return [reply("finale.result", {"success": False, "reason": "Finální terminál zatím nebyl nalezen."}, message)]
+        if checkpoint_state.get("status") == "solved" or self.state.flags.get("game_completed"):
+            return [reply("finale.result", {"success": True, "already_complete": True, "score": self.state.score}, message), self._state_message()]
+
+        missing_checkpoints = [
+            item for item in puzzle.get("requires_checkpoints", [])
+            if self.state.checkpoint_states.get(str(item), {}).get("status") != "solved"
+        ]
+        missing_inventory = [item for item in puzzle.get("requires_inventory", []) if item not in self.state.inventory]
+        missing_flags = [item for item in puzzle.get("requires_flags", []) if not self.state.flags.get(str(item))]
+        if missing_checkpoints or missing_inventory or missing_flags:
+            return [
+                reply("finale.result", {
+                    "success": False,
+                    "reason": "Stroj není kompletní. Chybí povinné kotvy, součásti nebo archivní potvrzení.",
+                    "missing_checkpoints": missing_checkpoints,
+                    "missing_inventory": missing_inventory,
+                    "missing_flags": missing_flags,
+                }, message),
+                self._state_message(),
+            ]
+
+        def normalized(value: Any) -> str:
+            return "".join(str(value).upper().split()).replace(":", "").replace("-", "")
+
+        year = normalized(message.payload.get("year", ""))
+        time_value = normalized(message.payload.get("time", ""))
+        modules = message.payload.get("modules", [])
+        if not isinstance(modules, list):
+            modules = []
+        submitted_modules = [normalized(item) for item in modules]
+        expected_modules = [normalized(item) for item in puzzle.get("module_order", [])]
+        self.state.puzzle_attempts[puzzle_id] = self.state.puzzle_attempts.get(puzzle_id, 0) + 1
+        if year != normalized(puzzle.get("year")) or time_value != normalized(puzzle.get("time")) or submitted_modules != expected_modules:
+            return [
+                reply("finale.result", {"success": False, "reason": "Časové souřadnice nebo pořadí modulů nesouhlasí.", "attempts": self.state.puzzle_attempts[puzzle_id]}, message),
+                reply("bot.message", puzzle.get("failure_message", {}), message),
+                self._state_message(),
+            ]
+
+        now = datetime.now(UTC).isoformat()
+        checkpoint_state.update({"status": "solved", "solved_at": now})
+        self._apply_checkpoint_rewards(self.scenario.data.get("checkpoints", {}).get(checkpoint_id, {}))
+        self.state.phase = GamePhase.PORTAL_OPEN
+        self.state.flags.update({"game_completed": True, "completed_at": now})
+        thresholds = puzzle.get("rating_thresholds", {})
+        rating = next((label for minimum, label in sorted(((int(score), label) for score, label in thresholds.items()), reverse=True) if self.state.score >= minimum), "STABILIZOVÁNO")
+        self.state.flags["final_rating"] = rating
+        responses = [reply("finale.result", {
+            "success": True,
+            "score": self.state.score,
+            "rating": rating,
+            "countdown_seconds": int(puzzle.get("countdown_seconds", 10)),
+        }, message)]
+        responses.extend(reply("bot.message", item, message) for item in puzzle.get("success_messages", []))
+        responses.extend([
+            Message("effect.trigger", {"effect": "finale", "intensity": 1, "duration_ms": int(puzzle.get("countdown_seconds", 10)) * 1000}),
+            reply("game.complete", {"score": self.state.score, "rating": rating, "completed_at": now}, message),
+            self._state_message(),
+        ])
+        return responses
 
     async def _handle_unknown(self, message: Message) -> list[Message]:
         return [reply("error", {"message": f"Unsupported message type: {message.type}"}, message)]

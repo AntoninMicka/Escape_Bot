@@ -247,6 +247,12 @@
         .leaderboard-table th { color: #0aa; }
         .leaderboard-table tr:hover { background: #002200; }
         .save-score-section { display: flex; gap: 10px; }
+        .finale-console { border: 2px solid #fc0; padding: 16px; background: #171100; }
+        .finale-fields { display: grid; grid-template-columns: repeat(2, minmax(130px, 1fr)); gap: 10px; }
+        .finale-fields label { display: grid; gap: 5px; color: #fc0; }
+        .finale-modules { display: grid; gap: 7px; margin: 12px 0; }
+        .finale-overlay { position: fixed; inset: 0; z-index: 1500; display: grid; place-items: center; background: #001018e8; color: #fff; font-size: clamp(4rem, 24vw, 13rem); text-shadow: 0 0 25px #0ff; }
+        .finale-overlay small { display: block; font-size: 1rem; text-align: center; color: #0ff; }
         
         @keyframes score-update { 0% { color: #f00; transform: scale(1.3); text-shadow: 0 0 10px #f00; } 100% { color: #0aa; transform: scale(1); text-shadow: none; } }
         .score-animate { animation: score-update 0.6s ease-out; display: inline-block; }
@@ -1603,6 +1609,14 @@
                         showNotification(msg.payload.reason || 'Kombinace není správná.', 'error');
                     }
                 }
+                else if (msg.type === 'finale.result') {
+                    if (msg.payload.success) {
+                        showNotification(msg.payload.already_complete ? 'Stroj času už byl stabilizován.' : `Návratová sekvence přijata · ${msg.payload.rating}`, 'success');
+                    } else {
+                        const missing = [...(msg.payload.missing_inventory || []), ...(msg.payload.missing_checkpoints || [])];
+                        showNotification(`${msg.payload.reason || 'Finální sekvence byla odmítnuta.'}${missing.length ? ` Chybí: ${missing.join(', ')}` : ''}`, 'error');
+                    }
+                }
                 else if (msg.type === 'line_game.result') {
                     if (!msg.payload.success) {
                         showNotification(msg.payload.reason || 'Tah nelze provést.', 'error');
@@ -1656,13 +1670,23 @@
                     }, 2000);
                 }
                 else if (msg.type === 'effect.trigger') {
-                    if (msg.payload.effect === 'glitch') {
+                    if (msg.payload.effect === 'finale') {
+                        playSound('success');
+                        document.body.classList.add('glitch-active');
+                        setTimeout(() => document.body.classList.remove('glitch-active'), 900);
+                        startFinaleEffect(Math.round((msg.payload.duration_ms || 10000) / 1000));
+                    } else if (msg.payload.effect === 'glitch') {
                         document.body.classList.add('glitch-active');
                         playSound('error');
                         setTimeout(() => {
                             document.body.classList.remove('glitch-active');
                         }, msg.payload.duration_ms || 1000);
                     }
+                }
+                else if (msg.type === 'game.complete') {
+                    document.getElementById('team-name').value = currentLobby?.team_name || '';
+                    document.querySelector('.save-score-section').innerHTML = `<strong>VÝSLEDEK ZAPSÁN AUTOMATICKY · ${escapeHtml(msg.payload.rating)} · ${Number(msg.payload.score)} BODŮ</strong>`;
+                    document.querySelector('[onclick*="tab-leaderboard"]').click();
                 }
             };
 
@@ -1815,7 +1839,7 @@
                 const solved = puzzle.status === 'solved';
                 const interactiveGame = puzzle.type === 'line_game'
                     ? renderLineGame(puzzle, solved)
-                    : (puzzle.type === 'sokoban' ? renderSokoban(puzzle, solved) : (puzzle.type === 'mine_karel' ? renderMineKarel(puzzle, solved) : (puzzle.type === 'triad' ? renderTriad(puzzle, solved) : '')));
+                    : (puzzle.type === 'sokoban' ? renderSokoban(puzzle, solved) : (puzzle.type === 'mine_karel' ? renderMineKarel(puzzle, solved) : (puzzle.type === 'triad' ? renderTriad(puzzle, solved) : (puzzle.type === 'finale' ? renderFinale(puzzle, solved) : ''))));
                 return `<article class="puzzle-card">
                     <h3>${escapeHtml(puzzle.title)}</h3>
                     <p>${escapeHtml(puzzle.instructions)}</p>
@@ -1824,11 +1848,38 @@
                     <ol class="puzzle-clues">${clues}</ol>
                     ${interactiveGame || (solved
                         ? '<p class="puzzle-status solved">HÁDANKA VYŘEŠENA · CHECKPOINT POTVRZEN</p>'
-                        : `<div class="puzzle-answer"><input id="puzzle-answer-${escapeHtml(puzzle.id)}" inputmode="numeric" maxlength="8" autocomplete="off" placeholder="KÓD"><button onclick="submitPuzzle('${escapeHtml(puzzle.id)}')">OVĚŘIT</button></div>
+                        : `<div class="puzzle-answer"><input id="puzzle-answer-${escapeHtml(puzzle.id)}" maxlength="80" autocomplete="off" placeholder="ODPOVĚĎ / KÓD"><button onclick="submitPuzzle('${escapeHtml(puzzle.id)}')">OVĚŘIT</button></div>
                            <div class="puzzle-actions">${puzzle.has_hints ? `<button onclick="requestPuzzleHint('${escapeHtml(puzzle.id)}')">DALŠÍ NÁPOVĚDA</button>` : ''}<span>Pokusy: ${puzzle.attempts || 0}</span></div>`)}
                 </article>`;
             }).join('');
             updateTeamSokobanIntercomControls();
+        }
+
+        function renderFinale(puzzle, solved) {
+            if (solved) return '<p class="puzzle-status solved">ELARA ZACHRÁNĚNA · ČASOVÁ OSA STABILNÍ</p>';
+            const modules = puzzle.finale?.module_labels || [];
+            const options = `<option value="">— ZVOLTE MODUL —</option>${modules.map(module => `<option value="${escapeHtml(module)}">${escapeHtml(module)}</option>`).join('')}`;
+            return `<div class="finale-console"><div class="finale-fields"><label>ROK NÁVRATU<input id="finale-year-${escapeHtml(puzzle.id)}" inputmode="numeric" maxlength="4" placeholder="RRRR"></label><label>ČAS NÁVRATU<input id="finale-time-${escapeHtml(puzzle.id)}" inputmode="numeric" maxlength="5" placeholder="HH:MM"></label></div><strong>POŘADÍ MODULŮ</strong><div class="finale-modules">${[0,1,2].map(index => `<select id="finale-module-${index}-${escapeHtml(puzzle.id)}">${options}</select>`).join('')}</div><button onclick="activateFinale('${escapeHtml(puzzle.id)}')">SPUSTIT STROJ ČASU</button></div>`;
+        }
+
+        function activateFinale(puzzleId) {
+            if (!ws || ws.readyState !== WebSocket.OPEN) { showNotification('Terminál není připojen.', 'error'); return; }
+            const year = document.getElementById(`finale-year-${puzzleId}`).value.trim();
+            const time = document.getElementById(`finale-time-${puzzleId}`).value.trim();
+            const modules = [0,1,2].map(index => document.getElementById(`finale-module-${index}-${puzzleId}`).value);
+            if (!year || !time || modules.some(module => !module)) { showNotification('Vyplňte rok, čas a všechny tři moduly.', 'error'); return; }
+            if (new Set(modules).size !== modules.length) { showNotification('Každý modul lze vložit pouze jednou.', 'error'); return; }
+            if (!window.confirm('Spustit finální návratovou sekvenci?')) return;
+            ws.send(JSON.stringify({type:'finale.activate', payload:{puzzle_id:puzzleId, year, time, modules}}));
+        }
+
+        function startFinaleEffect(seconds) {
+            document.getElementById('finale-overlay')?.remove();
+            const overlay = document.createElement('div'); overlay.id = 'finale-overlay'; overlay.className = 'finale-overlay';
+            document.body.appendChild(overlay); let remaining = Math.max(1, Number(seconds) || 10);
+            let timer = null;
+            const tick = () => { overlay.innerHTML = `<div>${remaining}<small>STABILIZACE ČASOVÉ OSY</small></div>`; if (remaining-- <= 1) { if (timer) clearInterval(timer); setTimeout(() => overlay.remove(), 900); } };
+            tick(); timer = setInterval(tick, 1000);
         }
 
         function updateTeamSokobanIntercomControls() {

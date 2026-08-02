@@ -418,8 +418,10 @@ class StateMachineCheckpointTests(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(result.payload["game_complete"])
         self.assertEqual(self.machine.state.score, score_before + 90)
         self.assertEqual(self.machine.state.checkpoint_states["sports_archive"]["status"], "solved")
-        self.assertIn("KRYSTAL ČASOVÉ KOTVY", self.machine.state.inventory)
+        self.assertNotIn("KRYSTAL ČASOVÉ KOTVY", self.machine.state.inventory)
         self.assertIn("pigpen", self.machine.state.unlocked_cipher_tools)
+        next_checkpoint = await self.scan("sports_cipher")
+        self.assertTrue(self.response(next_checkpoint, "qr.result").payload["accepted"])
 
     async def test_sokoban_blocked_sequence_undo_and_restore(self) -> None:
         await self.unlock_sokoban()
@@ -575,8 +577,10 @@ class StateMachineCheckpointTests(unittest.IsolatedAsyncioTestCase):
         solved = self.machine.admin_set_checkpoint("sports_archive", "solved")
         self.assertEqual(solved["previous_status"], "found")
         self.assertEqual(self.machine.state.checkpoint_states["sports_archive"]["status"], "solved")
-        self.assertIn("KRYSTAL ČASOVÉ KOTVY", self.machine.state.inventory)
         self.assertIn("pigpen", self.machine.state.unlocked_cipher_tools)
+        self.assertNotIn("KRYSTAL ČASOVÉ KOTVY", self.machine.state.inventory)
+        self.machine.admin_set_checkpoint("sports_cipher", "solved")
+        self.assertIn("KRYSTAL ČASOVÉ KOTVY", self.machine.state.inventory)
         self.assertEqual(self.machine.state.score, score_before)
         with self.assertRaisesRegex(ValueError, "už je dokončený"):
             self.machine.admin_set_checkpoint("sports_archive", "solved")
@@ -593,6 +597,56 @@ class StateMachineCheckpointTests(unittest.IsolatedAsyncioTestCase):
         self.machine.admin_set_checkpoint("courtyard_minefield", "solved")
         with self.assertRaisesRegex(ValueError, "aktivní"):
             self.machine.admin_reset_game("courtyard_karel")
+
+    async def test_production_finale_requires_full_route_and_completes_game(self) -> None:
+        for checkpoint_id in [
+            "reception_archive", "staircase_signal", "courtyard_minefield", "bowling_diagnostics",
+            "timeline_calibration", "terrace_echo", "courtyard_alignment", "sports_archive",
+        ]:
+            self.machine.admin_set_checkpoint(checkpoint_id, "solved")
+        await self.machine.handle(Message("room.unlock", {"pin": "104"}))
+
+        await self.scan("sports_cipher")
+        pigpen = await self.machine.handle(Message("puzzle.submit", {"puzzle_id": "sports_pigpen", "answer": "HODINY"}))
+        self.assertTrue(self.response(pigpen, "puzzle.result").payload["correct"])
+        self.assertIn("KRYSTAL ČASOVÉ KOTVY", self.machine.state.inventory)
+
+        await self.scan("future_archive")
+        archive = await self.machine.handle(Message("puzzle.submit", {
+            "puzzle_id": "future_archive_cipher",
+            "answer": "2037-21:40-MOTOR-STABILIZATOR-KRYSTAL",
+        }))
+        self.assertTrue(self.response(archive, "puzzle.result").payload["correct"])
+        self.assertTrue(self.machine.state.flags["return_vector_recovered"])
+
+        await self.scan("time_machine_console")
+        wrong = await self.machine.handle(Message("finale.activate", {
+            "puzzle_id": "time_machine_finale", "year": "2037", "time": "21:40",
+            "modules": ["KRYSTAL ČASOVÉ KOTVY", "FÁZOVÝ STABILIZÁTOR", "TEMPORÁLNÍ MOTOR"],
+        }))
+        self.assertFalse(self.response(wrong, "finale.result").payload["success"])
+
+        completed = await self.machine.handle(Message("finale.activate", {
+            "puzzle_id": "time_machine_finale", "year": "2037", "time": "21:40",
+            "modules": ["TEMPORÁLNÍ MOTOR", "FÁZOVÝ STABILIZÁTOR", "KRYSTAL ČASOVÉ KOTVY"],
+        }))
+        result = self.response(completed, "finale.result")
+        self.assertTrue(result.payload["success"])
+        self.assertEqual(self.machine.state.phase, GamePhase.PORTAL_OPEN)
+        self.assertTrue(self.machine.state.flags["game_completed"])
+        self.assertTrue(self.machine.state.flags["elara_rescued"])
+        self.assertEqual(self.machine.state.checkpoint_states["time_machine_console"]["status"], "solved")
+        self.assertIsNotNone(self.response(completed, "game.complete"))
+
+    async def test_finale_reports_missing_inventory_and_checkpoints(self) -> None:
+        self.machine.admin_set_checkpoint("time_machine_console", "found")
+        result = await self.machine.handle(Message("finale.activate", {
+            "puzzle_id": "time_machine_finale", "year": "2037", "time": "21:40", "modules": [],
+        }))
+        payload = self.response(result, "finale.result").payload
+        self.assertFalse(payload["success"])
+        self.assertIn("sports_cipher", payload["missing_checkpoints"])
+        self.assertIn("TEMPORÁLNÍ MOTOR", payload["missing_inventory"])
 
 
 if __name__ == "__main__":
