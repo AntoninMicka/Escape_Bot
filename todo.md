@@ -1,5 +1,7 @@
 # Kompletní checklist projektu "Escape Bot"
 
+> **Audit aktuálnosti 2026-08-02:** Aktivní roadmapu tvoří produkční scénář v oddílu 13 a cloudová migrace v oddílu 14. Oddíly 8 a 12 jsou ponechané pouze jako historie původního konceptu a jejich nezaškrtnuté body nejsou aktivní backlog. QML/WASM byl nahrazen webovou PWA. AI/Ollama není podmínkou herního průchodu a její další rozvoj je odložen.
+
 ## 1. Návrh komunikačního protokolu (Frontend <-> Backend)
 - [x] Definice formátu zpráv (JSON přes WebSockets).
 - [x] Správa stavu hry a relací (State Machine v Pythonu).
@@ -9,13 +11,13 @@
 - [x] Logika pro obsluhu kamery (extrakce snímků) a integrace čtečky QR kódů (přesunuto na WebRTC/JS).
 
 ## 3. Webová aplikace a infrastruktura (PWA / WASM)
-- [ ] Kompilace C++/Qt frontendu do WebAssembly.
+- [x] Kompilaci C++/Qt frontendu do WebAssembly vyřadit; aktuální klient je nativní webová PWA bez QML.
 - [x] Konfigurace PWA (Manifest, Service Workers) pro běh na mobilu ve fullscreenu bez instalace.
 - [ ] Zajištění HTTPS a nastavení webového serveru (nutnost pro přístup prohlížeče ke kameře a bezpečné spojení). **Registrace certifikátu u autority (např. Let's Encrypt)**, protože plně důvěryhodný certifikát je vyžadován i pro lokální běh PWA aplikace v místnosti.
 
-## 4. Dynamické napojení na AI (Ollama a ComfyUI)
-- [ ] Zpracování vizuálního vstupu pro analýzu reálných lokací a naskenovaných materiálů.
-- [ ] Generování kontextových odpovědí a řízení videí (lip-syncing).
+## 4. Dynamické napojení na AI (odloženo)
+- [ ] **Odloženo mimo aktuální roadmapu:** zpracování vizuálního vstupu pomocí AI.
+- [ ] **Odloženo mimo aktuální roadmapu:** generování volných odpovědí, videa a lip-sync. Produkční průchod musí fungovat deterministicky bez LLM.
 
 ## 5. Integrace prvků rozšířené reality (ARG) a rébusů
 - [ ] Logika ověřování fyzických objevů v reálném světě.
@@ -29,7 +31,7 @@
 - [ ] Nodové rozhraní (desktop Qt/C++) pro návrh příběhových větví a stavového automatu.
 - [ ] Export scénářů a správa multimediálních assetů.
 
-## 8. Námět na první scénář: Ztracená v jiné dimenzi
+## 8. Archivní námět: Ztracená v jiné dimenzi (nahrazen oddílem 13)
 - [ ] **Koncept**: Hráč se přes interkom spojí s "Kapitánkou" (první postava). Ta mu dá úkol zachránit "Ztracenou" (druhá postava v jiné dimenzi). Hra obsahuje umělé výpadky spojení pro prodloužení a zvýšení napětí.
 - [ ] **Fáze 1 - Spojení s Kapitánkou**: Zprovoznění interkomu a navázání komunikace s Kapitánkou. Přijetí úkolu a indicií.
 - [ ] **Fáze 2 - Hledání Ztracené**: Pomocí šifer a hádanek najít správnou frekvenci/souřadnice pro spojení s druhou (ztracenou) postavou.
@@ -37,31 +39,31 @@
 - [ ] **Fáze 4 - Záchranná mise**: Komunikace se Ztracenou. Pomocí dalších hádanek a šifer ji přemisťovat správným směrem až k záchrannému portálu.
 
 ## 9. Zjednodušení architektury (Pivot k webu a hardwaru)
-- [ ] **Webový interkom (Hlavní klient)**: Opustit nutnost složitého QML klienta a přesunout hlavní komunikační rozhraní do webové aplikace (např. PWA).
-- [ ] **Virtuální záložky pro rébusy (Fallback)**: Pokud není k dispozici vyhrazený HW nebo počítač pro konkrétní hádanku (či celou místnost), bude tato hádanka simulována ve formě samostatné záložky (tabu) v hlavním webovém klientovi. Výchozí a hlavní záložkou bude vždy Interkom.
-- [ ] **Rozšířený interkom (Kanály)**: Vytvořit v interkomu oddělené komunikační kanály (např. #general, #kapitanka, #ztracena), aby byl děj přehlednější a více připomínal skutečný terminál.
-- [ ] **Interaktivní mapa (Hybridní ARG navigace)**: Přidat záložku s mapou (např. hotelu), která propojuje herní děj s reálným světem. Mapa bude hráče navigovat na skutečná fyzická místa (např. konkrétní pokoje), kde najdou reálné schránky na kód, QR kódy ke skenování, nebo vyhrazené počítače s dílčími rébusy.
+- [x] **Webový interkom (Hlavní klient)**: Hlavní klient je webová PWA.
+- [x] **Virtuální záložky pro rébusy (Fallback)**: Rébusy jsou součástí Archivu hádanek v hlavním klientovi.
+- [x] **Rozšířený interkom (Kanály)**: Interkom má oddělené kanály systému, Kapitánky a Elary.
+- [x] **Interaktivní mapa (Hybridní ARG navigace)**: CHRONOMAPA propojuje postup, lokace a checkpointy.
 - [ ] **Klientský framework (Vlastní prohlížeč na míru)**: Pro PC vytvořit speciální prohlížeč/wrapper (např. pomocí Tauri či Electronu), který webovou aplikaci obalí a zajistí komunikaci s lokálním hardwarem, pokud standardní webové cesty nebudou stačit.
 - [ ] **Jednoúčelové webovky pro rébusy**: Vytvořit speciální oddělené webové stránky určené výhradně pro vyhrazené počítače/tablety v únikovce, které budou sloužit k řešení specifických dílčích rébusů.
 - [ ] **Hardwaroví klienti (Mikrokontroléry)**: Připravit architekturu pro dedikované klienty na mikrokontrolérech (např. ESP32), kteří budou s hrou komunikovat buď napřímo (WebSocket/MQTT), nebo přes zmiňovaný PC framework.
-- [ ] **Přístupové panely a zámky místností**: Blokovat vstup do konkrétních virtuálních/fyzických místností. Virtuální místnost nejprve zobrazí číselník; vyhrazený PC poslouží jako "přihlašovací okno"; fyzický HW panel po správném zadání otevře dveře a odošle signál hře.
+- [x] **Virtuální přístupové panely**: Číselník dveří je deterministicky ověřovaný a začleněný mezi hádanky. Fyzické zámky zůstávají budoucím rozšířením.
 
 ## 10. Backend jako centrální uzel (Orchestrace a Multitasking)
-- [ ] **Webserver a orchestrátor**: Backend bude sloužit jako hlavní přístupový bod (webserver pro klientské aplikace) a postará se o orchestraci všech ostatních služeb (AI modely, HW zprávy).
+- [x] **Webserver a orchestrátor**: FastAPI backend obsluhuje klienta, WebSockety i herní logiku.
 - [x] **Perzistence a obnova relací (Wi-Fi stabilita)**: Session tokeny fungují. Stav všech her se automaticky ukládá do `sessions.json` a obnovuje i po tvrdém restartu serveru.
-- [ ] **Správa více hráčů (Multiplayer)**: Zajištění synchronizace stavu hry mezi vícero klienty (telefony/tablety/PC) v rámci jedné herní relace.
-- [ ] **Multitasking a více instancí (Multitenancy)**: Přepracování správy stavu tak, aby backend dokázal obsluhovat více nezávislých her (místností nebo různých scénářů) naprosto paralelně a bez ovlivňování.
-- [ ] **Centrální správa hry (Game Master panel)**: (Odloženo) Využívat JSON soubor jako dočasnou admin konzoli. Později připravit plnohodnotné webové rozhraní pro obsluhu únikovky.
+- [x] **Správa více hráčů (Multiplayer)**: Stav týmu se synchronizuje mezi více klienty.
+- [x] **Více nezávislých her (Multitenancy v jednom procesu)**: Relace mají oddělené lobby a stav. Horizontální škálování je součástí cloudové etapy.
+- [x] **Centrální správa hry (Game Master panel)**: Webový admin spravuje týmy, postup, události a Síň slávy.
 - [ ] **Captive portál (Vstupní bod hry)**: Zprovoznit captive portál (např. úpravou DNS pro přesměrování po připojení na herní Wi-Fi), který automaticky načte klientům webové rozhraní hry.
 
 ## 11. Herní engine, nápovědy a skórování
 - [x] **Oddělení scénáře od enginu**: Přesunout hardcodovanou logiku, fáze a texty z backendu (např. `state_machine.py`) do externích konfiguračních souborů (JSON/YAML scénáře), aby engine zůstal plně univerzální.
-- [x] **Inteligentní reakce na vstupy**: Nahradit jednoduché kontroly (např. if "734" in text) robustnějším systémem, případně s napojením na lokální AI (Ollama) pro interaktivní a variabilní reakce na hráčské podměty.
-- [x] **Systém postupných nápověd (Hint systém)**: Nápovědy jsou integrovány přímo do chatu. AI analyzuje záměr hráče z jeho zpráv, a pokud detekuje bezradnost či prosbu o pomoc, uvolní další nápovědu k aktuální fázi.
+- [x] **Deterministické vyhodnocení vstupů**: Povinný průchod, šifry, minihry a nápovědy nevyžadují LLM.
+- [x] **Systém tří statických nápověd**: Hádanky mají tlačítka Nápověda 1–3; každý stupeň se platí pouze při prvním odemčení a poté jej lze opakovat zdarma.
 - [x] **Bodování a penalizace**: Zaveden výchozí stav bodů (Skóre) pro hru. Za každé uvolnění nápovědy AI systémem se odečte specifikovaný počet negativních bodů.
 - [x] **Síň slávy (Leaderboard)**: Na konci scénáře vyhodnotit úspěšnost, zobrazit výsledné skóre, vyzvat hráče k zadání jména týmu a zapsat výsledek do trvalé Síně slávy.
 
-## 12. Inkrementální vývoj scénáře: Ztracená v jiné dimenzi
+## 12. Archivní inkrementální plán (nahrazen produkčním scénářem v oddílu 13)
 
 ### Inkrement 1 – Funkční prototyp komunikátoru
 **Cíl:** hráč si může zahrát celý příběh bez pohybu po hotelu.
@@ -428,7 +430,7 @@
 
 ### 13.12 Hádanky, nápovědy a testování
 - [ ] U každé hádanky napsat zadání, řešení, mezikroky a akceptované varianty odpovědi.
-- [ ] U vybraných hádanek připravit a otestovat stupňované nápovědy; obtížnější checkpointy mohou být záměrně bez nápověd.
+- [x] U všech šifrovacích hádanek připravit tři statické stupně nápověd s jednorázovou penalizací.
 - [ ] Střídat logické úlohy, klasické šifry, pohyb a manipulaci s artefakty.
 - [ ] Nevkládat za sebe více než dvě substituční šifry.
 - [ ] U každé použité šifry vysvětlit její existenci v rámci příběhu.
@@ -533,3 +535,16 @@
 - [x] Doplnit filtrování týmů a detailní časovou osu administrátorských i herních událostí.
 - [x] Generovat v admin režimu tiskovou A4 sadu startovního a checkpointových QR přímo z aktuálního scénářového datasetu.
 - [x] Přidat globální přepínač fyzického/online režimu; v online režimu nahradit QR checkpointy akčními body v Chronomapě a nastavení uchovat po restartu.
+
+## 14. Migrace na cloud
+
+- [ ] Zmrazit deterministický produkční průchod bez povinné závislosti na Ollamě nebo ComfyUI.
+- [ ] Kontejnerizovat FastAPI aplikaci a statický PWA klient; doplnit produkční ASGI konfiguraci.
+- [ ] Nahradit soubory `sessions.json`, `lobbies.json`, `leaderboard.json` a `runtime_settings.json` transakční databází PostgreSQL.
+- [ ] Zavést databázové migrace, zálohování, obnovu a retenční pravidla dokončených relací.
+- [ ] Přesunout tajné hodnoty do cloudového secret manageru a vynutit silný admin token.
+- [ ] Nasadit staging s HTTPS/WSS, health checky, strukturovanými logy a monitoringem chyb.
+- [ ] První produkční verzi provozovat jako jedinou instanci; pro horizontální škálování doplnit Redis pub/sub, distribuované zámky a sdílenou evidenci WebSocketů.
+- [ ] Otestovat reconnect, více týmů, souběžné povely, restart instance a obnovu databáze.
+- [ ] Připravit DNS, reverzní proxy, bezpečnostní hlavičky, rate limiting a plán rollbacku.
+- [ ] Provést zkušební migraci kopií lokálních dat, ověřit počty relací a Síň slávy a teprve potom přepnout produkční DNS.

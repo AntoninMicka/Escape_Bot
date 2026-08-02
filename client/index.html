@@ -614,7 +614,6 @@
         <span id="device-role" class="device-role"><small>ZAŘÍZENÍ:</small><button id="role-observer" onclick="setDeviceRole('observer')">MAPA</button><button id="role-navigator" onclick="setDeviceRole('navigator')">INTERKOM</button><button id="role-free" onclick="setDeviceRole('free')">VOLNĚ</button></span>
         <button id="chronomap-tab-button" class="tab-button" onclick="openTab('tab-map', this)" disabled>CHRONOMAPA [OFFLINE]</button>
         <button id="puzzles-tab-button" class="tab-button" onclick="openTab('tab-puzzles', this)" disabled>HÁDANKY [0]</button>
-        <button class="tab-button" onclick="openTab('tab-room', this)">MÍSTNOST (Virtuální panel)</button>
         <button class="tab-button" onclick="openTab('tab-scanner', this)">SKENER (Kamera)</button>
         <button class="tab-button" onclick="openTab('tab-leaderboard', this)">SÍŇ SLÁVY</button>
         <button class="utility-button" onclick="toggleCipherPanel()">ŠIFROVACÍ POMŮCKY</button>
@@ -659,6 +658,7 @@
                     > <span id="typing-text">Systém zpracovává</span><span>.</span><span>.</span><span>.</span>
                 </div>
                 <div id="team-sokoban-intercom" class="team-sokoban-intercom"></div>
+                <div id="phase-hint-actions" class="puzzle-actions"></div>
                 
                 <div class="controls">
                     <input type="text" id="msgInput" placeholder="Zadej zprávu do aktivního kanálu..." onkeypress="if(event.key === 'Enter') sendMsg()" />
@@ -691,33 +691,6 @@
                 > Neověřené oblasti CHRONOMAPY budou doplněny po průzkumu hotelu.
             </p>
             <section id="online-map-actions" class="demo-scanner-panel" style="margin-top:14px"></section>
-        </div>
-    </div>
-
-    <div id="tab-room" class="tab-content">
-        <h2>[ PŘÍSTUPOVÝ PANEL - DVEŘE 104 ]</h2>
-        <div id="room-104-clue" class="puzzle-card" style="display:none; max-width:520px; margin:0 auto 14px; text-align:center">
-            <strong>[ SERVISNÍ OTISK PANELU ]</strong>
-            <p style="font-size:1.35rem; letter-spacing:.2em">I &nbsp;|&nbsp; X &nbsp;|&nbsp; IV</p>
-            <p>Každá oddělená skupina tvoří jednu část čtyřmístného přístupového kódu.</p>
-            <button onclick="requestRoomHint('104')">NÁPOVĚDA K PANELU</button>
-        </div>
-        <div class="numpad-container">
-            <div id="numpad-display" class="numpad-display">_</div>
-            <div class="numpad-grid">
-                <button class="numpad-btn" onclick="pressPin('1')">1</button>
-                <button class="numpad-btn" onclick="pressPin('2')">2</button>
-                <button class="numpad-btn" onclick="pressPin('3')">3</button>
-                <button class="numpad-btn" onclick="pressPin('4')">4</button>
-                <button class="numpad-btn" onclick="pressPin('5')">5</button>
-                <button class="numpad-btn" onclick="pressPin('6')">6</button>
-                <button class="numpad-btn" onclick="pressPin('7')">7</button>
-                <button class="numpad-btn" onclick="pressPin('8')">8</button>
-                <button class="numpad-btn" onclick="pressPin('9')">9</button>
-                <button class="numpad-btn action clear" onclick="clearPin()">CLR</button>
-                <button class="numpad-btn" onclick="pressPin('0')">0</button>
-                <button class="numpad-btn action enter" onclick="submitPin()">ENT</button>
-            </div>
         </div>
     </div>
 
@@ -778,6 +751,7 @@
         let currentPin = '';
         let cipherToolsState = [];
         let puzzlesState = [];
+        let phaseHintsState = null;
         let selectedLineCell = null;
         let selectedTriadSymbol = 'cyan';
         let pendingSokobanAnimation = null;
@@ -1776,6 +1750,8 @@
                 }
                 else if (msg.type === 'game.state') {
                     const flags = msg.payload.flags || {};
+                    phaseHintsState = msg.payload.phase_hints || null;
+                    renderPhaseHintButtons();
                     cipherToolsState = msg.payload.cipher_tools || [];
                     const incomingPuzzles = msg.payload.puzzles || [];
                     if (pendingSokobanAnimation) {
@@ -1802,8 +1778,6 @@
                         room104.style.borderColor = '#0f0';
                         room104.style.color = '#0f0';
                     }
-                    const room104Clue = document.getElementById('room-104-clue');
-                    if (room104Clue) room104Clue.style.display = flags.reception_archive_unlocked ? 'block' : 'none';
                     const chronomapButton = document.getElementById('chronomap-tab-button');
                     if (flags.chronomap_unlocked) {
                         chronomapButton.disabled = false;
@@ -2052,6 +2026,40 @@
             button.classList.toggle('has-unread', total > 0);
         }
 
+        function renderHintButtons(puzzle) {
+            if (!puzzle.has_hints) return '';
+            const unlocked = Number(puzzle.hints_unlocked || 0);
+            return `<div class="puzzle-actions">${Array.from({length:Number(puzzle.hint_count || 0)}, (_, index) => {
+                const acquired = index < unlocked;
+                const available = index <= unlocked;
+                const cost = Number((puzzle.hint_costs || [])[index] || 0);
+                return `<button onclick="requestStaticHint('${escapeHtml(puzzle.id)}',${index},'${escapeHtml(puzzle.type)}','${escapeHtml(puzzle.room_id || '')}')" ${available ? '' : 'disabled'}>NÁPOVĚDA ${index + 1}${acquired ? ' · ZNOVU ZDARMA' : ` · −${cost} B`}</button>`;
+            }).join('')}</div>`;
+        }
+
+        function renderPhaseHintButtons() {
+            const container = document.getElementById('phase-hint-actions');
+            if (!container || !phaseHintsState || !Number(phaseHintsState.count)) { if (container) container.innerHTML = ''; return; }
+            const unlocked = Number(phaseHintsState.unlocked || 0);
+            container.innerHTML = Array.from({length:Number(phaseHintsState.count)}, (_, index) => {
+                const acquired = index < unlocked;
+                const available = index <= unlocked;
+                const cost = Number((phaseHintsState.costs || [])[index] || 0);
+                return `<button onclick="requestPhaseHint(${index})" ${available ? '' : 'disabled'}>NÁPOVĚDA ${index + 1}${acquired ? ' · ZNOVU ZDARMA' : ` · −${cost} B`}</button>`;
+            }).join('');
+        }
+
+        function requestPhaseHint(hintIndex) {
+            const acquired = hintIndex < Number(phaseHintsState?.unlocked || 0);
+            const cost = Number((phaseHintsState?.costs || [])[hintIndex] || 0);
+            if (!acquired && !window.confirm(`Odemknout nápovědu ${hintIndex + 1} za ${cost} bodů?`)) return;
+            if (ws?.readyState === WebSocket.OPEN) ws.send(JSON.stringify({type:'phase.hint', payload:{phase_id:phaseHintsState.phase_id, hint_index:hintIndex}}));
+        }
+
+        function renderRoomPin(puzzle) {
+            return `<div class="room-puzzle"><p style="white-space:pre-wrap;text-align:center">${escapeHtml(puzzle.instructions)}</p><div class="numpad-container"><div id="numpad-display" class="numpad-display">_</div><div class="numpad-grid">${['1','2','3','4','5','6','7','8','9'].map(number => `<button class="numpad-btn" onclick="pressPin('${number}')">${number}</button>`).join('')}<button class="numpad-btn action clear" onclick="clearPin()">CLR</button><button class="numpad-btn" onclick="pressPin('0')">0</button><button class="numpad-btn action enter" onclick="submitPin()">ENT</button></div></div>${renderHintButtons(puzzle)}</div>`;
+        }
+
         function renderPuzzles() {
             const container = document.getElementById('puzzle-container');
             const tabButton = document.getElementById('puzzles-tab-button');
@@ -2073,7 +2081,7 @@
                 const solved = puzzle.status === 'solved';
                 const interactiveGame = puzzle.type === 'line_game'
                     ? renderLineGame(puzzle, solved)
-                    : (puzzle.type === 'sokoban' ? renderSokoban(puzzle, solved) : (puzzle.type === 'mine_karel' ? renderMineKarel(puzzle, solved) : (puzzle.type === 'triad' ? renderTriad(puzzle, solved) : (puzzle.type === 'finale' ? renderFinale(puzzle, solved) : (puzzle.type === 'archive_vector' ? renderArchiveVector(puzzle, solved) : '')))));
+                    : (puzzle.type === 'sokoban' ? renderSokoban(puzzle, solved) : (puzzle.type === 'mine_karel' ? renderMineKarel(puzzle, solved) : (puzzle.type === 'triad' ? renderTriad(puzzle, solved) : (puzzle.type === 'finale' ? renderFinale(puzzle, solved) : (puzzle.type === 'archive_vector' ? renderArchiveVector(puzzle, solved) : (puzzle.type === 'room_pin' ? renderRoomPin(puzzle) : ''))))));
                 return `<article class="puzzle-card">
                     <h3>${escapeHtml(puzzle.title)}</h3>
                     <p>${escapeHtml(puzzle.instructions)}</p>
@@ -2083,7 +2091,7 @@
                     ${interactiveGame || (solved
                         ? '<p class="puzzle-status solved">HÁDANKA VYŘEŠENA · CHECKPOINT POTVRZEN</p>'
                         : `<div class="puzzle-answer"><input id="puzzle-answer-${escapeHtml(puzzle.id)}" maxlength="80" autocomplete="off" placeholder="ODPOVĚĎ / KÓD"><button onclick="submitPuzzle('${escapeHtml(puzzle.id)}')">OVĚŘIT</button></div>
-                           <div class="puzzle-actions">${puzzle.has_hints ? `<button onclick="requestPuzzleHint('${escapeHtml(puzzle.id)}')">DALŠÍ NÁPOVĚDA</button>` : ''}<span>Pokusy: ${puzzle.attempts || 0}</span></div>`)}
+                           ${renderHintButtons(puzzle)}<div class="puzzle-actions"><span>Pokusy: ${puzzle.attempts || 0}</span></div>`)}
                 </article>`;
             }).join('');
             updateTeamSokobanIntercomControls();
@@ -2106,7 +2114,7 @@
                 return `<div class="archive-card-wrap"><div class="archive-card ${escapeHtml(card.color)}" style="transform:rotate(${rotation}deg)" aria-label="${escapeHtml(card.label)}, natočení ${rotation} stupňů"><strong>${escapeHtml(card.icon)}</strong></div><small>${escapeHtml(card.label)}</small><div class="archive-card-controls"><button onclick="arrangeArchiveCard('${escapeHtml(puzzle.id)}','${escapeHtml(cardId)}','left')" aria-label="Posunout vlevo">←</button><button onclick="arrangeArchiveCard('${escapeHtml(puzzle.id)}','${escapeHtml(cardId)}','rotate')" aria-label="Otočit">↻</button><button onclick="arrangeArchiveCard('${escapeHtml(puzzle.id)}','${escapeHtml(cardId)}','right')" aria-label="Posunout vpravo">→</button></div></div>`;
             }).join('');
             const reveal = game.assembled ? `<div class="archive-reveal"><small>ODHALENÝ KLÍČ</small><div class="archive-key">${escapeHtml(game.revealed_key)}</div><p><strong>POŘADÍ MODULŮ:</strong> ${game.module_order.map(escapeHtml).join(' → ')}</p></div><h4>ZACHYCENÝ PŘENOS</h4><div class="archive-ciphertext">${escapeHtml(puzzle.ciphertext)}</div><div class="puzzle-answer"><input id="puzzle-answer-${escapeHtml(puzzle.id)}" maxlength="100" autocomplete="off" placeholder="CELÝ DEŠIFROVANÝ TEXT"><button onclick="submitPuzzle('${escapeHtml(puzzle.id)}')">OVĚŘIT</button></div>` : '<p class="cipher-note">Křivka ani stupnice zatím nenavazují.</p>';
-            return `<div class="archive-assembly"><div class="archive-cards">${cards}</div><p>TAHY: ${Number(game.moves)}</p>${reveal}<div class="puzzle-actions">${puzzle.has_hints ? `<button onclick="requestPuzzleHint('${escapeHtml(puzzle.id)}')">DALŠÍ NÁPOVĚDA</button>` : ''}<span>Pokusy: ${puzzle.attempts || 0}</span></div></div>`;
+            return `<div class="archive-assembly"><div class="archive-cards">${cards}</div><p>TAHY: ${Number(game.moves)}</p>${reveal}${renderHintButtons(puzzle)}<div class="puzzle-actions"><span>Pokusy: ${puzzle.attempts || 0}</span></div></div>`;
         }
 
         function arrangeArchiveCard(puzzleId, cardId, action) {
@@ -2434,10 +2442,15 @@
             ws.send(JSON.stringify({type: 'puzzle.submit', payload: {puzzle_id: puzzleId, answer}}));
         }
 
-        function requestPuzzleHint(puzzleId) {
-            if (!window.confirm('Zobrazit další nápovědu? Při prvním zobrazení tohoto stupně se odečtou body.')) return;
+        function requestStaticHint(puzzleId, hintIndex, puzzleType, roomId) {
+            const puzzle = puzzlesState.find(item => item.id === puzzleId);
+            const acquired = hintIndex < Number(puzzle?.hints_unlocked || 0);
+            const cost = Number((puzzle?.hint_costs || [])[hintIndex] || 0);
+            if (!acquired && !window.confirm(`Odemknout nápovědu ${hintIndex + 1} za ${cost} bodů?`)) return;
             if (!ws || ws.readyState !== WebSocket.OPEN) { showNotification('Terminál není připojen.', 'error'); return; }
-            ws.send(JSON.stringify({type: 'puzzle.hint', payload: {puzzle_id: puzzleId}}));
+            const type = puzzleType === 'room_pin' ? 'room.hint' : 'puzzle.hint';
+            const payload = puzzleType === 'room_pin' ? {room_id:roomId, hint_index:hintIndex} : {puzzle_id:puzzleId, hint_index:hintIndex};
+            ws.send(JSON.stringify({type, payload}));
         }
 
         // --- LOGIKA OPTICKÉHO SKENERU ---

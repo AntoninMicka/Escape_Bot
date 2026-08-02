@@ -153,6 +153,9 @@ class StateMachineCheckpointTests(unittest.IsolatedAsyncioTestCase):
         self.assertNotIn("Tři skupiny", self.response(locked, "bot.message").payload["text"])
 
         await self.solve_reception()
+        room_puzzle = next(item for item in self.machine._puzzle_state() if item["id"] == "room_104_panel")
+        self.assertEqual(room_puzzle["type"], "room_pin")
+        self.assertEqual(room_puzzle["hint_count"], 3)
         score_before = self.machine.state.score
         hint = await self.machine.handle(Message("room.hint", {"room_id": "104"}))
         self.assertIn("Tři skupiny", self.response(hint, "bot.message").payload["text"])
@@ -230,6 +233,15 @@ class StateMachineCheckpointTests(unittest.IsolatedAsyncioTestCase):
         self.assertNotIn("734", message)
         self.assertNotIn("734", self.scenario.data["scenario_flow"][1]["label"])
 
+        state = self.machine._state_message().payload["phase_hints"]
+        self.assertEqual(state["count"], 3)
+        first = await self.machine.handle(Message("phase.hint", {"phase_id": "searching_lost", "hint_index": 0}))
+        score_after_unlock = self.machine.state.score
+        repeated = await self.machine.handle(Message("phase.hint", {"phase_id": "searching_lost", "hint_index": 0}))
+        self.assertEqual(self.machine.state.score, score_after_unlock)
+        self.assertIn("Každá skupina", self.response(first, "bot.message").payload["text"])
+        self.assertIn("Každá skupina", self.response(repeated, "bot.message").payload["text"])
+
     async def test_first_checkpoint_requires_navigating_phase(self) -> None:
         self.machine.state.phase = GamePhase.SEARCHING_LOST
         responses = await self.scan("reception_archive")
@@ -260,10 +272,14 @@ class StateMachineCheckpointTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_reception_hint_charges_each_level_only_once(self) -> None:
         await self.scan("reception_archive")
-        await self.machine.handle(Message("puzzle.hint", {"puzzle_id": "reception_deduction"}))
+        await self.machine.handle(Message("puzzle.hint", {"puzzle_id": "reception_deduction", "hint_index": 0}))
+        await self.machine.handle(Message("puzzle.hint", {"puzzle_id": "reception_deduction", "hint_index": 0}))
 
         self.assertEqual(self.machine.state.score, 990)
         self.assertEqual(self.machine.state.hints_used["puzzle.reception_deduction"], 1)
+
+        locked = await self.machine.handle(Message("puzzle.hint", {"puzzle_id": "reception_deduction", "hint_index": 2}))
+        self.assertIn("předchozí", self.response(locked, "error").payload["message"])
 
     async def test_staircase_puzzle_unlocks_bowling_checkpoint(self) -> None:
         await self.solve_reception()
@@ -284,19 +300,25 @@ class StateMachineCheckpointTests(unittest.IsolatedAsyncioTestCase):
         allowed = await self.scan("bowling_diagnostics")
         self.assertTrue(self.response(allowed, "qr.result").payload["accepted"])
 
-    async def test_staircase_puzzle_has_no_hints(self) -> None:
+    async def test_staircase_puzzle_has_three_hints(self) -> None:
         await self.solve_reception()
         await self.scan("staircase_signal")
         puzzle_state = next(item for item in self.machine._puzzle_state() if item["id"] == "staircase_semaphore")
-        self.assertFalse(puzzle_state["has_hints"])
+        self.assertTrue(puzzle_state["has_hints"])
+        self.assertEqual(puzzle_state["hint_count"], 3)
         self.assertEqual(puzzle_state["image"], "assets/puzzles/elara-clock-gallery.png")
         self.assertEqual(puzzle_state["categories"], {})
         self.assertEqual(puzzle_state["clues"], [])
 
-        responses = await self.machine.handle(Message("puzzle.hint", {"puzzle_id": "staircase_semaphore"}))
-        error = self.response(responses, "error")
-        self.assertIn("Nejsou dostupné", error.payload["message"])
-        self.assertEqual(self.machine.state.score, 1000)
+        responses = await self.machine.handle(Message("puzzle.hint", {"puzzle_id": "staircase_semaphore", "hint_index": 0}))
+        self.assertIn("ručiček", self.response(responses, "bot.message").payload["text"])
+        self.assertEqual(self.machine.state.score, 990)
+
+    def test_every_cipher_puzzle_has_exactly_three_hints(self) -> None:
+        cipher_types = {"semaphore", "binary_image", "morse_image", "pigpen", "archive_vector"}
+        cipher_puzzles = [puzzle for puzzle in self.scenario.data["puzzles"].values() if puzzle.get("type") in cipher_types]
+        self.assertTrue(cipher_puzzles)
+        self.assertTrue(all(len(puzzle.get("hints", [])) == 3 for puzzle in cipher_puzzles))
 
     async def test_bowling_binary_puzzle_awards_temporal_motor(self) -> None:
         await self.solve_staircase()
@@ -319,14 +341,15 @@ class StateMachineCheckpointTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn("TEMPORÁLNÍ MOTOR", self.machine.state.inventory)
         self.assertTrue(self.machine.state.flags["temporal_motor_recovered"])
 
-    async def test_bowling_puzzle_is_image_only_and_has_no_hints(self) -> None:
+    async def test_bowling_puzzle_is_image_only_and_has_three_hints(self) -> None:
         await self.solve_staircase()
         await self.solve_karel()
         await self.scan("bowling_diagnostics")
         puzzle_state = next(item for item in self.machine._puzzle_state() if item["id"] == "bowling_binary")
 
         self.assertEqual(puzzle_state["image"], "assets/puzzles/bowling-binary-motor-v3.png")
-        self.assertFalse(puzzle_state["has_hints"])
+        self.assertTrue(puzzle_state["has_hints"])
+        self.assertEqual(puzzle_state["hint_count"], 3)
         self.assertEqual(puzzle_state["categories"], {})
         self.assertEqual(puzzle_state["clues"], [])
 
@@ -353,7 +376,7 @@ class StateMachineCheckpointTests(unittest.IsolatedAsyncioTestCase):
         sports = await self.scan("sports_archive")
         self.assertFalse(self.response(sports, "qr.result").payload["accepted"])
 
-    async def test_terrace_puzzle_is_image_only_and_has_no_hints(self) -> None:
+    async def test_terrace_puzzle_is_image_only_and_has_three_hints(self) -> None:
         await self.unlock_timeline_game()
         game = self.prepare_five_match(); game["progress"] = {"3": 5, "4": 3, "5": 0}
         await self.line_swap([0, 4], [1, 4])
@@ -361,7 +384,8 @@ class StateMachineCheckpointTests(unittest.IsolatedAsyncioTestCase):
         puzzle_state = next(item for item in self.machine._puzzle_state() if item["id"] == "terrace_morse")
 
         self.assertEqual(puzzle_state["image"], "assets/puzzles/terrace-morse-cats-hriste-v2.png")
-        self.assertFalse(puzzle_state["has_hints"])
+        self.assertTrue(puzzle_state["has_hints"])
+        self.assertEqual(puzzle_state["hint_count"], 3)
         self.assertEqual(puzzle_state["categories"], {})
         self.assertEqual(puzzle_state["clues"], [])
 

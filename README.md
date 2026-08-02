@@ -7,7 +7,7 @@ Escape Bot je lokální ARG/escape-room systém s odlehčeným webovým frontend
 - Backend sloužící jako herní State Machine a komunikační centrum (WebSockets / HTTP).
 - HTML/JS/CSS webový interkom (náhrada za složitý nativní klient) pro snadné nasazení na iPady a počítače v místnosti.
 - Scénář "Ztracená v čase" pro Hotel Kraskov – oprava stroje času pomocí logických hádanek, fyzických artefaktů a QR checkpointů.
-- Adaptéry pro Ollama a ComfyUI bez pevné vazby na konkrétní workflow.
+- Volitelné adaptéry pro Ollama a ComfyUI bez vlivu na deterministický herní průchod; LLM se zapíná pouze explicitně přes `ESCAPEBOT_LLM_ENABLED=1`.
 - Základní ARG verifikace fyzických objevů.
 - Připravené místo pro CRT/glitch shadery a zvukové události.
 

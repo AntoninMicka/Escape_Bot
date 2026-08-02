@@ -129,9 +129,10 @@ async def lifespan(app: FastAPI):
     load_runtime_settings()
     # 1. Načtení uložených stavů her z předchozího běhu
     load_sessions(scenario)
-    # 2. Kontrola AI modelů na pozadí 
-    ai_checker = OllamaAdapter()
-    asyncio.create_task(ai_checker.ensure_model())
+    # Volitelný experiment; produkční hra ani start serveru LLM nevyžadují.
+    if os.getenv("ESCAPEBOT_LLM_ENABLED", "").lower() in {"1", "true", "yes", "on"}:
+        ai_checker = OllamaAdapter()
+        asyncio.create_task(ai_checker.ensure_model())
     yield
 
 # --- Inicializace FastAPI ---

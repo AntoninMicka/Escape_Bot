@@ -191,7 +191,12 @@
       "answer": "BOWLING",
       "admin_solution": "BOWLING (B–O–W–L–I–N–G)",
       "success_message": {"text": "Signál přeložen: BOWLING. Chronomapa zachytila diagnostické impulzy v prostoru kuželek.", "mood": "success", "channel": "lost"},
-      "failure_message": {"text": "Archivní systém v nalezeném souboru tuto odpověď nepotvrzuje.", "mood": "error", "channel": "general"}
+      "failure_message": {"text": "Archivní systém v nalezeném souboru tuto odpověď nepotvrzuje.", "mood": "error", "channel": "general"},
+      "hints": [
+        {"text": "Sledujte dvojice barevných ručiček a zachovejte pořadí snímků.", "penalty": 10},
+        {"text": "Každá dvojice poloh představuje jedno písmeno v praporové abecedě dostupné v pomůckách.", "penalty": 20},
+        {"text": "Sedm znaků dává navigační slovo BOWLING.", "penalty": 35}
+      ]
     },
     "bowling_binary": {
       "title": "Diagnostika kuželkového pole",
@@ -202,7 +207,12 @@
       "answer": "MOTOR",
       "admin_solution": "MOTOR – sedmibitové ASCII v označených řadách 4+3: 1001101 1001111 1010100 1001111 1010010; přední řady 2+1 jsou šum",
       "success_message": {"text": "Diagnostická sekvence potvrzena: MOTOR. TEMPORÁLNÍ MOTOR je znovu synchronizován s terminálem.", "mood": "success", "channel": "general"},
-      "failure_message": {"text": "Diagnostická sekvence tomuto označení součásti neodpovídá.", "mood": "error", "channel": "general"}
+      "failure_message": {"text": "Diagnostická sekvence tomuto označení součásti neodpovídá.", "mood": "error", "channel": "general"},
+      "hints": [
+        {"text": "V každém snímku použijte pouze označené řady 4 + 3; přední řady jsou obrazový šum.", "penalty": 10},
+        {"text": "Stojící kuželka znamená 1 a prázdný obrys 0. Každý snímek vytvoří sedm bitů.", "penalty": 20},
+        {"text": "Pět sedmibitových ASCII znaků dává slovo MOTOR.", "penalty": 35}
+      ]
     },
     "terrace_morse": {
       "title": "Chronální ozvěna u vody",
@@ -214,7 +224,12 @@
       "answers": ["HRISTE", "HŘIŠTĚ"],
       "admin_solution": "HŘIŠTĚ – kotě = tečka, dospělá kočka = čárka; .... / .-. / .. / ... / - / .",
       "success_message": {"text": "Světelný přenos potvrzen: HŘIŠTĚ. FÁZOVÝ STABILIZÁTOR se synchronizoval a Chronomapa označila sportovní areál.", "mood": "success", "channel": "lost"},
-      "failure_message": {"text": "Chronální přenos tuto cílovou lokaci nepotvrzuje.", "mood": "error", "channel": "general"}
+      "failure_message": {"text": "Chronální přenos tuto cílovou lokaci nepotvrzuje.", "mood": "error", "channel": "general"},
+      "hints": [
+        {"text": "Rozdělte zvířata do skupin podle větších mezer a zachovejte jejich pořadí.", "penalty": 10},
+        {"text": "Kotě představuje krátký pulz a dospělá kočka dlouhý pulz; použijte odpovídající tabulku.", "penalty": 20},
+        {"text": "Sekvence se překládá jako HŘIŠTĚ.", "penalty": 35}
+      ]
     },
     "timeline_lines": {
       "title": "Kalibrace časové osy",
@@ -318,7 +333,8 @@
       "failure_message": {"text": "Archivní otisk tuto odpověď nepotvrzuje.", "mood": "error", "channel": "general"},
       "hints": [
         {"text": "V Šifrovacích pomůckách je grafická tabulka používající stejné rohy, kříže a klíny.", "penalty": 15},
-        {"text": "Jde o malý polský kříž. Čtěte znaky zleva doprava; výsledkem je objekt v hotelu, který ukazuje čas.", "penalty": 30}
+        {"text": "Jde o malý polský kříž. Čtěte znaky zleva doprava; výsledkem je objekt v hotelu, který ukazuje čas.", "penalty": 30},
+        {"text": "Poškozený otisk ukrývá slovo HODINY.", "penalty": 45}
       ]
     },
     "future_archive_cipher": {
