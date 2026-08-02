@@ -1,7 +1,25 @@
 {
   "id": "kraskov_time_rescue",
   "title": "Ztracená v čase: Hotel Kraskov",
-  "knowledge_base": "Děj se odehrává v Hotelu Kraskov. Doktorka Elara je vědkyně, která při havárii prototypu stroje času uvízla v jiné časové vrstvě stejného hotelu. Hráči s ní komunikují přes poškozený interkom. Aby ji vrátili, musí aktivovat časové kotvy rozmístěné po hotelu a okolí a získat tři součásti stroje: Temporální motor, Fázový stabilizátor a Krystal časové kotvy. Chronomapa zaznamenává jejich postup. Elara nesmí tvrdit, že je v jiné budově nebo dimenzi; je na stejném místě v jiném čase.",
+  "knowledge_base": "Děj se odehrává v Hotelu Kraskov. Doktorka Elara při havárii prototypu stroje času uvízla v budoucí časové vrstvě stejného hotelu; není v jiné budově, dimenzi ani kopii světa. Hráči z přítomnosti s ní komunikují přes poškozený interkom, který přenáší pouze zvuk a data, nikoli osoby nebo předměty. Časové kotvy vytvářejí krátká stabilní spojení mezi shodnými místy obou časů. Havárie vytrhla do přítomnosti tři součásti stroje: Temporální motor, Fázový stabilizátor a Krystal časové kotvy. Aktivované kotvy a všechny tři díly jsou nutné k jedinému bezpečnému návratu Elary. Již stabilizované události se nepřepisují, nevznikají duplikáty osob a Elara nemůže měnit minulost hráčů. Chronomapa zaznamenává stabilní body a navádí tým v jeho přítomnosti.",
+  "time_travel_rules": [
+    "Existuje jedna historie a několik dočasně rozladěných časových vrstev téhož místa; nejde o paralelní dimenze.",
+    "Elara i tým zůstávají v Hotelu Kraskov, každý v jiném čase. Poloha v hotelu se mezi vrstvami prostorově shoduje.",
+    "Interkom přenáší mezi vrstvami pouze zvuk a data. Osoby ani běžné předměty jím projít nemohou.",
+    "Časová kotva dočasně stabilizuje konkrétní místo a dovolí přesnější komunikaci a čtení stop, sama však neotevře průchod.",
+    "Havárie přenesla do přítomnosti pouze tři součásti, které byly uvnitř aktivního pole stroje. Nevznikly jejich kopie.",
+    "Stabilizované události jsou součástí jedné historie a nelze je zpětně přepsat; hra nepoužívá změny minulosti ani paradoxy.",
+    "Bezpečný návrat Elary je možný pouze jednou, po aktivaci kotev a sestavení Temporálního motoru, Fázového stabilizátoru a Krystalu časové kotvy."
+  ],
+  "story_timeline": [
+    {"id": "experiment_preparation", "when": "T−30 dní až T−1 den", "text": "Elara v Hotelu Kraskov připravuje projekt CHRONOS a rozmísťuje diagnostické body budoucích časových kotev."},
+    {"id": "accident", "when": "T0", "text": "Při první plné aktivaci se rozladí fázový stabilizátor. Elara je odtržena do budoucí vrstvy hotelu a tři součásti stroje jsou vymrštěny do přítomnosti."},
+    {"id": "captain_contact", "when": "T0 + několik minut", "text": "Kapitánka obnoví nouzový interkom. Tým rozluští nosnou frekvenci 734 a zachytí Elaru."},
+    {"id": "signal_failure", "when": "T0 + první kontakt", "text": "Nestabilní chronosignál se zhroutí. Tým z diagnostického výpisu odvodí obnovovací příkaz a spustí CHRONOMAPU."},
+    {"id": "anchor_route", "when": "Průběh mise", "text": "Tým v přítomnosti aktivuje kotvy od recepce přes hotel a venkovní areál; Elara se pohybuje po stejných místech ve své časové vrstvě."},
+    {"id": "machine_reassembly", "when": "Závěr mise", "text": "Tým shromáždí Temporální motor, Fázový stabilizátor a Krystal časové kotvy a vloží je do finální konzole."},
+    {"id": "return", "when": "Finále", "text": "Síť kotev vytvoří jediný stabilní návratový koridor. Elara se vrátí do přítomnosti a koridor se bezpečně uzavře."}
+  ],
   "characters": {
     "captain": {
       "avatar_prompt": "sci-fi female spaceship captain portrait, confident, dark cyberpunk background, highly detailed concept art"
@@ -70,7 +88,7 @@
         "channel": "lost"
       },
       "error_message": {
-        "text": "SYSTEM ERROR: Spojení ztraceno. Proveďte tvrdý restart (napište 'restart').",
+        "text": "SYSTEM ERROR: CHRONOSIGNÁL ZTRACEN\n\nRozhraní interkomu neodpovídá.\nEnergetická smyčka byla přerušena.\nSynchronizace časových vrstev selhala.\nTerminál čeká na obnovovací příkaz.\nAktivní kanál nelze znovu naladit.\nRežim CHRONOMAPY zůstává uzamčen.\nTransmise byla pozastavena.\n\nZadejte jednoslovný obnovovací příkaz.",
         "mood": "error",
         "channel": "general"
       }
@@ -78,22 +96,23 @@
     "connection_lost": {
       "success_keyword": "restart",
       "success_message": {
-         "text": "Uf, jsem zpět! Už tomu rozumím: nejsem v jiné budově, ale v jiné časové vrstvě Kraskova. Havárie rozptýlila součásti stroje ve vašem čase. CHRONOMAPA je znovu online, ale její záznamy jsou poškozené. Zkuste v nich najít první použitelnou stopu.",
+         "text": "Uf, jsem zpět! Už tomu rozumím: jsme ve stejném Kraskově, ale já jsem uvázla v jeho budoucí časové vrstvě. Interkom přenese jen hlas a data; ven mě dostane až stabilní koridor. Havárie vymrštila tři součásti stroje do vašeho času. CHRONOMAPA je znovu online — najděte její první stabilní bod u recepčního archivu.",
          "mood": "alert",
          "channel": "lost"
       },
       "hints": [
-        {"text": "Systém jasně hlásil, že musíš provést tvrdý restart.", "penalty": 10},
-        {"text": "Jednoduše do komunikátoru napiš slovo 'restart'.", "penalty": 20}
+        {"text": "Diagnostika má sedm řádků a hledaný příkaz má sedm písmen.", "penalty": 10},
+        {"text": "Přečti první písmena diagnostických řádků shora dolů.", "penalty": 20},
+        {"text": "Obnovovací příkaz je RESTART.", "penalty": 40}
       ],
       "fail_message": {
-         "text": "SYSTEM ERROR: Spojení nelze navázat. Zadejte 'restart'.",
+         "text": "SYSTEM ERROR: Neznámý obnovovací příkaz. Diagnostický výpis obsahuje sedm řádků; terminál dál čeká.",
          "mood": "error",
          "channel": "general"
       }
     },
     "navigating": {
-      "ai_system_prompt": "Jsi doktorka Elara, vědkyně uvězněná v jiné časové vrstvě Hotelu Kraskov po havárii stroje času. Hráči se s tebou spojili přes interkom a hledají součásti stroje ve svém čase. Odpovídej vždy česky, krátce (max 2-3 věty), napjatě, ale jako schopná vědkyně. Nevymýšlej nové lokace ani řešení hádanek. Jsi ve stejném hotelu, ne v jiné dimenzi.",
+      "ai_system_prompt": "Jsi doktorka Elara, vědkyně uvězněná v budoucí časové vrstvě Hotelu Kraskov po havárii stroje času. Hráči jsou v přítomnosti téhož hotelu. Interkom přenáší jen zvuk a data. Odpovídej vždy česky, krátce (max 2-3 věty), napjatě, ale jako schopná vědkyně. Dodržuj znalostní bázi, nevymýšlej nové lokace, paralelní dimenze, cestování před havárii ani řešení hádanek.",
       "default_message": {
         "text": "Slyším tě: '{text}'. Musíme znovu sestavit stroj a sladit naše časové vrstvy.",
         "mood": "alert",

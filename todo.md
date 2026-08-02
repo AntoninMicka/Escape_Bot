@@ -188,8 +188,8 @@
 - [x] Upravit roli Elary na věkyni ztracenou v jiné časové vrstvě stejného hotelu.
 - [x] Po prvním spojení odhalit, že experiment rozptýlil součásti stroje času po hotelu a okolí.
 - [x] Přejmenovat herní mapu na `CHRONOMAPA` a QR checkpointy na `časové kotvy`.
-- [ ] Definovat pravidla cestování časem, aby byly konzistentní v dialozích i hádankách.
-- [ ] Napsat časovou osu Elařina experimentu, havárie a návratu.
+- [x] Definovat pravidla cestování časem, aby byly konzistentní v dialozích i hádankách.
+- [x] Napsat časovou osu Elařina experimentu, havárie a návratu.
 - [x] Nahradit odkazy na Hotel Overlook, dimenzionální krystaly a portál terminologií stroje času.
 
 ### 13.2 Trasa a dostupné prostory
@@ -206,7 +206,7 @@
 ### 13.3 Checkpoint 0 – Havárie experimentu
 **Místo:** startovní konferenční místnost.
 - [x] Dokončit hádanku vedoucí k frekvenci `734`.
-- [ ] Zachovat první výpadek spojení a příkaz `restart`.
+- [x] Zachovat první výpadek spojení a příkaz `restart`.
 - [x] Napsat Elařino odhalení, že se nachází ve stejném hotelu, ale v jiném čase.
 - [x] Po restartu odemknout modul `CHRONOMAPA`.
 - [x] Zpřístupnit první indicii vedoucí na recepci.

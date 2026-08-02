@@ -168,6 +168,23 @@ class StateMachineCheckpointTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(self.machine.state.phase, GamePhase.NAVIGATING)
         self.assertTrue(self.machine.state.flags["chronomap_unlocked"])
 
+    async def test_connection_failure_contains_restart_riddle_without_answer(self) -> None:
+        self.machine.state.phase = GamePhase.LOST_CONNECTED
+        responses = await self.machine.handle(Message("player.message", {"text": "Slyšíme."}))
+        diagnostic = self.response(responses, "error") if any(item.type == "error" for item in responses) else next(item for item in responses if item.payload.get("mood") == "error")
+        text = diagnostic.payload["text"]
+        lines = [line for line in text.splitlines() if line and not line.startswith("SYSTEM") and not line.startswith("Zadejte")]
+
+        self.assertEqual("".join(line[0] for line in lines), "RESTART")
+        self.assertNotIn("restart", text.casefold())
+
+    def test_story_bible_data_defines_timeline_and_time_travel_rules(self) -> None:
+        self.assertGreaterEqual(len(self.scenario.data["time_travel_rules"]), 7)
+        timeline_ids = {item["id"] for item in self.scenario.data["story_timeline"]}
+        self.assertIn("accident", timeline_ids)
+        self.assertIn("return", timeline_ids)
+        self.assertIn("není v jiné budově, dimenzi", self.scenario.data["knowledge_base"])
+
     def test_demo_catalog_contains_every_checkpoint_in_scenario_order(self) -> None:
         catalog = build_demo_checkpoint_catalog(self.scenario)
 
