@@ -351,6 +351,8 @@
         .morse-pulse { display: inline-block; height: 10px; background: #6ff; box-shadow: 0 0 7px #0cc; }
         .morse-pulse.dot { width: 10px; border-radius: 50%; }
         .morse-pulse.dash { width: 30px; border-radius: 5px; }
+        .pigpen-grid { grid-template-columns: repeat(auto-fit, minmax(92px, 1fr)); }
+        .pigpen-glyph { width: 72px; height: 72px; margin: 5px auto 0; }
         .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
         .tool-unlock-box { border: 1px dashed #a80; color: #fc0; padding: 15px; }
         .tool-unlock-box button { margin-top: 10px; background: #fc0; }
@@ -791,6 +793,34 @@
             return `<svg class="cipher-diagram" viewBox="0 0 850 205" role="img" aria-label="Tradiční tabulky malého polského kříže: dvě mřížky a dva kříže"><g fill="none" stroke="#101718" stroke-width="3"><path d="M70 15V195M130 15V195M10 75H190M10 135H190M280 15V195M340 15V195M220 75H400M220 135H400"/><path d="M450 15L630 195M630 15L450 195M660 15L840 195M840 15L660 195"/></g><g fill="#101718" font-family="monospace" font-size="17">${gridLetters(65, 0, false)}${gridLetters(74, 210, true)}${wedge(['S','T','U','V'],450,false)}${wedge(['W','X','Y','Z'],660,true)}</g></svg>`;
         }
 
+        function pigpenGlyph(letter) {
+            const code = letter.charCodeAt(0);
+            let paths = '', dotted = false;
+            if (code <= 82) {
+                const index = code <= 73 ? code - 65 : code - 74;
+                dotted = code >= 74;
+                const row = Math.floor(index / 3), column = index % 3;
+                if (row > 0) paths += '<path d="M20 20H60"/>';
+                if (row < 2) paths += '<path d="M20 60H60"/>';
+                if (column > 0) paths += '<path d="M20 20V60"/>';
+                if (column < 2) paths += '<path d="M60 20V60"/>';
+            } else {
+                const index = code <= 86 ? code - 83 : code - 87;
+                dotted = code >= 87;
+                paths = [
+                    '<path d="M14 18L40 58L66 18"/>',
+                    '<path d="M62 14L22 40L62 66"/>',
+                    '<path d="M14 62L40 22L66 62"/>',
+                    '<path d="M18 14L58 40L18 66"/>',
+                ][index];
+            }
+            return `<svg class="pigpen-glyph" viewBox="0 0 80 80" role="img" aria-label="Znak polského kříže pro písmeno ${letter}"><g fill="none" stroke="#6ff" stroke-width="5" stroke-linecap="square" stroke-linejoin="miter">${paths}</g>${dotted ? '<circle cx="40" cy="40" r="5" fill="#6ff"/>' : ''}</svg>`;
+        }
+
+        function pigpenReferenceCards() {
+            return `<div class="cipher-grid pigpen-grid">${Array.from({length:26}, (_, index) => String.fromCharCode(65 + index)).map(letter => `<div class="cipher-card"><strong>${letter}</strong>${pigpenGlyph(letter)}</div>`).join('')}</div>`;
+        }
+
         function semaphoreFigure(position, letter) {
             const point = (side, direction) => {
                 const points = {down:[side === 'LH' ? 43 : 57,88], low:[side === 'LH' ? 24 : 76,75], out:[side === 'LH' ? 10 : 90,50], high:[side === 'LH' ? 24 : 76,25], up:[side === 'LH' ? 43 : 57,10]};
@@ -834,7 +864,7 @@
                 return `<h3>Binární kód a ASCII</h3><p><strong>Směr:</strong> nejvyšší řád je vlevo. Pro 7 bitů mají pozice hodnoty <code>64 32 16 8 4 2 1</code>; sečti hodnoty nad jedničkami.</p><p class="cipher-note"><strong>Příklad:</strong> <code>1000001</code> = 64 + 1 = 65 = A. Osmibitový zápis je <code>01000001</code>.</p><table class="cipher-reference"><thead><tr><th>PÍSMENO</th><th>DEC</th><th>7BIT ASCII</th><th>8BIT ASCII</th></tr></thead><tbody>${rows}</tbody></table>`;
             }
             if (toolId === 'pigpen') {
-                return `<h3>Malý polský kříž</h3><p>Písmeno nahraď čarami, které ho obklopují v příslušné mřížce nebo kříži. Druhá mřížka a druhý kříž používají uvnitř znaku tečku.</p>${pigpenReferenceDiagram()}<p class="cipher-note">Tabulku čti jako čtyři samostatné klíče: A–I, J–R, S–V a W–Z. Orientaci výsledného tvaru zachovej.</p>
+                return `<h3>Malý polský kříž</h3><p>Písmeno nahraď čarami, které ho obklopují v příslušné mřížce nebo kříži. Druhá mřížka a druhý kříž používají uvnitř znaku tečku.</p>${pigpenReferenceDiagram()}<p class="cipher-note">Tabulku čti jako čtyři samostatné klíče: A–I, J–R, S–V a W–Z. Orientaci výsledného tvaru zachovej.</p><h3>Grafický přehled znaků</h3>${pigpenReferenceCards()}
                     <h3>Velký polský kříž</h3><p>Všechna písmena leží v jedné velké křížové tabulce. Obrys určuje rameno/pole kříže a <strong>poloha tečky uvnitř obrysu</strong> vybírá konkrétní písmeno z dané trojice. Nezaměňuj polohu tečky za počet teček.</p><p class="cipher-note">Rozložení velkého kříže není mezi sadami jednotné. Vždy použij tabulku přiloženou ke konkrétní šifře; referenční princip sám neurčuje pořadí písmen.</p>`;
             }
             if (toolId === 'semaphore') {
