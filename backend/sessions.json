@@ -72,7 +72,9 @@
     "puzzle_attempts": {},
     "interactive_games": {},
     "sokoban_games": {},
-    "karel_games": {}
+    "karel_games": {},
+    "last_activity_at": "",
+    "triad_games": {}
   },
   "9b7f096a-977b-4d11-bbf8-a356625baf2e": {
     "phase": "searching_lost",
@@ -306,7 +308,9 @@
     "puzzle_attempts": {},
     "interactive_games": {},
     "sokoban_games": {},
-    "karel_games": {}
+    "karel_games": {},
+    "last_activity_at": "",
+    "triad_games": {}
   },
   "qzqaj5twdc": {
     "phase": "searching_lost",
@@ -366,7 +370,9 @@
     "puzzle_attempts": {},
     "interactive_games": {},
     "sokoban_games": {},
-    "karel_games": {}
+    "karel_games": {},
+    "last_activity_at": "",
+    "triad_games": {}
   },
   "srxexaafxbg": {
     "phase": "comms_offline",
@@ -391,7 +397,9 @@
     "puzzle_attempts": {},
     "interactive_games": {},
     "sokoban_games": {},
-    "karel_games": {}
+    "karel_games": {},
+    "last_activity_at": "",
+    "triad_games": {}
   },
   "90431b0b-0031-4de1-8b05-6e0455a8b4ae": {
     "phase": "searching_lost",
@@ -448,7 +456,9 @@
     "puzzle_attempts": {},
     "interactive_games": {},
     "sokoban_games": {},
-    "karel_games": {}
+    "karel_games": {},
+    "last_activity_at": "",
+    "triad_games": {}
   },
   "fbb8aa23-4fb1-4ef1-ab28-a545fc0faa61": {
     "phase": "searching_lost",
@@ -610,7 +620,9 @@
     "puzzle_attempts": {},
     "interactive_games": {},
     "sokoban_games": {},
-    "karel_games": {}
+    "karel_games": {},
+    "last_activity_at": "",
+    "triad_games": {}
   },
   "5eda3e51-e7e8-4705-855d-907bb69e5ad2": {
     "phase": "comms_offline",
@@ -635,7 +647,9 @@
     "puzzle_attempts": {},
     "interactive_games": {},
     "sokoban_games": {},
-    "karel_games": {}
+    "karel_games": {},
+    "last_activity_at": "",
+    "triad_games": {}
   },
   "0806baf4-129c-4bd8-b2a1-491ffc761ba7": {
     "phase": "navigating",
@@ -872,7 +886,9 @@
     },
     "interactive_games": {},
     "sokoban_games": {},
-    "karel_games": {}
+    "karel_games": {},
+    "last_activity_at": "",
+    "triad_games": {}
   },
   "14b68524-4cc6-4d02-9eaf-e57406fda902": {
     "phase": "navigating",
@@ -1057,7 +1073,9 @@
     },
     "interactive_games": {},
     "sokoban_games": {},
-    "karel_games": {}
+    "karel_games": {},
+    "last_activity_at": "",
+    "triad_games": {}
   },
   "1ed8ffe1-548e-421b-b923-979e706dc3dc": {
     "phase": "navigating",
@@ -1406,7 +1424,9 @@
       }
     },
     "sokoban_games": {},
-    "karel_games": {}
+    "karel_games": {},
+    "last_activity_at": "",
+    "triad_games": {}
   },
   "80b713b4-824f-450e-be49-476835e84285": {
     "phase": "navigating",
@@ -1855,7 +1875,9 @@
         "command_history": []
       }
     },
-    "karel_games": {}
+    "karel_games": {},
+    "last_activity_at": "",
+    "triad_games": {}
   },
   "714d9f4d-7e54-49b4-881e-8cd8f2affade": {
     "phase": "navigating",
@@ -2635,6 +2657,2098 @@
         ]
       }
     },
-    "karel_games": {}
+    "karel_games": {},
+    "last_activity_at": "",
+    "triad_games": {}
+  },
+  "c8e0edd4a3a74ec18e3e507ec0ebad26": {
+    "phase": "navigating",
+    "unlocked_discoveries": [
+      "bowling_diagnostics",
+      "courtyard_alignment",
+      "courtyard_minefield",
+      "reception_archive",
+      "sports_archive",
+      "staircase_signal",
+      "terrace_echo",
+      "timeline_calibration"
+    ],
+    "inventory": [
+      "TEMPORÁLNÍ MOTOR",
+      "FÁZOVÝ STABILIZÁTOR",
+      "KRYSTAL ČASOVÉ KOTVY"
+    ],
+    "flags": {
+      "chronomap_unlocked": true,
+      "reception_archive_unlocked": true,
+      "bowling_route_unlocked": true,
+      "courtyard_route_stable": true,
+      "temporal_motor_recovered": true,
+      "timeline_calibrated": true,
+      "phase_stabilizer_recovered": true,
+      "temporal_nodes_aligned": true,
+      "room_104_unlocked": true
+    },
+    "chat_history": [
+      {
+        "role": "bot",
+        "channel": "captain",
+        "text": "*ššš*... Tady Kapitánka. Slyšíme se? Interkom konečně naběhl. Potvrď příjem!"
+      },
+      {
+        "role": "player",
+        "channel": "captain",
+        "text": "ggg"
+      },
+      {
+        "role": "bot",
+        "channel": "captain",
+        "text": "Výborně, spojení funguje. Při experimentu v Hotelu Kraskov zmizela doktorka Elara. Z nouzových záznamů musíš rozluštit frekvenci jejího chronálního vysílače a zadat ji sem."
+      },
+      {
+        "role": "player",
+        "channel": "captain",
+        "text": "734"
+      },
+      {
+        "role": "bot",
+        "channel": "captain",
+        "text": "Frekvence 734 přijata! Zachytila jsem chronální ozvěnu. Přepojuji... *píp*"
+      },
+      {
+        "role": "bot",
+        "channel": "lost",
+        "text": "Haló? Tady doktorka Elara. Jsem pořád v Kraskově, ale hotel vypadá, jako by tu nikdo nebyl celá desetiletí. Stroj se rozpadl při přenosu. Slyšíte mě?"
+      },
+      {
+        "role": "player",
+        "channel": "lost",
+        "text": "jo"
+      },
+      {
+        "role": "bot",
+        "channel": "lost",
+        "text": "Snažím se postupovat podle tvých instrukcí 'jo', ale... *GLITCH* něco mě tu ruší... *šum*"
+      },
+      {
+        "role": "bot",
+        "channel": "general",
+        "text": "SYSTEM ERROR: Spojení ztraceno. Proveďte tvrdý restart (napište 'restart')."
+      },
+      {
+        "role": "player",
+        "channel": "lost",
+        "text": "restart"
+      },
+      {
+        "role": "bot",
+        "channel": "lost",
+        "text": "Uf, jsem zpět! Už tomu rozumím: nejsem v jiné budově, ale v jiné časové vrstvě Kraskova. Havárie rozptýlila součásti stroje ve vašem čase. CHRONOMAPA je znovu online, ale její záznamy jsou poškozené. Zkuste v nich najít první použitelnou stopu."
+      },
+      {
+        "role": "bot",
+        "channel": "captain",
+        "text": "Časová kotva na recepci potvrzena. CHRONOMAPA obnovila recepční archiv."
+      },
+      {
+        "role": "bot",
+        "channel": "captain",
+        "text": "Archiv potvrzuje shodu: Elara, pokoj 214, pozice 7. Záznam obsahuje schéma nouzového přístupového panelu a stopu vedoucí ke schodišti."
+      },
+      {
+        "role": "bot",
+        "channel": "lost",
+        "text": "Další časová kotva drží. Z trosek se podařilo obnovit poškozený obrazový záznam; jeho význam ale nedokážu z této vrstvy spolehlivě určit."
+      },
+      {
+        "role": "bot",
+        "channel": "lost",
+        "text": "Signál přeložen: BOWLING. Chronomapa zachytila diagnostické impulzy v prostoru kuželek."
+      },
+      {
+        "role": "bot",
+        "channel": "captain",
+        "text": "Sonda zachytila nestabilní časová pole. Elara vidí jen tmu; rozdělte si mapu a navigaci."
+      },
+      {
+        "role": "bot",
+        "channel": "lost",
+        "text": "Pozor! Narazila jsem na nestabilní pole a nouzový systém mě vrátil na začátek."
+      },
+      {
+        "role": "bot",
+        "channel": "lost",
+        "text": "Jsem na druhé straně. Trasa je stabilní a přístup k dalšímu hotelovému uzlu se otevřel."
+      },
+      {
+        "role": "bot",
+        "channel": "captain",
+        "text": "Bowlingová kotva aktivní. Terminál obnovil binární diagnostický záznam a referenci ASCII."
+      },
+      {
+        "role": "bot",
+        "channel": "general",
+        "text": "Diagnostická sekvence potvrzena: MOTOR. TEMPORÁLNÍ MOTOR je znovu synchronizován s terminálem."
+      },
+      {
+        "role": "bot",
+        "channel": "captain",
+        "text": "Kalibrační terminál je aktivní. Dva časové proudy se rozpadají; srovnejte jejich uzly do stabilních řad."
+      },
+      {
+        "role": "bot",
+        "channel": "lost",
+        "text": "Oba časové proudy drží! Kalibrace 5–3–1 je dokončena a sportovní archiv se znovu objevil na Chronomapě."
+      },
+      {
+        "role": "bot",
+        "channel": "lost",
+        "text": "Kotva u terasy zachytila noční světelný přenos. Obrazový záznam byl uložen do archivu hádanek."
+      },
+      {
+        "role": "bot",
+        "channel": "lost",
+        "text": "Světelný přenos potvrzen: HŘIŠTĚ. FÁZOVÝ STABILIZÁTOR se synchronizoval a Chronomapa označila sportovní areál."
+      },
+      {
+        "role": "bot",
+        "channel": "captain",
+        "text": "Trojice nestabilních os čeká na zarovnání. Zvolte barvy uzlů a propojte všechny směry."
+      },
+      {
+        "role": "bot",
+        "channel": "lost",
+        "text": "Tři osy jsou zarovnané. Časové uzly vytvořily stabilní průchod ke sportovnímu archivu."
+      },
+      {
+        "role": "bot",
+        "channel": "captain",
+        "text": "Sportovní archiv je nalezen, ale jeho servisní síť nemá napájení. Elara je v úplné tmě a mřížku vidíte jen vy na terminálu. Jeden z vás musí sledovat mapu a druhý ji navigovat přes interkom."
+      },
+      {
+        "role": "bot",
+        "channel": "lost",
+        "text": "Sekvence potvrzena: 1 kroků, přesunuté články: 1."
+      },
+      {
+        "role": "bot",
+        "channel": "lost",
+        "text": "Sekvence potvrzena: 1 kroků, přesunuté články: 1."
+      },
+      {
+        "role": "bot",
+        "channel": "lost",
+        "text": "Sekvence potvrzena: 1 kroků, přesunuté články: 0."
+      },
+      {
+        "role": "bot",
+        "channel": "lost",
+        "text": "Sekvence potvrzena: 1 kroků, přesunuté články: 0."
+      },
+      {
+        "role": "bot",
+        "channel": "lost",
+        "text": "Sekvence potvrzena: 1 kroků, přesunuté články: 0."
+      },
+      {
+        "role": "bot",
+        "channel": "lost",
+        "text": "Sekvence potvrzena: 1 kroků, přesunuté články: 0."
+      },
+      {
+        "role": "bot",
+        "channel": "lost",
+        "text": "Sekvence potvrzena: 1 kroků, přesunuté články: 0."
+      },
+      {
+        "role": "bot",
+        "channel": "lost",
+        "text": "Sekvence potvrzena: 1 kroků, přesunuté články: 0."
+      },
+      {
+        "role": "bot",
+        "channel": "lost",
+        "text": "Sekvence potvrzena: 1 kroků, přesunuté články: 0."
+      },
+      {
+        "role": "bot",
+        "channel": "lost",
+        "text": "Sekvence potvrzena: 1 kroků, přesunuté články: 1."
+      },
+      {
+        "role": "bot",
+        "channel": "lost",
+        "text": "Sekvence potvrzena: 1 kroků, přesunuté články: 1."
+      },
+      {
+        "role": "bot",
+        "channel": "lost",
+        "text": "Sekvence potvrzena: 1 kroků, přesunuté články: 0."
+      },
+      {
+        "role": "bot",
+        "channel": "lost",
+        "text": "Sekvence potvrzena: 1 kroků, přesunuté články: 0."
+      },
+      {
+        "role": "bot",
+        "channel": "lost",
+        "text": "Sekvence potvrzena: 1 kroků, přesunuté články: 1. Úroveň je stabilní; přepínám na další servisní sektor."
+      },
+      {
+        "role": "bot",
+        "channel": "lost",
+        "text": "Sekvence potvrzena: 1 kroků, přesunuté články: 0."
+      },
+      {
+        "role": "bot",
+        "channel": "lost",
+        "text": "Sekvence potvrzena: 1 kroků, přesunuté články: 1."
+      },
+      {
+        "role": "bot",
+        "channel": "lost",
+        "text": "Sekvence potvrzena: 1 kroků, přesunuté články: 1."
+      },
+      {
+        "role": "bot",
+        "channel": "lost",
+        "text": "Sekvence potvrzena: 1 kroků, přesunuté články: 0."
+      },
+      {
+        "role": "bot",
+        "channel": "lost",
+        "text": "Sekvence potvrzena: 1 kroků, přesunuté články: 0."
+      },
+      {
+        "role": "bot",
+        "channel": "lost",
+        "text": "Sekvence potvrzena: 1 kroků, přesunuté články: 1."
+      },
+      {
+        "role": "bot",
+        "channel": "lost",
+        "text": "Sekvence potvrzena: 1 kroků, přesunuté články: 0."
+      },
+      {
+        "role": "bot",
+        "channel": "lost",
+        "text": "Sekvence potvrzena: 1 kroků, přesunuté články: 1."
+      },
+      {
+        "role": "bot",
+        "channel": "lost",
+        "text": "Sekvence potvrzena: 1 kroků, přesunuté články: 0."
+      },
+      {
+        "role": "bot",
+        "channel": "lost",
+        "text": "Sekvence potvrzena: 1 kroků, přesunuté články: 0."
+      },
+      {
+        "role": "bot",
+        "channel": "lost",
+        "text": "Sekvence potvrzena: 1 kroků, přesunuté články: 0."
+      },
+      {
+        "role": "bot",
+        "channel": "lost",
+        "text": "Sekvence potvrzena: 1 kroků, přesunuté články: 0."
+      },
+      {
+        "role": "bot",
+        "channel": "lost",
+        "text": "Sekvence potvrzena: 1 kroků, přesunuté články: 0."
+      },
+      {
+        "role": "bot",
+        "channel": "lost",
+        "text": "Sekvence potvrzena: 1 kroků, přesunuté články: 0."
+      },
+      {
+        "role": "bot",
+        "channel": "lost",
+        "text": "Sekvence potvrzena: 1 kroků, přesunuté články: 0."
+      },
+      {
+        "role": "bot",
+        "channel": "lost",
+        "text": "Sekvence potvrzena: 1 kroků, přesunuté články: 0."
+      },
+      {
+        "role": "bot",
+        "channel": "lost",
+        "text": "Sekvence potvrzena: 1 kroků, přesunuté články: 0."
+      },
+      {
+        "role": "bot",
+        "channel": "lost",
+        "text": "Sekvence potvrzena: 1 kroků, přesunuté články: 0."
+      },
+      {
+        "role": "bot",
+        "channel": "lost",
+        "text": "Sekvence potvrzena: 1 kroků, přesunuté články: 1."
+      },
+      {
+        "role": "bot",
+        "channel": "lost",
+        "text": "Sekvence potvrzena: 1 kroků, přesunuté články: 0."
+      },
+      {
+        "role": "bot",
+        "channel": "lost",
+        "text": "Sekvence potvrzena: 1 kroků, přesunuté články: 0."
+      },
+      {
+        "role": "bot",
+        "channel": "lost",
+        "text": "Sekvence potvrzena: 1 kroků, přesunuté články: 1."
+      },
+      {
+        "role": "bot",
+        "channel": "lost",
+        "text": "Sekvence potvrzena: 1 kroků, přesunuté články: 0."
+      },
+      {
+        "role": "bot",
+        "channel": "lost",
+        "text": "Sekvence potvrzena: 1 kroků, přesunuté články: 0."
+      },
+      {
+        "role": "bot",
+        "channel": "lost",
+        "text": "Sekvence potvrzena: 1 kroků, přesunuté články: 1. Úroveň je stabilní; přepínám na další servisní sektor."
+      },
+      {
+        "role": "bot",
+        "channel": "lost",
+        "text": "Sekvence potvrzena: 1 kroků, přesunuté články: 0."
+      },
+      {
+        "role": "bot",
+        "channel": "lost",
+        "text": "Sekvence potvrzena: 1 kroků, přesunuté články: 0."
+      },
+      {
+        "role": "bot",
+        "channel": "lost",
+        "text": "Sekvence potvrzena: 1 kroků, přesunuté články: 0."
+      },
+      {
+        "role": "bot",
+        "channel": "lost",
+        "text": "Sekvence potvrzena: 1 kroků, přesunuté články: 0."
+      },
+      {
+        "role": "bot",
+        "channel": "lost",
+        "text": "Sekvence potvrzena: 1 kroků, přesunuté články: 1."
+      },
+      {
+        "role": "bot",
+        "channel": "lost",
+        "text": "Sekvence potvrzena: 1 kroků, přesunuté články: 0."
+      },
+      {
+        "role": "bot",
+        "channel": "lost",
+        "text": "Sekvence potvrzena: 1 kroků, přesunuté články: 0."
+      },
+      {
+        "role": "bot",
+        "channel": "lost",
+        "text": "Sekvence potvrzena: 1 kroků, přesunuté články: 0."
+      },
+      {
+        "role": "bot",
+        "channel": "lost",
+        "text": "Sekvence potvrzena: 1 kroků, přesunuté články: 0."
+      },
+      {
+        "role": "bot",
+        "channel": "lost",
+        "text": "Sekvence potvrzena: 1 kroků, přesunuté články: 0."
+      },
+      {
+        "role": "bot",
+        "channel": "lost",
+        "text": "Sekvence potvrzena: 1 kroků, přesunuté články: 0."
+      },
+      {
+        "role": "bot",
+        "channel": "lost",
+        "text": "Sekvence potvrzena: 1 kroků, přesunuté články: 1."
+      },
+      {
+        "role": "bot",
+        "channel": "lost",
+        "text": "Sekvence potvrzena: 1 kroků, přesunuté články: 0."
+      },
+      {
+        "role": "bot",
+        "channel": "lost",
+        "text": "Sekvence potvrzena: 1 kroků, přesunuté články: 0."
+      },
+      {
+        "role": "bot",
+        "channel": "lost",
+        "text": "Sekvence potvrzena: 1 kroků, přesunuté články: 0."
+      },
+      {
+        "role": "bot",
+        "channel": "lost",
+        "text": "Sekvence potvrzena: 1 kroků, přesunuté články: 0."
+      },
+      {
+        "role": "bot",
+        "channel": "lost",
+        "text": "Sekvence potvrzena: 1 kroků, přesunuté články: 0."
+      },
+      {
+        "role": "bot",
+        "channel": "lost",
+        "text": "Sekvence potvrzena: 1 kroků, přesunuté články: 1."
+      },
+      {
+        "role": "bot",
+        "channel": "lost",
+        "text": "Sekvence potvrzena: 1 kroků, přesunuté články: 1."
+      },
+      {
+        "role": "bot",
+        "channel": "lost",
+        "text": "Sekvence potvrzena: 1 kroků, přesunuté články: 0."
+      },
+      {
+        "role": "bot",
+        "channel": "lost",
+        "text": "Sekvence potvrzena: 1 kroků, přesunuté články: 0."
+      },
+      {
+        "role": "bot",
+        "channel": "lost",
+        "text": "Sekvence potvrzena: 1 kroků, přesunuté články: 1."
+      },
+      {
+        "role": "bot",
+        "channel": "lost",
+        "text": "Sekvence potvrzena: 1 kroků, přesunuté články: 0."
+      },
+      {
+        "role": "bot",
+        "channel": "lost",
+        "text": "Sekvence potvrzena: 1 kroků, přesunuté články: 0."
+      },
+      {
+        "role": "bot",
+        "channel": "lost",
+        "text": "Sekvence potvrzena: 1 kroků, přesunuté články: 1."
+      },
+      {
+        "role": "bot",
+        "channel": "lost",
+        "text": "Všechny tři servisní sektory jsou stabilní. Síť se rozběhla a KRYSTAL ČASOVÉ KOTVY se znovu materializoval ve vašem čase."
+      },
+      {
+        "role": "bot",
+        "channel": "general",
+        "text": "Přístupový panel 104 odemčen. Elektromagnetický zámek uvolněn."
+      },
+      {
+        "role": "bot",
+        "channel": "lost",
+        "text": "Slyšela jsem cvaknutí! Ty dveře do pokoje 104 se právě otevřely. Jdu dovnitř..."
+      }
+    ],
+    "score": 1315,
+    "hints_used": {},
+    "checkpoint_states": {
+      "reception_archive": {
+        "status": "solved",
+        "first_scanned_at": "2026-08-02T09:30:43.461475+00:00",
+        "solved_at": "2026-08-02T09:31:07.490963+00:00"
+      },
+      "staircase_signal": {
+        "status": "solved",
+        "first_scanned_at": "2026-08-02T09:31:22.573164+00:00",
+        "solved_at": "2026-08-02T09:31:33.544492+00:00"
+      },
+      "courtyard_minefield": {
+        "status": "solved",
+        "first_scanned_at": "2026-08-02T09:32:13.431795+00:00",
+        "solved_at": "2026-08-02T09:34:06.702771+00:00"
+      },
+      "bowling_diagnostics": {
+        "status": "solved",
+        "first_scanned_at": "2026-08-02T09:34:21.794727+00:00",
+        "solved_at": "2026-08-02T09:34:33.793692+00:00"
+      },
+      "timeline_calibration": {
+        "status": "solved",
+        "first_scanned_at": "2026-08-02T09:34:44.505143+00:00",
+        "solved_at": "2026-08-02T09:41:21.127431+00:00"
+      },
+      "terrace_echo": {
+        "status": "solved",
+        "first_scanned_at": "2026-08-02T09:41:33.511322+00:00",
+        "solved_at": "2026-08-02T09:41:43.004981+00:00"
+      },
+      "courtyard_alignment": {
+        "status": "solved",
+        "first_scanned_at": "2026-08-02T09:41:49.936575+00:00",
+        "solved_at": "2026-08-02T09:42:08.715693+00:00"
+      },
+      "sports_archive": {
+        "status": "solved",
+        "first_scanned_at": "2026-08-02T09:42:19.845256+00:00",
+        "solved_at": "2026-08-02T09:43:56.543665+00:00"
+      }
+    },
+    "unlocked_cipher_tools": [
+      "a1z26",
+      "binary_ascii",
+      "morse",
+      "pigpen",
+      "semaphore"
+    ],
+    "paid_cipher_tools": [],
+    "puzzle_attempts": {
+      "reception_deduction": 1,
+      "staircase_semaphore": 1,
+      "bowling_binary": 1,
+      "terrace_morse": 1
+    },
+    "interactive_games": {
+      "timeline_lines": {
+        "progress": {
+          "3": 5,
+          "4": 3,
+          "5": 1
+        },
+        "status": "complete",
+        "started_at": "2026-08-02T09:39:50.440649+00:00",
+        "deadline_at": "2026-08-02T09:44:50.440649+00:00",
+        "swaps": 23,
+        "rng": 687875675,
+        "board": [
+          [
+            "green",
+            "red",
+            "amber",
+            "green",
+            "red",
+            "green",
+            "red"
+          ],
+          [
+            "violet",
+            "cyan",
+            "red",
+            "green",
+            "red",
+            "amber",
+            "red"
+          ],
+          [
+            "amber",
+            "red",
+            "green",
+            "amber",
+            "green",
+            "cyan",
+            "cyan"
+          ],
+          [
+            "amber",
+            "violet",
+            "red",
+            "violet",
+            "cyan",
+            "green",
+            "red"
+          ],
+          [
+            "violet",
+            "cyan",
+            "cyan",
+            "amber",
+            "green",
+            "cyan",
+            "green"
+          ],
+          [
+            "green",
+            "red",
+            "cyan",
+            "green",
+            "violet",
+            "violet",
+            "green"
+          ],
+          [
+            "red",
+            "green",
+            "amber",
+            "amber",
+            "violet",
+            "green",
+            "violet"
+          ]
+        ]
+      }
+    },
+    "sokoban_games": {
+      "sports_sokoban": {
+        "active_level_ids": [
+          "sector_a",
+          "sector_b",
+          "sector_c"
+        ],
+        "level_index": 2,
+        "completed_levels": [
+          "sector_a",
+          "sector_b",
+          "sector_c"
+        ],
+        "awarded_points": 90,
+        "moves": 25,
+        "pushes": 6,
+        "total_moves": 64,
+        "total_pushes": 18,
+        "restarts": 0,
+        "status": "complete",
+        "command_history": [
+          {
+            "commands": [
+              "left"
+            ],
+            "executed": 1,
+            "blocked": false
+          },
+          {
+            "commands": [
+              "left"
+            ],
+            "executed": 1,
+            "blocked": false
+          },
+          {
+            "commands": [
+              "right"
+            ],
+            "executed": 1,
+            "blocked": false
+          },
+          {
+            "commands": [
+              "right"
+            ],
+            "executed": 1,
+            "blocked": false
+          },
+          {
+            "commands": [
+              "up"
+            ],
+            "executed": 1,
+            "blocked": false
+          },
+          {
+            "commands": [
+              "up"
+            ],
+            "executed": 1,
+            "blocked": false
+          },
+          {
+            "commands": [
+              "up"
+            ],
+            "executed": 1,
+            "blocked": false
+          },
+          {
+            "commands": [
+              "up"
+            ],
+            "executed": 1,
+            "blocked": false
+          },
+          {
+            "commands": [
+              "left"
+            ],
+            "executed": 1,
+            "blocked": false
+          },
+          {
+            "commands": [
+              "down"
+            ],
+            "executed": 1,
+            "blocked": false
+          },
+          {
+            "commands": [
+              "down"
+            ],
+            "executed": 1,
+            "blocked": false
+          },
+          {
+            "commands": [
+              "right"
+            ],
+            "executed": 1,
+            "blocked": false
+          },
+          {
+            "commands": [
+              "down"
+            ],
+            "executed": 1,
+            "blocked": false
+          },
+          {
+            "commands": [
+              "left"
+            ],
+            "executed": 1,
+            "blocked": false
+          },
+          {
+            "commands": [
+              "up"
+            ],
+            "executed": 1,
+            "blocked": false
+          },
+          {
+            "commands": [
+              "right"
+            ],
+            "executed": 1,
+            "blocked": false
+          },
+          {
+            "commands": [
+              "right"
+            ],
+            "executed": 1,
+            "blocked": false
+          },
+          {
+            "commands": [
+              "up"
+            ],
+            "executed": 1,
+            "blocked": false
+          },
+          {
+            "commands": [
+              "right"
+            ],
+            "executed": 1,
+            "blocked": false
+          },
+          {
+            "commands": [
+              "down"
+            ],
+            "executed": 1,
+            "blocked": false
+          },
+          {
+            "commands": [
+              "left"
+            ],
+            "executed": 1,
+            "blocked": false
+          },
+          {
+            "commands": [
+              "down"
+            ],
+            "executed": 1,
+            "blocked": false
+          },
+          {
+            "commands": [
+              "left"
+            ],
+            "executed": 1,
+            "blocked": false
+          },
+          {
+            "commands": [
+              "down"
+            ],
+            "executed": 1,
+            "blocked": false
+          },
+          {
+            "commands": [
+              "down"
+            ],
+            "executed": 1,
+            "blocked": false
+          },
+          {
+            "commands": [
+              "down"
+            ],
+            "executed": 1,
+            "blocked": false
+          },
+          {
+            "commands": [
+              "right"
+            ],
+            "executed": 1,
+            "blocked": false
+          },
+          {
+            "commands": [
+              "right"
+            ],
+            "executed": 1,
+            "blocked": false
+          },
+          {
+            "commands": [
+              "right"
+            ],
+            "executed": 1,
+            "blocked": false
+          },
+          {
+            "commands": [
+              "up"
+            ],
+            "executed": 1,
+            "blocked": false
+          },
+          {
+            "commands": [
+              "up"
+            ],
+            "executed": 1,
+            "blocked": false
+          },
+          {
+            "commands": [
+              "left"
+            ],
+            "executed": 1,
+            "blocked": false
+          },
+          {
+            "commands": [
+              "left"
+            ],
+            "executed": 1,
+            "blocked": false
+          },
+          {
+            "commands": [
+              "up"
+            ],
+            "executed": 1,
+            "blocked": false
+          },
+          {
+            "commands": [
+              "left"
+            ],
+            "executed": 1,
+            "blocked": false
+          },
+          {
+            "commands": [
+              "down"
+            ],
+            "executed": 1,
+            "blocked": false
+          },
+          {
+            "commands": [
+              "right"
+            ],
+            "executed": 1,
+            "blocked": false
+          },
+          {
+            "commands": [
+              "down"
+            ],
+            "executed": 1,
+            "blocked": false
+          },
+          {
+            "commands": [
+              "left"
+            ],
+            "executed": 1,
+            "blocked": false
+          },
+          {
+            "commands": [
+              "down"
+            ],
+            "executed": 1,
+            "blocked": false
+          },
+          {
+            "commands": [
+              "down"
+            ],
+            "executed": 1,
+            "blocked": false
+          },
+          {
+            "commands": [
+              "down"
+            ],
+            "executed": 1,
+            "blocked": false
+          },
+          {
+            "commands": [
+              "right"
+            ],
+            "executed": 1,
+            "blocked": false
+          },
+          {
+            "commands": [
+              "right"
+            ],
+            "executed": 1,
+            "blocked": false
+          },
+          {
+            "commands": [
+              "up"
+            ],
+            "executed": 1,
+            "blocked": false
+          },
+          {
+            "commands": [
+              "right"
+            ],
+            "executed": 1,
+            "blocked": false
+          },
+          {
+            "commands": [
+              "right"
+            ],
+            "executed": 1,
+            "blocked": false
+          },
+          {
+            "commands": [
+              "down"
+            ],
+            "executed": 1,
+            "blocked": false
+          },
+          {
+            "commands": [
+              "down"
+            ],
+            "executed": 1,
+            "blocked": false
+          },
+          {
+            "commands": [
+              "left"
+            ],
+            "executed": 1,
+            "blocked": false
+          },
+          {
+            "commands": [
+              "up"
+            ],
+            "executed": 1,
+            "blocked": false
+          },
+          {
+            "commands": [
+              "right"
+            ],
+            "executed": 1,
+            "blocked": false
+          },
+          {
+            "commands": [
+              "up"
+            ],
+            "executed": 1,
+            "blocked": false
+          },
+          {
+            "commands": [
+              "up"
+            ],
+            "executed": 1,
+            "blocked": false
+          },
+          {
+            "commands": [
+              "up"
+            ],
+            "executed": 1,
+            "blocked": false
+          },
+          {
+            "commands": [
+              "left"
+            ],
+            "executed": 1,
+            "blocked": false
+          },
+          {
+            "commands": [
+              "left"
+            ],
+            "executed": 1,
+            "blocked": false
+          },
+          {
+            "commands": [
+              "left"
+            ],
+            "executed": 1,
+            "blocked": false
+          },
+          {
+            "commands": [
+              "up"
+            ],
+            "executed": 1,
+            "blocked": false
+          },
+          {
+            "commands": [
+              "left"
+            ],
+            "executed": 1,
+            "blocked": false
+          },
+          {
+            "commands": [
+              "down"
+            ],
+            "executed": 1,
+            "blocked": false
+          },
+          {
+            "commands": [
+              "right"
+            ],
+            "executed": 1,
+            "blocked": false
+          },
+          {
+            "commands": [
+              "down"
+            ],
+            "executed": 1,
+            "blocked": false
+          },
+          {
+            "commands": [
+              "left"
+            ],
+            "executed": 1,
+            "blocked": false
+          }
+        ],
+        "player": [
+          3,
+          2
+        ],
+        "boxes": [
+          [
+            3,
+            1
+          ],
+          [
+            4,
+            5
+          ]
+        ],
+        "walls": [
+          [
+            0,
+            0
+          ],
+          [
+            0,
+            1
+          ],
+          [
+            0,
+            2
+          ],
+          [
+            0,
+            3
+          ],
+          [
+            0,
+            4
+          ],
+          [
+            0,
+            5
+          ],
+          [
+            0,
+            6
+          ],
+          [
+            0,
+            7
+          ],
+          [
+            1,
+            0
+          ],
+          [
+            1,
+            1
+          ],
+          [
+            1,
+            7
+          ],
+          [
+            2,
+            0
+          ],
+          [
+            2,
+            7
+          ],
+          [
+            3,
+            0
+          ],
+          [
+            3,
+            5
+          ],
+          [
+            3,
+            7
+          ],
+          [
+            4,
+            0
+          ],
+          [
+            4,
+            7
+          ],
+          [
+            5,
+            0
+          ],
+          [
+            5,
+            1
+          ],
+          [
+            5,
+            7
+          ],
+          [
+            6,
+            0
+          ],
+          [
+            6,
+            1
+          ],
+          [
+            6,
+            2
+          ],
+          [
+            6,
+            4
+          ],
+          [
+            6,
+            7
+          ],
+          [
+            7,
+            0
+          ],
+          [
+            7,
+            1
+          ],
+          [
+            7,
+            2
+          ],
+          [
+            7,
+            3
+          ],
+          [
+            7,
+            4
+          ],
+          [
+            7,
+            5
+          ],
+          [
+            7,
+            6
+          ],
+          [
+            7,
+            7
+          ]
+        ],
+        "targets": [
+          [
+            3,
+            1
+          ],
+          [
+            4,
+            5
+          ]
+        ],
+        "rows": 8,
+        "columns": 8,
+        "level_id": "sector_c",
+        "level_label": "Servisní sektor C",
+        "history": [
+          {
+            "player": [
+              2,
+              2
+            ],
+            "boxes": [
+              [
+                2,
+                4
+              ],
+              [
+                5,
+                4
+              ]
+            ],
+            "moves": 0,
+            "pushes": 0,
+            "total_moves": 39,
+            "total_pushes": 12
+          },
+          {
+            "player": [
+              3,
+              2
+            ],
+            "boxes": [
+              [
+                2,
+                4
+              ],
+              [
+                5,
+                4
+              ]
+            ],
+            "moves": 1,
+            "pushes": 0,
+            "total_moves": 40,
+            "total_pushes": 12
+          },
+          {
+            "player": [
+              4,
+              2
+            ],
+            "boxes": [
+              [
+                2,
+                4
+              ],
+              [
+                5,
+                4
+              ]
+            ],
+            "moves": 2,
+            "pushes": 0,
+            "total_moves": 41,
+            "total_pushes": 12
+          },
+          {
+            "player": [
+              5,
+              2
+            ],
+            "boxes": [
+              [
+                2,
+                4
+              ],
+              [
+                5,
+                4
+              ]
+            ],
+            "moves": 3,
+            "pushes": 0,
+            "total_moves": 42,
+            "total_pushes": 12
+          },
+          {
+            "player": [
+              5,
+              3
+            ],
+            "boxes": [
+              [
+                2,
+                4
+              ],
+              [
+                5,
+                4
+              ]
+            ],
+            "moves": 4,
+            "pushes": 0,
+            "total_moves": 43,
+            "total_pushes": 12
+          },
+          {
+            "player": [
+              5,
+              4
+            ],
+            "boxes": [
+              [
+                2,
+                4
+              ],
+              [
+                5,
+                5
+              ]
+            ],
+            "moves": 5,
+            "pushes": 1,
+            "total_moves": 44,
+            "total_pushes": 13
+          },
+          {
+            "player": [
+              4,
+              4
+            ],
+            "boxes": [
+              [
+                2,
+                4
+              ],
+              [
+                5,
+                5
+              ]
+            ],
+            "moves": 6,
+            "pushes": 1,
+            "total_moves": 45,
+            "total_pushes": 13
+          },
+          {
+            "player": [
+              4,
+              5
+            ],
+            "boxes": [
+              [
+                2,
+                4
+              ],
+              [
+                5,
+                5
+              ]
+            ],
+            "moves": 7,
+            "pushes": 1,
+            "total_moves": 46,
+            "total_pushes": 13
+          },
+          {
+            "player": [
+              4,
+              6
+            ],
+            "boxes": [
+              [
+                2,
+                4
+              ],
+              [
+                5,
+                5
+              ]
+            ],
+            "moves": 8,
+            "pushes": 1,
+            "total_moves": 47,
+            "total_pushes": 13
+          },
+          {
+            "player": [
+              5,
+              6
+            ],
+            "boxes": [
+              [
+                2,
+                4
+              ],
+              [
+                5,
+                5
+              ]
+            ],
+            "moves": 9,
+            "pushes": 1,
+            "total_moves": 48,
+            "total_pushes": 13
+          },
+          {
+            "player": [
+              6,
+              6
+            ],
+            "boxes": [
+              [
+                2,
+                4
+              ],
+              [
+                5,
+                5
+              ]
+            ],
+            "moves": 10,
+            "pushes": 1,
+            "total_moves": 49,
+            "total_pushes": 13
+          },
+          {
+            "player": [
+              6,
+              5
+            ],
+            "boxes": [
+              [
+                2,
+                4
+              ],
+              [
+                5,
+                5
+              ]
+            ],
+            "moves": 11,
+            "pushes": 1,
+            "total_moves": 50,
+            "total_pushes": 13
+          },
+          {
+            "player": [
+              5,
+              5
+            ],
+            "boxes": [
+              [
+                2,
+                4
+              ],
+              [
+                4,
+                5
+              ]
+            ],
+            "moves": 12,
+            "pushes": 2,
+            "total_moves": 51,
+            "total_pushes": 14
+          },
+          {
+            "player": [
+              5,
+              6
+            ],
+            "boxes": [
+              [
+                2,
+                4
+              ],
+              [
+                4,
+                5
+              ]
+            ],
+            "moves": 13,
+            "pushes": 2,
+            "total_moves": 52,
+            "total_pushes": 14
+          },
+          {
+            "player": [
+              4,
+              6
+            ],
+            "boxes": [
+              [
+                2,
+                4
+              ],
+              [
+                4,
+                5
+              ]
+            ],
+            "moves": 14,
+            "pushes": 2,
+            "total_moves": 53,
+            "total_pushes": 14
+          },
+          {
+            "player": [
+              3,
+              6
+            ],
+            "boxes": [
+              [
+                2,
+                4
+              ],
+              [
+                4,
+                5
+              ]
+            ],
+            "moves": 15,
+            "pushes": 2,
+            "total_moves": 54,
+            "total_pushes": 14
+          },
+          {
+            "player": [
+              2,
+              6
+            ],
+            "boxes": [
+              [
+                2,
+                4
+              ],
+              [
+                4,
+                5
+              ]
+            ],
+            "moves": 16,
+            "pushes": 2,
+            "total_moves": 55,
+            "total_pushes": 14
+          },
+          {
+            "player": [
+              2,
+              5
+            ],
+            "boxes": [
+              [
+                2,
+                4
+              ],
+              [
+                4,
+                5
+              ]
+            ],
+            "moves": 17,
+            "pushes": 2,
+            "total_moves": 56,
+            "total_pushes": 14
+          },
+          {
+            "player": [
+              2,
+              4
+            ],
+            "boxes": [
+              [
+                2,
+                3
+              ],
+              [
+                4,
+                5
+              ]
+            ],
+            "moves": 18,
+            "pushes": 3,
+            "total_moves": 57,
+            "total_pushes": 15
+          },
+          {
+            "player": [
+              2,
+              3
+            ],
+            "boxes": [
+              [
+                2,
+                2
+              ],
+              [
+                4,
+                5
+              ]
+            ],
+            "moves": 19,
+            "pushes": 4,
+            "total_moves": 58,
+            "total_pushes": 16
+          },
+          {
+            "player": [
+              1,
+              3
+            ],
+            "boxes": [
+              [
+                2,
+                2
+              ],
+              [
+                4,
+                5
+              ]
+            ],
+            "moves": 20,
+            "pushes": 4,
+            "total_moves": 59,
+            "total_pushes": 16
+          },
+          {
+            "player": [
+              1,
+              2
+            ],
+            "boxes": [
+              [
+                2,
+                2
+              ],
+              [
+                4,
+                5
+              ]
+            ],
+            "moves": 21,
+            "pushes": 4,
+            "total_moves": 60,
+            "total_pushes": 16
+          },
+          {
+            "player": [
+              2,
+              2
+            ],
+            "boxes": [
+              [
+                3,
+                2
+              ],
+              [
+                4,
+                5
+              ]
+            ],
+            "moves": 22,
+            "pushes": 5,
+            "total_moves": 61,
+            "total_pushes": 17
+          },
+          {
+            "player": [
+              2,
+              3
+            ],
+            "boxes": [
+              [
+                3,
+                2
+              ],
+              [
+                4,
+                5
+              ]
+            ],
+            "moves": 23,
+            "pushes": 5,
+            "total_moves": 62,
+            "total_pushes": 17
+          },
+          {
+            "player": [
+              3,
+              3
+            ],
+            "boxes": [
+              [
+                3,
+                2
+              ],
+              [
+                4,
+                5
+              ]
+            ],
+            "moves": 24,
+            "pushes": 5,
+            "total_moves": 63,
+            "total_pushes": 17
+          }
+        ],
+        "level_speakers": [
+          "46c4b312-8a98-4aea-abca-527300ba58e5"
+        ],
+        "started_at": "2026-08-02T09:43:21.396362+00:00",
+        "deadline_at": "2026-08-02T09:45:21.396362+00:00"
+      }
+    },
+    "karel_games": {
+      "courtyard_karel": {
+        "active_level_ids": [
+          "field_a",
+          "field_b",
+          "field_c"
+        ],
+        "level_index": 2,
+        "completed_levels": [
+          "field_a",
+          "field_b",
+          "field_c"
+        ],
+        "awarded_points": 120,
+        "total_moves": 50,
+        "total_strikes": 1,
+        "restarts": 0,
+        "status": "complete",
+        "level_id": "field_c",
+        "level_label": "Pole C",
+        "rows": 8,
+        "columns": 8,
+        "mines": [
+          [
+            0,
+            2
+          ],
+          [
+            1,
+            1
+          ],
+          [
+            1,
+            3
+          ],
+          [
+            1,
+            4
+          ],
+          [
+            2,
+            6
+          ],
+          [
+            3,
+            4
+          ],
+          [
+            3,
+            7
+          ],
+          [
+            4,
+            2
+          ],
+          [
+            4,
+            6
+          ],
+          [
+            5,
+            3
+          ],
+          [
+            6,
+            1
+          ],
+          [
+            6,
+            5
+          ],
+          [
+            7,
+            3
+          ]
+        ],
+        "start": [
+          0,
+          0
+        ],
+        "exit": [
+          7,
+          7
+        ],
+        "player": [
+          7,
+          7
+        ],
+        "revealed": [
+          [
+            1,
+            0
+          ],
+          [
+            2,
+            1
+          ],
+          [
+            3,
+            2
+          ],
+          [
+            2,
+            2
+          ],
+          [
+            2,
+            4
+          ],
+          [
+            3,
+            5
+          ],
+          [
+            5,
+            5
+          ],
+          [
+            5,
+            6
+          ],
+          [
+            6,
+            7
+          ],
+          [
+            0,
+            0
+          ],
+          [
+            7,
+            7
+          ],
+          [
+            2,
+            0
+          ],
+          [
+            3,
+            3
+          ],
+          [
+            4,
+            3
+          ],
+          [
+            4,
+            4
+          ],
+          [
+            5,
+            4
+          ],
+          [
+            5,
+            7
+          ]
+        ],
+        "triggered_mines": [],
+        "moves": 14,
+        "strikes": 0,
+        "history": [
+          [
+            0,
+            0
+          ],
+          [
+            1,
+            0
+          ],
+          [
+            2,
+            0
+          ],
+          [
+            2,
+            1
+          ],
+          [
+            2,
+            2
+          ],
+          [
+            3,
+            2
+          ],
+          [
+            3,
+            3
+          ],
+          [
+            4,
+            3
+          ],
+          [
+            4,
+            4
+          ],
+          [
+            5,
+            4
+          ],
+          [
+            5,
+            5
+          ],
+          [
+            5,
+            6
+          ],
+          [
+            5,
+            7
+          ],
+          [
+            6,
+            7
+          ]
+        ],
+        "started_at": "2026-08-02T09:33:45.883383+00:00",
+        "deadline_at": "2026-08-02T09:36:45.883383+00:00"
+      }
+    },
+    "last_activity_at": "2026-08-02T09:44:13.275597+00:00",
+    "triad_games": {
+      "temporal_triad": {
+        "size": 5,
+        "board": [
+          [
+            null,
+            null,
+            "cyan",
+            "cyan",
+            null
+          ],
+          [
+            null,
+            null,
+            "cyan",
+            "cyan",
+            "cyan"
+          ],
+          [
+            null,
+            null,
+            null,
+            "cyan",
+            "cyan"
+          ],
+          [
+            null,
+            null,
+            null,
+            null,
+            null
+          ],
+          [
+            null,
+            null,
+            null,
+            null,
+            null
+          ]
+        ],
+        "blocked": [
+          [
+            0,
+            4
+          ],
+          [
+            2,
+            2
+          ],
+          [
+            4,
+            0
+          ]
+        ],
+        "completed_orientations": [
+          "horizontal",
+          "vertical",
+          "diagonal"
+        ],
+        "scored_lines": [
+          [
+            "1:2",
+            "1:3",
+            "1:4"
+          ],
+          [
+            "0:3",
+            "1:3",
+            "2:3"
+          ],
+          [
+            "0:2",
+            "1:3",
+            "2:4"
+          ]
+        ],
+        "placements": 7,
+        "restarts": 0,
+        "status": "complete",
+        "started_at": "2026-08-02T09:41:49.936748+00:00",
+        "deadline_at": "2026-08-02T09:44:49.936748+00:00"
+      }
+    }
   }
 }
