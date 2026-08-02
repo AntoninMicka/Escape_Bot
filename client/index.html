@@ -696,6 +696,12 @@
 
     <div id="tab-room" class="tab-content">
         <h2>[ PŘÍSTUPOVÝ PANEL - DVEŘE 104 ]</h2>
+        <div id="room-104-clue" class="puzzle-card" style="display:none; max-width:520px; margin:0 auto 14px; text-align:center">
+            <strong>[ SERVISNÍ OTISK PANELU ]</strong>
+            <p style="font-size:1.35rem; letter-spacing:.2em">I &nbsp;|&nbsp; X &nbsp;|&nbsp; IV</p>
+            <p>Každá oddělená skupina tvoří jednu část čtyřmístného přístupového kódu.</p>
+            <button onclick="requestRoomHint('104')">NÁPOVĚDA K PANELU</button>
+        </div>
         <div class="numpad-container">
             <div id="numpad-display" class="numpad-display">_</div>
             <div class="numpad-grid">
@@ -1796,6 +1802,8 @@
                         room104.style.borderColor = '#0f0';
                         room104.style.color = '#0f0';
                     }
+                    const room104Clue = document.getElementById('room-104-clue');
+                    if (room104Clue) room104Clue.style.display = flags.reception_archive_unlocked ? 'block' : 'none';
                     const chronomapButton = document.getElementById('chronomap-tab-button');
                     if (flags.chronomap_unlocked) {
                         chronomapButton.disabled = false;
@@ -1977,6 +1985,11 @@
         function submitPin() {
             if (!currentPin || !ws || ws.readyState !== WebSocket.OPEN) return;
             ws.send(JSON.stringify({ type: 'room.unlock', payload: { pin: currentPin } }));
+        }
+
+        function requestRoomHint(roomId) {
+            if (!window.confirm('Zobrazit další nápovědu k panelu? Nový stupeň odečte body.')) return;
+            if (ws?.readyState === WebSocket.OPEN) ws.send(JSON.stringify({type:'room.hint', payload:{room_id:roomId}}));
         }
 
         function sendMsg() {

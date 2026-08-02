@@ -127,10 +127,16 @@
   },
   "rooms": {
     "104": {
-      "pin": "104",
+      "pin": "1104",
       "requires_checkpoints": ["reception_archive"],
+      "clue": "SERVISNÍ OTISK PANELU\nI   |   X   |   IV\nKaždá oddělená skupina tvoří jednu část čtyřmístného přístupového kódu.",
+      "hints": [
+        {"text": "Tři skupiny zachovej oddělené a čti je zleva doprava.", "penalty": 10},
+        {"text": "Znaky v servisním otisku jsou čísla zapsaná způsobem používaným ve starověkém Římě.", "penalty": 20},
+        {"text": "I = 1, X = 10 a IV = 4. Po spojení vznikne PIN 1104.", "penalty": 35}
+      ],
       "success_messages": [
-        {"text": "Přístupový panel 104 odemčen. Elektromagnetický zámek uvolněn.", "mood": "success", "channel": "general"},
+        {"text": "Přístupový panel dveří 104 odemčen. Elektromagnetický zámek uvolněn.", "mood": "success", "channel": "general"},
         {"text": "Slyšela jsem cvaknutí! Ty dveře do pokoje 104 se právě otevřely. Jdu dovnitř...", "mood": "relieved", "channel": "lost"}
       ]
     }
@@ -168,7 +174,7 @@
         "Elara nepřivezla ani motor, ani krystal."
       ],
       "answer": "2147",
-      "success_message": {"text": "Archiv potvrzuje shodu: Elara, pokoj 214, pozice 7. Záznam obsahuje schéma nouzového přístupového panelu a stopu vedoucí ke schodišti.", "mood": "success", "channel": "captain"},
+      "success_message": {"text": "Archiv potvrzuje shodu: Elara, pokoj 214, pozice 7. V dokumentaci se obnovil servisní otisk panelu dveří 104:\n\nI   |   X   |   IV\n\nKaždá oddělená skupina tvoří jednu část čtyřmístného přístupového kódu.", "mood": "success", "channel": "captain"},
       "failure_message": {"text": "Archivní kombinace nesouhlasí. Zkontrolujte vazby mezi pokoji, součástkami a pozicemi.", "mood": "error", "channel": "general"},
       "hints": [
         {"text": "Začněte pevnými vazbami: Novák má nejnižší pokoj a Chen má záznamník.", "penalty": 10},

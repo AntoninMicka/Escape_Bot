@@ -135,13 +135,29 @@ class StateMachineCheckpointTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn("pigpen", self.machine.state.paid_cipher_tools)
 
     async def test_room_requires_physical_checkpoint_even_with_correct_pin(self) -> None:
-        denied = await self.machine.handle(Message("room.unlock", {"pin": "104"}))
+        room_pin = self.scenario.data["rooms"]["104"]["pin"]
+        denied = await self.machine.handle(Message("room.unlock", {"pin": room_pin}))
         self.assertFalse(self.response(denied, "room.unlock_result").payload["success"])
 
         await self.solve_reception()
-        granted = await self.machine.handle(Message("room.unlock", {"pin": "104"}))
+        granted = await self.machine.handle(Message("room.unlock", {"pin": room_pin}))
         self.assertTrue(self.response(granted, "room.unlock_result").payload["success"])
         self.assertTrue(self.machine.state.flags["room_104_unlocked"])
+
+    async def test_room_pin_has_locked_progressive_hints(self) -> None:
+        room = self.scenario.data["rooms"]["104"]
+        self.assertEqual(room["pin"], "1104")
+        self.assertNotIn(room["pin"], room["clue"])
+
+        locked = await self.machine.handle(Message("room.hint", {"room_id": "104"}))
+        self.assertNotIn("Tři skupiny", self.response(locked, "bot.message").payload["text"])
+
+        await self.solve_reception()
+        score_before = self.machine.state.score
+        hint = await self.machine.handle(Message("room.hint", {"room_id": "104"}))
+        self.assertIn("Tři skupiny", self.response(hint, "bot.message").payload["text"])
+        self.assertEqual(self.machine.state.score, score_before - 10)
+        self.assertEqual(self.machine.state.hints_used["room_104"], 1)
 
     def test_default_tools_survive_old_session_restore(self) -> None:
         self.machine.restore_state({"score": 900})
@@ -668,7 +684,7 @@ class StateMachineCheckpointTests(unittest.IsolatedAsyncioTestCase):
             "timeline_calibration", "terrace_echo", "courtyard_alignment", "sports_archive",
         ]:
             self.machine.admin_set_checkpoint(checkpoint_id, "solved")
-        await self.machine.handle(Message("room.unlock", {"pin": "104"}))
+        await self.machine.handle(Message("room.unlock", {"pin": self.scenario.data["rooms"]["104"]["pin"]}))
 
         await self.scan("sports_cipher")
         pigpen = await self.machine.handle(Message("puzzle.submit", {"puzzle_id": "sports_pigpen", "answer": "HODINY"}))

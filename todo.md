@@ -216,6 +216,7 @@
 - [x] Navrhnout čtveřici vědců, pokojů, archivních pozic a převážených součástek.
 - [x] Sepsat jednoznačné indicie a ověřit jediné správné řešení.
 - [x] Získat z tabulky čtyřmístný PIN virtuálního archivu.
+- [x] Doplnit samostatnou stopu a stupňované nápovědy pro PIN dveří pokoje 104.
 - [ ] Umístit první časovou kotvu poblíž recepce bez omezení jejího provozu.
 - [x] Po vyřešení zpřístupnit archivní záznam a navigaci ke schodišti.
 

@@ -127,6 +127,7 @@ class EscapeBotStateMachine:
                 "qr.detected": ("code", "value"),
                 "arg.verify": ("id", "answer"),
                 "room.unlock": ("room",),
+                "room.hint": ("room_id",),
                 "cipher_tool.unlock": ("tool_id",),
                 "puzzle.submit": ("puzzle_id",),
                 "puzzle.hint": ("puzzle_id",),
@@ -159,6 +160,7 @@ class EscapeBotStateMachine:
             "arg.verify": self._handle_arg_verify,
             "camera.frame": self._handle_camera_frame,
             "room.unlock": self._handle_room_unlock,
+            "room.hint": self._handle_room_hint,
             "cipher_tool.unlock": self._handle_cipher_tool_unlock,
             "puzzle.submit": self._handle_puzzle_submit,
             "puzzle.hint": self._handle_puzzle_hint,
@@ -314,12 +316,14 @@ class EscapeBotStateMachine:
 
     def _provide_hint(self, phase: str, message: Message) -> list[Message]:
         p_data = self.scenario.get_phase_data(phase)
-        hints = p_data.get("hints", [])
+        return self._provide_hint_list(phase, p_data.get("hints", []), message)
+
+    def _provide_hint_list(self, key: str, hints: list[dict[str, Any]], message: Message) -> list[Message]:
         
         if not hints:
             return [reply("bot.message", {"text": "Systém: Pro tuto situaci nemám v databázi žádné další nápovědy.", "mood": "error", "channel": "general"}, message)]
             
-        idx = self.state.hints_used.get(phase, 0)
+        idx = self.state.hints_used.get(key, 0)
         is_new_hint = False
         
         if idx >= len(hints):
@@ -332,7 +336,7 @@ class EscapeBotStateMachine:
         
         if is_new_hint:
             self.state.score -= hint.get("penalty", 10)
-            self.state.hints_used[phase] = idx + 1
+            self.state.hints_used[key] = idx + 1
             responses.append(reply("score.update", {"score": self.state.score, "penalty": hint.get("penalty", 10)}, message))
             
         responses.append(reply("bot.message", {"text": f"NÁPOVĚDA SYSTÉMU: {hint.get('text', '')}", "mood": "info", "channel": "general"}, message))
@@ -1031,6 +1035,16 @@ class EscapeBotStateMachine:
             reply("bot.message", fail_msg, message),
             self._state_message(),
         ]
+
+    async def _handle_room_hint(self, message: Message) -> list[Message]:
+        room_id = str(message.payload.get("room_id", "")).strip()
+        room = self.scenario.get_room_data(room_id)
+        if not room:
+            return [reply("error", {"message": "Neznámý přístupový panel."}, message)]
+        missing = [checkpoint_id for checkpoint_id in room.get("requires_checkpoints", []) if self.state.checkpoint_states.get(checkpoint_id, {}).get("status") != "solved"]
+        if missing:
+            return [reply("bot.message", {"text": "Nápověda k panelu je uzamčena, dokud neobnovíte příslušný archivní záznam.", "mood": "error", "channel": "general"}, message)]
+        return self._provide_hint_list(f"room_{room_id}", room.get("hints", []), message)
 
     async def _handle_finale_activate(self, message: Message) -> list[Message]:
         puzzle_id = str(message.payload.get("puzzle_id", "")).strip()
