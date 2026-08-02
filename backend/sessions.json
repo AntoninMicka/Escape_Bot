@@ -2684,5 +2684,166 @@
     "triad_games": {},
     "archive_games": {},
     "event_history": []
+  },
+  "8585591d6a154494b25ed71bdb493973": {
+    "phase": "navigating",
+    "unlocked_discoveries": [
+      "reception_archive"
+    ],
+    "inventory": [],
+    "flags": {
+      "chronomap_unlocked": true,
+      "reception_archive_unlocked": true,
+      "room_104_unlocked": true
+    },
+    "chat_history": [
+      {
+        "role": "bot",
+        "channel": "captain",
+        "text": "*ššš*... Tady Kapitánka. Slyšíme se? Interkom konečně naběhl. Potvrď příjem!"
+      },
+      {
+        "role": "player",
+        "channel": "captain",
+        "text": "jj"
+      },
+      {
+        "role": "bot",
+        "channel": "captain",
+        "text": "Výborně, spojení funguje. Při experimentu v Hotelu Kraskov zmizela doktorka Elara. Z poškozeného chronálního vysílače zůstal jediný nouzový záznam:\n\nNOSNÁ VLNA C-17\n━━  ━━  ●  ●  ●   /   ●  ●  ●  ━━  ━━   /   ●  ●  ●  ●  ━━\n\nZáznam tvoří tři oddělené skupiny. Obnovenou třícifernou frekvenci odešli do interkomu."
+      },
+      {
+        "role": "player",
+        "channel": "captain",
+        "text": "734"
+      },
+      {
+        "role": "bot",
+        "channel": "captain",
+        "text": "Frekvence 734 přijata! Zachytila jsem chronální ozvěnu. Přepojuji... *píp*"
+      },
+      {
+        "role": "bot",
+        "channel": "lost",
+        "text": "Haló? Tady doktorka Elara. Jsem pořád v Kraskově, ale hotel vypadá, jako by tu nikdo nebyl celá desetiletí. Stroj se rozpadl při přenosu. Slyšíte mě?"
+      },
+      {
+        "role": "player",
+        "channel": "lost",
+        "text": "ok"
+      },
+      {
+        "role": "bot",
+        "channel": "lost",
+        "text": "Snažím se postupovat podle tvých instrukcí 'ok', ale... *GLITCH* něco mě tu ruší... *šum*"
+      },
+      {
+        "role": "bot",
+        "channel": "general",
+        "text": "SYSTEM ERROR: CHRONOSIGNÁL ZTRACEN\n\nRozhraní interkomu neodpovídá.\nEnergetická smyčka byla přerušena.\nSynchronizace časových vrstev selhala.\nTerminál čeká na obnovovací příkaz.\nAktivní kanál nelze znovu naladit.\nRežim CHRONOMAPY zůstává uzamčen.\nTransmise byla pozastavena.\n\nZadejte jednoslovný obnovovací příkaz."
+      },
+      {
+        "role": "player",
+        "channel": "general",
+        "text": "restart"
+      },
+      {
+        "role": "bot",
+        "channel": "lost",
+        "text": "Uf, jsem zpět! Už tomu rozumím: jsme ve stejném Kraskově, ale já jsem uvázla v jeho budoucí časové vrstvě. Interkom přenese jen hlas a data; ven mě dostane až stabilní koridor. Havárie vymrštila tři součásti stroje do vašeho času. CHRONOMAPA je znovu online — najděte její první stabilní bod u recepčního archivu."
+      },
+      {
+        "role": "bot",
+        "channel": "captain",
+        "text": "Časová kotva na recepci potvrzena. CHRONOMAPA obnovila recepční archiv."
+      },
+      {
+        "role": "bot",
+        "channel": "captain",
+        "text": "Archiv potvrzuje shodu: Elara, pokoj 214, pozice 7. V dokumentaci se obnovil servisní otisk panelu dveří 104:\n\nI   |   X   |   IV\n\nKaždá oddělená skupina tvoří jednu část čtyřmístného přístupového kódu."
+      },
+      {
+        "role": "bot",
+        "channel": "general",
+        "text": "Přístupový panel dveří 104 odemčen. Elektromagnetický zámek uvolněn."
+      },
+      {
+        "role": "bot",
+        "channel": "lost",
+        "text": "Slyšela jsem cvaknutí! Ty dveře do pokoje 104 se právě otevřely. Jdu dovnitř..."
+      }
+    ],
+    "score": 1020,
+    "hints_used": {},
+    "checkpoint_states": {
+      "reception_archive": {
+        "status": "solved",
+        "first_scanned_at": "2026-08-02T18:42:58.167757+00:00",
+        "solved_at": "2026-08-02T18:43:09.416876+00:00"
+      }
+    },
+    "unlocked_cipher_tools": [
+      "a1z26",
+      "morse"
+    ],
+    "paid_cipher_tools": [],
+    "puzzle_attempts": {
+      "reception_deduction": 1
+    },
+    "interactive_games": {},
+    "sokoban_games": {},
+    "karel_games": {},
+    "last_activity_at": "2026-08-02T18:44:05.998645+00:00",
+    "triad_games": {},
+    "archive_games": {},
+    "event_history": [
+      {
+        "at": "2026-08-02T18:35:23.088296+00:00",
+        "type": "player.message",
+        "details": {
+          "channel": "captain"
+        }
+      },
+      {
+        "at": "2026-08-02T18:42:17.905709+00:00",
+        "type": "player.message",
+        "details": {
+          "channel": "captain"
+        }
+      },
+      {
+        "at": "2026-08-02T18:42:23.498517+00:00",
+        "type": "player.message",
+        "details": {
+          "channel": "lost"
+        }
+      },
+      {
+        "at": "2026-08-02T18:42:42.606471+00:00",
+        "type": "player.message",
+        "details": {
+          "channel": "general"
+        }
+      },
+      {
+        "at": "2026-08-02T18:42:58.167711+00:00",
+        "type": "qr.detected",
+        "details": {
+          "value": "escapebot://checkpoint/4ec67b900c4a491ba180c8a48d5309f2"
+        }
+      },
+      {
+        "at": "2026-08-02T18:43:09.416843+00:00",
+        "type": "puzzle.submit",
+        "details": {
+          "puzzle_id": "reception_deduction"
+        }
+      },
+      {
+        "at": "2026-08-02T18:44:05.998645+00:00",
+        "type": "room.unlock",
+        "details": {}
+      }
+    ]
   }
 }
