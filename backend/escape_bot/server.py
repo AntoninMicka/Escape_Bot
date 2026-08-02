@@ -190,6 +190,21 @@ def admin_overview() -> list[dict[str, object]]:
         state = machine.state.snapshot() if machine else {}
         progress = build_scenario_progress(scenario, state) if machine else {"nodes": []}
         nodes = list(progress.get("nodes", []))
+        flags = state.get("flags", {})
+        penalties = list(flags.get("admin_penalties", []))
+        checkpoint_states = dict(state.get("checkpoint_states", {}))
+        timeline: list[dict[str, object]] = []
+        for checkpoint_id, checkpoint in checkpoint_states.items():
+            if checkpoint.get("found_at"):
+                timeline.append({"at": checkpoint["found_at"], "type": "checkpoint_found", "label": checkpoint_id})
+            if checkpoint.get("solved_at"):
+                timeline.append({"at": checkpoint["solved_at"], "type": "checkpoint_solved", "label": checkpoint_id})
+        for penalty in penalties:
+            timeline.append({"at": penalty.get("at", ""), "type": "admin_penalty", "label": penalty.get("reason", ""), "amount": penalty.get("amount", 0)})
+        timeline.sort(key=lambda item: str(item.get("at", "")), reverse=True)
+        karel_games = dict(state.get("karel_games", {}))
+        sokoban_games = dict(state.get("sokoban_games", {}))
+        last_activity = str(state.get("last_activity_at", "")) or (str(timeline[0].get("at", "")) if timeline else "")
         teams.append({
             **lobby.public("", connected_client_ids(lobby.session_id)),
             "score": int(state.get("score", 1000)),
@@ -197,7 +212,20 @@ def admin_overview() -> list[dict[str, object]]:
             "completed_nodes": sum(node.get("status") == "complete" for node in nodes),
             "total_nodes": len(nodes),
             "progress": progress,
-            "admin_penalties": list(state.get("flags", {}).get("admin_penalties", [])),
+            "admin_penalties": penalties,
+            "last_activity": last_activity,
+            "timeline": timeline[:30],
+            "hints_used": dict(state.get("hints_used", {})),
+            "puzzle_attempts": dict(state.get("puzzle_attempts", {})),
+            "recent_messages": list(state.get("chat_history", []))[-8:],
+            "game_metrics": {
+                "karel": [{"id": game_id, "level": game.get("level_label", ""), "completed": len(game.get("completed_levels", [])),
+                           "moves": game.get("total_moves", 0), "strikes": game.get("total_strikes", 0), "restarts": game.get("restarts", 0)}
+                          for game_id, game in karel_games.items()],
+                "sokoban": [{"id": game_id, "level": game.get("level_label", ""), "completed": len(game.get("completed_levels", [])),
+                              "moves": game.get("total_moves", 0), "pushes": game.get("total_pushes", 0), "restarts": game.get("restarts", 0)}
+                             for game_id, game in sokoban_games.items()],
+            },
         })
     return sorted(teams, key=lambda team: str(team.get("team_name", "")).casefold())
 

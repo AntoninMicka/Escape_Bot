@@ -415,6 +415,10 @@
         .admin-progress > span { display: block; height: 100%; background: #0c8; }
         .admin-actions { display: grid; grid-template-columns: 90px 1fr auto; gap: 7px; margin-top: 12px; }
         .admin-delete { background: #d33; color: #fff; }
+        .admin-detail { margin-top: 9px; border-top: 1px dashed #066; padding-top: 7px; }
+        .admin-detail summary { cursor: pointer; color: #0cc; }
+        .admin-detail-list { max-height: 230px; overflow-y: auto; padding-left: 20px; }
+        .admin-detail-list li { margin: 4px 0; }
         @media (max-width: 700px) {
             body { padding: 6px 8px max(6px, env(safe-area-inset-bottom)); height: 100vh; height: 100dvh; }
             .lobby-modes { grid-template-columns: 1fr; }
@@ -917,6 +921,14 @@
                 const players = (team.players || []).map(player => `${player.connected ? '●' : '○'} ${escapeHtml(player.name)}`).join(', ');
                 const activeNodes = ((team.progress || {}).nodes || []).filter(node => node.status === 'active' || node.status === 'available').map(node => escapeHtml(node.label)).join(', ') || '—';
                 const penalties = (team.admin_penalties || []).map(item => `−${Number(item.amount)}: ${escapeHtml(item.reason)}`).join('<br>') || 'žádné';
+                const lastActivity = team.last_activity ? new Date(team.last_activity).toLocaleString('cs-CZ') : 'bez zaznamenané události';
+                const progressNodes = ((team.progress || {}).nodes || []).map(node => `<li>${node.status === 'complete' ? '✓' : (node.status === 'active' ? '▶' : (node.status === 'available' ? '○' : '·'))} ${escapeHtml(node.label)} <small>[${escapeHtml(node.status)}]</small></li>`).join('');
+                const hints = Object.entries(team.hints_used || {}).map(([id, count]) => `${escapeHtml(id)}: ${Number(count)}`).join(', ') || 'žádné';
+                const attempts = Object.entries(team.puzzle_attempts || {}).map(([id, count]) => `${escapeHtml(id)}: ${Number(count)}`).join(', ') || 'žádné';
+                const karel = ((team.game_metrics || {}).karel || []).map(game => `Karel ${escapeHtml(game.level)}: ${game.completed} hotovo, ${game.moves} kroků, ${game.strikes} min, ${game.restarts} restartů`).join('<br>') || 'Karel dosud neaktivní';
+                const sokoban = ((team.game_metrics || {}).sokoban || []).map(game => `Sokoban ${escapeHtml(game.level)}: ${game.completed} hotovo, ${game.moves} kroků, ${game.pushes} zatlačení, ${game.restarts} restartů`).join('<br>') || 'Sokoban dosud neaktivní';
+                const timeline = (team.timeline || []).map(item => `<li>${item.at ? new Date(item.at).toLocaleTimeString('cs-CZ') : '—'} · ${item.type === 'checkpoint_solved' ? 'vyřešeno' : (item.type === 'checkpoint_found' ? 'nalezeno' : `malus −${Number(item.amount)}`)} · ${escapeHtml(item.label)}</li>`).join('') || '<li>Žádné události</li>';
+                const recentMessages = (team.recent_messages || []).map(item => `<li><strong>${escapeHtml(item.channel || 'general')}</strong> · ${item.role === 'player' ? 'hráč' : 'systém'}: ${escapeHtml(String(item.text || '').slice(0, 180))}</li>`).join('') || '<li>Žádné zprávy</li>';
                 return `<article class="admin-team ${online ? '' : 'offline'}">
                     <h2>${escapeHtml(team.team_name)}</h2>
                     <p><strong>${team.mode === 'solo' ? 'SÓLO' : 'TÝM'}</strong> · ${size} hráčů · ${online} online · ${team.started ? 'hra spuštěna' : 'lobby'}</p>
@@ -924,7 +936,11 @@
                     <p>Fáze: <strong>${escapeHtml(team.phase)}</strong> · skóre: <strong>${Number(team.score)}</strong></p>
                     <div class="admin-progress"><span style="width:${percent}%"></span></div>
                     <p>Postup: ${complete}/${total} (${percent} %) · aktuální: ${activeNodes}</p>
+                    <p>Poslední aktivita: <strong>${lastActivity}</strong></p>
                     <details><summary>Udělené malusy</summary><p>${penalties}</p></details>
+                    <details class="admin-detail"><summary>Detail postupu a her</summary><ul class="admin-detail-list">${progressNodes}</ul><p><strong>Nápovědy:</strong> ${hints}</p><p><strong>Pokusy:</strong> ${attempts}</p><p>${karel}</p><p>${sokoban}</p></details>
+                    <details class="admin-detail"><summary>Časová osa</summary><ul class="admin-detail-list">${timeline}</ul></details>
+                    <details class="admin-detail"><summary>Poslední zprávy</summary><ul class="admin-detail-list">${recentMessages}</ul></details>
                     <div class="admin-actions">
                         <input id="admin-amount-${team.session_id}" type="number" min="1" max="1000" value="30" aria-label="Výše malusu">
                         <input id="admin-reason-${team.session_id}" maxlength="160" placeholder="Důvod: více hráčů, prozrazování…">

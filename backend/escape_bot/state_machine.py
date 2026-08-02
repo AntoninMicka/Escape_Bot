@@ -48,6 +48,7 @@ class GameState:
     interactive_games: dict[str, dict[str, Any]] = field(default_factory=dict)
     sokoban_games: dict[str, dict[str, Any]] = field(default_factory=dict)
     karel_games: dict[str, dict[str, Any]] = field(default_factory=dict)
+    last_activity_at: str = ""
 
     def snapshot(self) -> dict[str, Any]:
         return {
@@ -65,6 +66,7 @@ class GameState:
             "interactive_games": self.interactive_games,
             "sokoban_games": self.sokoban_games,
             "karel_games": self.karel_games,
+            "last_activity_at": self.last_activity_at,
         }
 
     @classmethod
@@ -84,6 +86,7 @@ class GameState:
         state.interactive_games = dict(data.get("interactive_games", {}))
         state.sokoban_games = dict(data.get("sokoban_games", {}))
         state.karel_games = dict(data.get("karel_games", {}))
+        state.last_activity_at = str(data.get("last_activity_at", ""))
         return state
 
 
@@ -106,6 +109,7 @@ class EscapeBotStateMachine:
                 self.state.unlocked_cipher_tools.add(tool_id)
 
     async def handle(self, message: Message) -> list[Message]:
+        self.state.last_activity_at = datetime.now(UTC).isoformat()
         # Automatické uložení příchozí zprávy hráče do historie
         if message.type == "player.message":
             text = str(message.payload.get("text", "")).strip()
