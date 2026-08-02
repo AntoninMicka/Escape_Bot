@@ -22,6 +22,8 @@ Před `client.hello` používá webový klient jednu ze zpráv `lobby.solo`, `lo
 
 Zakladatel týmové relace ji spustí zprávou `lobby.start`. Backend spuštění odmítne, pokud chybí název týmu nebo jméno kteréhokoli registrovaného hráče. Poté rozešle `lobby.state` a zahajovací herní zprávy všem připojeným zařízením. `lobby.state` obsahuje název a režim týmu, týmový QR kód, trvalý počet registrovaných hráčů (`player_count`/`registered_players`), momentální počet spojení (`online_count`), seznam připojení a bodovou úpravu. Uspání či výpadek zařízení mění pouze online stav a nikdy nepřepíná tým do sólo režimu.
 
+Každý `lobby.resume` rozehrané relace vrací úplný autoritativní snapshot: `lobby.state`, `chat.history`, `game.state` a `scenario.progress`; v demo režimu také `demo.catalog`. Klient obnovu aktivně vyžádá při událostech `visibilitychange`, `pageshow` a `online`. Pokud uspáním vznikne zdánlivě otevřený, ale nefunkční WebSocket, neúspěšná synchronizační sonda jej uzavře a vyvolá nové připojení.
+
 Pro reverzní připojení notebook pošle `lobby.identify` a dostane `lobby.player_identity` s jednorázovým osmimístným kódem. Zobrazí jej jako `escapebot://player/<code>`. Zakladatel kód načte a odešle v `lobby.add_player`; backend čekající WebSocket připojí do stejné lobby. Kód je jednorázový a zařízení se dále chová jako běžný hráč.
 
 Velikost týmu upravuje skóre podle nejvyššího počtu registrovaných zařízení: sólo `+20`, tým o dvou hráčích `+10`, tři hráči beze změny a každý hráč nad tři `−30`. Pozdější připojení pouze dorovná rozdíl proti již použité úpravě.

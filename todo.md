@@ -505,6 +505,7 @@
 - [x] Uchovat lobby, připojovací kód, hráče, maximum hráčů a bodovou úpravu při restartu backendu.
 - [x] Vyžadovat název týmu a jména všech hráčů, blokovat neúplné spuštění a kontrolovat unikátnost názvu týmu bez ohledu na velikost písmen a mezery.
 - [x] Zachovat týmový režim při uspání nebo krátkém odpojení telefonu; rozlišovat registrované hráče od právě online zařízení.
+- [x] Po probuzení či opětovném připojení zařízení obnovit kompletní historii, herní stav, postup scénářem a demo katalog; detekovat i zdánlivě otevřený mrtvý WebSocket.
 - [x] Nastavit úpravu skóre: sólo `+20`, tým 2 hráčů `+10`, 3 hráči `0`, každý další hráč `−30`.
 - [x] Počítat maximum registrovaných hráčů, aby odpojením nešlo získat zpět bonus.
 - [x] Nezamykat panely ani pevné role; organizaci pozorovatele a navigátora ponechat týmu.

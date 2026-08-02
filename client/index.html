@@ -805,6 +805,8 @@
         let joinTeamScanning = false;
         const requestedJoinCode = new URLSearchParams(window.location.search).get('join');
         let savedLobby = null;
+        let lobbySyncTimer = null;
+        let reconnectTimer = null;
         try { savedLobby = JSON.parse(localStorage.getItem('escapeBotLobby') || 'null'); } catch (_) { savedLobby = null; }
 
         function lobbyPlayerName() {
@@ -965,13 +967,15 @@
         }
 
         function renderLobby(payload) {
+            clearTimeout(lobbySyncTimer);
             currentLobby = payload;
             stopJoinTeamScanner();
             sessionId = payload.session_id;
             document.getElementById('lobby-team-name').value = payload.team_name || lobbyTeamName();
             localStorage.setItem('escapeBotPlayerName', lobbyPlayerName());
             localStorage.setItem('escapeBotTeamName', payload.team_name || lobbyTeamName());
-            localStorage.setItem('escapeBotLobby', JSON.stringify({session_id:sessionId, mode:payload.mode}));
+            savedLobby = {session_id:sessionId, mode:payload.mode};
+            localStorage.setItem('escapeBotLobby', JSON.stringify(savedLobby));
             const teamSize = Number(payload.registered_players ?? payload.player_count ?? 0);
             const onlineCount = Number(payload.online_count ?? payload.player_count ?? 0);
             document.getElementById('team-status').textContent = payload.mode === 'solo'
@@ -1184,6 +1188,7 @@
 
         // 2. Správa připojení a znovupřipojení
         function connect() {
+            if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) return;
             const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
             ws = new WebSocket(`${wsProtocol}//${window.location.host}/ws`);
 
@@ -1465,7 +1470,8 @@
                 statusIndicator.classList.remove('online');
                 document.getElementById('typing-indicator').style.display = 'none';
                 showNotification('Spojení ztraceno. Pokus o obnovu...', 'error');
-                setTimeout(connect, 3000);
+                clearTimeout(reconnectTimer);
+                reconnectTimer = setTimeout(connect, 3000);
             };
 
             ws.onerror = (err) => {
@@ -1478,6 +1484,35 @@
 
         // Inicializace prvního připojení
         connect();
+
+        function reviveClientAfterOffline() {
+            if (adminModeRequested) {
+                if (!ws || ws.readyState === WebSocket.CLOSED) connect();
+                else if (ws.readyState === WebSocket.OPEN && adminToken()) loadAdminOverview();
+                return;
+            }
+            let persisted = savedLobby;
+            if (!persisted) {
+                try { persisted = JSON.parse(localStorage.getItem('escapeBotLobby') || 'null'); } catch (_) { persisted = null; }
+            }
+            if (!ws || ws.readyState === WebSocket.CLOSED) {
+                connect();
+                return;
+            }
+            if (ws.readyState !== WebSocket.OPEN || !persisted?.session_id) return;
+            sendLobby('lobby.resume', {session_id:persisted.session_id});
+            clearTimeout(lobbySyncTimer);
+            const probedSocket = ws;
+            lobbySyncTimer = setTimeout(() => {
+                if (ws === probedSocket && ws.readyState === WebSocket.OPEN) ws.close();
+            }, 5000);
+        }
+
+        document.addEventListener('visibilitychange', () => {
+            if (document.visibilityState === 'visible') reviveClientAfterOffline();
+        });
+        window.addEventListener('pageshow', reviveClientAfterOffline);
+        window.addEventListener('online', reviveClientAfterOffline);
 
         function pressPin(num) {
             if (currentPin.length < 8) {

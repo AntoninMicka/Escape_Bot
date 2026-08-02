@@ -206,6 +206,21 @@ async def send_admin_overview(websocket: WebSocket) -> None:
     await send_message(websocket, Message("admin.overview", {"teams": admin_overview()}))
 
 
+async def sync_started_client(websocket: WebSocket, state_machine: EscapeBotStateMachine, demo_client: bool) -> None:
+    """Send a complete authoritative snapshot after join, resume, or device wake-up."""
+    await send_message(websocket, Message("chat.history", {"messages": state_machine.state.chat_history}))
+    await send_message(websocket, state_machine._state_message())
+    await send_message(websocket, Message(
+        "scenario.progress",
+        build_scenario_progress(scenario, state_machine.state.snapshot()),
+    ))
+    if demo_client:
+        await send_message(websocket, Message("demo.catalog", {
+            "enabled": True,
+            "checkpoints": build_demo_checkpoint_catalog(scenario),
+        }))
+
+
 @app.get("/api/qr")
 async def qr_code(data: str) -> Response:
     if not data or len(data) > 500:
@@ -362,13 +377,7 @@ async def websocket_endpoint(websocket: WebSocket):
                             save_lobbies()
                             await broadcast_lobby(lobby)
                             if lobby.started:
-                                await send_message(waiting_socket, Message("chat.history", {"messages": state_machine.state.chat_history}))
-                                await send_message(waiting_socket, state_machine._state_message())
-                                if bool(waiting.get("demo")):
-                                    await send_message(waiting_socket, Message("demo.catalog", {
-                                        "enabled": True,
-                                        "checkpoints": build_demo_checkpoint_catalog(scenario),
-                                    }))
+                                await sync_started_client(waiting_socket, state_machine, bool(waiting.get("demo")))
                                 score_messages = apply_lobby_score(lobby, state_machine)
                                 if score_messages:
                                     await broadcast_session(session_id, score_messages)
@@ -409,16 +418,10 @@ async def websocket_endpoint(websocket: WebSocket):
                                         "enabled": True,
                                         "checkpoints": build_demo_checkpoint_catalog(scenario),
                                     }))
-                                    responses.append(Message("scenario.progress", build_scenario_progress(scenario, state_machine.state.snapshot())))
+                                responses.append(Message("scenario.progress", build_scenario_progress(scenario, state_machine.state.snapshot())))
                                 await broadcast_session(session_id, responses)
                             else:
-                                await send_message(websocket, Message("chat.history", {"messages": state_machine.state.chat_history}))
-                                await send_message(websocket, state_machine._state_message())
-                                if demo_client:
-                                    await send_message(websocket, Message("demo.catalog", {
-                                        "enabled": True,
-                                        "checkpoints": build_demo_checkpoint_catalog(scenario),
-                                    }))
+                                await sync_started_client(websocket, state_machine, demo_client)
                                 if score_messages:
                                     await broadcast_session(session_id, score_messages)
                         continue
@@ -474,11 +477,10 @@ async def websocket_endpoint(websocket: WebSocket):
                                 "checkpoints": [],
                                 "reason": "Backend nebyl spuštěn s parametrem --demo.",
                             }))
-                    if demo_client:
-                        responses.append(Message(
-                            "scenario.progress",
-                            build_scenario_progress(scenario, state_machine.state.snapshot()),
-                        ))
+                    responses.append(Message(
+                        "scenario.progress",
+                        build_scenario_progress(scenario, state_machine.state.snapshot()),
+                    ))
                     if msg.type == "player.message" and session_id:
                         await broadcast_session(session_id, [Message("team.player_message", {
                             "client_id": client_id,
