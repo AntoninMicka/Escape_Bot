@@ -45,6 +45,19 @@ runtime_settings = {"online_mode": False}
 LEADERBOARD_FILE = os.path.join(BASE_DIR, "backend", "leaderboard.json")
 global_leaderboard = []
 
+
+def leaderboard_entries() -> list[dict[str, object]]:
+    result: list[dict[str, object]] = []
+    for stored in global_leaderboard:
+        entry = dict(stored)
+        if not entry.get("players"):
+            lobby = lobby_registry.by_session.get(str(entry.get("session_id", "")))
+            if lobby:
+                entry["players"] = [str(player.get("name", "")) for player in lobby.players.values() if player.get("name")]
+        entry.setdefault("players", [])
+        result.append(entry)
+    return sorted(result, key=lambda item: int(item.get("score", 0)), reverse=True)
+
 def save_leaderboard():
     with open(LEADERBOARD_FILE, "w", encoding="utf-8") as f:
         json.dump(global_leaderboard, f, indent=2, ensure_ascii=False)
@@ -282,7 +295,7 @@ def admin_overview() -> list[dict[str, object]]:
 async def send_admin_overview(websocket: WebSocket) -> None:
     await send_message(websocket, Message("admin.overview", {
         "teams": admin_overview(),
-        "leaderboard": sorted(global_leaderboard, key=lambda entry: int(entry.get("score", 0)), reverse=True),
+        "leaderboard": leaderboard_entries(),
         "abandonment_thresholds": {"suspicious_seconds": 1800, "abandoned_seconds": 3600},
     }))
 
@@ -371,7 +384,7 @@ async def websocket_endpoint(websocket: WebSocket):
                                 raise ValueError("Záznam v Síni slávy už neexistuje.")
                             removed = global_leaderboard.pop(index)
                             save_leaderboard()
-                            update = Message("leaderboard.update", {"entries": global_leaderboard})
+                            update = Message("leaderboard.update", {"entries": leaderboard_entries()})
                             for active_socket in list(app.state.active_websockets):
                                 try: await send_message(active_socket, update)
                                 except Exception: pass
@@ -624,7 +637,7 @@ async def websocket_endpoint(websocket: WebSocket):
                 
                 # Zpracování požadavků na Síň slávy (mimo state machine)
                 if msg.type == "leaderboard.get":
-                    await websocket.send_text(json.dumps(Message("leaderboard.update", {"entries": global_leaderboard}).to_json()))
+                    await websocket.send_text(json.dumps(Message("leaderboard.update", {"entries": leaderboard_entries()}).to_json()))
                     continue
                     
                 if msg.type == "leaderboard.save":
@@ -636,10 +649,10 @@ async def websocket_endpoint(websocket: WebSocket):
                     name = lobby.team_name
                     score = machine.state.score
                     if not any(e.get("session_id") == session_id for e in global_leaderboard):
-                        global_leaderboard.append({"entry_id": secrets.token_hex(8), "session_id": session_id, "name": name, "score": score, "completed_at": machine.state.flags.get("completed_at", "")})
+                        global_leaderboard.append({"entry_id": secrets.token_hex(8), "session_id": session_id, "name": name, "players": [str(player.get("name", "")) for player in lobby.players.values() if player.get("name")], "score": score, "completed_at": machine.state.flags.get("completed_at", "")})
                         save_leaderboard()
                     
-                    update_msg = json.dumps(Message("leaderboard.update", {"entries": global_leaderboard}).to_json())
+                    update_msg = json.dumps(Message("leaderboard.update", {"entries": leaderboard_entries()}).to_json())
                     for ws in list(app.state.active_websockets):
                         try:
                             await ws.send_text(update_msg)
@@ -693,11 +706,12 @@ async def websocket_endpoint(websocket: WebSocket):
                                 "entry_id": secrets.token_hex(8),
                                 "session_id": session_id,
                                 "name": completed_lobby.team_name,
+                                "players": [str(player.get("name", "")) for player in completed_lobby.players.values() if player.get("name")],
                                 "score": state_machine.state.score,
                                 "completed_at": state_machine.state.flags.get("completed_at", ""),
                             })
                             save_leaderboard()
-                            leaderboard_update = Message("leaderboard.update", {"entries": global_leaderboard})
+                            leaderboard_update = Message("leaderboard.update", {"entries": leaderboard_entries()})
                             for active_socket in list(app.state.active_websockets):
                                 try: await send_message(active_socket, leaderboard_update)
                                 except Exception: pass

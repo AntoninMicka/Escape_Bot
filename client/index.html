@@ -743,7 +743,7 @@
         <h2>[ SÍŇ SLÁVY - ARCHIV ÚSPĚŠNÝCH TÝMŮ ]</h2>
         <div class="leaderboard-container">
             <table class="leaderboard-table">
-                <thead><tr><th>POŘADÍ</th><th>NÁZEV TÝMU</th><th>KONEČNÉ SKÓRE</th></tr></thead>
+                <thead><tr><th>POŘADÍ</th><th>NÁZEV TÝMU</th><th>HRÁČI</th><th>KONEČNÉ SKÓRE</th></tr></thead>
                 <tbody id="leaderboard-body">
                     <!-- Plněno přes JS -->
                 </tbody>
@@ -1137,7 +1137,7 @@
         function renderAdminLeaderboard(entries) {
             const container = document.getElementById('admin-leaderboard');
             if (!entries.length) { container.innerHTML = '<p>Síň slávy je prázdná.</p>'; return; }
-            container.innerHTML = `<table><thead><tr><th>#</th><th>Tým</th><th>Skóre</th><th>Dokončeno</th><th>Akce</th></tr></thead><tbody>${entries.map((entry, index) => `<tr><td>${index + 1}</td><td>${escapeHtml(entry.name)}</td><td><strong>${Number(entry.score)}</strong></td><td>${entry.completed_at ? new Date(entry.completed_at).toLocaleString('cs-CZ') : 'starší záznam'}</td><td><button class="admin-delete" onclick="deleteLeaderboardEntry('${entry.entry_id}')">SMAZAT</button></td></tr>`).join('')}</tbody></table>`;
+            container.innerHTML = `<table><thead><tr><th>#</th><th>Tým</th><th>Hráči</th><th>Skóre</th><th>Dokončeno</th><th>Akce</th></tr></thead><tbody>${entries.map((entry, index) => `<tr><td>${index + 1}</td><td>${escapeHtml(entry.name)}</td><td>${(entry.players || []).map(escapeHtml).join(', ') || 'nezaznamenáno'}</td><td><strong>${Number(entry.score)}</strong></td><td>${entry.completed_at ? new Date(entry.completed_at).toLocaleString('cs-CZ') : 'starší záznam'}</td><td><button class="admin-delete" onclick="deleteLeaderboardEntry('${entry.entry_id}')">SMAZAT</button></td></tr>`).join('')}</tbody></table>`;
         }
 
         function requestPlayerRecovery(sessionId, playerId) {
@@ -1703,12 +1703,12 @@
                 tbody.innerHTML = '';
                 
                 if (lb.length === 0) {
-                    tbody.innerHTML = '<tr><td colspan="3" style="text-align:center; color:#555;">Zatím žádné úspěšné týmy. Buďte první!</td></tr>';
+                    tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; color:#555;">Zatím žádné úspěšné týmy. Buďte první!</td></tr>';
                 } else {
                     lb.sort((a, b) => b.score - a.score).forEach((entry, idx) => {
                         let medal = '';
                         if (idx === 0) medal = '🥇 '; else if (idx === 1) medal = '🥈 '; else if (idx === 2) medal = '🥉 ';
-                        tbody.innerHTML += `<tr><td>${medal}#${idx + 1}</td><td><b>${entry.name}</b></td><td style="color:#0aa; font-weight:bold;">${entry.score}</td></tr>`;
+                        tbody.innerHTML += `<tr><td>${medal}#${idx + 1}</td><td><b>${escapeHtml(entry.name)}</b></td><td>${(entry.players || []).map(escapeHtml).join(', ') || 'nezaznamenáno'}</td><td style="color:#0aa; font-weight:bold;">${Number(entry.score)}</td></tr>`;
                     });
                 }
                 }
