@@ -52,6 +52,7 @@ class GameState:
     last_activity_at: str = ""
     triad_games: dict[str, dict[str, Any]] = field(default_factory=dict)
     archive_games: dict[str, dict[str, Any]] = field(default_factory=dict)
+    event_history: list[dict[str, Any]] = field(default_factory=list)
 
     def snapshot(self) -> dict[str, Any]:
         return {
@@ -72,6 +73,7 @@ class GameState:
             "last_activity_at": self.last_activity_at,
             "triad_games": self.triad_games,
             "archive_games": self.archive_games,
+            "event_history": self.event_history,
         }
 
     @classmethod
@@ -94,6 +96,7 @@ class GameState:
         state.last_activity_at = str(data.get("last_activity_at", ""))
         state.triad_games = dict(data.get("triad_games", {}))
         state.archive_games = dict(data.get("archive_games", {}))
+        state.event_history = list(data.get("event_history", []))
         return state
 
 
@@ -116,7 +119,32 @@ class EscapeBotStateMachine:
                 self.state.unlocked_cipher_tools.add(tool_id)
 
     async def handle(self, message: Message) -> list[Message]:
-        self.state.last_activity_at = datetime.now(UTC).isoformat()
+        now = datetime.now(UTC).isoformat()
+        self.state.last_activity_at = now
+        if message.type not in {"client.hello", "camera.frame"}:
+            detail_keys = {
+                "player.message": ("channel",),
+                "qr.detected": ("code", "value"),
+                "arg.verify": ("id", "answer"),
+                "room.unlock": ("room",),
+                "cipher_tool.unlock": ("tool_id",),
+                "puzzle.submit": ("puzzle_id",),
+                "puzzle.hint": ("puzzle_id",),
+                "line_game.move": ("puzzle_id",),
+                "line_game.reset": ("puzzle_id",),
+                "sokoban.command": ("puzzle_id", "commands"),
+                "sokoban.undo": ("puzzle_id",),
+                "sokoban.reset": ("puzzle_id",),
+                "karel.command": ("puzzle_id", "commands"),
+                "karel.reset": ("puzzle_id",),
+                "triad.place": ("puzzle_id",),
+                "triad.reset": ("puzzle_id",),
+                "finale.activate": (),
+                "archive.arrange": ("puzzle_id",),
+            }
+            details = {key: str(message.payload.get(key, ""))[:120] for key in detail_keys.get(message.type, ()) if message.payload.get(key) is not None and message.payload.get(key) != ""}
+            self.state.event_history.append({"at": now, "type": message.type, "details": details})
+            self.state.event_history = self.state.event_history[-500:]
         # Automatické uložení příchozí zprávy hráče do historie
         if message.type == "player.message":
             text = str(message.payload.get("text", "")).strip()

@@ -149,6 +149,18 @@ class StateMachineCheckpointTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn("morse", self.machine.state.unlocked_cipher_tools)
         self.assertIn("a1z26", self.machine.state.unlocked_cipher_tools)
 
+    async def test_game_events_are_audited_and_restored(self) -> None:
+        await self.machine.handle(Message("puzzle.hint", {"puzzle_id": "reception_deduction"}))
+
+        event = self.machine.state.event_history[-1]
+        self.assertEqual(event["type"], "puzzle.hint")
+        self.assertEqual(event["details"]["puzzle_id"], "reception_deduction")
+        self.assertTrue(event["at"])
+
+        restored = EscapeBotStateMachine(self.scenario)
+        restored.restore_state(self.machine.state.snapshot())
+        self.assertEqual(restored.state.event_history, self.machine.state.event_history)
+
     async def test_restart_unlocks_chronomap(self) -> None:
         self.machine.state.phase = GamePhase.CONNECTION_LOST
         await self.machine.handle(Message("player.message", {"text": "restart"}))

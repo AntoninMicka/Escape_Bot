@@ -449,6 +449,9 @@
         .admin-overlay.hidden { display: none; }
         .admin-toolbar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-bottom: 18px; }
         .admin-toolbar input { max-width: 340px; }
+        .admin-filters { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 14px; }
+        .admin-filters input { flex: 1 1 260px; }
+        .admin-filters select { min-width: 180px; }
         .admin-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 14px; }
         .admin-team { border: 1px solid #077; background: #001416; padding: 14px; }
         .admin-team h2 { margin-top: 0; color: #0ff; }
@@ -468,7 +471,7 @@
         .admin-delete { background: #d33; color: #fff; }
         .admin-detail { margin-top: 9px; border-top: 1px dashed #066; padding-top: 7px; }
         .admin-detail summary { cursor: pointer; color: #0cc; }
-        .admin-detail-list { max-height: 230px; overflow-y: auto; padding-left: 20px; }
+        .admin-detail-list { max-height: none; overflow: visible; padding-left: 20px; }
         .admin-detail-list li { margin: 4px 0; }
         .recovery-dialog { max-width: 430px; border: 2px solid #0cc; background: #001416; color: #dfffff; padding: 20px; text-align: center; }
         .recovery-dialog::backdrop { background: #000c; }
@@ -533,6 +536,11 @@
             <span id="admin-status">Čekám na spojení…</span>
         </div>
         <div id="admin-summary" class="admin-summary"></div>
+        <div class="admin-filters">
+            <input id="admin-team-search" type="search" placeholder="Hledat tým, hráče nebo kód…" oninput="applyAdminFilters()">
+            <select id="admin-activity-filter" onchange="applyAdminFilters()"><option value="all">Všechny stavy</option><option value="active">Aktivní</option><option value="suspicious">Podezřelé</option><option value="abandoned">Opuštěné</option><option value="completed">Dokončené</option></select>
+            <select id="admin-online-filter" onchange="applyAdminFilters()"><option value="all">Online i offline</option><option value="online">Alespoň jeden online</option><option value="offline">Všichni offline</option></select>
+        </div>
         <div id="admin-team-grid" class="admin-grid"></div>
         <section class="admin-leaderboard"><h2>[ SPRÁVA SÍNĚ SLÁVY ]</h2><div id="admin-leaderboard"></div></section>
     </section>
@@ -1155,18 +1163,34 @@
             document.getElementById('recovery-dialog').showModal();
         }
 
-        function renderAdminOverview(payload) {
-            const teams = payload.teams || [];
+        let latestAdminPayload = null;
+
+        function applyAdminFilters() { renderAdminOverview(); }
+
+        function renderAdminOverview(payload = null) {
+            if (payload) latestAdminPayload = payload;
+            if (!latestAdminPayload) return;
+            const allTeams = latestAdminPayload.teams || [];
+            const search = (document.getElementById('admin-team-search').value || '').trim().toLocaleLowerCase('cs-CZ');
+            const activityFilter = document.getElementById('admin-activity-filter').value;
+            const onlineFilter = document.getElementById('admin-online-filter').value;
+            const teams = allTeams.filter(team => {
+                const searchable = [team.team_name, team.join_code, ...(team.players || []).map(player => player.name)].join(' ').toLocaleLowerCase('cs-CZ');
+                const activityMatches = activityFilter === 'all' || (activityFilter === 'completed' ? team.game_completed : (!team.game_completed && team.activity_status === activityFilter));
+                const isOnline = Number(team.online_count || 0) > 0;
+                const onlineMatches = onlineFilter === 'all' || (onlineFilter === 'online' ? isOnline : !isOnline);
+                return (!search || searchable.includes(search)) && activityMatches && onlineMatches;
+            });
             const grid = document.getElementById('admin-team-grid');
             const openDetails = new Set([...grid.querySelectorAll('details[open][data-detail]')].map(detail => detail.dataset.detail));
             const suspicious = teams.filter(team => team.activity_status === 'suspicious').length;
             const abandoned = teams.filter(team => team.activity_status === 'abandoned').length;
             const onlinePlayers = teams.reduce((sum, team) => sum + Number(team.online_count || 0), 0);
-            document.getElementById('admin-status').textContent = `Týmů: ${teams.length} · aktualizováno ${new Date().toLocaleTimeString('cs-CZ')}`;
-            document.getElementById('admin-summary').innerHTML = `<div>RELACE<br><strong>${teams.length}</strong></div><div>HRÁČI ONLINE<br><strong>${onlinePlayers}</strong></div><div>PODEZŘELÉ<br><strong>${suspicious}</strong></div><div>OPUŠTĚNÉ<br><strong>${abandoned}</strong></div>`;
-            renderAdminLeaderboard(payload.leaderboard || []);
+            document.getElementById('admin-status').textContent = `Zobrazeno: ${teams.length}/${allTeams.length} týmů · aktualizováno ${new Date().toLocaleTimeString('cs-CZ')}`;
+            document.getElementById('admin-summary').innerHTML = `<div>VYFILTROVÁNO<br><strong>${teams.length}/${allTeams.length}</strong></div><div>HRÁČI ONLINE<br><strong>${onlinePlayers}</strong></div><div>PODEZŘELÉ<br><strong>${suspicious}</strong></div><div>OPUŠTĚNÉ<br><strong>${abandoned}</strong></div>`;
+            renderAdminLeaderboard(latestAdminPayload.leaderboard || []);
             if (!teams.length) {
-                grid.innerHTML = '<p>Nejsou evidované žádné týmy.</p>';
+                grid.innerHTML = `<p>${allTeams.length ? 'Filtrům neodpovídá žádný tým.' : 'Nejsou evidované žádné týmy.'}</p>`;
                 return;
             }
             const priority = {abandoned:0, suspicious:1, active:2};
@@ -1195,7 +1219,13 @@
                 const sokoban = ((team.game_metrics || {}).sokoban || []).map(game => `Sokoban ${escapeHtml(game.level)}: pozice ${escapeHtml((game.player || []).join(','))}, články na cíli ${(game.boxes || []).filter(box => (game.targets || []).some(target => target[0] === box[0] && target[1] === box[1])).length}/${(game.boxes || []).length}, ${game.moves} kroků, ${game.pushes} zatlačení, ${game.restarts} restartů`).join('<br>') || 'Sokoban dosud neaktivní';
                 const triad = ((team.game_metrics || {}).triad || []).map(game => `Tři v řadě [${escapeHtml(game.status)}]: ${game.placements} kamenů · směry ${(game.completed_orientations || []).map(escapeHtml).join(', ') || 'žádné'}`).join('<br>') || 'Tři v řadě dosud neaktivní';
                 const archive = ((team.game_metrics || {}).archive || []).map(game => `Archiv budoucnosti: ${game.assembled ? 'sestaven' : 'rozložen'} · ${game.moves} manipulací · pořadí ${(game.order || []).map(escapeHtml).join(' → ')}`).join('<br>') || 'Archiv budoucnosti dosud neaktivní';
-                const timeline = (team.timeline || []).map(item => `<li>${item.at ? new Date(item.at).toLocaleTimeString('cs-CZ') : '—'} · ${item.type === 'checkpoint_solved' ? 'vyřešeno' : (item.type === 'checkpoint_found' ? 'nalezeno' : (item.type === 'admin_action' ? 'zásah GM' : `malus −${Number(item.amount)}`))} · ${escapeHtml(item.label)}</li>`).join('') || '<li>Žádné události</li>';
+                const eventLabels = {'checkpoint_solved':'checkpoint vyřešen', 'checkpoint_found':'checkpoint nalezen', 'admin_action':'zásah GM', 'admin_penalty':'malus GM', 'player.message':'zpráva hráče', 'qr.detected':'načten QR', 'arg.verify':'ověření stopy', 'room.unlock':'odemčení místnosti', 'cipher_tool.unlock':'odemčení pomůcky', 'puzzle.submit':'odpověď na hádanku', 'puzzle.hint':'vyžádána nápověda', 'line_game.move':'tah kalibrace', 'line_game.reset':'restart kalibrace', 'sokoban.command':'povel Sokobanu', 'sokoban.undo':'vrácení tahu Sokobanu', 'sokoban.reset':'restart Sokobanu', 'karel.command':'povel Karlovi', 'karel.reset':'restart Karla', 'triad.place':'tah Tři v řadě', 'triad.reset':'restart Tři v řadě', 'finale.activate':'aktivace finále', 'archive.arrange':'pohyb v archivu'};
+                const timeline = (team.timeline || []).map(item => {
+                    const details = Object.entries(item.details || {}).map(([key, value]) => `${key}: ${value}`).join(' · ');
+                    const label = item.label || details || '—';
+                    const amount = item.type === 'admin_penalty' ? ` −${Number(item.amount)} bodů` : '';
+                    return `<li><strong>${item.at ? new Date(item.at).toLocaleString('cs-CZ') : '—'}</strong> · ${escapeHtml(eventLabels[item.type] || item.type || 'událost')}${amount} · ${escapeHtml(label)}</li>`;
+                }).join('') || '<li>Žádné události</li>';
                 const recentMessages = (team.recent_messages || []).map(item => `<li><strong>${escapeHtml(item.channel || 'general')}</strong> · ${item.role === 'player' ? 'hráč' : 'systém'}: ${escapeHtml(String(item.text || '').slice(0, 180))}</li>`).join('') || '<li>Žádné zprávy</li>';
                 const activityText = team.game_completed ? 'DOKONČENO' : (team.activity_status === 'abandoned' ? 'PRAVDĚPODOBNĚ OPUŠTĚNÁ' : (team.activity_status === 'suspicious' ? 'PODEZŘELÁ NEAKTIVITA' : 'AKTIVNÍ'));
                 const inventory = ((team.progress || {}).inventory || []).map(escapeHtml).join(', ') || 'prázdný';

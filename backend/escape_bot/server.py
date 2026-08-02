@@ -237,6 +237,7 @@ def admin_overview() -> list[dict[str, object]]:
             timeline.append({"at": penalty.get("at", ""), "type": "admin_penalty", "label": penalty.get("reason", ""), "amount": penalty.get("amount", 0)})
         for action in flags.get("admin_actions", []):
             timeline.append({"at": action.get("at", ""), "type": "admin_action", "label": action.get("label", "")})
+        timeline.extend(list(state.get("event_history", [])))
         timeline.sort(key=lambda item: str(item.get("at", "")), reverse=True)
         karel_games = dict(state.get("karel_games", {}))
         sokoban_games = dict(state.get("sokoban_games", {}))
@@ -265,7 +266,7 @@ def admin_overview() -> list[dict[str, object]]:
             "inactive_seconds": inactive_seconds,
             "activity_status": activity_status,
             "game_completed": game_completed,
-            "timeline": timeline[:30],
+            "timeline": timeline,
             "hints_used": dict(state.get("hints_used", {})),
             "puzzle_attempts": dict(state.get("puzzle_attempts", {})),
             "recent_messages": list(state.get("chat_history", []))[-8:],
