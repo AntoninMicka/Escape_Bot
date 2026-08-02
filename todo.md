@@ -261,8 +261,8 @@
 
 ### 13.9 Checkpoint 6 – Archiv budoucnosti
 **Typ:** kombinace fyzické skládačky a klasické šifry.
-- [ ] Navrhnout tři díly tak, aby po složení vytvořily šifrovací kotouč nebo tabulku.
-- [ ] Umístit na díly symboly, barvy a části číselné stupnice určující správné pořadí.
+- [x] Navrhnout tři díly tak, aby po složení vytvořily šifrovací kotouč nebo tabulku.
+- [x] Umístit na díly symboly, barvy a části číselné stupnice určující správné pořadí.
 - [x] Vybrat finální klasickou šifru, např. Caesarovu nebo Vigenèrovu.
 - [ ] Zajistit, aby klíč k šifře vznikl až správným složením fyzických dílů.
 - [x] Nechat hráče získat rok, přesný čas a pořadí modulů pro návrat Elary.

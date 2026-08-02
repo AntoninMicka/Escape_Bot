@@ -298,17 +298,32 @@
     },
     "future_archive_cipher": {
       "title": "Archiv budoucnosti: návratový vektor",
-      "type": "classical_cipher",
+      "type": "archive_vector",
       "checkpoint_id": "future_archive",
-      "instructions": "Složte tři karty součástí podle barev a stupnice. Vzniklý klíč použijte na archivní záznam. Zadejte celý návratový vektor ve formátu ROK–ČAS–MOTOR–STABILIZÁTOR–KRYSTAL.",
-      "answer": "2037-21:40-MOTOR-STABILIZATOR-KRYSTAL",
-      "answers": ["2037-21:40-MOTOR-STABILIZATOR-KRYSTAL", "2037 21:40 MOTOR STABILIZATOR KRYSTAL", "2037-2140-MOTOR-STABILIZÁTOR-KRYSTAL"],
-      "admin_solution": "2037–21:40–MOTOR–STABILIZÁTOR–KRYSTAL. Složené karty vytvoří klíč CHRONOS pro Caesarův návratový zápis.",
+      "instructions": "Tři karty získaných modulů tvoří jediný poškozený záznam. Srovnejte jejich návaznosti a orientaci. Až se archiv stabilizuje, použijte odhalený klíč k přečtení zachyceného přenosu a zadejte celý dešifrovaný text.",
+      "ciphertext": "TVBRI OFWSR HEWKG KDQNG VXHAS QBSEA PFVBM NHGCE OVKTF HBFKV HSWYW RCAFF XFQUA RZ",
+      "answer": "ROKDVANULATRISEDMCASDVAJEDNACTYRINULAPORADIMOTORSTABILIZATORKRYSTAL",
+      "answers": ["ROKDVANULATRISEDMCASDVAJEDNACTYRINULAPORADIMOTORSTABILIZATORKRYSTAL", "ROK DVA NULA TRI SEDM CAS DVA JEDNA CTYRI NULA PORADI MOTOR STABILIZATOR KRYSTAL"],
+      "admin_solution": "Vigenère, klíč CHRONOS. Text: ROK DVA NULA TŘI SEDM / ČAS DVA JEDNA ČTYŘI NULA / POŘADÍ MOTOR STABILIZÁTOR KRYSTAL, tedy 2037, 21:40, MOTOR → STABILIZÁTOR → KRYSTAL.",
+      "assembly": {
+        "cards": [
+          {"id": "motor", "label": "TEMPORÁLNÍ MOTOR", "color": "cyan", "icon": "M"},
+          {"id": "stabilizer", "label": "FÁZOVÝ STABILIZÁTOR", "color": "amber", "icon": "S"},
+          {"id": "crystal", "label": "KRYSTAL ČASOVÉ KOTVY", "color": "violet", "icon": "K"}
+        ],
+        "initial_order": ["crystal", "motor", "stabilizer"],
+        "initial_rotations": {"motor": 90, "stabilizer": 270, "crystal": 180},
+        "correct_order": ["motor", "stabilizer", "crystal"],
+        "correct_rotations": {"motor": 0, "stabilizer": 0, "crystal": 0},
+        "revealed_key": "CHRONOS",
+        "module_order": ["TEMPORÁLNÍ MOTOR", "FÁZOVÝ STABILIZÁTOR", "KRYSTAL ČASOVÉ KOTVY"]
+      },
       "success_message": {"text": "Návratový vektor obnoven: rok 2037, čas 21:40, pořadí MOTOR → STABILIZÁTOR → KRYSTAL. Vraťte se k základně stroje času.", "mood": "relieved", "channel": "lost"},
       "failure_message": {"text": "Archiv vektor odmítl. Ověřte rok, čas i pořadí všech tří modulů.", "mood": "error", "channel": "general"},
       "hints": [
-        {"text": "Barvy určují pořadí karet, číselná stupnice jejich natočení.", "penalty": 20},
-        {"text": "Výsledný klíč je název projektu uvedený v recepčním archivu.", "penalty": 35}
+        {"text": "Karty nejsou tři oddělené zprávy. Jejich barevné hrany, stupnice a signálová křivka musí navazovat.", "penalty": 15},
+        {"text": "Správně složené karty odhalí sedmipísmenný klíč a pořadí tří modulů.", "penalty": 25},
+        {"text": "Použijte Vigenèrovu tabulku. Klíč CHRONOS opakujte nad celým archivním záznamem.", "penalty": 40}
       ]
     },
     "time_machine_finale": {

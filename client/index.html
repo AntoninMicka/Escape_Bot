@@ -253,6 +253,23 @@
         .finale-modules { display: grid; gap: 7px; margin: 12px 0; }
         .finale-overlay { position: fixed; inset: 0; z-index: 1500; display: grid; place-items: center; background: #001018e8; color: #fff; font-size: clamp(4rem, 24vw, 13rem); text-shadow: 0 0 25px #0ff; }
         .finale-overlay small { display: block; font-size: 1rem; text-align: center; color: #0ff; }
+        .archive-assembly { border: 1px solid #765; padding: 14px; background: #100d18; }
+        .archive-cards { display: grid; grid-template-columns: repeat(3, minmax(110px, 1fr)); gap: 10px; margin: 14px 0; }
+        .archive-card-wrap { min-width: 0; text-align: center; }
+        .archive-card { position: relative; aspect-ratio: 3/4; display: grid; place-items: center; overflow: hidden; border: 2px solid currentColor; background: radial-gradient(circle at center, #17242a 0 18%, transparent 19%), repeating-radial-gradient(circle at center, transparent 0 20px, currentColor 21px 23px, transparent 24px 38px), #080b12; transition: transform .25s; }
+        .archive-card.cyan { color: #4ff; } .archive-card.amber { color: #fc3; } .archive-card.violet { color: #d7f; }
+        .archive-card::before { content: ''; position: absolute; left: -10%; right: -10%; top: 48%; height: 4px; background: currentColor; box-shadow: 0 0 12px currentColor; transform: skewY(-12deg); }
+        .archive-card strong { z-index: 1; display: grid; place-items: center; width: 54px; height: 54px; border: 2px solid currentColor; border-radius: 50%; background: #05080d; font-size: 1.7rem; }
+        .archive-card-controls { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; margin-top: 6px; }
+        .archive-card-controls button { padding: 6px 3px; }
+        .archive-reveal { border: 2px solid #0f8; padding: 12px; text-align: center; background: #002015; }
+        .archive-key { font-size: clamp(1.8rem, 7vw, 3.6rem); letter-spacing: .25em; color: #8ff; text-shadow: 0 0 14px #0ff; }
+        .archive-ciphertext { padding: 14px; border: 1px dashed #0aa; background: #001215; font: 1.05rem/1.7 monospace; letter-spacing: .1em; overflow-wrap: anywhere; }
+        .vigenere-wrap { max-width: 100%; overflow: auto; border: 1px solid #166; }
+        .vigenere-table { border-collapse: collapse; font: .72rem monospace; color: #bff; }
+        .vigenere-table th, .vigenere-table td { min-width: 22px; height: 22px; padding: 2px; border: 1px solid #144; text-align: center; }
+        .vigenere-table th { position: sticky; top: 0; background: #003238; color: #fff; }
+        .vigenere-table th:first-child { left: 0; z-index: 2; }
         
         @keyframes score-update { 0% { color: #f00; transform: scale(1.3); text-shadow: 0 0 10px #f00; } 100% { color: #0aa; transform: scale(1); text-shadow: none; } }
         .score-animate { animation: score-update 0.6s ease-out; display: inline-block; }
@@ -857,6 +874,13 @@
             return `<div class="cipher-grid morse-grid">${Object.entries(MORSE).map(([character, code]) => `<div class="cipher-card"><strong>${character}</strong>${morsePulses(code, character)}</div>`).join('')}</div>`;
         }
 
+        function vigenereReference() {
+            const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+            const header = [...alphabet].map(letter => `<th>${letter}</th>`).join('');
+            const rows = [...alphabet].map((key, shift) => `<tr><th>${key}</th>${[...alphabet].map((_, column) => `<td>${alphabet[(column + shift) % 26]}</td>`).join('')}</tr>`).join('');
+            return `<div class="vigenere-wrap"><table class="vigenere-table"><thead><tr><th>KLÍČ \ TEXT</th>${header}</tr></thead><tbody>${rows}</tbody></table></div>`;
+        }
+
         function toolReference(toolId) {
             if (toolId === 'morse') {
                 return `<h3>Morseova abeceda</h3><p><strong>Princip:</strong> kruhový pulz je tečka, dlouhý světelný segment je čárka. Čti zleva doprava; větší mezera odděluje písmena a lomítko slova.</p><p class="cipher-note"><strong>Neutrální příklad:</strong> A ${morsePulses('.-', 'A')} · H ${morsePulses('....', 'H')}</p>${morseReference()}`;
@@ -890,6 +914,7 @@
                 const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
                 const shifts = Array.from({length: 26}, (_, shift) => `<tr><td>${shift}</td><td class="caesar-strip">${alphabet.slice(shift)}${alphabet.slice(0, shift)}</td></tr>`).join('');
                 return `<h3>Caesarův posun</h3><p>Každé písmeno nahraď písmenem o stejný počet míst dál. Při dešifrování postupuj opačným směrem. Klíč musí určit směr i velikost posunu.</p><p class="cipher-note"><strong>Příklad:</strong> při posunu +1 platí A→B, B→C; MAPA→NBQB.</p><table class="cipher-reference"><thead><tr><th>POSUN</th><th>POSUNUTÁ ABECEDA POD A–Z</th></tr></thead><tbody>${shifts}</tbody></table>
+                    <h3>Vigenèrova tabulka</h3><p>Klíč opakuj nad šifrovým textem. Při dešifrování vyber řádek písmene klíče, najdi v něm šifrové písmeno a z horního záhlaví přečti původní písmeno.</p>${vigenereReference()}
                     <h3>Šifrovací čtverec 5×5</h3><p>Písmeno určuje dvojice souřadnic: nejprve řádek, potom sloupec. I/J sdílejí pole, pokud zadání neurčí jinak.</p><table class="cipher-reference"><tbody><tr><th></th><th>1</th><th>2</th><th>3</th><th>4</th><th>5</th></tr><tr><th>1</th><td>A</td><td>B</td><td>C</td><td>D</td><td>E</td></tr><tr><th>2</th><td>F</td><td>G</td><td>H</td><td>I/J</td><td>K</td></tr><tr><th>3</th><td>L</td><td>M</td><td>N</td><td>O</td><td>P</td></tr><tr><th>4</th><td>Q</td><td>R</td><td>S</td><td>T</td><td>U</td></tr><tr><th>5</th><td>V</td><td>W</td><td>X</td><td>Y</td><td>Z</td></tr></tbody></table><p class="cipher-note"><strong>Příklad:</strong> 32 = M, 11 = A, 35 = P, 11 = A.</p>`;
             }
             return '<p>Pro tuto pomůcku zatím není dostupný referenční list.</p>';
@@ -1737,6 +1762,10 @@
                         showNotification(`${msg.payload.reason || 'Finální sekvence byla odmítnuta.'}${missing.length ? ` Chybí: ${missing.join(', ')}` : ''}`, 'error');
                     }
                 }
+                else if (msg.type === 'archive.result') {
+                    if (!msg.payload.success) showNotification(msg.payload.reason || 'Kartu nelze přesunout.', 'error');
+                    else if (msg.payload.assembled) showNotification('Karty navazují. Archiv odhalil klíč.', 'success');
+                }
                 else if (msg.type === 'line_game.result') {
                     if (!msg.payload.success) {
                         showNotification(msg.payload.reason || 'Tah nelze provést.', 'error');
@@ -1959,7 +1988,7 @@
                 const solved = puzzle.status === 'solved';
                 const interactiveGame = puzzle.type === 'line_game'
                     ? renderLineGame(puzzle, solved)
-                    : (puzzle.type === 'sokoban' ? renderSokoban(puzzle, solved) : (puzzle.type === 'mine_karel' ? renderMineKarel(puzzle, solved) : (puzzle.type === 'triad' ? renderTriad(puzzle, solved) : (puzzle.type === 'finale' ? renderFinale(puzzle, solved) : ''))));
+                    : (puzzle.type === 'sokoban' ? renderSokoban(puzzle, solved) : (puzzle.type === 'mine_karel' ? renderMineKarel(puzzle, solved) : (puzzle.type === 'triad' ? renderTriad(puzzle, solved) : (puzzle.type === 'finale' ? renderFinale(puzzle, solved) : (puzzle.type === 'archive_vector' ? renderArchiveVector(puzzle, solved) : '')))));
                 return `<article class="puzzle-card">
                     <h3>${escapeHtml(puzzle.title)}</h3>
                     <p>${escapeHtml(puzzle.instructions)}</p>
@@ -1980,6 +2009,24 @@
             const modules = puzzle.finale?.module_labels || [];
             const options = `<option value="">— ZVOLTE MODUL —</option>${modules.map(module => `<option value="${escapeHtml(module)}">${escapeHtml(module)}</option>`).join('')}`;
             return `<div class="finale-console"><div class="finale-fields"><label>ROK NÁVRATU<input id="finale-year-${escapeHtml(puzzle.id)}" inputmode="numeric" maxlength="4" placeholder="RRRR"></label><label>ČAS NÁVRATU<input id="finale-time-${escapeHtml(puzzle.id)}" inputmode="numeric" maxlength="5" placeholder="HH:MM"></label></div><strong>POŘADÍ MODULŮ</strong><div class="finale-modules">${[0,1,2].map(index => `<select id="finale-module-${index}-${escapeHtml(puzzle.id)}">${options}</select>`).join('')}</div><button onclick="activateFinale('${escapeHtml(puzzle.id)}')">SPUSTIT STROJ ČASU</button></div>`;
+        }
+
+        function renderArchiveVector(puzzle, solved) {
+            const game = puzzle.archive_game;
+            if (!game) return '<p class="puzzle-locked">Archivní karty se načítají…</p>';
+            if (solved) return '<p class="puzzle-status solved">NÁVRATOVÝ VEKTOR OBNOVEN · ARCHIV POTVRZEN</p>';
+            const cards = game.order.map(cardId => {
+                const card = game.cards[cardId];
+                const rotation = Number(game.rotations[cardId] || 0);
+                return `<div class="archive-card-wrap"><div class="archive-card ${escapeHtml(card.color)}" style="transform:rotate(${rotation}deg)" aria-label="${escapeHtml(card.label)}, natočení ${rotation} stupňů"><strong>${escapeHtml(card.icon)}</strong></div><small>${escapeHtml(card.label)}</small><div class="archive-card-controls"><button onclick="arrangeArchiveCard('${escapeHtml(puzzle.id)}','${escapeHtml(cardId)}','left')" aria-label="Posunout vlevo">←</button><button onclick="arrangeArchiveCard('${escapeHtml(puzzle.id)}','${escapeHtml(cardId)}','rotate')" aria-label="Otočit">↻</button><button onclick="arrangeArchiveCard('${escapeHtml(puzzle.id)}','${escapeHtml(cardId)}','right')" aria-label="Posunout vpravo">→</button></div></div>`;
+            }).join('');
+            const reveal = game.assembled ? `<div class="archive-reveal"><small>ODHALENÝ KLÍČ</small><div class="archive-key">${escapeHtml(game.revealed_key)}</div><p><strong>POŘADÍ MODULŮ:</strong> ${game.module_order.map(escapeHtml).join(' → ')}</p></div><h4>ZACHYCENÝ PŘENOS</h4><div class="archive-ciphertext">${escapeHtml(puzzle.ciphertext)}</div><div class="puzzle-answer"><input id="puzzle-answer-${escapeHtml(puzzle.id)}" maxlength="100" autocomplete="off" placeholder="CELÝ DEŠIFROVANÝ TEXT"><button onclick="submitPuzzle('${escapeHtml(puzzle.id)}')">OVĚŘIT</button></div>` : '<p class="cipher-note">Křivka ani stupnice zatím nenavazují.</p>';
+            return `<div class="archive-assembly"><div class="archive-cards">${cards}</div><p>TAHY: ${Number(game.moves)}</p>${reveal}<div class="puzzle-actions">${puzzle.has_hints ? `<button onclick="requestPuzzleHint('${escapeHtml(puzzle.id)}')">DALŠÍ NÁPOVĚDA</button>` : ''}<span>Pokusy: ${puzzle.attempts || 0}</span></div></div>`;
+        }
+
+        function arrangeArchiveCard(puzzleId, cardId, action) {
+            if (!ws || ws.readyState !== WebSocket.OPEN) return;
+            ws.send(JSON.stringify({type:'archive.arrange', payload:{puzzle_id:puzzleId, card_id:cardId, action}}));
         }
 
         function activateFinale(puzzleId) {

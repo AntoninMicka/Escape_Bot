@@ -629,9 +629,24 @@ class StateMachineCheckpointTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn("KRYSTAL ČASOVÉ KOTVY", self.machine.state.inventory)
 
         await self.scan("future_archive")
+        assembly_moves = [
+            ("motor", "rotate"), ("motor", "rotate"), ("motor", "rotate"),
+            ("stabilizer", "rotate"), ("crystal", "rotate"), ("crystal", "rotate"),
+            ("motor", "left"), ("stabilizer", "left"),
+        ]
+        for card_id, action in assembly_moves:
+            arranged = await self.machine.handle(Message("archive.arrange", {
+                "puzzle_id": "future_archive_cipher", "card_id": card_id, "action": action,
+            }))
+        self.assertTrue(self.response(arranged, "archive.result").payload["assembled"])
+        restored = EscapeBotStateMachine(self.scenario)
+        restored.restore_state(self.machine.state.snapshot())
+        archive_puzzle = next(item for item in restored._puzzle_state() if item["id"] == "future_archive_cipher")
+        self.assertTrue(archive_puzzle["archive_game"]["assembled"])
+        self.assertEqual(archive_puzzle["archive_game"]["revealed_key"], "CHRONOS")
         archive = await self.machine.handle(Message("puzzle.submit", {
             "puzzle_id": "future_archive_cipher",
-            "answer": "2037-21:40-MOTOR-STABILIZATOR-KRYSTAL",
+            "answer": "ROK DVA NULA TRI SEDM CAS DVA JEDNA CTYRI NULA PORADI MOTOR STABILIZATOR KRYSTAL",
         }))
         self.assertTrue(self.response(archive, "puzzle.result").payload["correct"])
         self.assertTrue(self.machine.state.flags["return_vector_recovered"])

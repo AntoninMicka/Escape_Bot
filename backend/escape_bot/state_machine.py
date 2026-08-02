@@ -51,6 +51,7 @@ class GameState:
     karel_games: dict[str, dict[str, Any]] = field(default_factory=dict)
     last_activity_at: str = ""
     triad_games: dict[str, dict[str, Any]] = field(default_factory=dict)
+    archive_games: dict[str, dict[str, Any]] = field(default_factory=dict)
 
     def snapshot(self) -> dict[str, Any]:
         return {
@@ -70,6 +71,7 @@ class GameState:
             "karel_games": self.karel_games,
             "last_activity_at": self.last_activity_at,
             "triad_games": self.triad_games,
+            "archive_games": self.archive_games,
         }
 
     @classmethod
@@ -91,6 +93,7 @@ class GameState:
         state.karel_games = dict(data.get("karel_games", {}))
         state.last_activity_at = str(data.get("last_activity_at", ""))
         state.triad_games = dict(data.get("triad_games", {}))
+        state.archive_games = dict(data.get("archive_games", {}))
         return state
 
 
@@ -141,6 +144,7 @@ class EscapeBotStateMachine:
             "triad.place": self._handle_triad_place,
             "triad.reset": self._handle_triad_reset,
             "finale.activate": self._handle_finale_activate,
+            "archive.arrange": self._handle_archive_arrange,
         }
         handler = handlers.get(message.type, self._handle_unknown)
         responses = await handler(message)
@@ -191,6 +195,7 @@ class EscapeBotStateMachine:
                     "image": puzzle.get("image"),
                     "categories": puzzle.get("categories", {}),
                     "clues": puzzle.get("clues", []),
+                    "ciphertext": puzzle.get("ciphertext", ""),
                 })
                 if puzzle.get("type") == "line_game":
                     config = puzzle.get("game", {})
@@ -209,6 +214,8 @@ class EscapeBotStateMachine:
                         "module_labels": list(puzzle.get("module_labels", [])),
                         "countdown_seconds": int(puzzle.get("countdown_seconds", 10)),
                     }
+                elif puzzle.get("type") == "archive_vector":
+                    item["archive_game"] = self._public_archive_game(puzzle_id, puzzle)
             result.append(item)
         return result
 
@@ -523,6 +530,11 @@ class EscapeBotStateMachine:
             return [reply("puzzle.result", {"correct": False, "reason": "Hádanka zatím nebyla nalezena."}, message)]
         if checkpoint_state.get("status") == "solved":
             return [reply("puzzle.result", {"correct": True, "puzzle_id": puzzle_id, "already_solved": True}, message), self._state_message()]
+        if puzzle.get("type") == "archive_vector" and not self._archive_game_state(puzzle_id, puzzle).get("assembled"):
+            return [
+                reply("puzzle.result", {"correct": False, "reason": "Nejprve správně sestavte všechny tři archivní karty."}, message),
+                self._state_message(),
+            ]
 
         self.state.puzzle_attempts[puzzle_id] = self.state.puzzle_attempts.get(puzzle_id, 0) + 1
         accepted_answers = puzzle.get("answers", [puzzle.get("answer", "")])
@@ -545,6 +557,66 @@ class EscapeBotStateMachine:
         return [
             reply("puzzle.result", {"correct": True, "puzzle_id": puzzle_id, "attempts": self.state.puzzle_attempts[puzzle_id]}, message),
             reply("bot.message", puzzle.get("success_message", {}), message),
+            self._state_message(),
+        ]
+
+    def _archive_game_state(self, puzzle_id: str, puzzle: dict[str, Any]) -> dict[str, Any]:
+        config = puzzle.get("assembly", {})
+        card_ids = [str(card.get("id")) for card in config.get("cards", [])]
+        game = self.state.archive_games.get(puzzle_id)
+        if not isinstance(game, dict) or set(game.get("order", [])) != set(card_ids):
+            game = {
+                "order": list(config.get("initial_order", card_ids)),
+                "rotations": {str(key): int(value) % 360 for key, value in config.get("initial_rotations", {}).items()},
+                "moves": 0,
+                "assembled": False,
+            }
+            self.state.archive_games[puzzle_id] = game
+        for card_id in card_ids:
+            game.setdefault("rotations", {}).setdefault(card_id, 0)
+        return game
+
+    def _public_archive_game(self, puzzle_id: str, puzzle: dict[str, Any]) -> dict[str, Any]:
+        game = self._archive_game_state(puzzle_id, puzzle)
+        cards = {str(card["id"]): {"id": str(card["id"]), "label": card.get("label", card["id"]), "color": card.get("color", "cyan"), "icon": card.get("icon", "◇")} for card in puzzle.get("assembly", {}).get("cards", [])}
+        return {
+            "order": list(game["order"]),
+            "rotations": dict(game["rotations"]),
+            "moves": int(game.get("moves", 0)),
+            "assembled": bool(game.get("assembled")),
+            "cards": cards,
+            "revealed_key": puzzle.get("assembly", {}).get("revealed_key", "") if game.get("assembled") else "",
+            "module_order": list(puzzle.get("assembly", {}).get("module_order", [])) if game.get("assembled") else [],
+        }
+
+    async def _handle_archive_arrange(self, message: Message) -> list[Message]:
+        puzzle_id = str(message.payload.get("puzzle_id", "")).strip()
+        puzzle = self.scenario.data.get("puzzles", {}).get(puzzle_id)
+        checkpoint_id = str(puzzle.get("checkpoint_id", "")) if puzzle else ""
+        checkpoint = self.state.checkpoint_states.get(checkpoint_id)
+        if not puzzle or puzzle.get("type") != "archive_vector" or not checkpoint or checkpoint.get("status") != "found":
+            return [reply("archive.result", {"success": False, "reason": "Archivní karty nyní nejsou aktivní."}, message)]
+        game = self._archive_game_state(puzzle_id, puzzle)
+        card_id = str(message.payload.get("card_id", ""))
+        action = str(message.payload.get("action", ""))
+        if card_id not in game["order"]:
+            return [reply("archive.result", {"success": False, "reason": "Neznámá archivní karta."}, message)]
+        index = game["order"].index(card_id)
+        if action == "left" and index > 0:
+            game["order"][index - 1], game["order"][index] = game["order"][index], game["order"][index - 1]
+        elif action == "right" and index < len(game["order"]) - 1:
+            game["order"][index + 1], game["order"][index] = game["order"][index], game["order"][index + 1]
+        elif action == "rotate":
+            game["rotations"][card_id] = (int(game["rotations"].get(card_id, 0)) + 90) % 360
+        else:
+            return [reply("archive.result", {"success": False, "reason": "Kartu tímto směrem nelze posunout."}, message), self._state_message()]
+        game["moves"] = int(game.get("moves", 0)) + 1
+        config = puzzle.get("assembly", {})
+        correct_order = [str(item) for item in config.get("correct_order", [])]
+        correct_rotations = {str(key): int(value) % 360 for key, value in config.get("correct_rotations", {}).items()}
+        game["assembled"] = game["order"] == correct_order and all(int(game["rotations"].get(card_id, 0)) == rotation for card_id, rotation in correct_rotations.items())
+        return [
+            reply("archive.result", {"success": True, "assembled": game["assembled"]}, message),
             self._state_message(),
         ]
 
