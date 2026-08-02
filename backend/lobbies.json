@@ -93,6 +93,27 @@
       }
     },
     "max_players": 1,
-    "applied_score_adjustment": 0
+    "applied_score_adjustment": 20
+  },
+  {
+    "session_id": "97403ee8074e49cab8bdd928e646baea",
+    "mode": "team",
+    "creator_id": "46c4b312-8a98-4aea-abca-527300ba58e5",
+    "join_code": "EB33165C",
+    "started": true,
+    "players": {
+      "46c4b312-8a98-4aea-abca-527300ba58e5": {
+        "id": "46c4b312-8a98-4aea-abca-527300ba58e5",
+        "name": "Hráč 1",
+        "joined_at": "2026-08-02T06:41:51.491031+00:00"
+      },
+      "717cae3e-f2ef-4bcc-891c-31f1e3144353": {
+        "id": "717cae3e-f2ef-4bcc-891c-31f1e3144353",
+        "name": "Hráč 2",
+        "joined_at": "2026-08-02T06:42:04.646712+00:00"
+      }
+    },
+    "max_players": 2,
+    "applied_score_adjustment": 10
   }
 ]

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import secrets
 import uuid
+import unicodedata
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from typing import Any
@@ -22,6 +23,7 @@ class Lobby:
     session_id: str
     mode: str
     creator_id: str
+    team_name: str
     join_code: str | None = None
     started: bool = False
     players: dict[str, dict[str, Any]] = field(default_factory=dict)
@@ -29,14 +31,17 @@ class Lobby:
     applied_score_adjustment: int = 0
 
     def add_player(self, client_id: str, name: str = "") -> None:
+        clean_name = " ".join(name.strip().split())[:24]
         if client_id not in self.players:
+            if not clean_name:
+                raise ValueError("Jméno hráče je povinné.")
             self.players[client_id] = {
                 "id": client_id,
-                "name": name.strip()[:24] or f"Hráč {len(self.players) + 1}",
+                "name": clean_name,
                 "joined_at": datetime.now(UTC).isoformat(),
             }
-        elif name.strip():
-            self.players[client_id]["name"] = name.strip()[:24]
+        elif clean_name:
+            self.players[client_id]["name"] = clean_name
         self.max_players = max(self.max_players, len(self.players))
 
     def score_delta(self) -> int:
@@ -49,6 +54,7 @@ class Lobby:
         return {
             "session_id": self.session_id,
             "mode": self.mode,
+            "team_name": self.team_name,
             "join_code": self.join_code,
             "started": self.started,
             "is_creator": client_id == self.creator_id,
@@ -67,6 +73,7 @@ class Lobby:
             "session_id": self.session_id,
             "mode": self.mode,
             "creator_id": self.creator_id,
+            "team_name": self.team_name,
             "join_code": self.join_code,
             "started": self.started,
             "players": self.players,
@@ -80,12 +87,18 @@ class LobbyRegistry:
         self.by_session: dict[str, Lobby] = {}
         self.by_join_code: dict[str, str] = {}
 
-    def create(self, client_id: str, mode: str, name: str = "") -> Lobby:
+    def create(self, client_id: str, mode: str, name: str = "", team_name: str = "") -> Lobby:
         if mode not in {"solo", "team"}:
             raise ValueError("Neznámý herní režim.")
+        clean_team_name = " ".join(team_name.strip().split())[:32]
+        if not clean_team_name:
+            raise ValueError("Název týmu je povinný.")
+        normalized = _normalize_team_name(clean_team_name)
+        if any(_normalize_team_name(lobby.team_name) == normalized for lobby in self.by_session.values()):
+            raise ValueError("Tým s tímto názvem už existuje. Zvolte jiný název.")
         session_id = uuid.uuid4().hex
         join_code = self._new_join_code() if mode == "team" else None
-        lobby = Lobby(session_id=session_id, mode=mode, creator_id=client_id, join_code=join_code)
+        lobby = Lobby(session_id=session_id, mode=mode, creator_id=client_id, team_name=clean_team_name, join_code=join_code)
         lobby.add_player(client_id, name)
         if mode == "solo":
             lobby.started = True
@@ -126,6 +139,7 @@ class LobbyRegistry:
                 session_id=str(item["session_id"]),
                 mode=str(item["mode"]),
                 creator_id=str(item["creator_id"]),
+                team_name=str(item.get("team_name", f"Obnovený tým {str(item['session_id'])[:6]}")),
                 join_code=item.get("join_code"),
                 started=bool(item.get("started")),
                 players=dict(item.get("players", {})),
@@ -135,3 +149,7 @@ class LobbyRegistry:
             self.by_session[lobby.session_id] = lobby
             if lobby.join_code:
                 self.by_join_code[lobby.join_code] = lobby.session_id
+
+
+def _normalize_team_name(value: str) -> str:
+    return " ".join(unicodedata.normalize("NFKC", value).casefold().split())

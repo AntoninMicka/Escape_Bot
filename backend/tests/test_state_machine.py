@@ -469,7 +469,7 @@ class StateMachineCheckpointTests(unittest.IsolatedAsyncioTestCase):
 
     def test_team_lobby_join_code_and_maximum_player_count(self) -> None:
         registry = LobbyRegistry()
-        lobby = registry.create("creator", "team", "Alice")
+        lobby = registry.create("creator", "team", "Alice", "Chrononauti")
         joined = registry.join(lobby.join_code, "navigator", "Bob")
         registry.join(lobby.join_code.lower(), "third", "Cyril")
 
@@ -479,7 +479,18 @@ class StateMachineCheckpointTests(unittest.IsolatedAsyncioTestCase):
         self.assertIs(registry.resume(lobby.session_id, "navigator"), lobby)
         restored = LobbyRegistry()
         restored.restore(registry.snapshot())
-        self.assertEqual(restored.join(lobby.join_code, "fourth").max_players, 4)
+        self.assertEqual(restored.join(lobby.join_code, "fourth", "Dana").max_players, 4)
+
+    def test_team_lobby_requires_player_and_unique_team_names(self) -> None:
+        registry = LobbyRegistry()
+        with self.assertRaisesRegex(ValueError, "Název týmu"):
+            registry.create("creator", "team", "Alice", "   ")
+        with self.assertRaisesRegex(ValueError, "Jméno hráče"):
+            registry.create("creator", "team", "", "Chrononauti")
+
+        registry.create("creator", "team", "Alice", "Časoví   skokani")
+        with self.assertRaisesRegex(ValueError, "už existuje"):
+            registry.create("other", "team", "Bob", " časoví skokani ")
 
 
 if __name__ == "__main__":

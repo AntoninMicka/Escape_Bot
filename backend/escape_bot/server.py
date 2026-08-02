@@ -211,8 +211,11 @@ async def websocket_endpoint(websocket: WebSocket):
                         if not requested_client_id:
                             raise ValueError("Chybí identifikátor zařízení.")
                         name = str(msg.payload.get("name", "")).strip()
+                        team_name = str(msg.payload.get("team_name", "")).strip()
                         requested_demo = DEMO_MODE_ENABLED and bool(msg.payload.get("demo_mode"))
                         if msg.type == "lobby.identify":
+                            if not name:
+                                raise ValueError("Před zobrazením hráčského QR zadejte jméno hráče.")
                             previous_code = str(connection_info.get(websocket, {}).get("player_code", ""))
                             if previous_code:
                                 waiting_players.pop(previous_code, None)
@@ -259,9 +262,9 @@ async def websocket_endpoint(websocket: WebSocket):
                                     await broadcast_session(session_id, score_messages)
                             continue
                         if msg.type == "lobby.solo":
-                            lobby = lobby_registry.create(requested_client_id, "solo", name)
+                            lobby = lobby_registry.create(requested_client_id, "solo", name, team_name)
                         elif msg.type == "lobby.create":
-                            lobby = lobby_registry.create(requested_client_id, "team", name)
+                            lobby = lobby_registry.create(requested_client_id, "team", name, team_name)
                         elif msg.type == "lobby.join":
                             lobby = lobby_registry.join(str(msg.payload.get("join_code", "")), requested_client_id, name)
                         elif msg.type == "lobby.resume":
@@ -271,6 +274,8 @@ async def websocket_endpoint(websocket: WebSocket):
                             lobby = lobby_registry.by_session.get(str(info.get("session_id", "")))
                             if lobby is None or requested_client_id != lobby.creator_id:
                                 raise ValueError("Hru může spustit pouze zakladatel týmu.")
+                            if not lobby.team_name or any(not str(player.get("name", "")).strip() for player in lobby.players.values()):
+                                raise ValueError("Před spuštěním musí mít tým i všichni hráči vyplněné jméno.")
                             lobby.started = True
 
                         session_id = lobby.session_id

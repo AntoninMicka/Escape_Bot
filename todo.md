@@ -503,6 +503,7 @@
 - [x] Doporučit, aby jeden hráč používal týmový notebook a každý člen měl právě jedno započítané zařízení.
 - [x] Vysílat herní odpovědi a změny stavu všem aktivním zařízením relace.
 - [x] Uchovat lobby, připojovací kód, hráče, maximum hráčů a bodovou úpravu při restartu backendu.
+- [x] Vyžadovat název týmu a jména všech hráčů, blokovat neúplné spuštění a kontrolovat unikátnost názvu týmu bez ohledu na velikost písmen a mezery.
 - [x] Nastavit úpravu skóre: sólo `+20`, tým 2 hráčů `+10`, 3 hráči `0`, každý další hráč `−30`.
 - [x] Počítat maximum registrovaných hráčů, aby odpojením nešlo získat zpět bonus.
 - [x] Nezamykat panely ani pevné role; organizaci pozorovatele a navigátora ponechat týmu.
