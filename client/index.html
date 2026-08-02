@@ -78,6 +78,10 @@
         .tab-button:disabled { color: #444; border-color: #222; cursor: not-allowed; background: #080808; }
         .unread-badge { display: none; min-width: 18px; margin-left: 6px; padding: 1px 5px; border-radius: 10px; background: #ffb000; color: #000; font-size: .75em; text-align: center; box-shadow: 0 0 8px #ffb000; }
         .unread-badge.visible { display: inline-block; }
+        .device-role { display: none; align-items: center; gap: 3px; white-space: nowrap; }
+        .device-role.visible { display: flex; }
+        .device-role button { padding: 6px 8px; color: #088; background: #071010; border: 1px solid #244; }
+        .device-role button.active { color: #000; background: #0aa; border-color: #0ff; }
         .tab-button.has-unread, .channel-btn.has-unread { color: #ffcf5a; border-color: #ffb000; animation: unread-pulse 1.4s ease-in-out infinite; }
         @keyframes unread-pulse { 50% { box-shadow: 0 0 12px rgba(255, 176, 0, .75); } }
         .tab-content {
@@ -514,6 +518,7 @@
     <div class="tabs">
         <button id="intercom-tab-button" class="tab-button active" onclick="openTab('tab-intercom', this)">INTERKOM <span id="intercom-unread" class="unread-badge" aria-label="nepřečtené zprávy"></span></button>
         <span id="team-status" style="align-self:center; color:#0aa; white-space:nowrap"></span>
+        <span id="device-role" class="device-role"><small>ZAŘÍZENÍ:</small><button id="role-observer" onclick="setDeviceRole('observer')">MAPA</button><button id="role-navigator" onclick="setDeviceRole('navigator')">INTERKOM</button><button id="role-free" onclick="setDeviceRole('free')">VOLNĚ</button></span>
         <button id="chronomap-tab-button" class="tab-button" onclick="openTab('tab-map', this)" disabled>CHRONOMAPA [OFFLINE]</button>
         <button id="puzzles-tab-button" class="tab-button" onclick="openTab('tab-puzzles', this)" disabled>HÁDANKY [0]</button>
         <button class="tab-button" onclick="openTab('tab-room', this)">MÍSTNOST (Virtuální panel)</button>
@@ -677,6 +682,7 @@
         let pendingSokobanAnimation = null;
         let deferredPuzzlesState = null;
         let selectedCipherTool = null;
+        let deviceRole = localStorage.getItem('escapeBotDeviceRole') || 'free';
         const demoModeRequested = new URLSearchParams(window.location.search).get('demo') === '1';
         const adminModeRequested = new URLSearchParams(window.location.search).get('admin') === '1' || window.location.pathname.replace(/\/$/, '') === '/admin';
         let adminRefreshTimer = null;
@@ -1025,6 +1031,8 @@
             document.getElementById('team-status').textContent = payload.mode === 'solo'
                 ? payload.team_name
                 : `${payload.team_name} · ${teamSize} hráči · ${onlineCount} online`;
+            document.getElementById('device-role').classList.toggle('visible', payload.mode === 'team');
+            renderDeviceRole();
             updateTeamSokobanIntercomControls();
             if (payload.started) {
                 stopReversePlayerScanner();
@@ -1679,7 +1687,7 @@
             const panel = document.getElementById('team-sokoban-intercom');
             if (!panel) return;
             const puzzle = puzzlesState.find(item => ['sokoban', 'mine_karel'].includes(item.type) && item.status === 'found' && item.game?.status !== 'complete');
-            const isTeamNavigator = currentLobby?.mode === 'team' && currentChannel === 'lost' && puzzle;
+            const isTeamNavigator = currentLobby?.mode === 'team' && deviceRole !== 'observer' && currentChannel === 'lost' && puzzle;
             panel.classList.toggle('visible', Boolean(isTeamNavigator));
             if (!isTeamNavigator) {
                 panel.innerHTML = '';
@@ -1692,6 +1700,27 @@
                     <span></span><button onclick="${send}('${escapeHtml(puzzle.id)}','up')" aria-label="Nahoru">↑</button><span></span>
                     <button onclick="${send}('${escapeHtml(puzzle.id)}','left')" aria-label="Vlevo">←</button><button onclick="${send}('${escapeHtml(puzzle.id)}','down')" aria-label="Dolů">↓</button><button onclick="${send}('${escapeHtml(puzzle.id)}','right')" aria-label="Vpravo">→</button>
                 </div>`;
+        }
+
+        function renderDeviceRole() {
+            ['observer', 'navigator', 'free'].forEach(role => document.getElementById(`role-${role}`)?.classList.toggle('active', deviceRole === role));
+        }
+
+        function setDeviceRole(role) {
+            if (!['observer', 'navigator', 'free'].includes(role)) return;
+            deviceRole = role;
+            localStorage.setItem('escapeBotDeviceRole', role);
+            renderDeviceRole();
+            updateTeamSokobanIntercomControls();
+            if (role === 'observer') {
+                const puzzlesButton = document.getElementById('puzzles-tab-button');
+                if (!puzzlesButton.disabled) puzzlesButton.click();
+                showNotification('Zařízení sleduje mapu. Ovládání zůstává navigátorovi.', 'info');
+            } else if (role === 'navigator') {
+                document.getElementById('intercom-tab-button').click();
+                document.getElementById('channel-lost').click();
+                showNotification('Zařízení je navigátor. Minové indicie zůstávají na mapovém terminálu.', 'info');
+            }
         }
 
         function renderMineKarel(puzzle, solved) {

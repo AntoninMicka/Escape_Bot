@@ -303,7 +303,7 @@
 - [x] Vložit úlohu mezi praporovou a binární šifru, aby se v hlavní ose pravidelně střídaly šifry a interaktivní hry.
 - [x] Přidat číselné sondy, skryté miny, návrat na start, bodový malus, časový limit a obnovení stavu po reconnectu.
 - [x] Připravit tři aktivní úrovně s rostoucí obtížností, body za každou dokončenou mapu a dvě rezervní mapy.
-- [ ] Zpřesnit rozdělení informací tak, aby interkom nikdy neprozradil mapu ani číselné sondy navigátorovi.
+- [x] Zpřesnit rozdělení informací lokálním režimem zařízení `MAPA / INTERKOM / VOLNĚ`; role lze kdykoli měnit, mapové indicie se neposílají v odpovědích interkomu a mapový režim nemá ovládací šipky.
 - [ ] Rozšířit admin detail o poslední aktivitu, zásahy min, restarty, nápovědy a časovou osu událostí.
 - [ ] Umožnit adminovi obnovit identitu hráče na novém zařízení pomocí návratového QR.
 - [ ] Vložit variaci na tři v řadě mezi Morseovu úlohu a Sokoban.

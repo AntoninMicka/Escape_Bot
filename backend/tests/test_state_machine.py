@@ -488,6 +488,8 @@ class StateMachineCheckpointTests(unittest.IsolatedAsyncioTestCase):
         }))
         payload = self.response(result, "karel.result").payload
         self.assertTrue(payload["hit_mine"])
+        self.assertNotIn("mines", payload)
+        self.assertNotIn("clues", payload)
         self.assertEqual(self.machine.state.karel_games["courtyard_karel"]["player"], [0, 0])
         self.assertEqual(self.machine.state.score, score_before - 20)
 
