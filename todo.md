@@ -299,7 +299,9 @@
 - [ ] Rozlišit neplatný příkaz, náraz do stěny a vstup na nebezpečné pole.
 
 #### Interkom a odezva Elary
-- [ ] Přijímat navigační příkazy v samostatném strukturovaném vstupu nebo v kanálu Elary.
+- [x] Přijímat navigační příkazy v kanálu Elary a v týmovém režimu zobrazit šipky pouze v interkomu.
+- [x] Vložit úlohu mezi praporovou a binární šifru, aby se v hlavní ose pravidelně střídaly šifry a interaktivní hry.
+- [x] Přidat číselné sondy, skryté miny, návrat na start, bodový malus, časový limit a obnovení stavu po reconnectu.
 - [ ] Nepoužívat volné AI vyhodnocení pro samotný pohyb; příkazy parsovat deterministicky.
 - [ ] Nechat Elaru před pohybem zopakovat pochopenou sekvenci.
 - [ ] Po každém kroku odeslat krátkou reakci odpovídající novému okolí.

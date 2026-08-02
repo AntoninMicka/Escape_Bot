@@ -18,6 +18,7 @@ from .sokoban import (
     reset_level as reset_sokoban,
     undo as undo_sokoban,
 )
+from .mine_karel import execute as execute_karel, new_game as new_karel, public_game as public_karel, reset as reset_karel
 
 
 class GamePhase(StrEnum):
@@ -46,6 +47,7 @@ class GameState:
     puzzle_attempts: dict[str, int] = field(default_factory=dict)
     interactive_games: dict[str, dict[str, Any]] = field(default_factory=dict)
     sokoban_games: dict[str, dict[str, Any]] = field(default_factory=dict)
+    karel_games: dict[str, dict[str, Any]] = field(default_factory=dict)
 
     def snapshot(self) -> dict[str, Any]:
         return {
@@ -62,6 +64,7 @@ class GameState:
             "puzzle_attempts": self.puzzle_attempts,
             "interactive_games": self.interactive_games,
             "sokoban_games": self.sokoban_games,
+            "karel_games": self.karel_games,
         }
 
     @classmethod
@@ -80,6 +83,7 @@ class GameState:
         state.puzzle_attempts = dict(data.get("puzzle_attempts", {}))
         state.interactive_games = dict(data.get("interactive_games", {}))
         state.sokoban_games = dict(data.get("sokoban_games", {}))
+        state.karel_games = dict(data.get("karel_games", {}))
         return state
 
 
@@ -124,6 +128,8 @@ class EscapeBotStateMachine:
             "sokoban.command": self._handle_sokoban_command,
             "sokoban.undo": self._handle_sokoban_undo,
             "sokoban.reset": self._handle_sokoban_reset,
+            "karel.command": self._handle_karel_command,
+            "karel.reset": self._handle_karel_reset,
         }
         handler = handlers.get(message.type, self._handle_unknown)
         responses = await handler(message)
@@ -182,6 +188,9 @@ class EscapeBotStateMachine:
                 elif puzzle.get("type") == "sokoban":
                     game = self._sokoban_state(puzzle_id, puzzle.get("game", {}))
                     item["game"] = public_sokoban(puzzle.get("game", {}), game)
+                elif puzzle.get("type") == "mine_karel":
+                    game = self._karel_state(puzzle_id, puzzle.get("game", {}))
+                    item["game"] = public_karel(puzzle.get("game", {}), game)
             result.append(item)
         return result
 
@@ -330,6 +339,16 @@ class EscapeBotStateMachine:
                     return await self._handle_sokoban_reset(Message("sokoban.reset", {"puzzle_id": sokoban_id, "_client_id": message.payload.get("_client_id")}, message.request_id))
                 if commands:
                     return await self._execute_sokoban_commands(sokoban_id, commands, message)
+            karel_id = self._active_karel_id()
+            if karel_id:
+                try:
+                    commands = parse_sokoban_commands(text)
+                except ValueError as error:
+                    return [reply("bot.message", {"text": str(error), "mood": "error", "channel": "lost"}, message), self._state_message()]
+                if commands == ["reset"]:
+                    return await self._handle_karel_reset(Message("karel.reset", {"puzzle_id": karel_id}, message.request_id))
+                if commands and commands != ["undo"]:
+                    return await self._handle_karel_command(Message("karel.command", {"puzzle_id": karel_id, "commands": commands}, message.request_id))
 
         p_data = self.scenario.get_phase_data("navigating")
         
@@ -425,7 +444,7 @@ class EscapeBotStateMachine:
         puzzle = self.scenario.data.get("puzzles", {}).get(puzzle_id)
         if puzzle is None:
             return [reply("puzzle.result", {"correct": False, "reason": "Neznámá hádanka."}, message)]
-        if puzzle.get("type") in {"line_game", "sokoban"}:
+        if puzzle.get("type") in {"line_game", "sokoban", "mine_karel"}:
             return [reply("puzzle.result", {"correct": False, "reason": "Tato úloha se řeší přímo na herní mřížce."}, message)]
 
         checkpoint_id = str(puzzle.get("checkpoint_id", ""))
@@ -563,6 +582,49 @@ class EscapeBotStateMachine:
             reply("line_game.result", {"success": True, "reset": True}, message),
             self._state_message(),
         ]
+
+    def _active_karel_id(self) -> str | None:
+        for puzzle_id, puzzle in self.scenario.data.get("puzzles", {}).items():
+            checkpoint = self.state.checkpoint_states.get(str(puzzle.get("checkpoint_id", "")), {})
+            if puzzle.get("type") == "mine_karel" and checkpoint.get("status") == "found": return puzzle_id
+        return None
+
+    def _karel_state(self, puzzle_id: str, config: dict[str, Any]) -> dict[str, Any]:
+        game = self.state.karel_games.get(puzzle_id)
+        if not isinstance(game, dict) or not game.get("deadline_at"):
+            game = new_karel(config); self.state.karel_games[puzzle_id] = game
+        return game
+
+    async def _handle_karel_command(self, message: Message) -> list[Message]:
+        puzzle_id = str(message.payload.get("puzzle_id", ""))
+        puzzle = self.scenario.data.get("puzzles", {}).get(puzzle_id, {})
+        checkpoint_id = str(puzzle.get("checkpoint_id", ""))
+        checkpoint_state = self.state.checkpoint_states.get(checkpoint_id)
+        if puzzle.get("type") != "mine_karel" or not checkpoint_state or checkpoint_state.get("status") != "found":
+            return [reply("karel.result", {"success": False, "reason": "Navigační pole není aktivní."}, message)]
+        try:
+            result = execute_karel(self._karel_state(puzzle_id, puzzle.get("game", {})), puzzle.get("game", {}), list(message.payload.get("commands", [])))
+        except ValueError as error:
+            return [reply("karel.result", {"success": False, "reason": str(error)}, message), self._state_message()]
+        if result["score_delta"]:
+            self.state.score += result["score_delta"]
+        responses = [reply("karel.result", result, message)]
+        if result["hit_mine"]:
+            responses.append(reply("bot.message", {"text": "Pozor! Narazila jsem na nestabilní pole a nouzový systém mě vrátil na začátek.", "mood": "tense", "channel": "lost"}, message))
+        if result["game_complete"]:
+            checkpoint_state["status"] = "solved"; checkpoint_state["solved_at"] = datetime.now(UTC).isoformat()
+            self._apply_checkpoint_rewards(self.scenario.data.get("checkpoints", {}).get(checkpoint_id, {}))
+            responses.extend([reply("puzzle.result", {"correct": True, "puzzle_id": puzzle_id}, message), reply("bot.message", puzzle.get("success_message", {}), message)])
+        if result["score_delta"]:
+            responses.append(reply("score.update", {"score": self.state.score, "delta": result["score_delta"], "bonus": max(0, result["score_delta"]), "penalty": max(0, -result["score_delta"]), "reason": "mine_karel"}, message))
+        responses.append(self._state_message())
+        return responses
+
+    async def _handle_karel_reset(self, message: Message) -> list[Message]:
+        puzzle_id = str(message.payload.get("puzzle_id", "")); puzzle = self.scenario.data.get("puzzles", {}).get(puzzle_id, {})
+        if puzzle.get("type") != "mine_karel": return [reply("karel.result", {"success": False, "reason": "Neznámé pole."}, message)]
+        reset_karel(puzzle.get("game", {}), self._karel_state(puzzle_id, puzzle.get("game", {})))
+        return [reply("karel.result", {"success": True, "reset": True}, message), self._state_message()]
 
     def _active_sokoban_id(self) -> str | None:
         for puzzle_id, puzzle in self.scenario.data.get("puzzles", {}).items():

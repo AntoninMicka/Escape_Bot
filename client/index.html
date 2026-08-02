@@ -1618,7 +1618,7 @@
                 const solved = puzzle.status === 'solved';
                 const interactiveGame = puzzle.type === 'line_game'
                     ? renderLineGame(puzzle, solved)
-                    : (puzzle.type === 'sokoban' ? renderSokoban(puzzle, solved) : '');
+                    : (puzzle.type === 'sokoban' ? renderSokoban(puzzle, solved) : (puzzle.type === 'mine_karel' ? renderMineKarel(puzzle, solved) : ''));
                 return `<article class="puzzle-card">
                     <h3>${escapeHtml(puzzle.title)}</h3>
                     <p>${escapeHtml(puzzle.instructions)}</p>
@@ -1637,19 +1637,44 @@
         function updateTeamSokobanIntercomControls() {
             const panel = document.getElementById('team-sokoban-intercom');
             if (!panel) return;
-            const puzzle = puzzlesState.find(item => item.type === 'sokoban' && item.status === 'found' && item.game?.status !== 'complete');
+            const puzzle = puzzlesState.find(item => ['sokoban', 'mine_karel'].includes(item.type) && item.status === 'found' && item.game?.status !== 'complete');
             const isTeamNavigator = currentLobby?.mode === 'team' && currentChannel === 'lost' && puzzle;
             panel.classList.toggle('visible', Boolean(isTeamNavigator));
             if (!isTeamNavigator) {
                 panel.innerHTML = '';
                 return;
             }
+            const send = puzzle.type === 'mine_karel' ? 'sendKarelCommand' : 'sendSokobanCommand';
             panel.innerHTML = `<strong>[ NAVIGAČNÍ VYSÍLAČ ]</strong>
                 <p>Mapa je na druhém terminálu. Odesílejte pouze domluvené pokyny.</p>
                 <div class="sokoban-controls">
-                    <span></span><button onclick="sendSokobanCommand('${escapeHtml(puzzle.id)}','up')" aria-label="Nahoru">↑</button><span></span>
-                    <button onclick="sendSokobanCommand('${escapeHtml(puzzle.id)}','left')" aria-label="Vlevo">←</button><button onclick="sendSokobanCommand('${escapeHtml(puzzle.id)}','down')" aria-label="Dolů">↓</button><button onclick="sendSokobanCommand('${escapeHtml(puzzle.id)}','right')" aria-label="Vpravo">→</button>
+                    <span></span><button onclick="${send}('${escapeHtml(puzzle.id)}','up')" aria-label="Nahoru">↑</button><span></span>
+                    <button onclick="${send}('${escapeHtml(puzzle.id)}','left')" aria-label="Vlevo">←</button><button onclick="${send}('${escapeHtml(puzzle.id)}','down')" aria-label="Dolů">↓</button><button onclick="${send}('${escapeHtml(puzzle.id)}','right')" aria-label="Vpravo">→</button>
                 </div>`;
+        }
+
+        function renderMineKarel(puzzle, solved) {
+            const game = puzzle.game;
+            if (!game) return '<p class="puzzle-locked">Sondy se načítají…</p>';
+            const clues = game.clues || {}, triggered = new Set((game.triggered_mines || []).map(p => `${p[0]}:${p[1]}`));
+            let cells = '';
+            for (let row = 0; row < game.rows; row++) for (let column = 0; column < game.columns; column++) {
+                const key = `${row}:${column}`; let symbol = '·', cellClass = '';
+                if (triggered.has(key)) { symbol = '✹'; cellClass = 'box'; }
+                else if (game.player[0] === row && game.player[1] === column) { symbol = 'E'; cellClass = 'player'; }
+                else if (game.exit[0] === row && game.exit[1] === column) { symbol = 'X'; cellClass = 'target'; }
+                else if (Object.hasOwn(clues, key)) { symbol = String(clues[key]); cellClass = 'target'; }
+                cells += `<div class="sokoban-cell ${cellClass}">${symbol}</div>`;
+            }
+            const soloControls = demoModeRequested && currentLobby?.mode !== 'team' ? `<div class="sokoban-controls"><span></span><button onclick="sendKarelCommand('${escapeHtml(puzzle.id)}','up')">↑</button><span></span><button onclick="sendKarelCommand('${escapeHtml(puzzle.id)}','left')">←</button><button onclick="sendKarelCommand('${escapeHtml(puzzle.id)}','down')">↓</button><button onclick="sendKarelCommand('${escapeHtml(puzzle.id)}','right')">→</button></div>` : '';
+            return `<div class="sokoban-game"><div class="sokoban-meta"><span>KROKY: ${game.moves}</span><span>ZÁSAHY: ${game.strikes}</span><strong class="sokoban-timer" data-deadline="${escapeHtml(game.deadline_at)}">ČAS ${formatLineGameTime(game.remaining_seconds)}</strong></div><div class="sokoban-board" style="grid-template-columns:repeat(${game.columns},1fr)">${cells}</div><p>Číslo udává počet min v osmi sousedních polích. Ovládání tým najde v interkomu.</p>${soloControls}<button onclick="resetKarel('${escapeHtml(puzzle.id)}')">RESET</button></div>`;
+        }
+
+        function sendKarelCommand(puzzleId, command) {
+            if (ws?.readyState === WebSocket.OPEN) ws.send(JSON.stringify({type:'karel.command', payload:{puzzle_id:puzzleId, commands:[command]}}));
+        }
+        function resetKarel(puzzleId) {
+            if (window.confirm('Obnovit minové pole?')) ws.send(JSON.stringify({type:'karel.reset', payload:{puzzle_id:puzzleId}}));
         }
 
         function renderLineGame(puzzle, solved) {

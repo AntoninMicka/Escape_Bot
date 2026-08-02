@@ -40,17 +40,18 @@ class StateMachineCheckpointTests(unittest.IsolatedAsyncioTestCase):
 
     async def solve_bowling(self):
         await self.solve_staircase()
+        await self.solve_karel()
         await self.scan("bowling_diagnostics")
         return await self.machine.handle(
             Message("puzzle.submit", {"puzzle_id": "bowling_binary", "answer": "MOTOR"})
         )
 
+    async def solve_karel(self):
+        await self.scan("courtyard_minefield")
+        return await self.machine.handle(Message("karel.command", {"puzzle_id": "courtyard_karel", "commands": ["down"] * 4 + ["right"] * 2 + ["down"] + ["right"] * 2 + ["down"] + ["right"] * 2}))
+
     async def unlock_timeline_game(self):
         await self.solve_bowling()
-        await self.scan("terrace_echo")
-        await self.machine.handle(
-            Message("puzzle.submit", {"puzzle_id": "terrace_morse", "answer": "HŘIŠTĚ"})
-        )
         return await self.scan("timeline_calibration")
 
     async def line_swap(self, first: list[int], second: list[int]):
@@ -73,6 +74,8 @@ class StateMachineCheckpointTests(unittest.IsolatedAsyncioTestCase):
         game = self.prepare_five_match()
         game["progress"] = {"3": 5, "4": 3, "5": 0}
         await self.line_swap([0, 4], [1, 4])
+        await self.scan("terrace_echo")
+        await self.machine.handle(Message("puzzle.submit", {"puzzle_id": "terrace_morse", "answer": "HŘIŠTĚ"}))
         return await self.scan("sports_archive")
 
     @staticmethod
@@ -205,6 +208,7 @@ class StateMachineCheckpointTests(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(self.response(solved, "puzzle.result").payload["correct"])
         self.assertTrue(self.machine.state.flags["bowling_route_unlocked"])
 
+        await self.solve_karel()
         allowed = await self.scan("bowling_diagnostics")
         self.assertTrue(self.response(allowed, "qr.result").payload["accepted"])
 
@@ -224,6 +228,7 @@ class StateMachineCheckpointTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_bowling_binary_puzzle_awards_temporal_motor(self) -> None:
         await self.solve_staircase()
+        await self.solve_karel()
         scanned = await self.scan("bowling_diagnostics")
 
         self.assertEqual(self.response(scanned, "qr.result").payload["status"], "found")
@@ -244,6 +249,7 @@ class StateMachineCheckpointTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_bowling_puzzle_is_image_only_and_has_no_hints(self) -> None:
         await self.solve_staircase()
+        await self.solve_karel()
         await self.scan("bowling_diagnostics")
         puzzle_state = next(item for item in self.machine._puzzle_state() if item["id"] == "bowling_binary")
 
@@ -253,7 +259,9 @@ class StateMachineCheckpointTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(puzzle_state["clues"], [])
 
     async def test_terrace_morse_awards_phase_stabilizer(self) -> None:
-        await self.solve_bowling()
+        await self.unlock_timeline_game()
+        game = self.prepare_five_match(); game["progress"] = {"3": 5, "4": 3, "5": 0}
+        await self.line_swap([0, 4], [1, 4])
         scanned = await self.scan("terrace_echo")
 
         self.assertEqual(self.response(scanned, "qr.result").payload["status"], "found")
@@ -268,13 +276,13 @@ class StateMachineCheckpointTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn("FÁZOVÝ STABILIZÁTOR", self.machine.state.inventory)
         self.assertTrue(self.machine.state.flags["phase_stabilizer_recovered"])
 
-        timeline = await self.scan("timeline_calibration")
-        self.assertTrue(self.response(timeline, "qr.result").payload["accepted"])
         sports = await self.scan("sports_archive")
-        self.assertFalse(self.response(sports, "qr.result").payload["accepted"])
+        self.assertTrue(self.response(sports, "qr.result").payload["accepted"])
 
     async def test_terrace_puzzle_is_image_only_and_has_no_hints(self) -> None:
-        await self.solve_bowling()
+        await self.unlock_timeline_game()
+        game = self.prepare_five_match(); game["progress"] = {"3": 5, "4": 3, "5": 0}
+        await self.line_swap([0, 4], [1, 4])
         await self.scan("terrace_echo")
         puzzle_state = next(item for item in self.machine._puzzle_state() if item["id"] == "terrace_morse")
 
@@ -318,16 +326,17 @@ class StateMachineCheckpointTests(unittest.IsolatedAsyncioTestCase):
         await self.unlock_timeline_game()
         game = self.prepare_five_match()
         game["progress"] = {"3": 5, "4": 3, "5": 0}
+        score_before = self.machine.state.score
         final_response = await self.line_swap([0, 4], [1, 4])
 
         self.assertTrue(self.response(final_response, "line_game.result").payload["game_complete"])
         score_update = self.response(final_response, "score.update")
         self.assertGreater(score_update.payload["delta"], 0)
-        self.assertEqual(self.machine.state.score, 1000 + score_update.payload["delta"])
+        self.assertEqual(self.machine.state.score, score_before + score_update.payload["delta"])
         self.assertEqual(self.machine.state.checkpoint_states["timeline_calibration"]["status"], "solved")
         self.assertTrue(self.machine.state.flags["timeline_calibrated"])
-        sports = await self.scan("sports_archive")
-        self.assertTrue(self.response(sports, "qr.result").payload["accepted"])
+        terrace = await self.scan("terrace_echo")
+        self.assertTrue(self.response(terrace, "qr.result").payload["accepted"])
 
     async def test_line_game_time_limit_and_reset(self) -> None:
         await self.unlock_timeline_game()
@@ -461,6 +470,26 @@ class StateMachineCheckpointTests(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(self.response(second, "sokoban.result").payload["speaker_warning"])
         warnings = [item.payload["text"] for item in second if item.type == "bot.message"]
         self.assertTrue(any("překřikujících" in text for text in warnings))
+
+    async def test_mine_karel_penalizes_mine_and_returns_to_start(self) -> None:
+        await self.solve_staircase()
+        await self.scan("courtyard_minefield")
+        score_before = self.machine.state.score
+        result = await self.machine.handle(Message("karel.command", {
+            "puzzle_id": "courtyard_karel", "commands": ["right", "right", "right"],
+        }))
+        payload = self.response(result, "karel.result").payload
+        self.assertTrue(payload["hit_mine"])
+        self.assertEqual(self.machine.state.karel_games["courtyard_karel"]["player"], [0, 0])
+        self.assertEqual(self.machine.state.score, score_before - 20)
+
+    async def test_mine_karel_completion_unlocks_bowling(self) -> None:
+        await self.solve_staircase()
+        completed = await self.solve_karel()
+        self.assertTrue(self.response(completed, "karel.result").payload["game_complete"])
+        self.assertEqual(self.machine.state.checkpoint_states["courtyard_minefield"]["status"], "solved")
+        bowling = await self.scan("bowling_diagnostics")
+        self.assertTrue(self.response(bowling, "qr.result").payload["accepted"])
 
     def test_team_size_score_adjustments(self) -> None:
         self.assertEqual(team_size_adjustment("solo", 1), 20)
