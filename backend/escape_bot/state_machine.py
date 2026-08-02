@@ -19,6 +19,7 @@ from .sokoban import (
     undo as undo_sokoban,
 )
 from .mine_karel import execute as execute_karel, new_game as new_karel, public_game as public_karel, reset as reset_karel
+from .triad_game import new_game as new_triad, place as place_triad, public_game as public_triad, reset as reset_triad
 
 
 class GamePhase(StrEnum):
@@ -49,6 +50,7 @@ class GameState:
     sokoban_games: dict[str, dict[str, Any]] = field(default_factory=dict)
     karel_games: dict[str, dict[str, Any]] = field(default_factory=dict)
     last_activity_at: str = ""
+    triad_games: dict[str, dict[str, Any]] = field(default_factory=dict)
 
     def snapshot(self) -> dict[str, Any]:
         return {
@@ -67,6 +69,7 @@ class GameState:
             "sokoban_games": self.sokoban_games,
             "karel_games": self.karel_games,
             "last_activity_at": self.last_activity_at,
+            "triad_games": self.triad_games,
         }
 
     @classmethod
@@ -87,6 +90,7 @@ class GameState:
         state.sokoban_games = dict(data.get("sokoban_games", {}))
         state.karel_games = dict(data.get("karel_games", {}))
         state.last_activity_at = str(data.get("last_activity_at", ""))
+        state.triad_games = dict(data.get("triad_games", {}))
         return state
 
 
@@ -134,6 +138,8 @@ class EscapeBotStateMachine:
             "sokoban.reset": self._handle_sokoban_reset,
             "karel.command": self._handle_karel_command,
             "karel.reset": self._handle_karel_reset,
+            "triad.place": self._handle_triad_place,
+            "triad.reset": self._handle_triad_reset,
         }
         handler = handlers.get(message.type, self._handle_unknown)
         responses = await handler(message)
@@ -195,6 +201,8 @@ class EscapeBotStateMachine:
                 elif puzzle.get("type") == "mine_karel":
                     game = self._karel_state(puzzle_id, puzzle.get("game", {}))
                     item["game"] = public_karel(puzzle.get("game", {}), game)
+                elif puzzle.get("type") == "triad":
+                    game = self._triad_state(puzzle_id, puzzle.get("game", {})); item["game"] = public_triad(puzzle.get("game", {}), game)
             result.append(item)
         return result
 
@@ -448,7 +456,7 @@ class EscapeBotStateMachine:
         puzzle = self.scenario.data.get("puzzles", {}).get(puzzle_id)
         if puzzle is None:
             return [reply("puzzle.result", {"correct": False, "reason": "Neznámá hádanka."}, message)]
-        if puzzle.get("type") in {"line_game", "sokoban", "mine_karel"}:
+        if puzzle.get("type") in {"line_game", "sokoban", "mine_karel", "triad"}:
             return [reply("puzzle.result", {"correct": False, "reason": "Tato úloha se řeší přímo na herní mřížce."}, message)]
 
         checkpoint_id = str(puzzle.get("checkpoint_id", ""))
@@ -629,6 +637,32 @@ class EscapeBotStateMachine:
         if puzzle.get("type") != "mine_karel": return [reply("karel.result", {"success": False, "reason": "Neznámé pole."}, message)]
         reset_karel(puzzle.get("game", {}), self._karel_state(puzzle_id, puzzle.get("game", {})))
         return [reply("karel.result", {"success": True, "reset": True}, message), self._state_message()]
+
+    def _triad_state(self, puzzle_id: str, config: dict[str, Any]) -> dict[str, Any]:
+        game = self.state.triad_games.get(puzzle_id)
+        if not isinstance(game, dict) or not game.get("deadline_at"):
+            game = new_triad(config); self.state.triad_games[puzzle_id] = game
+        return game
+
+    async def _handle_triad_place(self, message: Message) -> list[Message]:
+        puzzle_id = str(message.payload.get("puzzle_id", "")); puzzle = self.scenario.data.get("puzzles", {}).get(puzzle_id, {})
+        checkpoint_id = str(puzzle.get("checkpoint_id", "")); checkpoint = self.state.checkpoint_states.get(checkpoint_id)
+        if puzzle.get("type") != "triad" or not checkpoint or checkpoint.get("status") != "found": return [reply("triad.result", {"success": False, "reason": "Pole není aktivní."}, message)]
+        try:
+            result = place_triad(self._triad_state(puzzle_id, puzzle.get("game", {})), puzzle.get("game", {}), int(message.payload.get("row", -1)), int(message.payload.get("column", -1)), str(message.payload.get("symbol", "")))
+        except (ValueError, TypeError) as error: return [reply("triad.result", {"success": False, "reason": str(error)}, message), self._state_message()]
+        responses = [reply("triad.result", result, message)]
+        if result["game_complete"]:
+            checkpoint["status"] = "solved"; checkpoint["solved_at"] = datetime.now(UTC).isoformat(); self._apply_checkpoint_rewards(self.scenario.data.get("checkpoints", {}).get(checkpoint_id, {}))
+            bonus = int(puzzle.get("game", {}).get("completion_bonus", 60)); self.state.score += bonus
+            responses.extend([reply("score.update", {"score": self.state.score, "delta": bonus, "bonus": bonus, "penalty": 0, "reason": "triad"}, message), reply("puzzle.result", {"correct": True, "puzzle_id": puzzle_id}, message), reply("bot.message", puzzle.get("success_message", {}), message)])
+        responses.append(self._state_message()); return responses
+
+    async def _handle_triad_reset(self, message: Message) -> list[Message]:
+        puzzle_id = str(message.payload.get("puzzle_id", "")); puzzle = self.scenario.data.get("puzzles", {}).get(puzzle_id, {})
+        if puzzle.get("type") != "triad": return [reply("triad.result", {"success": False, "reason": "Neznámé pole."}, message)]
+        reset_triad(puzzle.get("game", {}), self._triad_state(puzzle_id, puzzle.get("game", {})))
+        return [reply("triad.result", {"success": True, "reset": True}, message), self._state_message()]
 
     def _active_sokoban_id(self) -> str | None:
         for puzzle_id, puzzle in self.scenario.data.get("puzzles", {}).items():

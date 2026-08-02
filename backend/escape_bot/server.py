@@ -17,7 +17,7 @@ from fastapi.staticfiles import StaticFiles
 
 from .protocol import Message
 from .state_machine import EscapeBotStateMachine
-from .scenario import ScenarioLoader, build_demo_checkpoint_catalog, build_scenario_progress
+from .scenario import ScenarioLoader, build_checkpoint_qr_set, build_demo_checkpoint_catalog, build_scenario_progress
 from .ollama_adapter import OllamaAdapter
 from .team_lobby import Lobby, LobbyRegistry
 
@@ -292,11 +292,14 @@ async def websocket_endpoint(websocket: WebSocket):
                 data = json.loads(message_str)
                 msg = Message.from_json(data)
 
-                if msg.type in {"admin.list", "admin.penalty", "admin.delete"}:
+                if msg.type in {"admin.list", "admin.penalty", "admin.delete", "admin.qr_set"}:
                     try:
                         require_admin(msg.payload)
                         if msg.type == "admin.list":
                             await send_admin_overview(websocket)
+                            continue
+                        if msg.type == "admin.qr_set":
+                            await send_message(websocket, Message("admin.qr_set", {"scenario": scenario.data.get("title", "Escape Bot"), "checkpoints": build_checkpoint_qr_set(scenario)}))
                             continue
 
                         target_session = str(msg.payload.get("session_id", "")).strip()

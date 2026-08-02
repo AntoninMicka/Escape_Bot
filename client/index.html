@@ -419,6 +419,18 @@
         .admin-detail summary { cursor: pointer; color: #0cc; }
         .admin-detail-list { max-height: 230px; overflow-y: auto; padding-left: 20px; }
         .admin-detail-list li { margin: 4px 0; }
+        .qr-print-sheet { display: none; }
+        .qr-print-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10mm; }
+        .qr-print-card { break-inside: avoid; border: 1.5px dashed #000; padding: 6mm; color: #000; background: #fff; text-align: center; }
+        .qr-print-card img { width: 46mm; height: 46mm; image-rendering: pixelated; }
+        .qr-print-card h2 { margin: 2mm 0; font: bold 15pt sans-serif; }
+        .qr-print-card p { margin: 1mm 0; font: 9pt monospace; overflow-wrap: anywhere; }
+        @media print {
+            @page { size: A4 portrait; margin: 10mm; }
+            body > *:not(#qr-print-sheet) { display: none !important; }
+            body { display: block; height: auto; overflow: visible; padding: 0; background: #fff; }
+            #qr-print-sheet { display: block !important; }
+        }
         @media (max-width: 700px) {
             body { padding: 6px 8px max(6px, env(safe-area-inset-bottom)); height: 100vh; height: 100dvh; }
             .lobby-modes { grid-template-columns: 1fr; }
@@ -460,10 +472,12 @@
         <div class="admin-toolbar">
             <input id="admin-token" type="password" placeholder="Administrátorské heslo" autocomplete="current-password">
             <button onclick="loadAdminOverview()">NAČÍST / OBNOVIT</button>
+            <button onclick="requestAdminQrSet()">PŘIPRAVIT QR SADU</button>
             <span id="admin-status">Čekám na spojení…</span>
         </div>
         <div id="admin-team-grid" class="admin-grid"></div>
     </section>
+    <section id="qr-print-sheet" class="qr-print-sheet"></section>
     <section id="lobby-overlay" class="lobby-overlay" aria-label="Zahájení hry">
         <div class="lobby-card">
             <h1>[ CHRONOTERMINÁL: NOVÁ MISE ]</h1>
@@ -683,6 +697,7 @@
         let cipherToolsState = [];
         let puzzlesState = [];
         let selectedLineCell = null;
+        let selectedTriadSymbol = 'cyan';
         let pendingSokobanAnimation = null;
         let deferredPuzzlesState = null;
         let selectedCipherTool = null;
@@ -887,6 +902,16 @@
         }
 
         function loadAdminOverview() { sendAdmin('admin.list'); }
+        function requestAdminQrSet() { sendAdmin('admin.qr_set'); }
+
+        function renderAdminQrSet(payload) {
+            const startValue = `${window.location.origin}${window.location.pathname}?team=1${demoModeRequested ? '&demo=1' : ''}`;
+            const cards = [{id:'team_start', label:'START TÝMOVÉ HRY', value:startValue, requires:[], start:true}, ...(payload.checkpoints || [])];
+            const sheet = document.getElementById('qr-print-sheet');
+            sheet.innerHTML = `<h1 style="color:#000;font-family:sans-serif">${escapeHtml(payload.scenario || 'Escape Bot')} – QR sada</h1><div class="qr-print-grid">${cards.map((item, index) => `<article class="qr-print-card"><p>${item.start ? 'START' : `CHECKPOINT ${index}`}</p><h2>${escapeHtml(item.label)}</h2><img src="/api/qr?data=${encodeURIComponent(item.value)}" alt="QR ${escapeHtml(item.label)}"><p><strong>ID:</strong> ${escapeHtml(item.id)}</p><p><strong>Vyžaduje:</strong> ${(item.requires || []).map(escapeHtml).join(', ') || '—'}</p><p>${escapeHtml(item.value)}</p><p style="margin-top:4mm;text-align:left">UMÍSTĚNÍ: ____________________</p></article>`).join('')}</div>`;
+            const images = [...sheet.querySelectorAll('img')];
+            Promise.all(images.map(img => img.complete ? Promise.resolve() : new Promise(resolve => { img.onload = resolve; img.onerror = resolve; }))).then(() => window.print());
+        }
 
         function applyAdminPenalty(sessionId) {
             const amount = Number(document.getElementById(`admin-amount-${sessionId}`).value);
@@ -1288,6 +1313,9 @@
                 if (msg.type === 'admin.overview') {
                     renderAdminOverview(msg.payload.teams || []);
                 }
+                else if (msg.type === 'admin.qr_set') {
+                    renderAdminQrSet(msg.payload);
+                }
                 else if (msg.type === 'admin.error') {
                     document.getElementById('admin-status').textContent = msg.payload.message || 'Chyba administrace.';
                     showNotification(msg.payload.message || 'Chyba administrace.', 'error');
@@ -1683,7 +1711,7 @@
                 const solved = puzzle.status === 'solved';
                 const interactiveGame = puzzle.type === 'line_game'
                     ? renderLineGame(puzzle, solved)
-                    : (puzzle.type === 'sokoban' ? renderSokoban(puzzle, solved) : (puzzle.type === 'mine_karel' ? renderMineKarel(puzzle, solved) : ''));
+                    : (puzzle.type === 'sokoban' ? renderSokoban(puzzle, solved) : (puzzle.type === 'mine_karel' ? renderMineKarel(puzzle, solved) : (puzzle.type === 'triad' ? renderTriad(puzzle, solved) : '')));
                 return `<article class="puzzle-card">
                     <h3>${escapeHtml(puzzle.title)}</h3>
                     <p>${escapeHtml(puzzle.instructions)}</p>
@@ -1756,6 +1784,20 @@
             const levels = (game.active_level_ids || []).map((id, index) => `<div class="line-game-objective ${index < game.completed_levels.length ? 'complete' : (index === game.level_index ? 'active' : '')}"><strong>POLE ${index + 1}</strong><br>${index < game.completed_levels.length ? `+${game.points_per_level} bodů` : (index === game.level_index ? 'AKTIVNÍ' : 'ČEKÁ')}</div>`).join('');
             return `<div class="sokoban-game"><div class="line-game-progress">${levels}</div><div class="sokoban-meta"><strong>${escapeHtml(game.level_label)} · ${game.level_index + 1}/${game.total_levels}</strong><span>KROKY: ${game.moves}</span><span>ZÁSAHY: ${game.strikes}</span><span>RESTARTY: ${game.restarts}</span><strong class="sokoban-timer" data-deadline="${escapeHtml(game.deadline_at)}">ČAS ${formatLineGameTime(game.remaining_seconds)}</strong></div><div class="sokoban-board" style="grid-template-columns:repeat(${game.columns},1fr)">${cells}</div><p>Číslo udává počet min v osmi sousedních polích. Každé dokončené pole přidá <strong>+${game.points_per_level} bodů</strong>. Ovládání tým najde v interkomu.</p>${soloControls}<button onclick="resetKarel('${escapeHtml(puzzle.id)}')">RESET AKTUÁLNÍHO POLE</button></div>`;
         }
+
+        function renderTriad(puzzle, solved) {
+            const game = puzzle.game; if (!game) return '<p class="puzzle-locked">Uzly se načítají…</p>';
+            const blocked = new Set((game.blocked || []).map(item => `${item[0]}:${item[1]}`));
+            const labels = {horizontal:'VODOROVNÁ', vertical:'SVISLÁ', diagonal:'DIAGONÁLNÍ'};
+            const objectives = (game.required_orientations || []).map(item => `<div class="line-game-objective ${(game.completed_orientations || []).includes(item) ? 'complete' : ''}"><strong>${labels[item]}</strong><br>${(game.completed_orientations || []).includes(item) ? 'HOTOVO' : 'ČEKÁ'}</div>`).join('');
+            const cells = game.board.map((row, r) => row.map((value, c) => blocked.has(`${r}:${c}`)
+                ? '<button class="line-game-cell" disabled>×</button>'
+                : `<button class="line-game-cell ${value || ''}" onclick="placeTriad('${escapeHtml(puzzle.id)}',${r},${c})" ${value || solved ? 'disabled' : ''}>${value ? '●' : '·'}</button>`).join('')).join('');
+            return `<div class="line-game"><div class="line-game-progress">${objectives}</div><div class="line-game-meta"><span>UMÍSTĚNÍ: ${game.placements}</span><span>RESTARTY: ${game.restarts}</span><strong class="line-game-timer" data-deadline="${escapeHtml(game.deadline_at)}">ČAS ${formatLineGameTime(game.remaining_seconds)}</strong></div><div class="puzzle-actions"><button class="${selectedTriadSymbol === 'cyan' ? 'active' : ''}" onclick="selectTriadSymbol('cyan')">AZUROVÁ</button><button onclick="selectTriadSymbol('amber')">JANTAROVÁ</button></div><div class="line-game-board" style="grid-template-columns:repeat(${game.size},1fr)">${cells}</div><button onclick="resetTriad('${escapeHtml(puzzle.id)}')">NOVÉ POLE</button></div>`;
+        }
+        function selectTriadSymbol(symbol) { selectedTriadSymbol = symbol; renderPuzzles(); }
+        function placeTriad(puzzleId,row,column) { if (ws?.readyState === WebSocket.OPEN) ws.send(JSON.stringify({type:'triad.place',payload:{puzzle_id:puzzleId,row,column,symbol:selectedTriadSymbol}})); }
+        function resetTriad(puzzleId) { if (window.confirm('Obnovit celé pole?')) ws.send(JSON.stringify({type:'triad.reset',payload:{puzzle_id:puzzleId}})); }
 
         function sendKarelCommand(puzzleId, command) {
             if (ws?.readyState === WebSocket.OPEN) ws.send(JSON.stringify({type:'karel.command', payload:{puzzle_id:puzzleId, commands:[command]}}));

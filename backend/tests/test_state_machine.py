@@ -6,7 +6,7 @@ from escape_bot.protocol import Message
 from escape_bot.line_game import completion_time_score
 from escape_bot.sokoban import execute as execute_sokoban, new_game as new_sokoban, parse_commands
 from escape_bot.team_lobby import LobbyRegistry, team_size_adjustment
-from escape_bot.scenario import ScenarioLoader, build_demo_checkpoint_catalog, build_scenario_progress
+from escape_bot.scenario import ScenarioLoader, build_checkpoint_qr_set, build_demo_checkpoint_catalog, build_scenario_progress
 from escape_bot.state_machine import EscapeBotStateMachine, GamePhase
 
 
@@ -84,6 +84,9 @@ class StateMachineCheckpointTests(unittest.IsolatedAsyncioTestCase):
         await self.line_swap([0, 4], [1, 4])
         await self.scan("terrace_echo")
         await self.machine.handle(Message("puzzle.submit", {"puzzle_id": "terrace_morse", "answer": "HŘIŠTĚ"}))
+        await self.scan("courtyard_alignment")
+        for row, column in [(0,0),(0,1),(0,2),(1,0),(2,0),(1,1)]:
+            await self.machine.handle(Message("triad.place", {"puzzle_id":"temporal_triad","row":row,"column":column,"symbol":"cyan"}))
         return await self.scan("sports_archive")
 
     @staticmethod
@@ -98,6 +101,11 @@ class StateMachineCheckpointTests(unittest.IsolatedAsyncioTestCase):
         result = self.response(responses, "qr.result")
         self.assertFalse(result.payload["accepted"])
         self.assertEqual(self.machine.state.checkpoint_states, {})
+
+    def test_admin_qr_set_matches_scenario_order(self) -> None:
+        qr_set = build_checkpoint_qr_set(self.scenario)
+        self.assertEqual([item["id"] for item in qr_set], [node["id"] for node in self.scenario.data["scenario_flow"] if node["id"] in self.scenario.data["checkpoints"]])
+        self.assertTrue(all(str(item["value"]).startswith("escapebot://checkpoint/") for item in qr_set))
 
     async def test_checkpoint_order_is_enforced(self) -> None:
         responses = await self.scan("staircase_signal")
@@ -284,8 +292,10 @@ class StateMachineCheckpointTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn("FÁZOVÝ STABILIZÁTOR", self.machine.state.inventory)
         self.assertTrue(self.machine.state.flags["phase_stabilizer_recovered"])
 
+        triad = await self.scan("courtyard_alignment")
+        self.assertTrue(self.response(triad, "qr.result").payload["accepted"])
         sports = await self.scan("sports_archive")
-        self.assertTrue(self.response(sports, "qr.result").payload["accepted"])
+        self.assertFalse(self.response(sports, "qr.result").payload["accepted"])
 
     async def test_terrace_puzzle_is_image_only_and_has_no_hints(self) -> None:
         await self.unlock_timeline_game()
@@ -503,6 +513,21 @@ class StateMachineCheckpointTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(game["awarded_points"], 120)
         bowling = await self.scan("bowling_diagnostics")
         self.assertTrue(self.response(bowling, "qr.result").payload["accepted"])
+
+    async def test_triad_requires_three_orientations_and_unlocks_sokoban(self) -> None:
+        await self.unlock_timeline_game()
+        game = self.prepare_five_match(); game["progress"] = {"3": 5, "4": 3, "5": 0}
+        await self.line_swap([0, 4], [1, 4])
+        await self.scan("terrace_echo")
+        await self.machine.handle(Message("puzzle.submit", {"puzzle_id":"terrace_morse","answer":"HŘIŠTĚ"}))
+        await self.scan("courtyard_alignment")
+        response = None
+        for row, column in [(0,0),(0,1),(0,2),(1,0),(2,0),(1,1)]:
+            response = await self.machine.handle(Message("triad.place", {"puzzle_id":"temporal_triad","row":row,"column":column,"symbol":"cyan"}))
+        self.assertTrue(self.response(response, "triad.result").payload["game_complete"])
+        self.assertEqual(set(self.machine.state.triad_games["temporal_triad"]["completed_orientations"]), {"horizontal","vertical","diagonal"})
+        sports = await self.scan("sports_archive")
+        self.assertTrue(self.response(sports, "qr.result").payload["accepted"])
 
     def test_team_size_score_adjustments(self) -> None:
         self.assertEqual(team_size_adjustment("solo", 1), 20)

@@ -306,7 +306,7 @@
 - [x] Zpřesnit rozdělení informací lokálním režimem zařízení `MAPA / INTERKOM / VOLNĚ`; role lze kdykoli měnit, mapové indicie se neposílají v odpovědích interkomu a mapový režim nemá ovládací šipky.
 - [x] Rozšířit admin detail o poslední aktivitu, stav checkpointů, zásahy min, restarty, pohyby, nápovědy, pokusy, poslední zprávy a časovou osu událostí.
 - [ ] Umožnit adminovi obnovit identitu hráče na novém zařízení pomocí návratového QR.
-- [ ] Vložit variaci na tři v řadě mezi Morseovu úlohu a Sokoban.
+- [x] Vložit časovanou variaci na tři v řadě mezi Morseovu úlohu a Sokoban: pole 5×5, dvě barvy, blokovaná pole a povinná vodorovná, svislá a diagonální trojice v libovolném pořadí.
 - [ ] Nepoužívat volné AI vyhodnocení pro samotný pohyb; příkazy parsovat deterministicky.
 - [ ] Nechat Elaru před pohybem zopakovat pochopenou sekvenci.
 - [ ] Po každém kroku odeslat krátkou reakci odpovídající novému okolí.
@@ -530,3 +530,4 @@
 - [x] Umožnit správci udělit bodový malus s povinným důvodem a zapsat jej do historie relace.
 - [x] Umožnit po potvrzení odstranit tým, jeho uložený herní stav a ukončit aktivní připojení.
 - [ ] Doplnit filtrování týmů a detailní časovou osu administrátorských i herních událostí.
+- [x] Generovat v admin režimu tiskovou A4 sadu startovního a checkpointových QR přímo z aktuálního scénářového datasetu.

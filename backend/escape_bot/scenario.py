@@ -32,6 +32,17 @@ def build_demo_checkpoint_catalog(scenario: Scenario) -> list[dict[str, Any]]:
     ]
 
 
+def build_checkpoint_qr_set(scenario: Scenario) -> list[dict[str, Any]]:
+    flow_order = {node.get("id"): index for index, node in enumerate(scenario.data.get("scenario_flow", []))}
+    checkpoints = [
+        {"id": checkpoint_id, "label": checkpoint.get("label", checkpoint_id),
+         "value": f"escapebot://checkpoint/{checkpoint.get('token', '')}",
+         "requires": list(checkpoint.get("requires", [])), "order": flow_order.get(checkpoint_id, 9999)}
+        for checkpoint_id, checkpoint in scenario.data.get("checkpoints", {}).items()
+    ]
+    return sorted(checkpoints, key=lambda item: (int(item["order"]), str(item["label"])))
+
+
 def build_scenario_progress(scenario: Scenario, state: dict[str, Any]) -> dict[str, Any]:
     """Build a presentation-neutral progress snapshot usable by demo and admin UIs."""
     flow = scenario.data.get("scenario_flow", [])

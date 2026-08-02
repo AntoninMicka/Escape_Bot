@@ -22,7 +22,8 @@
     {"id": "bowling_diagnostics", "label": "Diagnostika bowlingu", "kind": "checkpoint", "requires": ["courtyard_minefield"]},
     {"id": "timeline_calibration", "label": "Kalibrace časové osy", "kind": "checkpoint", "requires": ["bowling_diagnostics"]},
     {"id": "terrace_echo", "label": "Ozvěna u terasy", "kind": "checkpoint", "requires": ["timeline_calibration"]},
-    {"id": "sports_archive", "label": "Archiv sportovního areálu", "kind": "checkpoint", "requires": ["terrace_echo"]},
+    {"id": "courtyard_alignment", "label": "Zarovnání časových uzlů", "kind": "checkpoint", "requires": ["terrace_echo"]},
+    {"id": "sports_archive", "label": "Archiv sportovního areálu", "kind": "checkpoint", "requires": ["courtyard_alignment"]},
     {"id": "room_104", "label": "Virtuální archiv 104", "kind": "room", "requires": ["reception_archive"], "completion_flag": "room_104_unlocked"},
     {"id": "time_machine_finale", "label": "Spuštění stroje času", "kind": "finale", "requires": ["sports_archive", "room_104"]}
   ],
@@ -223,6 +224,15 @@
       },
       "success_message": {"text": "Jsem na druhé straně. Trasa je stabilní a přístup k dalšímu hotelovému uzlu se otevřel.", "mood": "relieved", "channel": "lost"}
     },
+    "temporal_triad": {
+      "title": "Zarovnání časových uzlů",
+      "type": "triad",
+      "checkpoint_id": "courtyard_alignment",
+      "instructions": "Umísťujte azurové a jantarové uzly na volná pole. V libovolném pořadí vytvořte alespoň jednu vodorovnou, jednu svislou a jednu diagonální trojici stejné barvy. Porušená pole nelze použít.",
+      "admin_solution": "Azurová na souřadnice (1,1), (1,2), (1,3), (2,1), (3,1), (2,2). Vznikne vodorovná, svislá a vedlejší diagonála; souřadnice jsou 1-based.",
+      "game": {"size":5,"symbols":["cyan","amber"],"blocked":[[0,4],[2,2],[4,0]],"time_limit_seconds":180,"completion_bonus":60},
+      "success_message": {"text":"Tři osy jsou zarovnané. Časové uzly vytvořily stabilní průchod ke sportovnímu archivu.","mood":"success","channel":"lost"}
+    },
     "sports_sokoban": {
       "title": "Servisní mřížka sportovního archivu",
       "type": "sokoban",
@@ -312,10 +322,18 @@
     "sports_archive": {
       "label": "Archiv sportovního areálu",
       "token": "de724be50829411287a0536095cc9148",
-      "requires": ["terrace_echo"],
+      "requires": ["courtyard_alignment"],
       "puzzle_id": "sports_sokoban",
       "rewards": {"inventory": ["KRYSTAL ČASOVÉ KOTVY"], "cipher_tools": ["pigpen"]},
       "message": {"text": "Sportovní archiv je nalezen, ale jeho servisní síť nemá napájení. Elara je v úplné tmě a mřížku vidíte jen vy na terminálu. Jeden z vás musí sledovat mapu a druhý ji navigovat přes interkom.", "mood": "focused", "channel": "captain"}
+    },
+    "courtyard_alignment": {
+      "label": "Zarovnání časových uzlů",
+      "token": "cb2ee52d5ae74fa6b68f94f59db75d63",
+      "requires": ["terrace_echo"],
+      "puzzle_id": "temporal_triad",
+      "rewards": {"flags": ["temporal_nodes_aligned"]},
+      "message": {"text":"Trojice nestabilních os čeká na zarovnání. Zvolte barvy uzlů a propojte všechny směry.","mood":"focused","channel":"captain"}
     },
     "courtyard_minefield": {
       "label": "Nestabilní nádvoří",
