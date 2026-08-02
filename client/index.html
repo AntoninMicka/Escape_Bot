@@ -19,6 +19,19 @@
             flex-direction: column;
             height: 90vh;
         }
+        .lobby-overlay { position: fixed; inset: 0; z-index: 2200; display: flex; align-items: center; justify-content: center; padding: 18px; background: rgba(0, 0, 0, .96); }
+        .lobby-overlay.hidden { display: none; }
+        .lobby-card { width: min(680px, 100%); max-height: calc(100vh - 36px); overflow-y: auto; padding: 24px; border: 2px solid #0aa; background: #001113; box-shadow: 0 0 35px rgba(0, 255, 255, .25); }
+        .lobby-card h1 { color: #0ff; margin-top: 0; }
+        .lobby-modes { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 18px 0; }
+        .lobby-modes button { min-height: 70px; }
+        .lobby-team { display: none; margin-top: 18px; padding-top: 16px; border-top: 1px solid #066; }
+        .lobby-team.visible { display: block; }
+        .join-qr { display: block; width: min(280px, 80vw); margin: 14px auto; padding: 10px; background: #fff; image-rendering: pixelated; }
+        .join-code { color: #ffcf5a; font-size: 1.55em; letter-spacing: .16em; text-align: center; overflow-wrap: anywhere; }
+        .lobby-player-list { padding: 0; list-style: none; }
+        .lobby-player-list li { margin: 5px 0; padding: 7px; border: 1px solid #144; }
+        .lobby-player-list li.offline { color: #666; }
         .tabs {
             display: flex;
             gap: 5px;
@@ -371,10 +384,33 @@
     </style>
 </head>
 <body>
+    <section id="lobby-overlay" class="lobby-overlay" aria-label="Zahájení hry">
+        <div class="lobby-card">
+            <h1>[ CHRONOTERMINÁL: NOVÁ MISE ]</h1>
+            <p id="lobby-intro">Zvolte způsob připojení. V týmovém režimu založí první hráč společnou relaci a ostatní načtou jeho unikátní QR.</p>
+            <label for="lobby-player-name">Označení hráče</label>
+            <input id="lobby-player-name" maxlength="24" placeholder="Např. Antonín" style="width:100%; box-sizing:border-box; margin-top:6px">
+            <div id="lobby-modes" class="lobby-modes">
+                <button onclick="chooseSoloMode()">SÓLO<br><small>vše na jednom zařízení · +20 bodů</small></button>
+                <button onclick="createTeamMode()">ZALOŽIT TÝM<br><small>ideálně 3 hráči</small></button>
+            </div>
+            <div id="lobby-status">Čekám na spojení se serverem…</div>
+            <div id="lobby-team" class="lobby-team">
+                <h2>[ TÝMOVÁ RELACE ]</h2>
+                <p>Připojeno: <strong id="lobby-player-count">0</strong> · bodová úprava: <strong id="lobby-score-adjustment">0</strong></p>
+                <img id="lobby-join-qr" class="join-qr" alt="QR pro připojení dalších hráčů">
+                <div id="lobby-join-code" class="join-code"></div>
+                <p style="text-align:center">Ostatní hráči načtou tento QR fotoaparátem telefonu.</p>
+                <ul id="lobby-player-list" class="lobby-player-list"></ul>
+                <button id="lobby-start-button" onclick="startTeamGame()" style="width:100%">SPUSTIT SPOLEČNOU MISI</button>
+            </div>
+        </div>
+    </section>
     <div id="hud-notifications"></div>
 
     <div class="tabs">
         <button id="intercom-tab-button" class="tab-button active" onclick="openTab('tab-intercom', this)">INTERKOM <span id="intercom-unread" class="unread-badge" aria-label="nepřečtené zprávy"></span></button>
+        <span id="team-status" style="align-self:center; color:#0aa; white-space:nowrap"></span>
         <button id="chronomap-tab-button" class="tab-button" onclick="openTab('tab-map', this)" disabled>CHRONOMAPA [OFFLINE]</button>
         <button id="puzzles-tab-button" class="tab-button" onclick="openTab('tab-puzzles', this)" disabled>HÁDANKY [0]</button>
         <button class="tab-button" onclick="openTab('tab-room', this)">MÍSTNOST (Virtuální panel)</button>
@@ -693,12 +729,70 @@
             reader.readAsDataURL(file);
         }
 
-        // 1. Správa Session ID (Udržení relace)
-        let sessionId = localStorage.getItem('escapeBotSessionId');
-        if (!sessionId) {
-            // Jednoduchý fallback pro generování ID, pokud není dostupné crypto.randomUUID
-            sessionId = window.crypto && crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).substring(2, 15);
-            localStorage.setItem('escapeBotSessionId', sessionId);
+        // 1. Lobby, identita zařízení a společná relace
+        let clientId = localStorage.getItem('escapeBotClientId');
+        if (!clientId) {
+            clientId = window.crypto && crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).substring(2, 15);
+            localStorage.setItem('escapeBotClientId', clientId);
+        }
+        let sessionId = '';
+        let currentLobby = null;
+        const requestedJoinCode = new URLSearchParams(window.location.search).get('join');
+        let savedLobby = null;
+        try { savedLobby = JSON.parse(localStorage.getItem('escapeBotLobby') || 'null'); } catch (_) { savedLobby = null; }
+
+        function lobbyPlayerName() {
+            return document.getElementById('lobby-player-name').value.trim();
+        }
+
+        function sendLobby(type, extra = {}) {
+            if (!ws || ws.readyState !== WebSocket.OPEN) return;
+            ws.send(JSON.stringify({type, payload:{client_id:clientId, name:lobbyPlayerName(), demo_mode:demoModeRequested, ...extra}}));
+            document.getElementById('lobby-status').textContent = 'Navazuji týmovou relaci…';
+        }
+
+        function chooseSoloMode() { sendLobby('lobby.solo'); }
+        function createTeamMode() { sendLobby('lobby.create'); }
+        function startTeamGame() { sendLobby('lobby.start'); }
+
+        function beginLobbyConnection() {
+            const savedName = localStorage.getItem('escapeBotPlayerName') || '';
+            document.getElementById('lobby-player-name').value = savedName;
+            if (requestedJoinCode) {
+                document.getElementById('lobby-modes').style.display = 'none';
+                document.getElementById('lobby-intro').textContent = 'Připojujete se ke společné týmové relaci…';
+                sendLobby('lobby.join', {join_code:requestedJoinCode});
+            } else if (savedLobby && savedLobby.session_id) {
+                sendLobby('lobby.resume', {session_id:savedLobby.session_id});
+            } else {
+                document.getElementById('lobby-status').textContent = 'Vyberte sólo, nebo založte tým.';
+                if (new URLSearchParams(window.location.search).get('team') === '1') createTeamMode();
+            }
+        }
+
+        function renderLobby(payload) {
+            currentLobby = payload;
+            sessionId = payload.session_id;
+            localStorage.setItem('escapeBotPlayerName', lobbyPlayerName());
+            localStorage.setItem('escapeBotLobby', JSON.stringify({session_id:sessionId, mode:payload.mode}));
+            document.getElementById('team-status').textContent = payload.mode === 'solo' ? 'SÓLO' : `TÝM ${payload.player_count}`;
+            if (payload.started) {
+                document.getElementById('lobby-overlay').classList.add('hidden');
+                return;
+            }
+            document.getElementById('lobby-overlay').classList.remove('hidden');
+            document.getElementById('lobby-modes').style.display = 'none';
+            document.getElementById('lobby-team').classList.add('visible');
+            document.getElementById('lobby-player-count').textContent = `${payload.player_count} / 3`;
+            const previewAdjustment = payload.player_count < 3 ? (3 - payload.player_count) * 10 : (payload.player_count > 3 ? -(payload.player_count - 3) * 30 : 0);
+            document.getElementById('lobby-score-adjustment').textContent = previewAdjustment > 0 ? `+${previewAdjustment}` : String(previewAdjustment);
+            document.getElementById('lobby-join-code').textContent = payload.join_code || '';
+            const joinUrl = `${window.location.origin}${window.location.pathname}?join=${encodeURIComponent(payload.join_code)}${demoModeRequested ? '&demo=1' : ''}`;
+            document.getElementById('lobby-join-qr').src = `/api/qr?data=${encodeURIComponent(joinUrl)}`;
+            document.getElementById('lobby-player-list').innerHTML = (payload.players || []).map(player => `<li class="${player.connected ? '' : 'offline'}">${player.connected ? '●' : '○'} ${escapeHtml(player.name)}</li>`).join('');
+            const startButton = document.getElementById('lobby-start-button');
+            startButton.style.display = payload.is_creator ? 'block' : 'none';
+            document.getElementById('lobby-status').textContent = payload.is_creator ? 'Až budou hráči připraveni, spusťte misi.' : 'Čekám, až zakladatel spustí misi…';
         }
 
         // --- Zvukový a Notifikační systém ---
@@ -794,11 +888,11 @@
             ws = new WebSocket(`${wsProtocol}//${window.location.host}/ws`);
 
             ws.onopen = () => {
-                console.log("WebSocket připojen. Session ID:", sessionId);
+                console.log("WebSocket připojen. Zařízení:", clientId);
                 statusIndicator.classList.add('online');
-                ws.send(JSON.stringify({ type: 'client.hello', payload: { session_id: sessionId, demo_mode: demoModeRequested } }));
                 showNotification('Připojeno k centrálnímu uzlu', 'success');
                 ws.send(JSON.stringify({ type: 'leaderboard.get', payload: {} }));
+                beginLobbyConnection();
             };
 
             ws.onmessage = (event) => {
@@ -807,7 +901,19 @@
                 // Skrytí indikátoru při přijetí jakékoliv odpovědi od serveru
                 document.getElementById('typing-indicator').style.display = 'none';
                 
-                if (msg.type === 'chat.history') {
+                if (msg.type === 'lobby.state') {
+                    renderLobby(msg.payload);
+                }
+                else if (msg.type === 'lobby.error') {
+                    localStorage.removeItem('escapeBotLobby');
+                    savedLobby = null;
+                    document.getElementById('lobby-overlay').classList.remove('hidden');
+                    document.getElementById('lobby-modes').style.display = 'grid';
+                    document.getElementById('lobby-team').classList.remove('visible');
+                    document.getElementById('lobby-status').textContent = msg.payload.message || 'Týmovou relaci nelze otevřít.';
+                    showNotification(msg.payload.message || 'Chyba týmové relace.', 'error');
+                }
+                else if (msg.type === 'chat.history') {
                     // Vyčistíme stávající historii v DOMu (proti duplikacím při reconnectu bez F5)
                     document.querySelectorAll('.chat-history').forEach(el => el.innerHTML = '');
                     
@@ -884,9 +990,20 @@
                         else showNotification('Dokončeno přesně v neutrálním čase bez změny skóre.', 'info');
                     } else if (msg.payload.reason === 'sokoban_level') {
                         showNotification(`Dokončený servisní sektor: +${msg.payload.delta} bodů.`, 'success');
+                    } else if (msg.payload.reason === 'team_size') {
+                        const delta = Number(msg.payload.delta) || 0;
+                        showNotification(delta >= 0 ? `Úprava za velikost týmu: +${delta} bodů.` : `Malus za velikost týmu: ${delta} bodů.`, delta >= 0 ? 'success' : 'error');
                     } else {
                         const reason = msg.payload.reason === 'cipher_tool' ? 'Odemčena šifrovací pomůcka' : 'Použita nápověda';
                         showNotification(`${reason} (-${msg.payload.penalty} bodů).`, 'error');
+                    }
+                }
+                else if (msg.type === 'team.player_message') {
+                    const channel = msg.payload.channel || 'general';
+                    const chatBox = document.getElementById('chat-' + channel);
+                    if (chatBox) {
+                        chatBox.innerHTML += `<div class="message player"><img class="avatar" src="${getAvatarURL('player', channel)}" alt="Avatar"><div class="msg-content"><b>[Tým]:</b> <span class="msg-text">${escapeHtml(msg.payload.text)}</span></div></div>`;
+                        chatBox.scrollTop = chatBox.scrollHeight;
                     }
                 }
                 else if (msg.type === 'game.state') {
@@ -1446,9 +1563,8 @@
 
         function startFreshDemoSession() {
             if (!window.confirm('Založit novou prázdnou demo relaci? Dosavadní relace zůstane uložena na backendu.')) return;
-            const freshId = window.crypto && crypto.randomUUID ? crypto.randomUUID() : `demo-${Date.now()}`;
-            localStorage.setItem('escapeBotSessionId', freshId);
-            window.location.reload();
+            localStorage.removeItem('escapeBotLobby');
+            window.location.href = `${window.location.pathname}?demo=1`;
         }
 
         function startScanner() {

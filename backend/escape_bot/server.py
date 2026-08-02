@@ -6,14 +6,17 @@ import subprocess
 import socket
 import threading
 import uvicorn
+from io import BytesIO
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi.responses import Response
 from fastapi.staticfiles import StaticFiles
 
 from .protocol import Message
 from .state_machine import EscapeBotStateMachine
 from .scenario import ScenarioLoader, build_demo_checkpoint_catalog, build_scenario_progress
 from .ollama_adapter import OllamaAdapter
+from .team_lobby import Lobby, LobbyRegistry
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger("EscapeBot")
@@ -22,9 +25,13 @@ logger = logging.getLogger("EscapeBot")
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 CLIENT_DIR = os.path.join(BASE_DIR, "client")
 SESSIONS_FILE = os.path.join(BASE_DIR, "backend", "sessions.json")
+LOBBIES_FILE = os.path.join(BASE_DIR, "backend", "lobbies.json")
 
 # Úložiště pro nezávislé relace hráčů (session_id -> state_machine)
 active_sessions: dict[str, EscapeBotStateMachine] = {}
+lobby_registry = LobbyRegistry()
+session_connections: dict[str, set[WebSocket]] = {}
+connection_info: dict[WebSocket, dict[str, object]] = {}
 DEMO_MODE_ENABLED = os.getenv("ESCAPEBOT_DEMO_MODE", "").lower() in {"1", "true", "yes", "on"}
 
 LEADERBOARD_FILE = os.path.join(BASE_DIR, "backend", "leaderboard.json")
@@ -62,12 +69,26 @@ def load_sessions(scenario):
         except Exception as e:
             logger.error(f"Chyba při načítání souboru relací: {e}")
 
+def save_lobbies():
+    with open(LOBBIES_FILE, "w", encoding="utf-8") as file:
+        json.dump(lobby_registry.snapshot(), file, indent=2, ensure_ascii=False)
+
+def load_lobbies():
+    if not os.path.exists(LOBBIES_FILE):
+        return
+    try:
+        with open(LOBBIES_FILE, "r", encoding="utf-8") as file:
+            lobby_registry.restore(json.load(file))
+    except Exception as error:
+        logger.error(f"Chyba při načítání týmových lobby: {error}")
+
 scenario_path = os.path.join(BASE_DIR, "backend", "scenario.json")
 scenario = ScenarioLoader.load(scenario_path)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     load_leaderboard()
+    load_lobbies()
     # 1. Načtení uložených stavů her z předchozího běhu
     load_sessions(scenario)
     # 2. Kontrola AI modelů na pozadí 
@@ -78,6 +99,90 @@ async def lifespan(app: FastAPI):
 # --- Inicializace FastAPI ---
 app = FastAPI(title="Escape Bot", lifespan=lifespan)
 
+
+def connected_client_ids(session_id: str) -> set[str]:
+    return {
+        str(connection_info[websocket].get("client_id", ""))
+        for websocket in session_connections.get(session_id, set())
+        if websocket in connection_info
+    }
+
+
+async def send_message(websocket: WebSocket, message: Message) -> None:
+    await websocket.send_text(json.dumps(message.to_json()))
+
+
+async def broadcast_session(session_id: str, messages: list[Message], exclude: WebSocket | None = None) -> None:
+    for websocket in list(session_connections.get(session_id, set())):
+        if websocket is exclude:
+            continue
+        for message in messages:
+            try:
+                await send_message(websocket, message)
+            except Exception:
+                pass
+
+
+async def broadcast_lobby(lobby: Lobby) -> None:
+    connected = connected_client_ids(lobby.session_id)
+    for websocket in list(session_connections.get(lobby.session_id, set())):
+        info = connection_info.get(websocket, {})
+        payload = lobby.public(str(info.get("client_id", "")), connected)
+        try:
+            await send_message(websocket, Message("lobby.state", payload))
+        except Exception:
+            pass
+
+
+def attach_to_lobby(websocket: WebSocket, lobby: Lobby, client_id: str, demo_client: bool) -> None:
+    previous = connection_info.get(websocket, {}).get("session_id")
+    if previous:
+        session_connections.get(str(previous), set()).discard(websocket)
+    connection_info[websocket] = {
+        "session_id": lobby.session_id,
+        "client_id": client_id,
+        "demo": demo_client,
+    }
+    session_connections.setdefault(lobby.session_id, set()).add(websocket)
+
+
+def ensure_state_machine(session_id: str) -> EscapeBotStateMachine:
+    if session_id not in active_sessions:
+        active_sessions[session_id] = EscapeBotStateMachine(scenario)
+    return active_sessions[session_id]
+
+
+def apply_lobby_score(lobby: Lobby, state_machine: EscapeBotStateMachine) -> list[Message]:
+    delta = lobby.score_delta()
+    if not delta:
+        return []
+    state_machine.state.score += delta
+    return [
+        Message("score.update", {
+            "score": state_machine.state.score,
+            "delta": delta,
+            "bonus": max(0, delta),
+            "penalty": max(0, -delta),
+            "reason": "team_size",
+            "players": lobby.max_players,
+        }),
+        state_machine._state_message(),
+    ]
+
+
+@app.get("/api/qr")
+async def qr_code(data: str) -> Response:
+    if not data or len(data) > 500:
+        return Response(status_code=400)
+    try:
+        import qrcode
+        image = qrcode.make(data)
+        output = BytesIO()
+        image.save(output, format="PNG")
+        return Response(content=output.getvalue(), media_type="image/png", headers={"Cache-Control": "no-store"})
+    except ImportError:
+        return Response(content="QR generator není nainstalován.", status_code=503, media_type="text/plain")
+
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
     await websocket.accept()
@@ -85,6 +190,7 @@ async def websocket_endpoint(websocket: WebSocket):
     session_id = None
     state_machine = None
     demo_client = False
+    client_id = None
     
     if not hasattr(app.state, "active_websockets"):
         app.state.active_websockets = set()
@@ -96,6 +202,64 @@ async def websocket_endpoint(websocket: WebSocket):
             try:
                 data = json.loads(message_str)
                 msg = Message.from_json(data)
+
+                if msg.type in {"lobby.solo", "lobby.create", "lobby.join", "lobby.resume", "lobby.start"}:
+                    try:
+                        requested_client_id = str(msg.payload.get("client_id", "")).strip()
+                        if not requested_client_id:
+                            raise ValueError("Chybí identifikátor zařízení.")
+                        name = str(msg.payload.get("name", "")).strip()
+                        requested_demo = DEMO_MODE_ENABLED and bool(msg.payload.get("demo_mode"))
+                        if msg.type == "lobby.solo":
+                            lobby = lobby_registry.create(requested_client_id, "solo", name)
+                        elif msg.type == "lobby.create":
+                            lobby = lobby_registry.create(requested_client_id, "team", name)
+                        elif msg.type == "lobby.join":
+                            lobby = lobby_registry.join(str(msg.payload.get("join_code", "")), requested_client_id, name)
+                        elif msg.type == "lobby.resume":
+                            lobby = lobby_registry.resume(str(msg.payload.get("session_id", "")), requested_client_id, name)
+                        else:
+                            info = connection_info.get(websocket, {})
+                            lobby = lobby_registry.by_session.get(str(info.get("session_id", "")))
+                            if lobby is None or requested_client_id != lobby.creator_id:
+                                raise ValueError("Hru může spustit pouze zakladatel týmu.")
+                            lobby.started = True
+
+                        session_id = lobby.session_id
+                        client_id = requested_client_id
+                        demo_client = requested_demo
+                        attach_to_lobby(websocket, lobby, client_id, demo_client)
+                        state_machine = ensure_state_machine(session_id)
+                        save_lobbies()
+                        await broadcast_lobby(lobby)
+
+                        if lobby.started:
+                            score_messages = apply_lobby_score(lobby, state_machine)
+                            if msg.type in {"lobby.solo", "lobby.start"}:
+                                hello = Message("client.hello", {"session_id": session_id, "demo_mode": demo_client})
+                                responses = await state_machine.handle(hello)
+                                responses.extend(score_messages)
+                                if demo_client:
+                                    responses.append(Message("demo.catalog", {
+                                        "enabled": True,
+                                        "checkpoints": build_demo_checkpoint_catalog(scenario),
+                                    }))
+                                    responses.append(Message("scenario.progress", build_scenario_progress(scenario, state_machine.state.snapshot())))
+                                await broadcast_session(session_id, responses)
+                            else:
+                                await send_message(websocket, Message("chat.history", {"messages": state_machine.state.chat_history}))
+                                await send_message(websocket, state_machine._state_message())
+                                if demo_client:
+                                    await send_message(websocket, Message("demo.catalog", {
+                                        "enabled": True,
+                                        "checkpoints": build_demo_checkpoint_catalog(scenario),
+                                    }))
+                                if score_messages:
+                                    await broadcast_session(session_id, score_messages)
+                        continue
+                    except ValueError as error:
+                        await send_message(websocket, Message("lobby.error", {"message": str(error)}))
+                        continue
                 
                 # Zpracování požadavků na Síň slávy (mimo state machine)
                 if msg.type == "leaderboard.get":
@@ -127,8 +291,13 @@ async def websocket_endpoint(websocket: WebSocket):
                         logger.info(f"Obnovuji existující relaci pro: {session_id}")
                         
                     state_machine = active_sessions[session_id]
+                    client_id = str(msg.payload.get("client_id", "legacy-client"))
+                    connection_info[websocket] = {"session_id": session_id, "client_id": client_id, "demo": demo_client}
+                    session_connections.setdefault(session_id, set()).add(websocket)
 
                 if state_machine:
+                    if client_id:
+                        msg.payload["_client_id"] = client_id
                     responses = await state_machine.handle(msg)
                     if msg.type == "client.hello" and bool(msg.payload.get("demo_mode")):
                         if demo_client:
@@ -145,9 +314,18 @@ async def websocket_endpoint(websocket: WebSocket):
                             "scenario.progress",
                             build_scenario_progress(scenario, state_machine.state.snapshot()),
                         ))
-                    for response in responses:
-                        save_sessions()
-                        await websocket.send_text(json.dumps(response.to_json()))
+                    if msg.type == "player.message" and session_id:
+                        await broadcast_session(session_id, [Message("team.player_message", {
+                            "client_id": client_id,
+                            "channel": msg.payload.get("channel", "general"),
+                            "text": msg.payload.get("text", ""),
+                        })], exclude=websocket)
+                    save_sessions()
+                    if session_id:
+                        await broadcast_session(session_id, responses)
+                    else:
+                        for response in responses:
+                            await send_message(websocket, response)
                 else:
                     logger.warning("Přijata zpráva před inicializací relace (client.hello chybí).")
 
@@ -155,6 +333,13 @@ async def websocket_endpoint(websocket: WebSocket):
                 logger.error(f"Chyba při zpracování zprávy: {e}")
     except WebSocketDisconnect:
         app.state.active_websockets.discard(websocket)
+        info = connection_info.pop(websocket, {})
+        disconnected_session = str(info.get("session_id", ""))
+        if disconnected_session:
+            session_connections.get(disconnected_session, set()).discard(websocket)
+            lobby = lobby_registry.by_session.get(disconnected_session)
+            if lobby:
+                await broadcast_lobby(lobby)
         logger.info(f"Klient odpojen (Relace: {session_id}).")
 
 # Servírování statických souborů (klienta) napřímo pod stejným portem

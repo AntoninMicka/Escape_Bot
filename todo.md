@@ -489,3 +489,22 @@
 - [x] Nalezení `TEMPORÁLNÍHO MOTORU` může odemknout binární a ASCII referenci.
 - [x] Nalezení archivního checkpointu odemkne polský kříž.
 - [ ] U každé povinné šifry ověřit, že existuje dosažitelná cesta k potřebné pomůcce i při přehlédnutí bonusového QR.
+
+### 13.15 Sólo a týmové lobby
+**Cíl:** před začátkem zvolit sólo nebo sdílenou týmovou relaci a synchronizovat průběh mezi telefony.
+
+- [x] Přidat úvodní obrazovku s volbou `SÓLO` a `ZALOŽIT TÝM`.
+- [x] U týmové relace zobrazit unikátní připojovací QR, kód, seznam zařízení a aktuální počet hráčů.
+- [x] Umožnit zakladateli spustit příběh až po připojení týmu.
+- [x] Připojit další zařízení pomocí URL z QR do stejného herního stavu.
+- [x] Vysílat herní odpovědi a změny stavu všem aktivním zařízením relace.
+- [x] Uchovat lobby, připojovací kód, hráče, maximum hráčů a bodovou úpravu při restartu backendu.
+- [x] Nastavit úpravu skóre: sólo `+20`, tým 2 hráčů `+10`, 3 hráči `0`, každý další hráč `−30`.
+- [x] Počítat maximum registrovaných hráčů, aby odpojením nešlo získat zpět bonus.
+- [x] Nezamykat panely ani pevné role; organizaci pozorovatele a navigátora ponechat týmu.
+- [x] V každé úrovni Sokobanu evidovat unikátní mluvčí a při střídání zařízení nechat Elaru tým napomenout.
+- [x] Přidat příběhové vysvětlení, že Elara je ve tmě a mřížku vidí pouze týmový terminál.
+- [ ] Doplnit odolnější obnovu lobby po smazání dat prohlížeče pomocí administrátorského kódu.
+- [ ] Přidat možnost dobrovolně změnit přezdívku hráče během čekání.
+- [ ] Přidat speech-to-text jako alternativní vstup do stejného deterministického parseru interkomových povelů.
+- [ ] Otestovat synchronizaci a souběžné povely na třech a více fyzických telefonech.

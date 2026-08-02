@@ -16,6 +16,14 @@ Every message has:
 
 ## Client -> Backend
 
+### Týmové lobby
+
+Před `client.hello` používá webový klient jednu ze zpráv `lobby.solo`, `lobby.create`, `lobby.join` nebo `lobby.resume`. Všechny obsahují stabilní `client_id` zařízení, volitelnou přezdívku a příznak demo režimu. `lobby.join` navíc posílá `join_code`; `lobby.resume` uložené `session_id`.
+
+Zakladatel týmové relace ji spustí zprávou `lobby.start`. Backend poté rozešle `lobby.state` a zahajovací herní zprávy všem připojeným zařízením. `lobby.state` obsahuje režim, týmový QR kód, počet hráčů, maximum hráčů, seznam připojení a bodovou úpravu.
+
+Velikost týmu upravuje skóre podle nejvyššího počtu registrovaných zařízení: sólo `+20`, tým o dvou hráčích `+10`, tři hráči beze změny a každý hráč nad tři `−30`. Pozdější připojení pouze dorovná rozdíl proti již použité úpravě.
+
 ### `client.hello`
 
 Starts a session.

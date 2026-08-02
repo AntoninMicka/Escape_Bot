@@ -5,6 +5,7 @@ from pathlib import Path
 from escape_bot.protocol import Message
 from escape_bot.line_game import completion_time_score
 from escape_bot.sokoban import execute as execute_sokoban, new_game as new_sokoban, parse_commands
+from escape_bot.team_lobby import LobbyRegistry, team_size_adjustment
 from escape_bot.scenario import ScenarioLoader, build_demo_checkpoint_catalog, build_scenario_progress
 from escape_bot.state_machine import EscapeBotStateMachine, GamePhase
 
@@ -443,6 +444,42 @@ class StateMachineCheckpointTests(unittest.IsolatedAsyncioTestCase):
             result = execute_sokoban(game, config, commands)
             self.assertTrue(result["game_complete"], level_id)
             self.assertEqual(result["score_delta"], 30)
+
+    async def test_sokoban_warns_when_another_device_starts_commanding(self) -> None:
+        await self.unlock_sokoban()
+        first = await self.machine.handle(Message("sokoban.command", {
+            "puzzle_id": "sports_sokoban", "commands": ["right"], "_client_id": "player-a",
+        }))
+        second = await self.machine.handle(Message("sokoban.command", {
+            "puzzle_id": "sports_sokoban", "commands": ["left"], "_client_id": "player-b",
+        }))
+
+        self.assertFalse(self.response(first, "sokoban.result").payload["speaker_warning"])
+        self.assertTrue(self.response(second, "sokoban.result").payload["speaker_warning"])
+        warnings = [item.payload["text"] for item in second if item.type == "bot.message"]
+        self.assertTrue(any("překřikujících" in text for text in warnings))
+
+    def test_team_size_score_adjustments(self) -> None:
+        self.assertEqual(team_size_adjustment("solo", 1), 20)
+        self.assertEqual(team_size_adjustment("team", 1), 20)
+        self.assertEqual(team_size_adjustment("team", 2), 10)
+        self.assertEqual(team_size_adjustment("team", 3), 0)
+        self.assertEqual(team_size_adjustment("team", 4), -30)
+        self.assertEqual(team_size_adjustment("team", 5), -60)
+
+    def test_team_lobby_join_code_and_maximum_player_count(self) -> None:
+        registry = LobbyRegistry()
+        lobby = registry.create("creator", "team", "Alice")
+        joined = registry.join(lobby.join_code, "navigator", "Bob")
+        registry.join(lobby.join_code.lower(), "third", "Cyril")
+
+        self.assertIs(joined, lobby)
+        self.assertEqual(lobby.max_players, 3)
+        self.assertEqual(lobby.score_delta(), 0)
+        self.assertIs(registry.resume(lobby.session_id, "navigator"), lobby)
+        restored = LobbyRegistry()
+        restored.restore(registry.snapshot())
+        self.assertEqual(restored.join(lobby.join_code, "fourth").max_players, 4)
 
 
 if __name__ == "__main__":

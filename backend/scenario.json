@@ -207,7 +207,7 @@
       "title": "Servisní mřížka sportovního archivu",
       "type": "sokoban",
       "checkpoint_id": "sports_archive",
-      "instructions": "Elara prochází třemi servisními sektory. Přes interkom v kanálu # ztracená_sig ji navigujte povely NAHORU, DOLŮ, VLEVO a VPRAVO. Příkazy lze spojit čárkami a opakovat například jako „2x NAHORU“. Přesuňte články na svítící cíle před vypršením času dané úrovně. Každý dokončený sektor přidá 30 bodů. Povel ZPĚT vrátí poslední krok a RESET obnoví aktuální úroveň i její čas.",
+      "instructions": "Elara prochází třemi servisními sektory v naprosté tmě: její lokální displej nefunguje a sama mřížku nevidí. Tým musí sdílet informace mezi člověkem sledujícím mapu a navigátorem u interkomu. V kanálu # ztracená_sig používejte povely NAHORU, DOLŮ, VLEVO a VPRAVO; lze je spojit čárkami a opakovat například jako „2x NAHORU“. Přesuňte články na svítící cíle před vypršením času. Každý sektor přidá 30 bodů. Povel ZPĚT vrátí poslední krok a RESET obnoví aktuální úroveň i její čas.",
       "admin_solution": "3 aktivní úrovně: A = VPRAVO, NAHORU, VLEVO, DOLŮ, VLEVO, DOLŮ, VPRAVO; B = VLEVO, NAHORU, VPRAVO, DOLŮ, VPRAVO, DOLŮ, VLEVO; C = NAHORU, VLEVO, DOLŮ, VPRAVO, DOLŮ. Rezervní úrovně D a E jsou připravené ve scénáři.",
       "game": {
         "level_time_seconds": 120,
@@ -295,7 +295,7 @@
       "requires": ["timeline_calibration"],
       "puzzle_id": "sports_sokoban",
       "rewards": {"inventory": ["KRYSTAL ČASOVÉ KOTVY"], "cipher_tools": ["pigpen"]},
-      "message": {"text": "Sportovní archiv je nalezen, ale jeho servisní síť nemá napájení. Navigujte Elaru přes interkom a usaďte oba energetické články.", "mood": "focused", "channel": "captain"}
+      "message": {"text": "Sportovní archiv je nalezen, ale jeho servisní síť nemá napájení. Elara je v úplné tmě a mřížku vidíte jen vy na terminálu. Jeden z vás musí sledovat mapu a druhý ji navigovat přes interkom.", "mood": "focused", "channel": "captain"}
     }
   },
   "room_defaults": {

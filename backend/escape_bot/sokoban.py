@@ -205,6 +205,7 @@ def _load_level(state: dict[str, Any], config: dict[str, Any], now: datetime) ->
     state["moves"] = 0
     state["pushes"] = 0
     state["history"] = []
+    state["level_speakers"] = []
     state["started_at"] = now.isoformat()
     state["deadline_at"] = (now + timedelta(seconds=int(config.get("level_time_seconds", 120)))).isoformat()
 

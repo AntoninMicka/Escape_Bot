@@ -325,9 +325,9 @@ class EscapeBotStateMachine:
                         self._state_message(),
                     ]
                 if commands == ["undo"]:
-                    return await self._handle_sokoban_undo(Message("sokoban.undo", {"puzzle_id": sokoban_id}, message.request_id))
+                    return await self._handle_sokoban_undo(Message("sokoban.undo", {"puzzle_id": sokoban_id, "_client_id": message.payload.get("_client_id")}, message.request_id))
                 if commands == ["reset"]:
-                    return await self._handle_sokoban_reset(Message("sokoban.reset", {"puzzle_id": sokoban_id}, message.request_id))
+                    return await self._handle_sokoban_reset(Message("sokoban.reset", {"puzzle_id": sokoban_id, "_client_id": message.payload.get("_client_id")}, message.request_id))
                 if commands:
                     return await self._execute_sokoban_commands(sokoban_id, commands, message)
 
@@ -607,11 +607,22 @@ class EscapeBotStateMachine:
     async def _execute_sokoban_commands(self, puzzle_id: str, commands: list[str], message: Message) -> list[Message]:
         try:
             puzzle, checkpoint_state, game = self._active_sokoban(puzzle_id)
+            client_id = str(message.payload.get("_client_id", "")).strip()
+            existing_speakers = list(game.setdefault("level_speakers", []))
+            speaker_warning = bool(client_id and existing_speakers and client_id not in existing_speakers)
+            if client_id and client_id not in existing_speakers:
+                game["level_speakers"].append(client_id)
             result = execute_sokoban(game, puzzle.get("game", {}), commands)
         except ValueError as error:
             return [reply("sokoban.result", {"success": False, "reason": str(error)}, message), self._state_message()]
 
-        responses = [reply("sokoban.result", {"success": True, **result}, message)]
+        responses = [reply("sokoban.result", {"success": True, "speaker_warning": speaker_warning, **result}, message)]
+        if speaker_warning:
+            responses.append(reply("bot.message", {
+                "text": "Počkejte! Teď na mě mluví někdo jiný než před chvílí. V téhle tmě se podle překřikujících hlasů opravdu orientovat nedá — domluvte si jednoho navigátora!",
+                "mood": "tense",
+                "channel": "lost",
+            }, message))
         if result["blocked"]:
             text = f"Provedla jsem {result['executed']} z {result['requested']} kroků. Další pohyb blokuje stěna nebo energetický článek."
         else:

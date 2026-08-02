@@ -35,6 +35,14 @@ python3 -m escape_bot.server
 
 Server standardně zpřístupní web i WebSocket na `https://localhost:8088`.
 
+Po otevření webu hráč zvolí sólo nebo založí tým. Pro fyzický startovní QR použijte adresu terminálu s parametrem `?team=1`, například:
+
+```text
+https://ADRESA-SERVERU:8088/?team=1
+```
+
+Zakladateli se v čekárně zobrazí unikátní QR pro ostatní zařízení. Příběh spustí až po připojení týmu. Sólo získává 20 bodů, dva hráči 10 bodů, tři hráči hrají bez úpravy a každý další hráč znamená 30 bodů dolů.
+
 ### Vývojový demo režim
 
 Pro ladění checkpointů bez kamery spusťte backend z kořene projektu:
