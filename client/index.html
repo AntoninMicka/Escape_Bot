@@ -538,7 +538,7 @@
             <button onclick="loadAdminOverview()">NAČÍST / OBNOVIT</button>
             <span id="admin-status">Čekám na spojení…</span>
         </div>
-        <nav class="admin-nav"><button class="active" onclick="openAdminTab('teams',this)">TÝMY</button><button onclick="openAdminTab('chats',this)">CHATY</button><button onclick="openAdminTab('leaderboard',this)">SÍŇ SLÁVY</button><button onclick="openAdminTab('tools',this)">NÁSTROJE</button></nav>
+        <nav class="admin-nav"><button class="active" onclick="openAdminTab('teams',this)">TÝMY</button><button id="admin-chats-tab-button" onclick="openAdminTab('chats',this)">CHATY <span id="admin-chat-unread" class="unread-badge"></span></button><button onclick="openAdminTab('leaderboard',this)">SÍŇ SLÁVY</button><button onclick="openAdminTab('tools',this)">NÁSTROJE</button></nav>
         <section id="admin-tab-teams" class="admin-section"><div id="admin-summary" class="admin-summary"></div><div class="admin-filters"><input id="admin-team-search" type="search" placeholder="Hledat tým, hráče nebo kód…" oninput="applyAdminFilters()"><select id="admin-activity-filter" onchange="applyAdminFilters()"><option value="all">Všechny stavy</option><option value="active">Aktivní</option><option value="suspicious">Podezřelé</option><option value="abandoned">Opuštěné</option><option value="completed">Dokončené</option></select><select id="admin-online-filter" onchange="applyAdminFilters()"><option value="all">Online i offline</option><option value="online">Alespoň jeden online</option><option value="offline">Všichni offline</option></select></div><div id="admin-team-grid" class="admin-grid"></div></section>
         <section id="admin-tab-chats" class="admin-section hidden"><h2>[ PODPORA TÝMŮ ]</h2><div id="admin-chat-grid" class="admin-grid"></div></section>
         <section id="admin-tab-leaderboard" class="admin-section admin-leaderboard hidden"><h2>[ SPRÁVA SÍNĚ SLÁVY ]</h2><div id="admin-leaderboard"></div></section>
@@ -1117,12 +1117,23 @@
 
         const adminChatDrafts = {};
         let adminSpectatingSession = '';
+        let activeAdminTab = 'teams';
+        const adminKnownPlayerMessages = {};
+        let adminChatSeen = {};
+        try { adminChatSeen = JSON.parse(sessionStorage.getItem('escapeBotAdminChatSeen') || '{}'); } catch (_) { adminChatSeen = {}; }
 
         function openAdminTab(name, button) {
+            activeAdminTab = name;
             document.querySelectorAll('.admin-section').forEach(section => section.classList.add('hidden'));
             document.getElementById(`admin-tab-${name}`).classList.remove('hidden');
             document.querySelectorAll('.admin-nav button').forEach(item => item.classList.remove('active'));
             if (button) button.classList.add('active');
+            if (name === 'chats' && latestAdminPayload) {
+                (latestAdminPayload.teams || []).forEach(team => { adminChatSeen[team.session_id] = (team.support_chat || []).filter(item => item.role === 'player').length; });
+                sessionStorage.setItem('escapeBotAdminChatSeen', JSON.stringify(adminChatSeen));
+                updateAdminChatNotifications(latestAdminPayload.teams || [], false);
+                renderAdminChats(latestAdminPayload.teams || []);
+            }
         }
 
         function startAdminSpectate(sessionId) { sendAdmin('admin.spectate_start', {session_id:sessionId}); }
@@ -1137,11 +1148,36 @@
             input.value = '';
         }
 
+        function updateAdminChatNotifications(teams, notifyNew = true) {
+            let totalUnread = 0;
+            teams.forEach(team => {
+                const count = (team.support_chat || []).filter(item => item.role === 'player').length;
+                const previous = adminKnownPlayerMessages[team.session_id];
+                if (previous === undefined) {
+                    adminKnownPlayerMessages[team.session_id] = count;
+                    if (adminChatSeen[team.session_id] === undefined) adminChatSeen[team.session_id] = count;
+                } else if (count > previous) {
+                    adminKnownPlayerMessages[team.session_id] = count;
+                    if (activeAdminTab === 'chats') adminChatSeen[team.session_id] = count;
+                    else if (notifyNew) showNotification(`Nová zpráva podpory · ${team.team_name}`, 'info');
+                }
+                if (activeAdminTab === 'chats') adminChatSeen[team.session_id] = count;
+                totalUnread += Math.max(0, count - Number(adminChatSeen[team.session_id] || 0));
+            });
+            sessionStorage.setItem('escapeBotAdminChatSeen', JSON.stringify(adminChatSeen));
+            const badge = document.getElementById('admin-chat-unread');
+            const button = document.getElementById('admin-chats-tab-button');
+            badge.textContent = totalUnread > 99 ? '99+' : String(totalUnread);
+            badge.classList.toggle('visible', totalUnread > 0);
+            button.classList.toggle('has-unread', totalUnread > 0);
+        }
+
         function renderAdminChats(teams) {
             const grid = document.getElementById('admin-chat-grid');
             grid.innerHTML = teams.map(team => {
                 const messages = (team.support_chat || []).map(item => `<li><strong>${escapeHtml(item.sender || (item.role === 'player' ? 'Tým' : 'Game Master'))}:</strong> ${escapeHtml(item.text || '')} <small>${item.at ? new Date(item.at).toLocaleString('cs-CZ') : ''}</small></li>`).join('') || '<li>Zatím žádné zprávy podpory.</li>';
-                return `<article class="admin-team"><h2>${escapeHtml(team.team_name)}</h2><ul class="admin-detail-list">${messages}</ul><div class="puzzle-answer"><input id="admin-support-input-${team.session_id}" maxlength="500" value="${escapeHtml(adminChatDrafts[team.session_id] || '')}" placeholder="Zpráva Game Mastera…" oninput="adminChatDrafts['${team.session_id}']=this.value" onkeypress="if(event.key === 'Enter') sendAdminSupport('${team.session_id}')"><button onclick="sendAdminSupport('${team.session_id}')">ODESLAT</button></div></article>`;
+                const unread = Math.max(0, (team.support_chat || []).filter(item => item.role === 'player').length - Number(adminChatSeen[team.session_id] || 0));
+                return `<article class="admin-team"><h2>${escapeHtml(team.team_name)} ${unread ? `<span class="unread-badge visible">${unread}</span>` : ''}</h2><ul class="admin-detail-list">${messages}</ul><div class="puzzle-answer"><input id="admin-support-input-${team.session_id}" maxlength="500" value="${escapeHtml(adminChatDrafts[team.session_id] || '')}" placeholder="Zpráva Game Mastera…" oninput="adminChatDrafts['${team.session_id}']=this.value" onkeypress="if(event.key === 'Enter') sendAdminSupport('${team.session_id}')"><button onclick="sendAdminSupport('${team.session_id}')">ODESLAT</button></div></article>`;
             }).join('') || '<p>Nejsou evidované žádné týmy.</p>';
         }
 
@@ -1216,6 +1252,7 @@
             document.getElementById('admin-status').textContent = `Zobrazeno: ${teams.length}/${allTeams.length} týmů · aktualizováno ${new Date().toLocaleTimeString('cs-CZ')}`;
             document.getElementById('admin-summary').innerHTML = `<div>VYFILTROVÁNO<br><strong>${teams.length}/${allTeams.length}</strong></div><div>HRÁČI ONLINE<br><strong>${onlinePlayers}</strong></div><div>PODEZŘELÉ<br><strong>${suspicious}</strong></div><div>OPUŠTĚNÉ<br><strong>${abandoned}</strong></div>`;
             renderAdminLeaderboard(latestAdminPayload.leaderboard || []);
+            updateAdminChatNotifications(allTeams);
             renderAdminChats(allTeams);
             if (!teams.length) {
                 grid.innerHTML = `<p>${allTeams.length ? 'Filtrům neodpovídá žádný tým.' : 'Nejsou evidované žádné týmy.'}</p>`;

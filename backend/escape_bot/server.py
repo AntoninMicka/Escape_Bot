@@ -40,6 +40,7 @@ waiting_players: dict[str, dict[str, object]] = {}
 recovery_tokens: dict[str, dict[str, object]] = {}
 admin_support_sessions: dict[WebSocket, set[str]] = {}
 admin_spectator_sessions: dict[WebSocket, str] = {}
+authenticated_admin_sockets: set[WebSocket] = set()
 ADMIN_RESOLUTION_PRESETS = {
     "technical": {"label": "Technická chyba / uznat bez postihu", "penalty": 0},
     "minor_help": {"label": "Drobná pomoc Game Mastera", "penalty": 20},
@@ -383,6 +384,7 @@ async def websocket_endpoint(websocket: WebSocket):
                 if msg.type in {"admin.list", "admin.penalty", "admin.delete", "admin.qr_set", "admin.online_mode", "admin.checkpoint", "admin.game_reset", "admin.player_recovery", "admin.leaderboard_delete", "admin.support_join", "admin.support_leave", "admin.support_message", "admin.spectate_start", "admin.spectate_stop"}:
                     try:
                         require_admin(msg.payload)
+                        authenticated_admin_sockets.add(websocket)
                         if msg.type == "admin.list":
                             await send_admin_overview(websocket)
                             await send_message(websocket, Message("runtime.settings", {**runtime_settings, "checkpoints": build_demo_checkpoint_catalog(scenario)}))
@@ -763,10 +765,9 @@ async def websocket_endpoint(websocket: WebSocket):
                         state_machine.state.last_activity_at = support_message["at"]
                         save_sessions()
                         await broadcast_session(str(session_id), [Message("team.player_message", {"client_id": client_id, "channel": "support", "text": text_value})], exclude=websocket)
-                        for admin_socket, watched in list(admin_support_sessions.items()):
-                            if str(session_id) in watched:
-                                try: await send_admin_overview(admin_socket)
-                                except Exception: pass
+                        for admin_socket in list(authenticated_admin_sockets):
+                            try: await send_admin_overview(admin_socket)
+                            except Exception: pass
                         continue
                     responses = await state_machine.handle(msg)
                     if msg.type == "client.hello" and bool(msg.payload.get("demo_mode")):
@@ -820,6 +821,7 @@ async def websocket_endpoint(websocket: WebSocket):
         app.state.active_websockets.discard(websocket)
         admin_support_sessions.pop(websocket, None)
         admin_spectator_sessions.pop(websocket, None)
+        authenticated_admin_sockets.discard(websocket)
         info = connection_info.pop(websocket, {})
         player_code = str(info.get("player_code", ""))
         if player_code:
