@@ -497,6 +497,9 @@
 - [x] U týmové relace zobrazit unikátní připojovací QR, kód, seznam zařízení a aktuální počet hráčů.
 - [x] Umožnit zakladateli spustit příběh až po připojení týmu.
 - [x] Připojit další zařízení pomocí URL z QR do stejného herního stavu.
+- [x] Umožnit reverzní připojení: hráčské zařízení zobrazí vlastní ID/QR a zakladatel ho načte nebo opíše.
+- [x] Reverzně přidané zařízení započítat jako regulérního hráče do maxima i bodové úpravy.
+- [x] Doporučit, aby jeden hráč používal týmový notebook a každý člen měl právě jedno započítané zařízení.
 - [x] Vysílat herní odpovědi a změny stavu všem aktivním zařízením relace.
 - [x] Uchovat lobby, připojovací kód, hráče, maximum hráčů a bodovou úpravu při restartu backendu.
 - [x] Nastavit úpravu skóre: sólo `+20`, tým 2 hráčů `+10`, 3 hráči `0`, každý další hráč `−30`.

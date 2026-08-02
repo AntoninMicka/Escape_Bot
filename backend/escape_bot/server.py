@@ -4,6 +4,7 @@ import logging
 import os
 import subprocess
 import socket
+import secrets
 import threading
 import uvicorn
 from io import BytesIO
@@ -32,6 +33,7 @@ active_sessions: dict[str, EscapeBotStateMachine] = {}
 lobby_registry = LobbyRegistry()
 session_connections: dict[str, set[WebSocket]] = {}
 connection_info: dict[WebSocket, dict[str, object]] = {}
+waiting_players: dict[str, dict[str, object]] = {}
 DEMO_MODE_ENABLED = os.getenv("ESCAPEBOT_DEMO_MODE", "").lower() in {"1", "true", "yes", "on"}
 
 LEADERBOARD_FILE = os.path.join(BASE_DIR, "backend", "leaderboard.json")
@@ -203,13 +205,59 @@ async def websocket_endpoint(websocket: WebSocket):
                 data = json.loads(message_str)
                 msg = Message.from_json(data)
 
-                if msg.type in {"lobby.solo", "lobby.create", "lobby.join", "lobby.resume", "lobby.start"}:
+                if msg.type in {"lobby.solo", "lobby.create", "lobby.join", "lobby.resume", "lobby.start", "lobby.identify", "lobby.add_player"}:
                     try:
                         requested_client_id = str(msg.payload.get("client_id", "")).strip()
                         if not requested_client_id:
                             raise ValueError("Chybí identifikátor zařízení.")
                         name = str(msg.payload.get("name", "")).strip()
                         requested_demo = DEMO_MODE_ENABLED and bool(msg.payload.get("demo_mode"))
+                        if msg.type == "lobby.identify":
+                            previous_code = str(connection_info.get(websocket, {}).get("player_code", ""))
+                            if previous_code:
+                                waiting_players.pop(previous_code, None)
+                            player_code = secrets.token_hex(4).upper()
+                            while player_code in waiting_players:
+                                player_code = secrets.token_hex(4).upper()
+                            waiting_players[player_code] = {
+                                "websocket": websocket,
+                                "client_id": requested_client_id,
+                                "name": name,
+                                "demo": requested_demo,
+                            }
+                            connection_info[websocket] = {"client_id": requested_client_id, "player_code": player_code, "demo": requested_demo}
+                            await send_message(websocket, Message("lobby.player_identity", {"player_code": player_code}))
+                            continue
+                        if msg.type == "lobby.add_player":
+                            info = connection_info.get(websocket, {})
+                            lobby = lobby_registry.by_session.get(str(info.get("session_id", "")))
+                            if lobby is None or requested_client_id != lobby.creator_id:
+                                raise ValueError("Hráče může tímto způsobem přidat pouze zakladatel týmu.")
+                            player_code = str(msg.payload.get("player_code", "")).strip().upper().removeprefix("ESCAPEBOT://PLAYER/")
+                            waiting = waiting_players.pop(player_code, None)
+                            if waiting is None:
+                                raise ValueError("Hráčské ID není platné nebo už bylo použito.")
+                            waiting_socket = waiting["websocket"]
+                            waiting_client_id = str(waiting["client_id"])
+                            lobby.add_player(waiting_client_id, str(waiting.get("name", "")))
+                            attach_to_lobby(waiting_socket, lobby, waiting_client_id, bool(waiting.get("demo")))
+                            session_id = lobby.session_id
+                            client_id = requested_client_id
+                            state_machine = ensure_state_machine(session_id)
+                            save_lobbies()
+                            await broadcast_lobby(lobby)
+                            if lobby.started:
+                                await send_message(waiting_socket, Message("chat.history", {"messages": state_machine.state.chat_history}))
+                                await send_message(waiting_socket, state_machine._state_message())
+                                if bool(waiting.get("demo")):
+                                    await send_message(waiting_socket, Message("demo.catalog", {
+                                        "enabled": True,
+                                        "checkpoints": build_demo_checkpoint_catalog(scenario),
+                                    }))
+                                score_messages = apply_lobby_score(lobby, state_machine)
+                                if score_messages:
+                                    await broadcast_session(session_id, score_messages)
+                            continue
                         if msg.type == "lobby.solo":
                             lobby = lobby_registry.create(requested_client_id, "solo", name)
                         elif msg.type == "lobby.create":
@@ -334,6 +382,9 @@ async def websocket_endpoint(websocket: WebSocket):
     except WebSocketDisconnect:
         app.state.active_websockets.discard(websocket)
         info = connection_info.pop(websocket, {})
+        player_code = str(info.get("player_code", ""))
+        if player_code:
+            waiting_players.pop(player_code, None)
         disconnected_session = str(info.get("session_id", ""))
         if disconnected_session:
             session_connections.get(disconnected_session, set()).discard(websocket)

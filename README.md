@@ -43,6 +43,8 @@ https://ADRESA-SERVERU:8088/?team=1
 
 Zakladateli se v čekárně zobrazí unikátní QR pro ostatní zařízení. Příběh spustí až po připojení týmu. Sólo získává 20 bodů, dva hráči 10 bodů, tři hráči hrají bez úpravy a každý další hráč znamená 30 bodů dolů.
 
+Notebook bez pohodlné kamery může zvolit **PŘIPOJIT NOTEBOOK** a zobrazit vlastní hráčský QR. Zakladatel ho načte telefonem ve své čekárně nebo opíše osmimístné ID. Jde o běžného hráče a zařízení se započítá do velikosti týmu. Doporučené uspořádání je jeden hráč na notebooku a ostatní na vlastních telefonech či noteboocích, vždy právě jedno zařízení na hráče.
+
 ### Vývojový demo režim
 
 Pro ladění checkpointů bez kamery spusťte backend z kořene projektu:
