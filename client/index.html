@@ -877,7 +877,11 @@
             localStorage.setItem('escapeBotPlayerName', lobbyPlayerName());
             localStorage.setItem('escapeBotTeamName', payload.team_name || lobbyTeamName());
             localStorage.setItem('escapeBotLobby', JSON.stringify({session_id:sessionId, mode:payload.mode}));
-            document.getElementById('team-status').textContent = payload.mode === 'solo' ? payload.team_name : `${payload.team_name} · ${payload.player_count}`;
+            const teamSize = Number(payload.registered_players ?? payload.player_count ?? 0);
+            const onlineCount = Number(payload.online_count ?? payload.player_count ?? 0);
+            document.getElementById('team-status').textContent = payload.mode === 'solo'
+                ? payload.team_name
+                : `${payload.team_name} · ${teamSize} hráči · ${onlineCount} online`;
             if (payload.started) {
                 stopReversePlayerScanner();
                 document.getElementById('lobby-overlay').classList.add('hidden');
@@ -887,8 +891,8 @@
             document.getElementById('lobby-modes').style.display = 'none';
             document.getElementById('lobby-team').classList.add('visible');
             document.getElementById('lobby-team-title').textContent = payload.team_name || '';
-            document.getElementById('lobby-player-count').textContent = `${payload.player_count} / 3`;
-            const previewAdjustment = payload.player_count < 3 ? (3 - payload.player_count) * 10 : (payload.player_count > 3 ? -(payload.player_count - 3) * 30 : 0);
+            document.getElementById('lobby-player-count').textContent = `${teamSize} / 3 (${onlineCount} online)`;
+            const previewAdjustment = teamSize < 3 ? (3 - teamSize) * 10 : (teamSize > 3 ? -(teamSize - 3) * 30 : 0);
             document.getElementById('lobby-score-adjustment').textContent = previewAdjustment > 0 ? `+${previewAdjustment}` : String(previewAdjustment);
             document.getElementById('lobby-join-code').textContent = payload.join_code || '';
             const joinUrl = `${window.location.origin}${window.location.pathname}?join=${encodeURIComponent(payload.join_code)}${demoModeRequested ? '&demo=1' : ''}`;

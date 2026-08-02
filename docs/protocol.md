@@ -20,7 +20,7 @@ Every message has:
 
 Před `client.hello` používá webový klient jednu ze zpráv `lobby.solo`, `lobby.create`, `lobby.join` nebo `lobby.resume`. Založení obsahuje stabilní `client_id` zařízení, povinné `name`, povinné `team_name` a příznak demo režimu. Název týmu je unikátní bez ohledu na velikost písmen a nadbytečné mezery. `lobby.join` navíc posílá `join_code` a povinné jméno hráče; klient jej získá z URL týmového QR, kamerovým načtením QR v lobby nebo ručním zadáním. `lobby.resume` používá uložené `session_id`.
 
-Zakladatel týmové relace ji spustí zprávou `lobby.start`. Backend spuštění odmítne, pokud chybí název týmu nebo jméno kteréhokoli registrovaného hráče. Poté rozešle `lobby.state` a zahajovací herní zprávy všem připojeným zařízením. `lobby.state` obsahuje název a režim týmu, týmový QR kód, počet hráčů, maximum hráčů, seznam připojení a bodovou úpravu.
+Zakladatel týmové relace ji spustí zprávou `lobby.start`. Backend spuštění odmítne, pokud chybí název týmu nebo jméno kteréhokoli registrovaného hráče. Poté rozešle `lobby.state` a zahajovací herní zprávy všem připojeným zařízením. `lobby.state` obsahuje název a režim týmu, týmový QR kód, trvalý počet registrovaných hráčů (`player_count`/`registered_players`), momentální počet spojení (`online_count`), seznam připojení a bodovou úpravu. Uspání či výpadek zařízení mění pouze online stav a nikdy nepřepíná tým do sólo režimu.
 
 Pro reverzní připojení notebook pošle `lobby.identify` a dostane `lobby.player_identity` s jednorázovým osmimístným kódem. Zobrazí jej jako `escapebot://player/<code>`. Zakladatel kód načte a odešle v `lobby.add_player`; backend čekající WebSocket připojí do stejné lobby. Kód je jednorázový a zařízení se dále chová jako běžný hráč.
 

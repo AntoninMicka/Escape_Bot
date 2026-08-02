@@ -51,6 +51,7 @@ class Lobby:
         return delta
 
     def public(self, client_id: str, connected_ids: set[str]) -> dict[str, Any]:
+        online_count = sum(player_id in connected_ids for player_id in self.players)
         return {
             "session_id": self.session_id,
             "mode": self.mode,
@@ -58,7 +59,10 @@ class Lobby:
             "join_code": self.join_code,
             "started": self.started,
             "is_creator": client_id == self.creator_id,
-            "player_count": sum(player_id in connected_ids for player_id in self.players),
+            # Velikost týmu je vlastnost relace. Uspání telefonu mění pouze
+            # dostupnost hráče, nikdy týmový režim ani bodové vyhodnocení.
+            "player_count": len(self.players),
+            "online_count": online_count,
             "registered_players": len(self.players),
             "max_players": self.max_players,
             "score_adjustment": self.applied_score_adjustment,
