@@ -905,10 +905,13 @@
         function requestAdminQrSet() { sendAdmin('admin.qr_set'); }
 
         function renderAdminQrSet(payload) {
-            const startValue = `${window.location.origin}${window.location.pathname}?team=1${demoModeRequested ? '&demo=1' : ''}`;
+            const startUrl = new URL('/', window.location.origin);
+            startUrl.searchParams.set('team', '1');
+            if (demoModeRequested) startUrl.searchParams.set('demo', '1');
+            const startValue = startUrl.toString();
             const cards = [{id:'team_start', label:'START TÝMOVÉ HRY', value:startValue, requires:[], start:true}, ...(payload.checkpoints || [])];
             const sheet = document.getElementById('qr-print-sheet');
-            sheet.innerHTML = `<h1 style="color:#000;font-family:sans-serif">${escapeHtml(payload.scenario || 'Escape Bot')} – QR sada</h1><div class="qr-print-grid">${cards.map((item, index) => `<article class="qr-print-card"><p>${item.start ? 'START' : `CHECKPOINT ${index}`}</p><h2>${escapeHtml(item.label)}</h2><img src="/api/qr?data=${encodeURIComponent(item.value)}" alt="QR ${escapeHtml(item.label)}"><p><strong>ID:</strong> ${escapeHtml(item.id)}</p><p><strong>Vyžaduje:</strong> ${(item.requires || []).map(escapeHtml).join(', ') || '—'}</p><p>${escapeHtml(item.value)}</p><p style="margin-top:4mm;text-align:left">UMÍSTĚNÍ: ____________________</p></article>`).join('')}</div>`;
+            sheet.innerHTML = `<h1 style="color:#000;font-family:sans-serif">${escapeHtml(payload.scenario || 'Escape Bot')} – QR sada</h1><div class="qr-print-grid">${cards.map((item, index) => `<article class="qr-print-card"><p>${item.start ? 'START · OTEVŘÍT V PROHLÍŽEČI' : `CHECKPOINT ${index}`}</p><h2>${escapeHtml(item.label)}</h2><img src="/api/qr?data=${encodeURIComponent(item.value)}" alt="QR ${escapeHtml(item.label)}"><p><strong>${item.start ? 'URL HRY' : 'ID'}:</strong> ${escapeHtml(item.start ? item.value : item.id)}</p>${item.start ? '<p>Načtením se otevře úvodní lobby pro založení týmu.</p>' : `<p><strong>Vyžaduje:</strong> ${(item.requires || []).map(escapeHtml).join(', ') || '—'}</p><p>${escapeHtml(item.value)}</p>`}<p style="margin-top:4mm;text-align:left">UMÍSTĚNÍ: ____________________</p></article>`).join('')}</div>`;
             const images = [...sheet.querySelectorAll('img')];
             Promise.all(images.map(img => img.complete ? Promise.resolve() : new Promise(resolve => { img.onload = resolve; img.onerror = resolve; }))).then(() => window.print());
         }
@@ -932,6 +935,7 @@
 
         function renderAdminOverview(teams) {
             const grid = document.getElementById('admin-team-grid');
+            const openDetails = new Set([...grid.querySelectorAll('details[open][data-detail]')].map(detail => detail.dataset.detail));
             document.getElementById('admin-status').textContent = `Týmů: ${teams.length} · aktualizováno ${new Date().toLocaleTimeString('cs-CZ')}`;
             if (!teams.length) {
                 grid.innerHTML = '<p>Nejsou evidované žádné týmy.</p>';
@@ -962,10 +966,10 @@
                     <div class="admin-progress"><span style="width:${percent}%"></span></div>
                     <p>Postup: ${complete}/${total} (${percent} %) · aktuální: ${activeNodes}</p>
                     <p>Poslední aktivita: <strong>${lastActivity}</strong></p>
-                    <details><summary>Udělené malusy</summary><p>${penalties}</p></details>
-                    <details class="admin-detail"><summary>Detail postupu a her</summary><ul class="admin-detail-list">${progressNodes}</ul><p><strong>Nápovědy:</strong> ${hints}</p><p><strong>Pokusy:</strong> ${attempts}</p><p>${karel}</p><p>${sokoban}</p></details>
-                    <details class="admin-detail"><summary>Časová osa</summary><ul class="admin-detail-list">${timeline}</ul></details>
-                    <details class="admin-detail"><summary>Poslední zprávy</summary><ul class="admin-detail-list">${recentMessages}</ul></details>
+                    <details data-detail="${team.session_id}:penalties"><summary>Udělené malusy</summary><p>${penalties}</p></details>
+                    <details class="admin-detail" data-detail="${team.session_id}:progress"><summary>Detail postupu a her</summary><ul class="admin-detail-list">${progressNodes}</ul><p><strong>Nápovědy:</strong> ${hints}</p><p><strong>Pokusy:</strong> ${attempts}</p><p>${karel}</p><p>${sokoban}</p></details>
+                    <details class="admin-detail" data-detail="${team.session_id}:timeline"><summary>Časová osa</summary><ul class="admin-detail-list">${timeline}</ul></details>
+                    <details class="admin-detail" data-detail="${team.session_id}:messages"><summary>Poslední zprávy</summary><ul class="admin-detail-list">${recentMessages}</ul></details>
                     <div class="admin-actions">
                         <input id="admin-amount-${team.session_id}" type="number" min="1" max="1000" value="30" aria-label="Výše malusu">
                         <input id="admin-reason-${team.session_id}" maxlength="160" placeholder="Důvod: více hráčů, prozrazování…">
@@ -974,6 +978,7 @@
                     <button class="admin-delete" onclick="deleteAdminTeam('${team.session_id}')" style="width:100%; margin-top:10px">ODSTRANIT TÝM</button>
                 </article>`;
             }).join('');
+            grid.querySelectorAll('details[data-detail]').forEach(detail => { detail.open = openDetails.has(detail.dataset.detail); });
         }
 
         function lobbyTeamName() {
