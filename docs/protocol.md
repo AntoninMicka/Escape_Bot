@@ -18,7 +18,7 @@ Every message has:
 
 ### Týmové lobby
 
-Před `client.hello` používá webový klient jednu ze zpráv `lobby.solo`, `lobby.create`, `lobby.join` nebo `lobby.resume`. Všechny obsahují stabilní `client_id` zařízení, volitelnou přezdívku a příznak demo režimu. `lobby.join` navíc posílá `join_code`; `lobby.resume` uložené `session_id`.
+Před `client.hello` používá webový klient jednu ze zpráv `lobby.solo`, `lobby.create`, `lobby.join` nebo `lobby.resume`. Všechny obsahují stabilní `client_id` zařízení, volitelnou přezdívku a příznak demo režimu. `lobby.join` navíc posílá `join_code`; klient jej získá z URL týmového QR, kamerovým načtením QR v lobby nebo ručním zadáním. `lobby.resume` používá uložené `session_id`.
 
 Zakladatel týmové relace ji spustí zprávou `lobby.start`. Backend poté rozešle `lobby.state` a zahajovací herní zprávy všem připojeným zařízením. `lobby.state` obsahuje režim, týmový QR kód, počet hráčů, maximum hráčů, seznam připojení a bodovou úpravu.
 

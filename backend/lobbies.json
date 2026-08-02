@@ -1,0 +1,98 @@
+[
+  {
+    "session_id": "fcfadc4a511d4f6e8bf0e2ca249ca6fb",
+    "mode": "team",
+    "creator_id": "46c4b312-8a98-4aea-abca-527300ba58e5",
+    "join_code": "3B0B6C3E",
+    "started": true,
+    "players": {
+      "46c4b312-8a98-4aea-abca-527300ba58e5": {
+        "id": "46c4b312-8a98-4aea-abca-527300ba58e5",
+        "name": "Hráč 1",
+        "joined_at": "2026-08-02T06:25:27.397409+00:00"
+      }
+    },
+    "max_players": 1,
+    "applied_score_adjustment": 20
+  },
+  {
+    "session_id": "841a077b422347ff907d62fac39e1162",
+    "mode": "team",
+    "creator_id": "46c4b312-8a98-4aea-abca-527300ba58e5",
+    "join_code": "42DE622F",
+    "started": true,
+    "players": {
+      "46c4b312-8a98-4aea-abca-527300ba58e5": {
+        "id": "46c4b312-8a98-4aea-abca-527300ba58e5",
+        "name": "Hráč 1",
+        "joined_at": "2026-08-02T06:26:57.331499+00:00"
+      }
+    },
+    "max_players": 1,
+    "applied_score_adjustment": 20
+  },
+  {
+    "session_id": "fcd8ade9c74349dab795c4d4102740c4",
+    "mode": "team",
+    "creator_id": "46c4b312-8a98-4aea-abca-527300ba58e5",
+    "join_code": "4BA0C83F",
+    "started": true,
+    "players": {
+      "46c4b312-8a98-4aea-abca-527300ba58e5": {
+        "id": "46c4b312-8a98-4aea-abca-527300ba58e5",
+        "name": "Hráč 1",
+        "joined_at": "2026-08-02T06:27:46.141221+00:00"
+      }
+    },
+    "max_players": 1,
+    "applied_score_adjustment": 20
+  },
+  {
+    "session_id": "3c01bbecc8af477683dc9c4b1cc8d822",
+    "mode": "team",
+    "creator_id": "46c4b312-8a98-4aea-abca-527300ba58e5",
+    "join_code": "1135144B",
+    "started": true,
+    "players": {
+      "46c4b312-8a98-4aea-abca-527300ba58e5": {
+        "id": "46c4b312-8a98-4aea-abca-527300ba58e5",
+        "name": "Hráč 1",
+        "joined_at": "2026-08-02T06:28:27.862846+00:00"
+      }
+    },
+    "max_players": 1,
+    "applied_score_adjustment": 20
+  },
+  {
+    "session_id": "97f73cdf270a4b8ebb810bd14e752e84",
+    "mode": "solo",
+    "creator_id": "46c4b312-8a98-4aea-abca-527300ba58e5",
+    "join_code": null,
+    "started": true,
+    "players": {
+      "46c4b312-8a98-4aea-abca-527300ba58e5": {
+        "id": "46c4b312-8a98-4aea-abca-527300ba58e5",
+        "name": "Hráč 1",
+        "joined_at": "2026-08-02T06:33:59.566674+00:00"
+      }
+    },
+    "max_players": 1,
+    "applied_score_adjustment": 20
+  },
+  {
+    "session_id": "dca2948fad484190ae13352d8026ae32",
+    "mode": "solo",
+    "creator_id": "46c4b312-8a98-4aea-abca-527300ba58e5",
+    "join_code": null,
+    "started": true,
+    "players": {
+      "46c4b312-8a98-4aea-abca-527300ba58e5": {
+        "id": "46c4b312-8a98-4aea-abca-527300ba58e5",
+        "name": "Hráč 1",
+        "joined_at": "2026-08-02T06:34:30.885679+00:00"
+      }
+    },
+    "max_players": 1,
+    "applied_score_adjustment": 0
+  }
+]
