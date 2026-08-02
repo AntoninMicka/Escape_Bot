@@ -186,6 +186,17 @@ class StateMachineCheckpointTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(solutions["searching_lost"], "734")
         self.assertIn("2147", solutions["reception_archive"])
 
+    async def test_intro_frequency_puzzle_provides_signal_without_revealing_answer(self) -> None:
+        self.machine.state.phase = GamePhase.COMMS_OFFLINE
+        responses = await self.machine.handle(Message("player.message", {"text": "Příjem."}))
+        message = self.response(responses, "bot.message").payload["text"]
+
+        self.assertIn("NOSNÁ VLNA C-17", message)
+        self.assertIn("━━", message)
+        self.assertIn("●", message)
+        self.assertNotIn("734", message)
+        self.assertNotIn("734", self.scenario.data["scenario_flow"][1]["label"])
+
     async def test_first_checkpoint_requires_navigating_phase(self) -> None:
         self.machine.state.phase = GamePhase.SEARCHING_LOST
         responses = await self.scan("reception_archive")

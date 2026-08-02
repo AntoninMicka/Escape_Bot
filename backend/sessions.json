@@ -75,7 +75,8 @@
     "karel_games": {},
     "last_activity_at": "",
     "triad_games": {},
-    "archive_games": {}
+    "archive_games": {},
+    "event_history": []
   },
   "9b7f096a-977b-4d11-bbf8-a356625baf2e": {
     "phase": "searching_lost",
@@ -312,7 +313,8 @@
     "karel_games": {},
     "last_activity_at": "",
     "triad_games": {},
-    "archive_games": {}
+    "archive_games": {},
+    "event_history": []
   },
   "qzqaj5twdc": {
     "phase": "searching_lost",
@@ -375,7 +377,8 @@
     "karel_games": {},
     "last_activity_at": "",
     "triad_games": {},
-    "archive_games": {}
+    "archive_games": {},
+    "event_history": []
   },
   "srxexaafxbg": {
     "phase": "comms_offline",
@@ -403,7 +406,8 @@
     "karel_games": {},
     "last_activity_at": "",
     "triad_games": {},
-    "archive_games": {}
+    "archive_games": {},
+    "event_history": []
   },
   "90431b0b-0031-4de1-8b05-6e0455a8b4ae": {
     "phase": "searching_lost",
@@ -463,7 +467,8 @@
     "karel_games": {},
     "last_activity_at": "",
     "triad_games": {},
-    "archive_games": {}
+    "archive_games": {},
+    "event_history": []
   },
   "fbb8aa23-4fb1-4ef1-ab28-a545fc0faa61": {
     "phase": "searching_lost",
@@ -628,7 +633,8 @@
     "karel_games": {},
     "last_activity_at": "",
     "triad_games": {},
-    "archive_games": {}
+    "archive_games": {},
+    "event_history": []
   },
   "5eda3e51-e7e8-4705-855d-907bb69e5ad2": {
     "phase": "comms_offline",
@@ -656,7 +662,8 @@
     "karel_games": {},
     "last_activity_at": "",
     "triad_games": {},
-    "archive_games": {}
+    "archive_games": {},
+    "event_history": []
   },
   "0806baf4-129c-4bd8-b2a1-491ffc761ba7": {
     "phase": "navigating",
@@ -896,7 +903,8 @@
     "karel_games": {},
     "last_activity_at": "",
     "triad_games": {},
-    "archive_games": {}
+    "archive_games": {},
+    "event_history": []
   },
   "14b68524-4cc6-4d02-9eaf-e57406fda902": {
     "phase": "navigating",
@@ -1084,7 +1092,8 @@
     "karel_games": {},
     "last_activity_at": "",
     "triad_games": {},
-    "archive_games": {}
+    "archive_games": {},
+    "event_history": []
   },
   "1ed8ffe1-548e-421b-b923-979e706dc3dc": {
     "phase": "navigating",
@@ -1436,7 +1445,8 @@
     "karel_games": {},
     "last_activity_at": "",
     "triad_games": {},
-    "archive_games": {}
+    "archive_games": {},
+    "event_history": []
   },
   "80b713b4-824f-450e-be49-476835e84285": {
     "phase": "navigating",
@@ -1888,7 +1898,8 @@
     "karel_games": {},
     "last_activity_at": "",
     "triad_games": {},
-    "archive_games": {}
+    "archive_games": {},
+    "event_history": []
   },
   "714d9f4d-7e54-49b4-881e-8cd8f2affade": {
     "phase": "navigating",
@@ -2671,6 +2682,7 @@
     "karel_games": {},
     "last_activity_at": "",
     "triad_games": {},
-    "archive_games": {}
+    "archive_games": {},
+    "event_history": []
   }
 }

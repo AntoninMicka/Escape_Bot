@@ -184,7 +184,7 @@
 ### 13.1 Příběhové zasazení
 **Cíl:** převést současný prototyp z obecného hotelu a jiné dimenze do konkrétního příběhu o poruše stroje času v Hotelu Kraskov.
 - [x] Přejmenovat a upravit znalostní bázi scénáře pro Hotel Kraskov.
-- [ ] Zachovat úvodní spojení s Kapitánkou a nalezení frekvence `734`.
+- [x] Zachovat úvodní spojení s Kapitánkou a nalezení frekvence `734`.
 - [x] Upravit roli Elary na věkyni ztracenou v jiné časové vrstvě stejného hotelu.
 - [x] Po prvním spojení odhalit, že experiment rozptýlil součásti stroje času po hotelu a okolí.
 - [x] Přejmenovat herní mapu na `CHRONOMAPA` a QR checkpointy na `časové kotvy`.
@@ -205,7 +205,7 @@
 
 ### 13.3 Checkpoint 0 – Havárie experimentu
 **Místo:** startovní konferenční místnost.
-- [ ] Dokončit hádanku vedoucí k frekvenci `734`.
+- [x] Dokončit hádanku vedoucí k frekvenci `734`.
 - [ ] Zachovat první výpadek spojení a příkaz `restart`.
 - [x] Napsat Elařino odhalení, že se nachází ve stejném hotelu, ale v jiném čase.
 - [x] Po restartu odemknout modul `CHRONOMAPA`.

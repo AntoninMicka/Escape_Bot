@@ -12,7 +12,7 @@
   },
   "scenario_flow": [
     {"id": "comms_offline", "label": "Navázání spojení", "kind": "phase", "requires": [], "solution": "Odeslat libovolnou zprávu"},
-    {"id": "searching_lost", "label": "Frekvence 734", "kind": "phase", "requires": ["comms_offline"], "solution": "734"},
+    {"id": "searching_lost", "label": "Nouzová nosná frekvence", "kind": "phase", "requires": ["comms_offline"], "solution": "734"},
     {"id": "lost_connected", "label": "První kontakt s Elarou", "kind": "phase", "requires": ["searching_lost"], "solution": "Odeslat libovolnou zprávu"},
     {"id": "connection_lost", "label": "Výpadek chronosignálu", "kind": "phase", "requires": ["lost_connected"], "solution": "restart"},
     {"id": "navigating", "label": "CHRONOMAPA aktivní", "kind": "phase", "requires": ["connection_lost"], "solution": "Aktivovat recepční QR"},
@@ -43,7 +43,7 @@
     },
     "searching_lost": {
       "enter_message": {
-        "text": "Výborně, spojení funguje. Při experimentu v Hotelu Kraskov zmizela doktorka Elara. Z nouzových záznamů musíš rozluštit frekvenci jejího chronálního vysílače a zadat ji sem.",
+        "text": "Výborně, spojení funguje. Při experimentu v Hotelu Kraskov zmizela doktorka Elara. Z poškozeného chronálního vysílače zůstal jediný nouzový záznam:\n\nNOSNÁ VLNA C-17\n━━  ━━  ●  ●  ●   /   ●  ●  ●  ━━  ━━   /   ●  ●  ●  ●  ━━\n\nZáznam tvoří tři oddělené skupiny. Obnovenou třícifernou frekvenci odešli do interkomu.",
         "mood": "focused",
         "channel": "captain"
       },
@@ -53,9 +53,9 @@
         {"text": "Haló? Tady doktorka Elara. Jsem pořád v Kraskově, ale hotel vypadá, jako by tu nikdo nebyl celá desetiletí. Stroj se rozpadl při přenosu. Slyšíte mě?", "mood": "tense", "channel": "lost"}
       ],
       "hints": [
-        {"text": "Zaměř se na materiály a zprávy, které máš fyzicky k dispozici v místnosti.", "penalty": 10},
-        {"text": "Hledaná frekvence se skládá přesně ze tří číslic.", "penalty": 20},
-        {"text": "Zkus naladit frekvenci 734.", "penalty": 50}
+        {"text": "Každá skupina pulzů představuje právě jednu číslici. Pořadí skupin neměň.", "penalty": 10},
+        {"text": "V nouzovém manuálu komunikátoru je tabulka používající stejné krátké a dlouhé pulzy.", "penalty": 20},
+        {"text": "Jednotlivé skupiny odpovídají číslicím 7, 3 a 4.", "penalty": 50}
       ],
       "fail_message": {
         "text": "*šum* Frekvence '{text}' je hluchá. Zkus to znovu, musíme ji najít!",
