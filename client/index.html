@@ -375,6 +375,8 @@
         .sokoban-command.blocked { border-color: #f44; color: #f66; background: #240505; }
         .sokoban-controls { display: grid; grid-template-columns: repeat(3, 64px); justify-content: center; gap: 6px; margin: 12px 0; }
         .sokoban-controls button { padding: 12px 5px; }
+        .team-sokoban-intercom { display: none; border: 1px solid #0aa; background: #001c20; padding: 10px; margin: 0 0 10px; text-align: center; }
+        .team-sokoban-intercom.visible { display: block; }
         .admin-overlay { position: fixed; inset: 0; z-index: 1200; overflow: auto; padding: 24px; background: #020707; }
         .admin-overlay.hidden { display: none; }
         .admin-toolbar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-bottom: 18px; }
@@ -517,6 +519,7 @@
                 <div id="typing-indicator" class="typing-indicator">
                     > <span id="typing-text">Systém zpracovává</span><span>.</span><span>.</span><span>.</span>
                 </div>
+                <div id="team-sokoban-intercom" class="team-sokoban-intercom"></div>
                 
                 <div class="controls">
                     <input type="text" id="msgInput" placeholder="Zadej zprávu do aktivního kanálu..." onkeypress="if(event.key === 'Enter') sendMsg()" />
@@ -981,6 +984,7 @@
             document.getElementById('team-status').textContent = payload.mode === 'solo'
                 ? payload.team_name
                 : `${payload.team_name} · ${teamSize} hráči · ${onlineCount} online`;
+            updateTeamSokobanIntercomControls();
             if (payload.started) {
                 stopReversePlayerScanner();
                 document.getElementById('lobby-overlay').classList.add('hidden');
@@ -1601,6 +1605,7 @@
             tabButton.textContent = `HÁDANKY [${visible.length}]`;
             if (!visible.length) {
                 container.innerHTML = '<p>Momentálně není rozehraná žádná hádanka.</p>';
+                updateTeamSokobanIntercomControls();
                 return;
             }
 
@@ -1626,6 +1631,25 @@
                            <div class="puzzle-actions">${puzzle.has_hints ? `<button onclick="requestPuzzleHint('${escapeHtml(puzzle.id)}')">DALŠÍ NÁPOVĚDA</button>` : ''}<span>Pokusy: ${puzzle.attempts || 0}</span></div>`)}
                 </article>`;
             }).join('');
+            updateTeamSokobanIntercomControls();
+        }
+
+        function updateTeamSokobanIntercomControls() {
+            const panel = document.getElementById('team-sokoban-intercom');
+            if (!panel) return;
+            const puzzle = puzzlesState.find(item => item.type === 'sokoban' && item.status === 'found' && item.game?.status !== 'complete');
+            const isTeamNavigator = currentLobby?.mode === 'team' && currentChannel === 'lost' && puzzle;
+            panel.classList.toggle('visible', Boolean(isTeamNavigator));
+            if (!isTeamNavigator) {
+                panel.innerHTML = '';
+                return;
+            }
+            panel.innerHTML = `<strong>[ NAVIGAČNÍ VYSÍLAČ ]</strong>
+                <p>Mapa je na druhém terminálu. Odesílejte pouze domluvené pokyny.</p>
+                <div class="sokoban-controls">
+                    <span></span><button onclick="sendSokobanCommand('${escapeHtml(puzzle.id)}','up')" aria-label="Nahoru">↑</button><span></span>
+                    <button onclick="sendSokobanCommand('${escapeHtml(puzzle.id)}','left')" aria-label="Vlevo">←</button><button onclick="sendSokobanCommand('${escapeHtml(puzzle.id)}','down')" aria-label="Dolů">↓</button><button onclick="sendSokobanCommand('${escapeHtml(puzzle.id)}','right')" aria-label="Vpravo">→</button>
+                </div>`;
         }
 
         function renderLineGame(puzzle, solved) {
@@ -1723,7 +1747,7 @@
             if (solved || game.status === 'complete') {
                 return `<div class="sokoban-game"><div class="sokoban-board" style="grid-template-columns:repeat(${game.columns},1fr)">${cells}</div><p class="puzzle-status solved">SERVISNÍ SÍŤ OBNOVENA · CHECKPOINT POTVRZEN</p></div>`;
             }
-            const demoControls = demoModeRequested ? `<div class="sokoban-controls">
+            const demoControls = demoModeRequested && currentLobby?.mode !== 'team' ? `<div class="sokoban-controls">
                 <span></span><button onclick="sendSokobanCommand('${escapeHtml(puzzle.id)}','up')">↑</button><span></span>
                 <button onclick="sendSokobanCommand('${escapeHtml(puzzle.id)}','left')">←</button><button onclick="sendSokobanCommand('${escapeHtml(puzzle.id)}','down')">↓</button><button onclick="sendSokobanCommand('${escapeHtml(puzzle.id)}','right')">→</button>
             </div>` : '';
@@ -1738,7 +1762,7 @@
                 <div class="sokoban-meta"><strong>${escapeHtml(game.level_label)} · ${game.level_index + 1}/${game.total_levels}</strong><span>KROKY: ${game.moves}</span><span>ZATLAČENÍ: ${game.pushes}</span><span>RESTARTY: ${game.restarts}</span><strong class="sokoban-timer" data-deadline="${escapeHtml(game.deadline_at)}">ČAS ${formatLineGameTime(game.remaining_seconds)}</strong></div>
                 ${animationStatus}
                 <div class="sokoban-board" style="grid-template-columns:repeat(${game.columns},1fr)">${cells}</div>
-                <p>Pokyny posílejte Elaře v kanálu <strong># ztracená_sig</strong>. Dokončení sektoru přidá <strong>+${game.points_per_level} bodů</strong>.${demoModeRequested ? ' V demo režimu lze použít také tlačítka.' : ''}</p>
+                <p>Pokyny posílejte Elaře v kanálu <strong># ztracená_sig</strong>. Dokončení sektoru přidá <strong>+${game.points_per_level} bodů</strong>.${demoModeRequested && currentLobby?.mode !== 'team' ? ' V sólo demo režimu lze použít také tlačítka.' : ''}</p>
                 ${demoControls}
                 <div class="puzzle-actions">${animationControl}<button onclick="undoSokoban('${escapeHtml(puzzle.id)}')" ${pendingSokobanAnimation ? 'disabled' : ''}>ZPĚT</button><button onclick="resetSokoban('${escapeHtml(puzzle.id)}')" ${pendingSokobanAnimation ? 'disabled' : ''}>RESET</button></div>
             </div>`;
@@ -2020,6 +2044,7 @@
             document.getElementById('chat-' + channelId).classList.add('active-chat');
             btnElement.classList.add('active');
             clearChannelUnread(channelId);
+            updateTeamSokobanIntercomControls();
             const chatBox = document.getElementById('chat-' + channelId);
             chatBox.scrollTop = chatBox.scrollHeight;
         }
