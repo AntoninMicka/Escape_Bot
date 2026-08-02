@@ -431,6 +431,8 @@
                 <img id="player-identity-qr" class="join-qr" alt="QR identity hráče">
                 <div id="player-identity-code" class="join-code"></div>
                 <p>Čekám na načtení leaderem…</p>
+                <button onclick="requestPlayerIdentity()" style="width:100%">VYGENEROVAT NOVÝ HRÁČSKÝ QR</button>
+                <button onclick="returnToLobbyModes()" style="margin-top:10px">ZPĚT</button>
             </div>
             <div id="join-team-panel" class="join-team-panel">
                 <h2>[ PŘIPOJENÍ K TÝMU ]</h2>
@@ -810,9 +812,16 @@
         function createTeamMode() { sendLobby('lobby.create'); }
         function startTeamGame() { sendLobby('lobby.start'); }
         function showPlayerIdentity() {
+            if (!requireLobbyName('lobby-player-name', 'Před zobrazením QR zadejte jméno hráče.')) return;
             document.getElementById('lobby-modes').style.display = 'none';
             document.getElementById('join-team-panel').classList.remove('visible');
             document.getElementById('player-identity').classList.add('visible');
+            requestPlayerIdentity();
+        }
+        function requestPlayerIdentity() {
+            if (!requireLobbyName('lobby-player-name', 'Před zobrazením QR zadejte jméno hráče.')) return;
+            document.getElementById('player-identity-code').textContent = 'GENERUJI…';
+            document.getElementById('player-identity-qr').removeAttribute('src');
             sendLobby('lobby.identify');
         }
         function showJoinTeamPanel() {
