@@ -1,24 +1,24 @@
 [
   {
-    "session_id": "68934de748364808a3fbfa92115c4e6f",
+    "session_id": "0dbd5b0d96824084809b009289855dbc",
     "mode": "team",
     "creator_id": "46c4b312-8a98-4aea-abca-527300ba58e5",
     "team_name": "Pokus",
-    "join_code": "A7BD5896",
+    "join_code": "CFB19546",
     "started": true,
     "players": {
       "46c4b312-8a98-4aea-abca-527300ba58e5": {
         "id": "46c4b312-8a98-4aea-abca-527300ba58e5",
         "name": "PC",
-        "joined_at": "2026-08-02T07:17:21.744276+00:00"
+        "joined_at": "2026-08-02T07:39:35.088514+00:00"
       },
       "717cae3e-f2ef-4bcc-891c-31f1e3144353": {
         "id": "717cae3e-f2ef-4bcc-891c-31f1e3144353",
         "name": "Tony",
-        "joined_at": "2026-08-02T07:17:39.219531+00:00"
+        "joined_at": "2026-08-02T07:39:41.357757+00:00"
       }
     },
     "max_players": 2,
-    "applied_score_adjustment": 0
+    "applied_score_adjustment": 10
   }
 ]

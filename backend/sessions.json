@@ -2625,7 +2625,7 @@
       }
     }
   },
-  "68934de748364808a3fbfa92115c4e6f": {
+  "0dbd5b0d96824084809b009289855dbc": {
     "phase": "navigating",
     "unlocked_discoveries": [
       "bowling_diagnostics",
@@ -2637,8 +2637,7 @@
     ],
     "inventory": [
       "TEMPORÁLNÍ MOTOR",
-      "FÁZOVÝ STABILIZÁTOR",
-      "KRYSTAL ČASOVÉ KOTVY"
+      "FÁZOVÝ STABILIZÁTOR"
     ],
     "flags": {
       "chronomap_unlocked": true,
@@ -2657,7 +2656,7 @@
       {
         "role": "player",
         "channel": "captain",
-        "text": "734"
+        "text": "oo"
       },
       {
         "role": "bot",
@@ -2682,12 +2681,12 @@
       {
         "role": "player",
         "channel": "lost",
-        "text": "OK"
+        "text": "oo"
       },
       {
         "role": "bot",
         "channel": "lost",
-        "text": "Snažím se postupovat podle tvých instrukcí 'OK', ale... *GLITCH* něco mě tu ruší... *šum*"
+        "text": "Snažím se postupovat podle tvých instrukcí 'oo', ale... *GLITCH* něco mě tu ruší... *šum*"
       },
       {
         "role": "bot",
@@ -2696,13 +2695,13 @@
       },
       {
         "role": "player",
-        "channel": "general",
-        "text": "Restart"
+        "channel": "lost",
+        "text": "¨restart"
       },
       {
         "role": "bot",
         "channel": "lost",
-        "text": "Uf, jsem zpět! Už tomu rozumím: nejsem v jiné budově, ale v jiné časové vrstvě Kraskova. Havárie rozptýlila součásti stroje ve vašem čase. Aktivovala jsem CHRONOMAPU; první stopa vede k recepčnímu archivu."
+        "text": "Uf, jsem zpět! Už tomu rozumím: nejsem v jiné budově, ale v jiné časové vrstvě Kraskova. Havárie rozptýlila součásti stroje ve vašem čase. CHRONOMAPA je znovu online, ale její záznamy jsou poškozené. Zkuste v nich najít první použitelnou stopu."
       },
       {
         "role": "bot",
@@ -2717,7 +2716,7 @@
       {
         "role": "bot",
         "channel": "lost",
-        "text": "Kotva na schodišti je stabilní. Obnovila jsem referenční záznam praporové abecedy a zachycenou sekvenci poloh."
+        "text": "Další časová kotva drží. Z trosek se podařilo obnovit poškozený obrazový záznam; jeho význam ale nedokážu z této vrstvy spolehlivě určit."
       },
       {
         "role": "bot",
@@ -2758,137 +2757,45 @@
         "role": "bot",
         "channel": "captain",
         "text": "Sportovní archiv je nalezen, ale jeho servisní síť nemá napájení. Elara je v úplné tmě a mřížku vidíte jen vy na terminálu. Jeden z vás musí sledovat mapu a druhý ji navigovat přes interkom."
-      },
-      {
-        "role": "bot",
-        "channel": "lost",
-        "text": "Sekvence potvrzena: 1 kroků, přesunuté články: 0."
-      },
-      {
-        "role": "bot",
-        "channel": "lost",
-        "text": "Sekvence potvrzena: 1 kroků, přesunuté články: 0."
-      },
-      {
-        "role": "bot",
-        "channel": "lost",
-        "text": "Sekvence potvrzena: 1 kroků, přesunuté články: 1."
-      },
-      {
-        "role": "bot",
-        "channel": "lost",
-        "text": "Sekvence potvrzena: 1 kroků, přesunuté články: 0."
-      },
-      {
-        "role": "bot",
-        "channel": "lost",
-        "text": "Sekvence potvrzena: 1 kroků, přesunuté články: 0."
-      },
-      {
-        "role": "bot",
-        "channel": "lost",
-        "text": "Sekvence potvrzena: 1 kroků, přesunuté články: 0."
-      },
-      {
-        "role": "bot",
-        "channel": "lost",
-        "text": "Sekvence potvrzena: 1 kroků, přesunuté články: 1. Úroveň je stabilní; přepínám na další servisní sektor."
-      },
-      {
-        "role": "bot",
-        "channel": "lost",
-        "text": "Sekvence potvrzena: 1 kroků, přesunuté články: 0."
-      },
-      {
-        "role": "bot",
-        "channel": "lost",
-        "text": "Sekvence potvrzena: 1 kroků, přesunuté články: 0."
-      },
-      {
-        "role": "bot",
-        "channel": "lost",
-        "text": "Sekvence potvrzena: 1 kroků, přesunuté články: 1."
-      },
-      {
-        "role": "bot",
-        "channel": "lost",
-        "text": "Sekvence potvrzena: 1 kroků, přesunuté články: 0."
-      },
-      {
-        "role": "bot",
-        "channel": "lost",
-        "text": "Sekvence potvrzena: 1 kroků, přesunuté články: 0."
-      },
-      {
-        "role": "bot",
-        "channel": "lost",
-        "text": "Sekvence potvrzena: 1 kroků, přesunuté články: 0."
-      },
-      {
-        "role": "bot",
-        "channel": "lost",
-        "text": "Sekvence potvrzena: 1 kroků, přesunuté články: 1. Úroveň je stabilní; přepínám na další servisní sektor."
-      },
-      {
-        "role": "bot",
-        "channel": "lost",
-        "text": "Sekvence potvrzena: 1 kroků, přesunuté články: 1."
-      },
-      {
-        "role": "bot",
-        "channel": "lost",
-        "text": "Sekvence potvrzena: 1 kroků, přesunuté články: 0."
-      },
-      {
-        "role": "bot",
-        "channel": "lost",
-        "text": "Sekvence potvrzena: 1 kroků, přesunuté články: 1."
-      },
-      {
-        "role": "bot",
-        "channel": "lost",
-        "text": "Všechny tři servisní sektory jsou stabilní. Síť se rozběhla a KRYSTAL ČASOVÉ KOTVY se znovu materializoval ve vašem čase."
       }
     ],
-    "score": 1155,
+    "score": 1050,
     "hints_used": {},
     "checkpoint_states": {
       "reception_archive": {
         "status": "solved",
-        "first_scanned_at": "2026-08-02T07:19:19.450363+00:00",
-        "solved_at": "2026-08-02T07:19:30.699545+00:00"
+        "first_scanned_at": "2026-08-02T07:40:35.056200+00:00",
+        "solved_at": "2026-08-02T07:40:46.245679+00:00"
       },
       "staircase_signal": {
         "status": "solved",
-        "first_scanned_at": "2026-08-02T07:19:44.425112+00:00",
-        "solved_at": "2026-08-02T07:21:23.567562+00:00"
+        "first_scanned_at": "2026-08-02T07:41:04.714342+00:00",
+        "solved_at": "2026-08-02T07:41:28.913752+00:00"
       },
       "bowling_diagnostics": {
         "status": "solved",
-        "first_scanned_at": "2026-08-02T07:21:39.813501+00:00",
-        "solved_at": "2026-08-02T07:21:50.266980+00:00"
+        "first_scanned_at": "2026-08-02T07:41:42.168675+00:00",
+        "solved_at": "2026-08-02T07:42:07.240628+00:00"
       },
       "terrace_echo": {
         "status": "solved",
-        "first_scanned_at": "2026-08-02T07:22:14.471256+00:00",
-        "solved_at": "2026-08-02T07:22:26.823200+00:00"
+        "first_scanned_at": "2026-08-02T07:42:32.275111+00:00",
+        "solved_at": "2026-08-02T07:42:50.560944+00:00"
       },
       "timeline_calibration": {
         "status": "solved",
-        "first_scanned_at": "2026-08-02T07:22:42.153685+00:00",
-        "solved_at": "2026-08-02T07:23:56.807612+00:00"
+        "first_scanned_at": "2026-08-02T07:43:11.641414+00:00",
+        "solved_at": "2026-08-02T07:50:09.865595+00:00"
       },
       "sports_archive": {
-        "status": "solved",
-        "first_scanned_at": "2026-08-02T07:24:14.568089+00:00",
-        "solved_at": "2026-08-02T07:25:55.173138+00:00"
+        "status": "found",
+        "first_scanned_at": "2026-08-02T07:50:26.840202+00:00"
       }
     },
     "unlocked_cipher_tools": [
       "a1z26",
       "binary_ascii",
       "morse",
-      "pigpen",
       "semaphore"
     ],
     "paid_cipher_tools": [],
@@ -2906,72 +2813,72 @@
           "5": 1
         },
         "status": "complete",
-        "started_at": "2026-08-02T07:22:42.153738+00:00",
-        "deadline_at": "2026-08-02T07:27:42.153738+00:00",
-        "swaps": 13,
-        "rng": 1330194624,
+        "started_at": "2026-08-02T07:48:20.019077+00:00",
+        "deadline_at": "2026-08-02T07:53:20.019077+00:00",
+        "swaps": 23,
+        "rng": 1977148532,
         "board": [
           [
             "green",
             "amber",
-            "amber",
-            "green",
-            "violet",
-            "red",
-            "cyan"
-          ],
-          [
-            "cyan",
-            "amber",
-            "amber",
-            "green",
-            "green",
-            "cyan",
-            "green"
-          ],
-          [
             "violet",
             "violet",
-            "red",
-            "red",
-            "violet",
             "green",
-            "violet"
-          ],
-          [
-            "green",
-            "amber",
-            "amber",
-            "red",
-            "green",
-            "green",
-            "red"
-          ],
-          [
-            "cyan",
-            "green",
-            "red",
-            "cyan",
-            "cyan",
             "red",
             "amber"
           ],
           [
+            "amber",
+            "amber",
+            "cyan",
+            "red",
+            "cyan",
+            "violet",
+            "cyan"
+          ],
+          [
+            "violet",
+            "cyan",
+            "green",
+            "amber",
             "violet",
             "red",
+            "red"
+          ],
+          [
             "red",
             "green",
             "cyan",
+            "cyan",
+            "red",
+            "green",
+            "green"
+          ],
+          [
+            "cyan",
+            "amber",
+            "red",
+            "amber",
             "violet",
-            "violet"
+            "amber",
+            "cyan"
+          ],
+          [
+            "violet",
+            "red",
+            "violet",
+            "amber",
+            "green",
+            "red",
+            "red"
           ],
           [
             "red",
             "cyan",
             "cyan",
-            "green",
+            "red",
             "violet",
-            "green",
+            "red",
             "violet"
           ]
         ]
@@ -2984,151 +2891,27 @@
           "sector_b",
           "sector_c"
         ],
-        "level_index": 2,
-        "completed_levels": [
-          "sector_a",
-          "sector_b",
-          "sector_c"
-        ],
-        "awarded_points": 90,
-        "moves": 3,
-        "pushes": 2,
-        "total_moves": 17,
-        "total_pushes": 6,
+        "level_index": 0,
+        "completed_levels": [],
+        "awarded_points": 0,
+        "moves": 0,
+        "pushes": 0,
+        "total_moves": 0,
+        "total_pushes": 0,
         "restarts": 0,
-        "status": "complete",
-        "command_history": [
-          {
-            "commands": [
-              "left"
-            ],
-            "executed": 1,
-            "blocked": false
-          },
-          {
-            "commands": [
-              "down"
-            ],
-            "executed": 1,
-            "blocked": false
-          },
-          {
-            "commands": [
-              "right"
-            ],
-            "executed": 1,
-            "blocked": false
-          },
-          {
-            "commands": [
-              "up"
-            ],
-            "executed": 1,
-            "blocked": false
-          },
-          {
-            "commands": [
-              "right"
-            ],
-            "executed": 1,
-            "blocked": false
-          },
-          {
-            "commands": [
-              "up"
-            ],
-            "executed": 1,
-            "blocked": false
-          },
-          {
-            "commands": [
-              "left"
-            ],
-            "executed": 1,
-            "blocked": false
-          },
-          {
-            "commands": [
-              "left"
-            ],
-            "executed": 1,
-            "blocked": false
-          },
-          {
-            "commands": [
-              "up"
-            ],
-            "executed": 1,
-            "blocked": false
-          },
-          {
-            "commands": [
-              "right"
-            ],
-            "executed": 1,
-            "blocked": false
-          },
-          {
-            "commands": [
-              "down"
-            ],
-            "executed": 1,
-            "blocked": false
-          },
-          {
-            "commands": [
-              "right"
-            ],
-            "executed": 1,
-            "blocked": false
-          },
-          {
-            "commands": [
-              "down"
-            ],
-            "executed": 1,
-            "blocked": false
-          },
-          {
-            "commands": [
-              "left"
-            ],
-            "executed": 1,
-            "blocked": false
-          },
-          {
-            "commands": [
-              "down"
-            ],
-            "executed": 1,
-            "blocked": false
-          },
-          {
-            "commands": [
-              "up"
-            ],
-            "executed": 1,
-            "blocked": false
-          },
-          {
-            "commands": [
-              "up"
-            ],
-            "executed": 1,
-            "blocked": false
-          }
-        ],
+        "status": "playing",
+        "command_history": [],
         "player": [
-          2,
+          3,
           3
         ],
         "boxes": [
           [
-            1,
+            2,
             3
           ],
           [
-            5,
+            4,
             3
           ]
         ],
@@ -3232,85 +3015,22 @@
         ],
         "targets": [
           [
-            1,
-            3
+            2,
+            2
           ],
           [
-            5,
-            3
+            4,
+            4
           ]
         ],
         "rows": 7,
         "columns": 7,
-        "level_id": "sector_c",
-        "level_label": "Servisní sektor C",
-        "history": [
-          {
-            "player": [
-              3,
-              3
-            ],
-            "boxes": [
-              [
-                2,
-                3
-              ],
-              [
-                4,
-                3
-              ]
-            ],
-            "moves": 0,
-            "pushes": 0,
-            "total_moves": 14,
-            "total_pushes": 4
-          },
-          {
-            "player": [
-              4,
-              3
-            ],
-            "boxes": [
-              [
-                2,
-                3
-              ],
-              [
-                5,
-                3
-              ]
-            ],
-            "moves": 1,
-            "pushes": 1,
-            "total_moves": 15,
-            "total_pushes": 5
-          },
-          {
-            "player": [
-              3,
-              3
-            ],
-            "boxes": [
-              [
-                2,
-                3
-              ],
-              [
-                5,
-                3
-              ]
-            ],
-            "moves": 2,
-            "pushes": 1,
-            "total_moves": 16,
-            "total_pushes": 5
-          }
-        ],
-        "level_speakers": [
-          "46c4b312-8a98-4aea-abca-527300ba58e5"
-        ],
-        "started_at": "2026-08-02T07:25:50.357646+00:00",
-        "deadline_at": "2026-08-02T07:27:50.357646+00:00"
+        "level_id": "sector_a",
+        "level_label": "Servisní sektor A",
+        "history": [],
+        "level_speakers": [],
+        "started_at": "2026-08-02T07:50:26.840279+00:00",
+        "deadline_at": "2026-08-02T07:52:26.840279+00:00"
       }
     }
   }
