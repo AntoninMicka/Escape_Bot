@@ -343,6 +343,15 @@
         .cipher-card span { display: block; margin-top: 4px; overflow-wrap: anywhere; }
         .braille-cell { font-size: 1.8rem; line-height: 1.2; }
         .caesar-strip { font-family: monospace; letter-spacing: .12em; overflow-wrap: anywhere; }
+        .cipher-diagram { width: 100%; height: auto; margin: 10px 0 16px; border: 1px solid #166; background: #f4f0df; }
+        .semaphore-grid { grid-template-columns: repeat(auto-fit, minmax(105px, 1fr)); }
+        .semaphore-figure { width: 86px; height: 86px; margin: 3px auto; }
+        .morse-grid { grid-template-columns: repeat(auto-fit, minmax(105px, 1fr)); }
+        .morse-pulses { min-height: 28px; display: flex !important; align-items: center; justify-content: center; gap: 7px; }
+        .morse-pulse { display: inline-block; height: 10px; background: #6ff; box-shadow: 0 0 7px #0cc; }
+        .morse-pulse.dot { width: 10px; border-radius: 50%; }
+        .morse-pulse.dash { width: 30px; border-radius: 5px; }
+        .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
         .tool-unlock-box { border: 1px dashed #a80; color: #fc0; padding: 15px; }
         .tool-unlock-box button { margin-top: 10px; background: #fc0; }
         .demo-scanner-panel { display: none; max-width: 760px; margin: 0 auto; padding: 16px; border: 2px dashed #fc0; background: #171100; color: #fc0; }
@@ -770,9 +779,47 @@
             return `<div class="cipher-grid">${Object.entries(entries).map(([key, value]) => `<div class="cipher-card"><strong>${escapeHtml(key)}</strong><span class="${valueClass}">${escapeHtml(value)}</span></div>`).join('')}</div>`;
         }
 
+        function pigpenReferenceDiagram() {
+            const gridLetters = (start, offsetX, dotted) => Array.from({length: 9}, (_, index) => {
+                const column = index % 3, row = Math.floor(index / 3), x = offsetX + 40 + column * 60, y = 45 + row * 60;
+                return `<text x="${x}" y="${y}" text-anchor="middle">${String.fromCharCode(start + index)}</text>${dotted ? `<circle cx="${x}" cy="${y + 13}" r="2.8"/>` : ''}`;
+            }).join('');
+            const wedge = (letters, offsetX, dotted) => {
+                const positions = [[offsetX + 90,35],[offsetX + 145,95],[offsetX + 90,155],[offsetX + 35,95]];
+                return letters.map((letter, index) => `<text x="${positions[index][0]}" y="${positions[index][1]}" text-anchor="middle">${letter}</text>${dotted ? `<circle cx="${positions[index][0]}" cy="${positions[index][1] + 12}" r="2.8"/>` : ''}`).join('');
+            };
+            return `<svg class="cipher-diagram" viewBox="0 0 850 205" role="img" aria-label="Tradiční tabulky malého polského kříže: dvě mřížky a dva kříže"><g fill="none" stroke="#101718" stroke-width="3"><path d="M70 15V195M130 15V195M10 75H190M10 135H190M280 15V195M340 15V195M220 75H400M220 135H400"/><path d="M450 15L630 195M630 15L450 195M660 15L840 195M840 15L660 195"/></g><g fill="#101718" font-family="monospace" font-size="17">${gridLetters(65, 0, false)}${gridLetters(74, 210, true)}${wedge(['S','T','U','V'],450,false)}${wedge(['W','X','Y','Z'],660,true)}</g></svg>`;
+        }
+
+        function semaphoreFigure(position, letter) {
+            const point = (side, direction) => {
+                const points = {down:[side === 'LH' ? 43 : 57,88], low:[side === 'LH' ? 24 : 76,75], out:[side === 'LH' ? 10 : 90,50], high:[side === 'LH' ? 24 : 76,25], up:[side === 'LH' ? 43 : 57,10]};
+                if (direction === 'across low') return side === 'LH' ? [76,75] : [24,75];
+                if (direction === 'across high') return side === 'LH' ? [76,25] : [24,25];
+                return points[direction] || [50,50];
+            };
+            const parts = position.split(' / ').map(part => part.split(' '));
+            const left = point(parts[0][0], parts[0].slice(1).join(' '));
+            const right = point(parts[1][0], parts[1].slice(1).join(' '));
+            return `<svg class="semaphore-figure" viewBox="0 0 100 100" role="img" aria-label="Semaforové písmeno ${letter}"><circle cx="50" cy="35" r="8" fill="none" stroke="#9ff" stroke-width="3"/><path d="M50 43V72M38 94L50 72L62 94" fill="none" stroke="#9ff" stroke-width="4"/><path d="M48 50L${left[0]} ${left[1]}" stroke="#38cfff" stroke-width="5"/><path d="M52 50L${right[0]} ${right[1]}" stroke="#ff5656" stroke-width="5"/><circle cx="${left[0]}" cy="${left[1]}" r="5" fill="#38cfff"/><circle cx="${right[0]}" cy="${right[1]}" r="5" fill="#ff5656"/></svg>`;
+        }
+
+        function semaphoreReference() {
+            return `<div class="cipher-grid semaphore-grid">${Object.entries(SEMAPHORE).map(([letter, position]) => `<div class="cipher-card"><strong>${letter}</strong>${semaphoreFigure(position, letter)}</div>`).join('')}</div>`;
+        }
+
+        function morsePulses(code, label) {
+            const symbols = [...code].map(symbol => `<i class="morse-pulse ${symbol === '.' ? 'dot' : 'dash'}" aria-hidden="true"></i>`).join('');
+            return `<span class="morse-pulses" role="img" aria-label="${escapeHtml(label)}: ${escapeHtml(code.replaceAll('.', 'tečka ').replaceAll('-', 'čárka '))}">${symbols}<span class="sr-only">${escapeHtml(code)}</span></span>`;
+        }
+
+        function morseReference() {
+            return `<div class="cipher-grid morse-grid">${Object.entries(MORSE).map(([character, code]) => `<div class="cipher-card"><strong>${character}</strong>${morsePulses(code, character)}</div>`).join('')}</div>`;
+        }
+
         function toolReference(toolId) {
             if (toolId === 'morse') {
-                return `<h3>Morseova abeceda</h3><p><strong>Princip:</strong> krátký signál je tečka, dlouhý signál je čárka. Čti zleva doprava; mezera odděluje písmena a lomítko slova.</p><p class="cipher-note"><strong>Neutrální příklad:</strong> <code>.- / .... --- .---</code> = A / HOJ.</p>${referenceTable(MORSE)}`;
+                return `<h3>Morseova abeceda</h3><p><strong>Princip:</strong> kruhový pulz je tečka, dlouhý světelný segment je čárka. Čti zleva doprava; větší mezera odděluje písmena a lomítko slova.</p><p class="cipher-note"><strong>Neutrální příklad:</strong> A ${morsePulses('.-', 'A')} · H ${morsePulses('....', 'H')}</p>${morseReference()}`;
             }
             if (toolId === 'a1z26') {
                 const alphabet = Object.fromEntries(Array.from({length: 26}, (_, i) => [String.fromCharCode(65 + i), i + 1]));
@@ -787,21 +834,11 @@
                 return `<h3>Binární kód a ASCII</h3><p><strong>Směr:</strong> nejvyšší řád je vlevo. Pro 7 bitů mají pozice hodnoty <code>64 32 16 8 4 2 1</code>; sečti hodnoty nad jedničkami.</p><p class="cipher-note"><strong>Příklad:</strong> <code>1000001</code> = 64 + 1 = 65 = A. Osmibitový zápis je <code>01000001</code>.</p><table class="cipher-reference"><thead><tr><th>PÍSMENO</th><th>DEC</th><th>7BIT ASCII</th><th>8BIT ASCII</th></tr></thead><tbody>${rows}</tbody></table>`;
             }
             if (toolId === 'pigpen') {
-                return `<h3>Malý polský kříž (pigpen)</h3><p>Písmeno nahraď hranami políčka, ve kterém leží. Čti mřížky zleva doprava a shora dolů; druhá sada tvarů má uvnitř tečku.</p>
-                    <table class="cipher-reference"><tbody>
-                    <tr><td>A–I</td><td>┘ ┴ └ / ┤ ┼ ├ / ┐ ┬ ┌</td></tr>
-                    <tr><td>J–R</td><td>stejné tvary s tečkou uvnitř</td></tr>
-                    <tr><td>S–V</td><td>∧ &gt; ∨ &lt;</td></tr>
-                    <tr><td>W–Z</td><td>stejné klíny s tečkou</td></tr>
-                    </tbody></table><p class="cipher-note"><strong>Příklad principu:</strong> A převezme okraje levého horního pole první mřížky.</p>
+                return `<h3>Malý polský kříž</h3><p>Písmeno nahraď čarami, které ho obklopují v příslušné mřížce nebo kříži. Druhá mřížka a druhý kříž používají uvnitř znaku tečku.</p>${pigpenReferenceDiagram()}<p class="cipher-note">Tabulku čti jako čtyři samostatné klíče: A–I, J–R, S–V a W–Z. Orientaci výsledného tvaru zachovej.</p>
                     <h3>Velký polský kříž</h3><p>Všechna písmena leží v jedné velké křížové tabulce. Obrys určuje rameno/pole kříže a <strong>poloha tečky uvnitř obrysu</strong> vybírá konkrétní písmeno z dané trojice. Nezaměňuj polohu tečky za počet teček.</p><p class="cipher-note">Rozložení velkého kříže není mezi sadami jednotné. Vždy použij tabulku přiloženou ke konkrétní šifře; referenční princip sám neurčuje pořadí písmen.</p>`;
             }
             if (toolId === 'semaphore') {
-                const directions = Object.fromEntries(Object.entries(SEMAPHORE).map(([letter, position]) => [letter, position
-                    .replaceAll('across low', 'přes tělo dolů').replaceAll('across high', 'přes tělo nahoru')
-                    .replaceAll('LH', 'levá').replaceAll('RH', 'pravá').replaceAll('down', 'dolů')
-                    .replaceAll('low', 'šikmo dolů').replaceAll('out', 'vodorovně').replaceAll('high', 'šikmo nahoru').replaceAll('up', 'nahoru')]));
-                return `<h3>Praporová / semaforová abeceda</h3><p>Každé písmeno určuje dvojice směrů paží. Zde jsou polohy vždy <strong>z pohledu pozorovatele stojícího proti signalistovi</strong>. Čti jednotlivé postoje v pořadí záznamu.</p><p class="cipher-note"><strong>Příklad principu:</strong> dvě fotografie = dvě písmena, nikoli jeden složený znak.</p>${referenceTable(directions, ['PÍSMENO','POLOHA PAŽÍ'])}`;
+                return `<h3>Praporová / semaforová abeceda</h3><p>Každé písmeno určuje dvojice paží. Modrá je levá a červená pravá paže signalisty; obrázky jsou z pohledu pozorovatele stojícího proti němu.</p>${semaphoreReference()}`;
             }
             if (toolId === 'braille') {
                 return `<h3>Braillovo písmo</h3><p>Každý znak je buňka 2×3 bodů. Body se číslují shora dolů: levý sloupec 1–2–3, pravý 4–5–6. Buňky čti zleva doprava.</p><p class="cipher-note"><strong>Příklad:</strong> ⠍ ⠁ ⠏ ⠁ = MAPA. Českou diakritiku v jednoduchých šifrách obvykle nahraď základním písmenem, pokud zadání neurčí jinak.</p>${referenceCards(BRAILLE, 'braille-cell')}`;

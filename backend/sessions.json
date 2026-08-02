@@ -2669,6 +2669,7 @@
       "courtyard_minefield",
       "reception_archive",
       "sports_archive",
+      "sports_cipher",
       "staircase_signal",
       "terrace_echo",
       "timeline_calibration"
@@ -3159,9 +3160,14 @@
         "role": "bot",
         "channel": "lost",
         "text": "Slyšela jsem cvaknutí! Ty dveře do pokoje 104 se právě otevřely. Jdu dovnitř..."
+      },
+      {
+        "role": "bot",
+        "channel": "captain",
+        "text": "Obě části šifrovací tabulky reagují. Složte je a převeďte symboly polského kříže."
       }
     ],
-    "score": 1315,
+    "score": 1335,
     "hints_used": {},
     "checkpoint_states": {
       "reception_archive": {
@@ -3203,6 +3209,10 @@
         "status": "solved",
         "first_scanned_at": "2026-08-02T09:42:19.845256+00:00",
         "solved_at": "2026-08-02T09:43:56.543665+00:00"
+      },
+      "sports_cipher": {
+        "status": "found",
+        "first_scanned_at": "2026-08-02T16:21:57.589617+00:00"
       }
     },
     "unlocked_cipher_tools": [
@@ -4666,7 +4676,7 @@
         "deadline_at": "2026-08-02T09:36:45.883383+00:00"
       }
     },
-    "last_activity_at": "2026-08-02T09:44:13.275597+00:00",
+    "last_activity_at": "2026-08-02T16:21:57.589570+00:00",
     "triad_games": {
       "temporal_triad": {
         "size": 5,

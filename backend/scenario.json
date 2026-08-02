@@ -281,18 +281,19 @@
       "failure_message": {"text": "Článek se v této poloze nepohne. Potřebuji se k němu dostat z jiné strany.", "mood": "error", "channel": "lost"}
     },
     "sports_pigpen": {
-      "title": "Polský kříž sportovního archivu",
+      "title": "Poškozený otisk sportovního archivu",
       "type": "pigpen",
       "checkpoint_id": "sports_cipher",
-      "instructions": "Přiložte obě nalezené části šifrovací tabulky k sobě. Znaky na časové kotvě převeďte pomocí malého polského kříže a zadejte název cílového objektu v hotelu.",
+      "instructions": "Terminál obnovil šest neznámých znaků z poškozeného archivního otisku. Určete jejich význam a zadejte výsledné české slovo.",
+      "image": "assets/puzzles/sports-pigpen-hodiny.svg",
       "answer": "HODINY",
       "answers": ["HODINY", "HODINY V LOBBY", "LOBBY HODINY"],
       "admin_solution": "HODINY – obě poloviny tabulky polského kříže společně určují šest znaků H–O–D–I–N–Y.",
       "success_message": {"text": "Zpráva potvrzena: HODINY. V jejich servisním pouzdře je třetí díl stroje – KRYSTAL ČASOVÉ KOTVY – a přístupový otisk Archivu budoucnosti.", "mood": "success", "channel": "captain"},
-      "failure_message": {"text": "Otisk neodpovídá symbolům na obou částech tabulky. Zkontrolujte orientaci kříže a tečky.", "mood": "error", "channel": "general"},
+      "failure_message": {"text": "Archivní otisk tuto odpověď nepotvrzuje.", "mood": "error", "channel": "general"},
       "hints": [
-        {"text": "Bez obou částí tabulky nelze bezpečně určit všechny symboly.", "penalty": 15},
-        {"text": "Výsledkem je výrazný objekt v hotelovém lobby, který ukazuje čas.", "penalty": 30}
+        {"text": "V Šifrovacích pomůckách je grafická tabulka používající stejné rohy, kříže a klíny.", "penalty": 15},
+        {"text": "Jde o malý polský kříž. Čtěte znaky zleva doprava; výsledkem je objekt v hotelu, který ukazuje čas.", "penalty": 30}
       ]
     },
     "future_archive_cipher": {
