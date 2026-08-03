@@ -81,3 +81,13 @@ V záložce **SKENER** se místo kamery zobrazí tlačítka všech QR checkpoint
 cd Escape_Bot/client
 python3 -m http.server 8088
 ```
+
+## Automatický průchod scénářem
+
+Z kořene projektu lze spustit samostatný smoke test celé produkční cesty:
+
+```bash
+./backend/run_scenario_smoke.sh
+```
+
+Test založí sólo i tříčlenné lobby, projde úvodní komunikaci, všechny checkpointy, pokoj 104, hlavní hádanky a minihry, uprostřed obnoví uloženou relaci a ověří finální inventář, skóre i návrat Elary. Nevyužívá administrační dokončení checkpointů.
