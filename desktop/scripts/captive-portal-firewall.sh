@@ -27,8 +27,8 @@ case "$ACTION" in
         disable_portal
         nft add table inet escapebot_captive
         nft 'add chain inet escapebot_captive prerouting { type nat hook prerouting priority dstnat; policy accept; }'
-        nft add rule inet escapebot_captive prerouting iifname "$INTERFACE" udp dport 53 redirect to :5353
-        nft add rule inet escapebot_captive prerouting iifname "$INTERFACE" tcp dport 53 redirect to :5353
+        nft add rule inet escapebot_captive prerouting iifname "$INTERFACE" udp dport 53 redirect to :1053
+        nft add rule inet escapebot_captive prerouting iifname "$INTERFACE" tcp dport 53 redirect to :1053
         nft add rule inet escapebot_captive prerouting iifname "$INTERFACE" tcp dport 80 redirect to :8091
         ;;
     disable)
@@ -39,4 +39,3 @@ case "$ACTION" in
         exit 2
         ;;
 esac
-

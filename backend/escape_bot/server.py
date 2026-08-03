@@ -381,6 +381,20 @@ async def health() -> dict[str, object]:
     return {"status": "ok", "admin_enabled": bool(ADMIN_TOKEN), "online_mode": bool(runtime_settings.get("online_mode"))}
 
 
+@app.get("/api/captive")
+async def captive_portal_status() -> Response:
+    """CAPPORT stav lokální herní sítě podle RFC 8908."""
+    return Response(
+        content=json.dumps({
+            "captive": True,
+            "user-portal-url": "https://10.42.0.1:8088/",
+            "venue-info-url": "https://10.42.0.1:8088/",
+        }),
+        media_type="application/captive+json",
+        headers={"Cache-Control": "no-store"},
+    )
+
+
 @app.get("/admin")
 async def admin_page() -> RedirectResponse:
     return RedirectResponse(url="/?admin=1", status_code=307)

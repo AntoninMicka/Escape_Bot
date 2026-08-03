@@ -39,7 +39,7 @@ Jedna Wi-Fi karta obvykle nemůže současně udržovat běžné Wi-Fi připojen
 
 ### Captive portál
 
-Wrapper spouští neprivilegovaný DNS responder na portu 5353 a HTTP responder na portu 8091. Pomocný skript přes Polkit vytvoří samostatnou tabulku `inet escapebot_captive` v nftables a pouze na rozhraní AP přesměruje DNS a port 80 na tyto služby. Při zastavení AP tabulku odstraní; ostatních firewallových pravidel se nedotýká.
+Wrapper spouští neprivilegovaný DNS responder na portu 1053 a HTTP responder na portu 8091. Port 1053 je zvolen záměrně, aby nekolidoval s mDNS/Avahi na portu 5353. Pomocný skript přes Polkit vytvoří samostatnou tabulku `inet escapebot_captive` v nftables a pouze na rozhraní AP přesměruje DNS a port 80 na tyto služby. Při zastavení AP tabulku odstraní; ostatních firewallových pravidel se nedotýká.
 
 Výchozí brána hotspotu je `10.42.0.1` a cílem portálu je `https://10.42.0.1:8088/`. Připojené telefony proto otevřou hru, jakmile provedou běžnou HTTP kontrolu captive sítě. Pro zařízení hráčů musí být produkční backend opatřen certifikátem, kterému telefon důvěřuje a který obsahuje použitou doménu. Wrapper nepodvrhuje HTTPS provoz; vývojový certifikát pro localhost není na cizím telefonu dostačující.
 

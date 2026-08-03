@@ -43,7 +43,7 @@ def main() -> None:
 
     selector = selectors.DefaultSelector()
     dns = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    dns.bind(("0.0.0.0", 5353))
+    dns.bind(("0.0.0.0", 1053))
     dns.setblocking(False)
     selector.register(dns, selectors.EVENT_READ, "dns")
 
@@ -82,4 +82,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-
