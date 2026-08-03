@@ -724,13 +724,14 @@ class StateMachineCheckpointTests(unittest.IsolatedAsyncioTestCase):
 
         await self.scan("future_archive")
         assembly_moves = [
-            ("motor", "rotate"), ("motor", "rotate"), ("motor", "rotate"),
-            ("stabilizer", "rotate"), ("crystal", "rotate"), ("crystal", "rotate"),
-            ("motor", "left"), ("stabilizer", "left"),
+            ("tile_1", "tile_5"), ("tile_2", "tile_5"), ("tile_3", "tile_8"),
+            ("tile_4", "tile_8"), ("tile_5", "tile_9"), ("tile_6", "tile_9"),
+            ("tile_7", "tile_9"),
         ]
-        for card_id, action in assembly_moves:
+        for card_id, target_id in assembly_moves:
             arranged = await self.machine.handle(Message("archive.arrange", {
-                "puzzle_id": "future_archive_cipher", "card_id": card_id, "action": action,
+                "puzzle_id": "future_archive_cipher", "card_id": card_id,
+                "target_id": target_id, "action": "swap",
             }))
         self.assertTrue(self.response(arranged, "archive.result").payload["assembled"])
         restored = EscapeBotStateMachine(self.scenario)

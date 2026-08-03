@@ -590,7 +590,7 @@ class EscapeBotStateMachine:
             return [reply("puzzle.result", {"correct": True, "puzzle_id": puzzle_id, "already_solved": True}, message), self._state_message()]
         if puzzle.get("type") == "archive_vector" and not self._archive_game_state(puzzle_id, puzzle).get("assembled"):
             return [
-                reply("puzzle.result", {"correct": False, "reason": "Nejprve správně sestavte všechny tři archivní karty."}, message),
+                reply("puzzle.result", {"correct": False, "reason": "Nejprve správně sestavte obraz stroje času."}, message),
                 self._state_message(),
             ]
 
@@ -637,12 +637,18 @@ class EscapeBotStateMachine:
     def _public_archive_game(self, puzzle_id: str, puzzle: dict[str, Any]) -> dict[str, Any]:
         game = self._archive_game_state(puzzle_id, puzzle)
         cards = {str(card["id"]): {"id": str(card["id"]), "label": card.get("label", card["id"]), "color": card.get("color", "cyan"), "icon": card.get("icon", "◇")} for card in puzzle.get("assembly", {}).get("cards", [])}
+        for card in puzzle.get("assembly", {}).get("cards", []):
+            cards[str(card["id"])]["source_index"] = int(card.get("source_index", 0))
+        config = puzzle.get("assembly", {})
         return {
             "order": list(game["order"]),
             "rotations": dict(game["rotations"]),
             "moves": int(game.get("moves", 0)),
             "assembled": bool(game.get("assembled")),
             "cards": cards,
+            "mode": config.get("mode", "cards"),
+            "image": config.get("image", ""),
+            "grid_size": int(config.get("grid_size", 3)),
             "revealed_key": puzzle.get("assembly", {}).get("revealed_key", "") if game.get("assembled") else "",
             "module_order": list(puzzle.get("assembly", {}).get("module_order", [])) if game.get("assembled") else [],
         }
@@ -653,7 +659,7 @@ class EscapeBotStateMachine:
         checkpoint_id = str(puzzle.get("checkpoint_id", "")) if puzzle else ""
         checkpoint = self.state.checkpoint_states.get(checkpoint_id)
         if not puzzle or puzzle.get("type") != "archive_vector" or not checkpoint or checkpoint.get("status") != "found":
-            return [reply("archive.result", {"success": False, "reason": "Archivní karty nyní nejsou aktivní."}, message)]
+            return [reply("archive.result", {"success": False, "reason": "Archivní skládačka nyní není aktivní."}, message)]
         game = self._archive_game_state(puzzle_id, puzzle)
         card_id = str(message.payload.get("card_id", ""))
         action = str(message.payload.get("action", ""))
@@ -666,6 +672,12 @@ class EscapeBotStateMachine:
             game["order"][index + 1], game["order"][index] = game["order"][index], game["order"][index + 1]
         elif action == "rotate":
             game["rotations"][card_id] = (int(game["rotations"].get(card_id, 0)) + 90) % 360
+        elif action == "swap":
+            target_id = str(message.payload.get("target_id", ""))
+            if target_id not in game["order"] or target_id == card_id:
+                return [reply("archive.result", {"success": False, "reason": "Vyberte dva různé dílky."}, message), self._state_message()]
+            target_index = game["order"].index(target_id)
+            game["order"][index], game["order"][target_index] = game["order"][target_index], game["order"][index]
         else:
             return [reply("archive.result", {"success": False, "reason": "Kartu tímto směrem nelze posunout."}, message), self._state_message()]
         game["moves"] = int(game.get("moves", 0)) + 1

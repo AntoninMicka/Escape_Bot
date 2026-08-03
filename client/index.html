@@ -263,6 +263,10 @@
         .archive-card-controls { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; margin-top: 6px; }
         .archive-card-controls button { padding: 6px 3px; }
         .archive-reveal { border: 2px solid #0f8; padding: 12px; text-align: center; background: #002015; }
+        .jigsaw-board { display: grid; gap: 3px; width: min(100%, 600px); aspect-ratio: 1; margin: 14px auto; padding: 3px; border: 1px solid #0aa; background: #001013; }
+        .jigsaw-piece { min-width: 0; padding: 0; border: 1px solid #155; background-repeat: no-repeat; cursor: pointer; transition: transform .16s, border-color .16s, filter .16s; }
+        .jigsaw-piece:hover, .jigsaw-piece.selected { z-index: 1; border-color: #fff; filter: brightness(1.25); transform: scale(.97); box-shadow: 0 0 14px #0ff; }
+        .jigsaw-piece:focus-visible { outline: 3px solid #fc0; outline-offset: -3px; }
         .archive-key { font-size: clamp(1.8rem, 7vw, 3.6rem); letter-spacing: .25em; color: #8ff; text-shadow: 0 0 14px #0ff; }
         .archive-ciphertext { padding: 14px; border: 1px dashed #0aa; background: #001215; font: 1.05rem/1.7 monospace; letter-spacing: .1em; overflow-wrap: anywhere; }
         .vigenere-wrap { max-width: 100%; overflow: auto; border: 1px solid #166; }
@@ -567,7 +571,7 @@
         <section id="admin-tab-teams" class="admin-section"><div id="admin-summary" class="admin-summary"></div><div class="admin-filters"><input id="admin-team-search" type="search" placeholder="Hledat tým, hráče nebo kód…" oninput="applyAdminFilters()"><select id="admin-activity-filter" onchange="applyAdminFilters()"><option value="all">Všechny stavy</option><option value="active">Aktivní</option><option value="suspicious">Podezřelé</option><option value="abandoned">Opuštěné</option><option value="completed">Dokončené</option></select><select id="admin-online-filter" onchange="applyAdminFilters()"><option value="all">Online i offline</option><option value="online">Alespoň jeden online</option><option value="offline">Všichni offline</option></select></div><div id="admin-team-grid" class="admin-grid"></div></section>
         <section id="admin-tab-chats" class="admin-section hidden"><h2>[ PODPORA TÝMŮ ]</h2><div id="admin-chat-grid" class="admin-grid"></div></section>
         <section id="admin-tab-leaderboard" class="admin-section admin-leaderboard hidden"><h2>[ SPRÁVA SÍNĚ SLÁVY ]</h2><div id="admin-leaderboard"></div></section>
-        <section id="admin-tab-tools" class="admin-section hidden"><h2>[ NÁSTROJE GAME MASTERA ]</h2><div class="admin-toolbar"><button onclick="requestAdminQrSet()">PŘIPRAVIT QR SADU</button><button id="admin-online-toggle" onclick="toggleAdminOnlineMode()">ONLINE REŽIM: ?</button></div></section>
+        <section id="admin-tab-tools" class="admin-section hidden"><h2>[ NÁSTROJE GAME MASTERA ]</h2><div class="admin-toolbar"><button onclick="requestAdminQrSet()">PŘIPRAVIT QR SADU</button><button onclick="exportAdminCsv()">EXPORT UDÁLOSTÍ A STATISTIK (CSV)</button><button id="admin-online-toggle" onclick="toggleAdminOnlineMode()">ONLINE REŽIM: ?</button></div></section>
     </section>
     <div id="admin-spectator-bar" class="admin-spectator-bar hidden"><strong id="admin-spectator-label">NÁHLED HRY</strong><button onclick="stopAdminSpectate()">ZPĚT DO ADMINISTRACE</button></div>
     <section id="qr-print-sheet" class="qr-print-sheet"></section>
@@ -1095,6 +1099,34 @@
 
         function loadAdminOverview() { sendAdmin('admin.list'); }
         function requestAdminQrSet() { sendAdmin('admin.qr_set'); }
+        function exportAdminCsv() {
+            const teams = latestAdminPayload?.teams || [];
+            if (!teams.length) { showNotification('Nejsou dostupná žádná týmová data.', 'error'); return; }
+            const quote = value => `"${String(value ?? '').replaceAll('"', '""')}"`;
+            const rows = [[
+                'team', 'session_id', 'phase', 'score', 'completed_nodes', 'total_nodes',
+                'activity_status', 'players', 'online_count', 'hints_used', 'puzzle_attempts',
+                'game_metrics', 'event_time', 'event_type', 'event_label', 'event_details'
+            ]];
+            teams.forEach(team => {
+                const events = team.timeline?.length ? team.timeline : [{}];
+                events.forEach(event => rows.push([
+                    team.team_name, team.session_id, team.phase, team.score, team.completed_nodes,
+                    team.total_nodes, team.activity_status,
+                    (team.players || []).map(player => player.name || '').join(', '), team.online_count,
+                    JSON.stringify(team.hints_used || {}), JSON.stringify(team.puzzle_attempts || {}),
+                    JSON.stringify(team.game_metrics || {}), event.at || '', event.type || '',
+                    event.label || '', JSON.stringify(event.details || {})
+                ]));
+            });
+            const csv = '\ufeff' + rows.map(row => row.map(quote).join(';')).join('\r\n');
+            const url = URL.createObjectURL(new Blob([csv], {type:'text/csv;charset=utf-8'}));
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `escape-bot-export-${new Date().toISOString().slice(0,10)}.csv`;
+            link.click();
+            setTimeout(() => URL.revokeObjectURL(url), 1000);
+        }
         function toggleAdminOnlineMode() {
             if (!window.confirm(`${onlineModeEnabled ? 'Vypnout' : 'Zapnout'} online režim pro všechny týmy?`)) return;
             sendAdmin('admin.online_mode', {enabled:!onlineModeEnabled});
@@ -1314,7 +1346,7 @@
                 const karel = ((team.game_metrics || {}).karel || []).map(game => `Karel ${escapeHtml(game.level)}: pozice ${escapeHtml((game.player || []).join(','))}, ${game.completed} hotovo, ${game.moves} kroků, ${game.strikes} min, ${game.restarts} restartů`).join('<br>') || 'Karel dosud neaktivní';
                 const sokoban = ((team.game_metrics || {}).sokoban || []).map(game => `Sokoban ${escapeHtml(game.level)}: pozice ${escapeHtml((game.player || []).join(','))}, články na cíli ${(game.boxes || []).filter(box => (game.targets || []).some(target => target[0] === box[0] && target[1] === box[1])).length}/${(game.boxes || []).length}, ${game.moves} kroků, ${game.pushes} zatlačení, ${game.restarts} restartů`).join('<br>') || 'Sokoban dosud neaktivní';
                 const triad = ((team.game_metrics || {}).triad || []).map(game => `Tři v řadě [${escapeHtml(game.status)}]: ${game.placements} kamenů · směry ${(game.completed_orientations || []).map(escapeHtml).join(', ') || 'žádné'}`).join('<br>') || 'Tři v řadě dosud neaktivní';
-                const archive = ((team.game_metrics || {}).archive || []).map(game => `Archiv budoucnosti: ${game.assembled ? 'sestaven' : 'rozložen'} · ${game.moves} manipulací · pořadí ${(game.order || []).map(escapeHtml).join(' → ')}`).join('<br>') || 'Archiv budoucnosti dosud neaktivní';
+                const archive = ((team.game_metrics || {}).archive || []).map(game => `Jigsaw stroje času: ${game.assembled ? 'sestaven' : 'rozložen'} · ${game.moves} prohození · pořadí ${(game.order || []).map(escapeHtml).join(' → ')}`).join('<br>') || 'Archiv budoucnosti dosud neaktivní';
                 const eventLabels = {'checkpoint_solved':'checkpoint vyřešen', 'checkpoint_found':'checkpoint nalezen', 'admin_action':'zásah GM', 'admin_penalty':'malus GM', 'player.message':'zpráva hráče', 'qr.detected':'načten QR', 'arg.verify':'ověření stopy', 'room.unlock':'odemčení místnosti', 'cipher_tool.unlock':'odemčení pomůcky', 'puzzle.submit':'odpověď na hádanku', 'puzzle.hint':'vyžádána nápověda', 'line_game.move':'tah kalibrace', 'line_game.reset':'restart kalibrace', 'sokoban.command':'povel Sokobanu', 'sokoban.undo':'vrácení tahu Sokobanu', 'sokoban.reset':'restart Sokobanu', 'karel.command':'povel Karlovi', 'karel.reset':'restart Karla', 'triad.place':'tah Tři v řadě', 'triad.reset':'restart Tři v řadě', 'finale.activate':'aktivace finále', 'archive.arrange':'pohyb v archivu'};
                 const timeline = (team.timeline || []).map(item => {
                     const details = Object.entries(item.details || {}).map(([key, value]) => `${key}: ${value}`).join(' · ');
@@ -2283,8 +2315,22 @@
 
         function renderArchiveVector(puzzle, solved) {
             const game = puzzle.archive_game;
-            if (!game) return '<p class="puzzle-locked">Archivní karty se načítají…</p>';
+            if (!game) return '<p class="puzzle-locked">Skládačka se načítá…</p>';
             if (solved) return '<p class="puzzle-status solved">NÁVRATOVÝ VEKTOR OBNOVEN · ARCHIV POTVRZEN</p>';
+            if (game.mode === 'jigsaw') {
+                const size = Number(game.grid_size || 3);
+                const pieces = game.order.map(cardId => {
+                    const tile = game.cards[cardId];
+                    const source = Number(tile.source_index || 0);
+                    const x = source % size;
+                    const y = Math.floor(source / size);
+                    const xPercent = size === 1 ? 0 : (x / (size - 1)) * 100;
+                    const yPercent = size === 1 ? 0 : (y / (size - 1)) * 100;
+                    return `<button class="jigsaw-piece ${selectedArchivePiece === cardId ? 'selected' : ''}" style="background-image:url('${escapeHtml(game.image)}');background-size:${size * 100}% ${size * 100}%;background-position:${xPercent}% ${yPercent}%" onclick="selectArchivePiece('${escapeHtml(puzzle.id)}','${escapeHtml(cardId)}')" aria-label="${escapeHtml(tile.label)}"></button>`;
+                }).join('');
+                const reveal = game.assembled ? `<div class="archive-reveal"><small>ODHALENÝ KLÍČ</small><div class="archive-key">${escapeHtml(game.revealed_key)}</div><p><strong>POŘADÍ MODULŮ:</strong> ${game.module_order.map(escapeHtml).join(' → ')}</p></div><h4>ZACHYCENÝ PŘENOS</h4><div class="archive-ciphertext">${escapeHtml(puzzle.ciphertext)}</div><div class="puzzle-answer"><input id="puzzle-answer-${escapeHtml(puzzle.id)}" maxlength="100" autocomplete="off" placeholder="CELÝ DEŠIFROVANÝ TEXT"><button onclick="submitPuzzle('${escapeHtml(puzzle.id)}')">OVĚŘIT</button></div>` : '<p class="cipher-note">Vyberte dva dílky, které chcete prohodit. Obraz zatím není úplný.</p>';
+                return `<div class="archive-assembly"><div class="jigsaw-board" style="grid-template-columns:repeat(${size},1fr)">${pieces}</div><p>PROHOZENÍ: ${Number(game.moves)}</p>${reveal}${renderHintButtons(puzzle)}<div class="puzzle-actions"><span>Pokusy: ${puzzle.attempts || 0}</span></div></div>`;
+            }
             const cards = game.order.map(cardId => {
                 const card = game.cards[cardId];
                 const rotation = Number(game.rotations[cardId] || 0);
@@ -2292,6 +2338,24 @@
             }).join('');
             const reveal = game.assembled ? `<div class="archive-reveal"><small>ODHALENÝ KLÍČ</small><div class="archive-key">${escapeHtml(game.revealed_key)}</div><p><strong>POŘADÍ MODULŮ:</strong> ${game.module_order.map(escapeHtml).join(' → ')}</p></div><h4>ZACHYCENÝ PŘENOS</h4><div class="archive-ciphertext">${escapeHtml(puzzle.ciphertext)}</div><div class="puzzle-answer"><input id="puzzle-answer-${escapeHtml(puzzle.id)}" maxlength="100" autocomplete="off" placeholder="CELÝ DEŠIFROVANÝ TEXT"><button onclick="submitPuzzle('${escapeHtml(puzzle.id)}')">OVĚŘIT</button></div>` : '<p class="cipher-note">Křivka ani stupnice zatím nenavazují.</p>';
             return `<div class="archive-assembly"><div class="archive-cards">${cards}</div><p>TAHY: ${Number(game.moves)}</p>${reveal}${renderHintButtons(puzzle)}<div class="puzzle-actions"><span>Pokusy: ${puzzle.attempts || 0}</span></div></div>`;
+        }
+
+        let selectedArchivePiece = '';
+        function selectArchivePiece(puzzleId, cardId) {
+            if (!selectedArchivePiece) {
+                selectedArchivePiece = cardId;
+                renderPuzzles();
+                return;
+            }
+            if (selectedArchivePiece === cardId) {
+                selectedArchivePiece = '';
+                renderPuzzles();
+                return;
+            }
+            const first = selectedArchivePiece;
+            selectedArchivePiece = '';
+            if (!ws || ws.readyState !== WebSocket.OPEN) return;
+            ws.send(JSON.stringify({type:'archive.arrange', payload:{puzzle_id:puzzleId, card_id:first, target_id:cardId, action:'swap'}}));
         }
 
         function arrangeArchiveCard(puzzleId, cardId, action) {
