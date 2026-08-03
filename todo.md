@@ -586,6 +586,31 @@
 - [ ] Připravit nouzovou výjimku pro konkrétní tým pouze jako explicitní administrátorský zásah; výchozí globální start a konec musí platit pro všechny stejně.
 - [ ] Otestovat registraci před startem, souběžný automatický start, ruční předčasný start, odložení a zrušení konce, restart serveru před časem T a souběh deadline s právě zpracovávaným tahem.
 
+#### Diskvalifikace týmu
+- [ ] Zavést konečný stav týmu `DISKVALIFIKOVÁN`, který okamžitě ukončí jeho rozehranou hru a zablokuje všechny další herní akce, QR checkpointy, odpovědi a nápovědy.
+- [ ] V administraci přidat akci `DISKVALIFIKOVAT TÝM` s povinným textovým důvodem, výrazným potvrzením a zobrazením dopadu před provedením.
+- [ ] Diskvalifikovaný tým neodstraňovat; zachovat jeho lobby, hráče, kompletní herní stav, historii zpráv, postup, události a administrátorský audit.
+- [ ] Při diskvalifikaci vytvořit výsledkový snapshot s časem, dosaženým checkpointem, důvodem a administrátorem, ale bez bodového ohodnocení.
+- [ ] V Síně slávy zobrazit diskvalifikované týmy až za všemi řádně klasifikovanými týmy bez ohledu na jejich původní skóre; místo skóre uvést `DSQ`.
+- [ ] Při více diskvalifikovaných týmech zachovat stabilní pořadí podle času diskvalifikace nebo registračního času a pravidlo uvést ve výsledcích.
+- [ ] V běžném hráčském rozhraní zobrazit ukončení hry a neutrální informaci o diskvalifikaci; podrobný interní důvod zpřístupnit pouze administrátorům, pokud pořadatel nezvolí jeho zveřejnění.
+- [ ] Oddělit diskvalifikaci od existujícího odstranění týmu: diskvalifikace je soutěžní výsledek se zachovanými záznamy, odstranění je pouze technická operace pro chybně založenou nebo testovací relaci.
+- [ ] Umožnit zrušení chybné diskvalifikace pouze zvláštní administrátorskou akcí s povinným důvodem; obnovený tým se vrátí do hry jen tehdy, pokud globální herní okno stále dovoluje hraní.
+- [ ] Otestovat diskvalifikaci čekajícího, aktivního i dokončeného týmu, souběžný tah během zásahu, pořadí v Síně slávy, restart serveru a případné administrátorské obnovení.
+
+#### Indikativní detekce duplicitní registrace hráče nebo zařízení
+- [ ] Při první návštěvě vytvořit náhodný identifikátor zařízení a uchovat jej v bezpečné cookie a/nebo `localStorage`; neposuzovat duplicitu pouze podle jména hráče nebo IP adresy.
+- [ ] Při registraci porovnat identifikátor zařízení s aktivními a dřívějšími registracemi v jiných týmech a případnou shodu označit jako varovnou indicii pro Game Mastera.
+- [ ] Shodu stejného zařízení ve více týmech nikdy automaticky neblokovat ani nepoužít k automatické diskvalifikaci; běžným legitimním případem může být sdílený rodinný notebook nebo tablet.
+- [ ] V administraci zobrazit upozornění `MOŽNÁ DUPLICITA ZAŘÍZENÍ`, dotčené týmy, hráče, časy registrací a sílu signálu bez tvrzení, že došlo k podvodu.
+- [ ] Umožnit Game Masterovi označit shodu jako `PROVĚŘIT`, `POTVRZENÁ DUPLICITA` nebo `LEGITIMNĚ SDÍLENÉ ZAŘÍZENÍ`; rozhodnutí a poznámku uložit do auditu.
+- [ ] Po označení zařízení jako legitimně sdíleného potlačit opakované výstrahy pro stejnou kombinaci týmů, ale zachovat původní záznam.
+- [ ] Volitelný otisk prohlížeče používat pouze jako doplňkový slabý signál při smazané cookie; sestavit jej z minimálního množství stabilních údajů a na server ukládat pouze osolený hash, ne surové parametry prohlížeče.
+- [ ] Nepoužívat agresivní fingerprinting založený na canvasu, zvuku, fontových seznamech nebo jiných technikách, které nejsou pro provoz hry nezbytné.
+- [ ] Definovat dobu uchování identifikátorů a fingerprintových hashů, po skončení akce je automaticky odstranit nebo anonymizovat a popsat jejich použití v informaci pro účastníky.
+- [ ] Počítat s tím, že inkognito režim, jiný prohlížeč, smazaná data nebo více profilů detekci obejdou; funkci prezentovat pouze jako pomoc při dohledu, nikoli jako důkaz identity osoby.
+- [ ] Otestovat stejné zařízení ve dvou týmech, více hráčů na jednom tabletu, smazání cookies, anonymní režim, obnovení identity a falešnou shodu doplňkového fingerprintu.
+
 ## 14. Migrace na cloud
 
 - [ ] Zmrazit deterministický produkční průchod bez povinné závislosti na Ollamě nebo ComfyUI.
