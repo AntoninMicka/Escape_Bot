@@ -10,6 +10,7 @@ class HotspotController final : public QObject
 
 public:
     explicit HotspotController(QObject *parent = nullptr);
+    ~HotspotController() override;
 
     [[nodiscard]] QStringList wifiInterfaces() const;
     [[nodiscard]] bool hotspotSupported() const;
@@ -34,12 +35,16 @@ private:
     void setStatus(const QString &status);
     static bool validSsid(const QString &ssid);
     static bool validPassword(const QString &password);
+    bool enableCaptivePortal(const QString &interfaceName, QString *errorMessage);
+    void disableCaptivePortal();
+    static QString helperPath(const QString &fileName);
 
     QProcess m_process;
+    QProcess m_portalProcess;
     Operation m_operation = Operation::None;
     QStringList m_wifiInterfaces;
     bool m_nmcliAvailable = false;
     bool m_active = false;
     QString m_status;
+    QString m_activeInterface;
 };
-

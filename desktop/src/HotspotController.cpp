@@ -2,6 +2,9 @@
 
 #include <QNetworkInterface>
 #include <QOperatingSystemVersion>
+#include <QCoreApplication>
+#include <QDir>
+#include <QFileInfo>
 #include <QStandardPaths>
 
 namespace {
@@ -49,16 +52,26 @@ HotspotController::HotspotController(QObject *parent)
         }
 
         if (m_operation == Operation::Start) {
-            m_active = success;
-            finishOperation(success,
-                            success ? tr("Hotspot Escape Bot byl spuštěn.")
-                                    : tr("Hotspot se nepodařilo spustit: %1").arg(standardError));
+            if (success) {
+                m_active = true;
+                QString portalError;
+                const bool portalReady = enableCaptivePortal(m_activeInterface, &portalError);
+                finishOperation(true,
+                                portalReady
+                                    ? tr("Hotspot a captive portál byly spuštěny.")
+                                    : tr("Hotspot běží, captive portál se nepodařilo aktivovat: %1").arg(portalError));
+            } else {
+                m_active = false;
+                finishOperation(false, tr("Hotspot se nepodařilo spustit: %1").arg(standardError));
+            }
             return;
         }
 
         if (m_operation == Operation::Stop) {
+            disableCaptivePortal();
             if (success) {
                 m_active = false;
+                m_activeInterface.clear();
             }
             finishOperation(success,
                             success ? tr("Hotspot Escape Bot byl zastaven.")
@@ -73,6 +86,11 @@ HotspotController::HotspotController(QObject *parent)
     });
 
     refresh();
+}
+
+HotspotController::~HotspotController()
+{
+    disableCaptivePortal();
 }
 
 QStringList HotspotController::wifiInterfaces() const { return m_wifiInterfaces; }
@@ -151,6 +169,7 @@ void HotspotController::startHotspot(const QString &interfaceName, const QString
     }
 
     m_operation = Operation::Start;
+    m_activeInterface = interfaceName;
     setStatus(tr("Spouštím hotspot…"));
     emit stateChanged();
     m_process.start(QStandardPaths::findExecutable(QStringLiteral("nmcli")),
@@ -198,4 +217,79 @@ bool HotspotController::validSsid(const QString &ssid)
 bool HotspotController::validPassword(const QString &password)
 {
     return password.size() >= 8 && password.size() <= 63;
+}
+
+bool HotspotController::enableCaptivePortal(const QString &interfaceName, QString *errorMessage)
+{
+#if !defined(Q_OS_LINUX)
+    *errorMessage = tr("Captive portál je zatím podporován pouze na Linuxu.");
+    return false;
+#else
+    const QString portalScript = helperPath(QStringLiteral("captive_portal.py"));
+    const QString firewallHelper = helperPath(QStringLiteral("captive-portal-firewall.sh"));
+    const QString python = QStandardPaths::findExecutable(QStringLiteral("python3"));
+    const QString pkexec = QStandardPaths::findExecutable(QStringLiteral("pkexec"));
+    if (portalScript.isEmpty() || firewallHelper.isEmpty() || python.isEmpty() || pkexec.isEmpty()) {
+        *errorMessage = tr("Chybí Python, pkexec nebo pomocné skripty captive portálu.");
+        return false;
+    }
+
+    m_portalProcess.setProgram(python);
+    m_portalProcess.setArguments({portalScript, QStringLiteral("--gateway"), QStringLiteral("10.42.0.1"),
+                                  QStringLiteral("--game-url"), QStringLiteral("https://10.42.0.1:8088/")});
+    m_portalProcess.start();
+    if (!m_portalProcess.waitForStarted(2000)) {
+        *errorMessage = tr("Lokální DNS/HTTP responder nelze spustit.");
+        return false;
+    }
+
+    QProcess firewall;
+    firewall.start(pkexec, {firewallHelper, QStringLiteral("enable"), interfaceName});
+    if (!firewall.waitForFinished(120000) || firewall.exitStatus() != QProcess::NormalExit
+        || firewall.exitCode() != 0) {
+        const QString details = QString::fromUtf8(firewall.readAllStandardError()).trimmed();
+        m_portalProcess.terminate();
+        m_portalProcess.waitForFinished(1000);
+        *errorMessage = details.isEmpty() ? tr("Oprávnění pro nftables nebylo uděleno.") : details;
+        return false;
+    }
+    return true;
+#endif
+}
+
+void HotspotController::disableCaptivePortal()
+{
+#if defined(Q_OS_LINUX)
+    const QString firewallHelper = helperPath(QStringLiteral("captive-portal-firewall.sh"));
+    const QString pkexec = QStandardPaths::findExecutable(QStringLiteral("pkexec"));
+    if (!m_activeInterface.isEmpty() && !firewallHelper.isEmpty() && !pkexec.isEmpty()) {
+        QProcess firewall;
+        firewall.start(pkexec, {firewallHelper, QStringLiteral("disable"), m_activeInterface});
+        firewall.waitForFinished(120000);
+    }
+#endif
+    if (m_portalProcess.state() != QProcess::NotRunning) {
+        m_portalProcess.terminate();
+        if (!m_portalProcess.waitForFinished(1000)) {
+            m_portalProcess.kill();
+            m_portalProcess.waitForFinished(1000);
+        }
+    }
+}
+
+QString HotspotController::helperPath(const QString &fileName)
+{
+    const QString applicationDir = QCoreApplication::applicationDirPath();
+    const QStringList candidates = {
+        QDir(applicationDir).filePath(QStringLiteral("../scripts/")) + fileName,
+        QDir(applicationDir).filePath(QStringLiteral("scripts/")) + fileName,
+        QDir::current().filePath(QStringLiteral("desktop/scripts/")) + fileName
+    };
+    for (const QString &candidate : candidates) {
+        const QFileInfo info(candidate);
+        if (info.isFile()) {
+            return info.canonicalFilePath();
+        }
+    }
+    return {};
 }

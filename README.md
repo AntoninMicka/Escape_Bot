@@ -27,6 +27,8 @@ Návrh přenosné lokální infrastruktury, včetně centralizované varianty Mi
 
 Nativní administrační wrapper s vloženým webovým adminem a podporou vytvoření Wi-Fi AP na Linuxu je v adresáři [`desktop/`](desktop/README.md).
 
+Wrapper lze sestavit a rovnou spustit příkazem `./build_and_run_desktop.sh`.
+
 ## Rychlý start backendu
 
 ```bash

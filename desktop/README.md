@@ -9,6 +9,7 @@ Desktop wrapper automaticky spustí backend Escape Botu, přihlásí lokální w
 - Admin: výchozí adresa je `https://localhost:8088/admin`; lze zadat i backend na jiném lokálním uzlu.
 - Backend: wrapper najde kořen projektu, použije `backend/.venv` a spustí `python -m escape_bot.server`.
 - Přihlášení: pro každý běh vygeneruje nový náhodný admin token, předá jej backendu přes prostředí procesu a vloží do `sessionStorage` pouze pro localhost.
+- Captive portál: po spuštění AP aktivuje lokální DNS/HTTP responder a přesměruje běžné HTTP captive sondy na hru.
 
 Wrapper ignoruje chybu TLS certifikátu pouze pro `localhost`, `127.0.0.1` a `::1`. Pro vzdálenou adresu vyžaduje důvěryhodný certifikát. Heslo hotspotu se neukládá do nastavení wrapperu; NetworkManager je uloží do svého chráněného systémového profilu připojení.
 
@@ -35,3 +36,11 @@ Vytvoření AP mění systémové síťové připojení. NetworkManager proto m�
 Příkaz vytváří připojení se jménem `EscapeBot-AP`. Tlačítko **Zastavit AP** ukončuje pouze toto pojmenované připojení.
 
 Jedna Wi-Fi karta obvykle nemůže současně udržovat běžné Wi-Fi připojení a spolehlivý AP. Wrapper proto může při spuštění hotspotu odpojit dosavadní bezdrátový uplink. Pro internetový uplink použijte ethernet, LTE nebo druhý adaptér. NetworkManager ve výchozím hotspot režimu zajišťuje lokální DHCP, DNS forwarding a NAT; produkční captive portal a CAPPORT podle infrastrukturního návrhu jsou samostatná navazující služba.
+
+### Captive portál
+
+Wrapper spouští neprivilegovaný DNS responder na portu 5353 a HTTP responder na portu 8091. Pomocný skript přes Polkit vytvoří samostatnou tabulku `inet escapebot_captive` v nftables a pouze na rozhraní AP přesměruje DNS a port 80 na tyto služby. Při zastavení AP tabulku odstraní; ostatních firewallových pravidel se nedotýká.
+
+Výchozí brána hotspotu je `10.42.0.1` a cílem portálu je `https://10.42.0.1:8088/`. Připojené telefony proto otevřou hru, jakmile provedou běžnou HTTP kontrolu captive sítě. Pro zařízení hráčů musí být produkční backend opatřen certifikátem, kterému telefon důvěřuje a který obsahuje použitou doménu. Wrapper nepodvrhuje HTTPS provoz; vývojový certifikát pro localhost není na cizím telefonu dostačující.
+
+Toto je kompatibilní legacy captive flow. Standardní CAPPORT přes RFC 8908/8910 zůstává doporučeným produkčním rozšířením, protože jeho DHCP option 114 musí poskytovat DHCP služba konkrétní cílové infrastruktury.
