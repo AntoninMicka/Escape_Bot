@@ -339,6 +339,9 @@
 
         /* Plovoucí šifrovací pomůcky */
         .utility-button { margin-left: auto; background: #001b1b; color: #0ff; border: 1px solid #0aa; }
+        .sound-controls { display: inline-flex; align-items: center; gap: 5px; padding: 3px 6px; border: 1px solid #055; background: #001416; }
+        .sound-controls button { padding: 6px 8px; min-width: 42px; }
+        .sound-controls input { width: 82px; accent-color: #0cc; }
         .cipher-panel {
             position: fixed; z-index: 900; top: 72px; right: 24px;
             width: min(760px, calc(100vw - 32px)); max-height: calc(100vh - 96px);
@@ -659,6 +662,7 @@
         <button class="tab-button" onclick="openTab('tab-scanner', this)">SKENER (Kamera)</button>
         <button class="tab-button" onclick="openTab('tab-leaderboard', this)">SÍŇ SLÁVY</button>
         <button class="utility-button" onclick="toggleCipherPanel()">ŠIFROVACÍ POMŮCKY</button>
+        <span class="sound-controls"><button id="sound-toggle" onclick="toggleSound()" aria-label="Vypnout zvuk">🔊</button><input id="sound-volume" type="range" min="0" max="100" value="55" oninput="setSoundVolume(this.value)" aria-label="Hlasitost zvuků"></span>
     </div>
 
     <aside id="cipher-panel" class="cipher-panel" aria-label="Šifrovací pomůcky" aria-hidden="true">
@@ -1722,67 +1726,74 @@
 
         // --- Zvukový a Notifikační systém ---
         let audioCtx = null;
+        let audioMaster = null;
+        let soundSettings = {muted:false, volume:0.55};
+        try { soundSettings = {...soundSettings, ...JSON.parse(localStorage.getItem('escapeBotSound') || '{}')}; } catch (_) {}
+
+        function ensureAudio() {
+            if (!audioCtx) {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                audioMaster = audioCtx.createGain();
+                audioMaster.connect(audioCtx.destination);
+            }
+            audioMaster.gain.setTargetAtTime(soundSettings.muted ? 0 : Number(soundSettings.volume), audioCtx.currentTime, .015);
+            if (audioCtx.state === 'suspended') void audioCtx.resume();
+            return audioCtx;
+        }
+
+        function synthTone(frequency, duration=.12, delay=0, waveform='sine', level=.12, endFrequency=null) {
+            const ctx = ensureAudio(), start = ctx.currentTime + delay;
+            const oscillator = ctx.createOscillator(), gain = ctx.createGain();
+            oscillator.type = waveform; oscillator.frequency.setValueAtTime(frequency, start);
+            if (endFrequency) oscillator.frequency.exponentialRampToValueAtTime(Math.max(20, endFrequency), start + duration);
+            gain.gain.setValueAtTime(Math.max(.0001, level), start);
+            gain.gain.exponentialRampToValueAtTime(.0001, start + duration);
+            oscillator.connect(gain); gain.connect(audioMaster); oscillator.start(start); oscillator.stop(start + duration);
+        }
+
+        function synthNoise(duration=.1, level=.08, filterFrequency=1200) {
+            const ctx = ensureAudio(), length = Math.ceil(ctx.sampleRate * duration);
+            const buffer = ctx.createBuffer(1, length, ctx.sampleRate), data = buffer.getChannelData(0);
+            for (let index = 0; index < length; index++) data[index] = Math.random() * 2 - 1;
+            const source = ctx.createBufferSource(), filter = ctx.createBiquadFilter(), gain = ctx.createGain();
+            source.buffer = buffer; filter.type = 'bandpass'; filter.frequency.value = filterFrequency;
+            gain.gain.setValueAtTime(level, ctx.currentTime); gain.gain.exponentialRampToValueAtTime(.0001, ctx.currentTime + duration);
+            source.connect(filter); filter.connect(gain); gain.connect(audioMaster); source.start();
+        }
         
         function playSound(type) {
+            if (soundSettings.muted || Number(soundSettings.volume) <= 0) return;
             try {
-                if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-                if (audioCtx.state === 'suspended') audioCtx.resume();
-                
-                const osc = audioCtx.createOscillator();
-                const gain = audioCtx.createGain();
-                osc.connect(gain);
-                gain.connect(audioCtx.destination);
-                
-                if (type === 'error') {
-                    osc.type = 'sawtooth';
-                    osc.frequency.setValueAtTime(150, audioCtx.currentTime);
-                    osc.frequency.exponentialRampToValueAtTime(50, audioCtx.currentTime + 0.3);
-                    gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
-                    gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.3);
-                    osc.start(); osc.stop(audioCtx.currentTime + 0.3);
-                } else if (type === 'success') {
-                    osc.type = 'square';
-                    osc.frequency.setValueAtTime(400, audioCtx.currentTime);
-                    osc.frequency.setValueAtTime(600, audioCtx.currentTime + 0.1);
-                    gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
-                    gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.2);
-                    osc.start(); osc.stop(audioCtx.currentTime + 0.2);
-                } else if (type === 'type') {
-                    // Zvuk psaní na stroji (terminál)
-                    osc.type = 'triangle';
-                    osc.frequency.setValueAtTime(120 + Math.random() * 40, audioCtx.currentTime); // Mírná náhodnost tónu
-                    gain.gain.setValueAtTime(0.03, audioCtx.currentTime); // Velmi potichu
-                    gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.02); // Extrémně krátké (20ms)
-                    osc.start(); osc.stop(audioCtx.currentTime + 0.02);
-                } else if (type === 'glitch') {
-                    // Generování analogového šumu pro prasknutí
-                    const bufferSize = audioCtx.sampleRate * 0.08;
-                    const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
-                    const data = buffer.getChannelData(0);
-                    for (let i = 0; i < bufferSize; i++) data[i] = Math.random() * 2 - 1;
-                    const noise = audioCtx.createBufferSource(); noise.buffer = buffer;
-                    const filter = audioCtx.createBiquadFilter(); filter.type = 'highpass'; filter.frequency.value = 1500;
-                    noise.connect(filter); filter.connect(gain);
-                    gain.gain.setValueAtTime(0.06, audioCtx.currentTime);
-                    gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.07);
-                    noise.start(); return; // Zabránění spuštění základního oscilátoru
-                } else {
-                    osc.type = 'sine';
-                    osc.frequency.setValueAtTime(800, audioCtx.currentTime);
-                    gain.gain.setValueAtTime(0.05, audioCtx.currentTime);
-                    gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.1);
-                    osc.start(); osc.stop(audioCtx.currentTime + 0.1);
-                }
+                const patterns = {
+                    success:[[440,.1,0,'square'],[660,.16,.09,'square']], checkpoint:[[260,.12,0,'sine'],[520,.16,.1,'sine'],[780,.22,.2,'sine']],
+                    puzzle:[[390,.08,0,'triangle'],[520,.1,.07,'triangle'],[780,.18,.14,'triangle']], captain:[[520,.08,0,'triangle'],[660,.1,.09,'triangle']],
+                    lost:[[330,.1,0,'sine'],[440,.13,.1,'sine']], system:[[880,.05,0,'square']], step:[[150,.055,0,'triangle']],
+                    push:[[95,.12,0,'square',.16,65],[180,.08,.08,'triangle']], jigsaw:[[240,.05,0,'triangle'],[310,.06,.045,'triangle']],
+                    warning:[[720,.1,0,'square'],[720,.1,.18,'square']], tick:[[330,.08,0,'square']], machine:[[70,.8,0,'sawtooth',.11,150],[220,.5,.35,'sine']],
+                    anomaly:[[180,.35,0,'sawtooth',.18,45]], error:[[150,.3,0,'sawtooth',.13,50]], info:[[800,.1,0,'sine']], type:[[135,.018,0,'triangle',.018]],
+                };
+                if (type === 'glitch') { synthNoise(.13,.1,1800); synthTone(90,.18,0,'sawtooth',.08,45); return; }
+                (patterns[type] || patterns.info).forEach(args => synthTone(...args));
             } catch (e) { console.warn("Audio zablokováno prohlížečem, dokud hráč neklikne na stránku."); }
         }
 
-        function showNotification(message, type = 'info') {
+        function persistSoundSettings() { localStorage.setItem('escapeBotSound', JSON.stringify(soundSettings)); }
+        function renderSoundControls() {
+            const button = document.getElementById('sound-toggle'), slider = document.getElementById('sound-volume');
+            if (button) { button.textContent = soundSettings.muted ? '🔇' : '🔊'; button.setAttribute('aria-label', soundSettings.muted ? 'Zapnout zvuk' : 'Vypnout zvuk'); }
+            if (slider) slider.value = String(Math.round(Number(soundSettings.volume) * 100));
+        }
+        function toggleSound() { soundSettings.muted = !soundSettings.muted; persistSoundSettings(); renderSoundControls(); if (!soundSettings.muted) playSound('success'); }
+        function setSoundVolume(value) { soundSettings.volume = Math.max(0, Math.min(1, Number(value) / 100)); soundSettings.muted = false; persistSoundSettings(); renderSoundControls(); if (audioMaster && audioCtx) audioMaster.gain.setTargetAtTime(soundSettings.volume, audioCtx.currentTime, .02); }
+        renderSoundControls();
+
+        function showNotification(message, type = 'info', sound = type) {
             const container = document.getElementById('hud-notifications');
             const toast = document.createElement('div');
             toast.className = `hud-toast ${type === 'error' ? 'error' : ''}`;
             toast.innerText = `> ${message}`;
             container.appendChild(toast);
-            playSound(type);
+            if (sound) playSound(sound);
             
             setTimeout(() => toast.remove(), 3500);
         }
@@ -1948,6 +1959,7 @@
                 }
                 else if (msg.type === 'bot.message') {
                     const channel = msg.payload.channel || 'general';
+                    playSound(channel === 'captain' ? 'captain' : (channel === 'lost' ? 'lost' : 'system'));
                     const chatBox = document.getElementById('chat-' + channel);
                     if (!isChannelVisible(channel)) markChannelUnread(channel);
                     
@@ -1975,7 +1987,7 @@
                                 chatBox.scrollTop = chatBox.scrollHeight;
                                 
                                 // Přehrajeme zvuk, pokud zrovna nepíšeme mezeru (dělá to lepší rytmus)
-                                if (char.trim() !== '') playSound('type');
+                                if (char.trim() !== '' && charIndex % 3 === 0) playSound('type');
                                 
                                 setTimeout(typeNextChar, 15 + Math.random() * 20); // Simulace rychlosti psaní
                             }
@@ -2084,30 +2096,31 @@
                     } else if (msg.payload.duplicate) {
                         showNotification('Tato časová kotva už byla zaznamenána.', 'info');
                     } else {
-                        showNotification(`Časová kotva aktivována: ${msg.payload.checkpoint_id}`, 'success');
+                        showNotification(`Časová kotva aktivována: ${msg.payload.checkpoint_id}`, 'success', 'checkpoint');
                         document.body.classList.add('checkpoint-unlock');
                         setTimeout(() => document.body.classList.remove('checkpoint-unlock'), 850);
-                        if (msg.payload.puzzle_id) showNotification('V archivu byla zpřístupněna nová hádanka.', 'success');
+                        if (msg.payload.puzzle_id) showNotification('V archivu byla zpřístupněna nová hádanka.', 'success', null);
                     }
                 }
                 else if (msg.type === 'puzzle.result') {
                     if (msg.payload.correct) {
-                        showNotification(msg.payload.already_solved ? 'Hádanka už byla vyřešena.' : 'Správné řešení. Checkpoint dokončen.', 'success');
+                        showNotification(msg.payload.already_solved ? 'Hádanka už byla vyřešena.' : 'Správné řešení. Checkpoint dokončen.', 'success', 'puzzle');
                     } else {
                         showNotification(msg.payload.reason || 'Kombinace není správná.', 'error');
                     }
                 }
                 else if (msg.type === 'finale.result') {
                     if (msg.payload.success) {
-                        showNotification(msg.payload.already_complete ? 'Stroj času už byl stabilizován.' : `Návratová sekvence přijata · ${msg.payload.rating}`, 'success');
+                        showNotification(msg.payload.already_complete ? 'Stroj času už byl stabilizován.' : `Návratová sekvence přijata · ${msg.payload.rating}`, 'success', msg.payload.already_complete ? 'success' : null);
                     } else {
                         const missing = [...(msg.payload.missing_inventory || []), ...(msg.payload.missing_checkpoints || [])];
                         showNotification(`${msg.payload.reason || 'Finální sekvence byla odmítnuta.'}${missing.length ? ` Chybí: ${missing.join(', ')}` : ''}`, 'error');
                     }
                 }
                 else if (msg.type === 'archive.result') {
-                    if (!msg.payload.success) showNotification(msg.payload.reason || 'Kartu nelze přesunout.', 'error');
-                    else if (msg.payload.assembled) showNotification('Karty navazují. Archiv odhalil klíč.', 'success');
+                    if (!msg.payload.success) showNotification(msg.payload.reason || 'Dílek nelze přesunout.', 'error');
+                    else if (msg.payload.assembled) showNotification('Obraz je kompletní. Archiv odhalil klíč.', 'success', 'puzzle');
+                    else playSound('jigsaw');
                 }
                 else if (msg.type === 'line_game.result') {
                     if (!msg.payload.success) {
@@ -2126,7 +2139,7 @@
                 }
                 else if (msg.type === 'karel.result') {
                     if (!msg.payload.success) showNotification(msg.payload.reason || 'Pohyb nelze provést.', 'error');
-                    else if ((msg.payload.frames || []).length) prepareKarelAnimation(msg.payload);
+                    else if ((msg.payload.frames || []).length) { playSound(msg.payload.hit_mine ? 'anomaly' : 'step'); prepareKarelAnimation(msg.payload); }
                     else if (msg.payload.reset) showNotification('Minové pole obnoveno.', 'info');
                 }
                 else if (msg.type === 'triad.result') {
@@ -2135,7 +2148,7 @@
                 }
                 else if (msg.type === 'sokoban.result') {
                     if (!msg.payload.success) showNotification(msg.payload.reason || 'Pohyb nelze provést.', 'error');
-                    else if ((msg.payload.frames || []).length || msg.payload.blocked) prepareSokobanAnimation(msg.payload);
+                    else if ((msg.payload.frames || []).length || msg.payload.blocked) { playSound(Number(msg.payload.pushes) > 0 ? 'push' : 'step'); prepareSokobanAnimation(msg.payload); }
                     if (msg.payload.game_complete) showNotification('Energetická mřížka stabilizována!', 'success');
                     else if (msg.payload.reset) showNotification('Servisní mřížka obnovena.', 'info');
                     else if (msg.payload.undo) showNotification('Poslední krok vrácen.', 'info');
@@ -2173,13 +2186,13 @@
                 }
                 else if (msg.type === 'effect.trigger') {
                     if (msg.payload.effect === 'finale') {
-                        playSound('success');
+                        playSound('machine');
                         document.body.classList.add('glitch-active');
                         setTimeout(() => document.body.classList.remove('glitch-active'), 900);
                         startFinaleEffect(Math.round((msg.payload.duration_ms || 10000) / 1000));
                     } else if (msg.payload.effect === 'glitch') {
                         document.body.classList.add('glitch-active');
-                        playSound('error');
+                        playSound('glitch');
                         setTimeout(() => {
                             document.body.classList.remove('glitch-active');
                         }, msg.payload.duration_ms || 1000);
@@ -2485,7 +2498,8 @@
                 const online = Math.min(3, Math.max(0, Math.floor(elapsed / Math.max(1, total / 4))));
                 const finalPulse = remaining <= 1;
                 overlay.innerHTML = `<div>${finalPulse ? 'ELARA' : remaining}<small>${finalPulse ? 'NÁVRAT POTVRZEN' : (online < 3 ? 'AKTIVACE TEMPORÁLNÍCH MODULŮ' : 'STABILIZACE ČASOVÉ OSY')}</small><div class="finale-modules-live">${['MOTOR','STABILIZÁTOR','KOTVA'].map((label,index) => `<span class="${index < online ? 'online' : ''}">${label}</span>`).join('')}</div></div>`;
-                if (remaining-- <= 1) { if (timer) clearInterval(timer); playSound('success'); setTimeout(() => overlay.remove(), 1400); }
+                playSound(finalPulse ? 'success' : 'tick');
+                if (remaining-- <= 1) { if (timer) clearInterval(timer); setTimeout(() => overlay.remove(), 1400); }
             };
             tick(); timer = setInterval(tick, 1000);
         }
@@ -2717,11 +2731,15 @@
             return `${Math.floor(safe / 60)}:${String(Math.floor(safe % 60)).padStart(2, '0')}`;
         }
 
+        const timerAudioWarnings = new Set();
         function updateLineGameTimers() {
             document.querySelectorAll('.line-game-timer, .sokoban-timer').forEach(timer => {
                 const remaining = Math.max(0, Math.floor((new Date(timer.dataset.deadline).getTime() - Date.now()) / 1000));
                 timer.textContent = `ČAS ${formatLineGameTime(remaining)}`;
                 if (remaining === 0) timer.style.color = '#f44';
+                const warningKey = `${timer.dataset.deadline}:${remaining}`;
+                if ((remaining === 30 || remaining === 10) && !timerAudioWarnings.has(warningKey)) { timerAudioWarnings.add(warningKey); playSound('warning'); }
+                else if (remaining > 0 && remaining <= 5 && !timerAudioWarnings.has(warningKey)) { timerAudioWarnings.add(warningKey); playSound('tick'); }
             });
         }
         setInterval(updateLineGameTimers, 1000);

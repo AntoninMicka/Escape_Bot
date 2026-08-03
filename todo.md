@@ -25,7 +25,7 @@
 
 ## 6. Vizuální a zvukové efekty (GL Shadery)
 - [x] Atmosférické efekty přes hardwarovou akceleraci (CRT, glitching, odlesky).
-- [ ] Synchronizace zvukového designu s akcemi hráče.
+- [x] Synchronizace základního offline zvukového designu s interkomem, checkpointy, hádankami, Karlem, Sokobanem, jigsaw puzzle a finále; uživatelská hlasitost a mute.
 
 ## 7. Vizuální editor her (Produkční nástroje)
 - [ ] Nodové rozhraní (desktop Qt/C++) pro návrh příběhových větví a stavového automatu.
