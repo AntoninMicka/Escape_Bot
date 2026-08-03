@@ -552,6 +552,40 @@
 - [x] Aktualizovat podpůrné chaty samostatným WebSocket push přenosem a polling omezit pouze na právě otevřený přehled týmů.
 - [x] Zobrazit v admin detailu správná řešení a serverem řízené předvolby postihů pro ruční dokončení či technický skip bez postihu.
 
+### 13.17 Globální start, deadline a společné vyhodnocení
+**Cíl:** umožnit registraci a sestavení týmů před prezentací, ale zpřístupnit samotnou hru všem až ručním povelem pořadatele nebo v předem nastavený čas. Stejným způsobem musí jít hru společně ukončit a uzavřít výsledky.
+
+#### Stav globálního herního okna
+- [ ] Zavést serverem řízené stavy `REGISTRACE`, `HRA_POVOLENA` a `HRA_UKONČENA` nezávislé na fázi jednotlivých týmů.
+- [ ] Ve stavu `REGISTRACE` povolit vytvoření týmu, připojování hráčů, změny sestavy a čekárnu, ale nepovolit spuštění ani žádnou herní akci.
+- [ ] Ve stavu `HRA_POVOLENA` povolit týmům zahájit nebo pokračovat ve hře podle jejich vlastního uloženého postupu.
+- [ ] Ve stavu `HRA_UKONČENA` odmítat nové herní tahy, odpovědi, QR checkpointy a placené nápovědy; zachovat pouze prohlížení konečného stavu, výsledků a podpory.
+- [ ] Globální stav, plánované časy a administrátorské změny ukládat perzistentně a obnovit je po restartu serveru.
+
+#### Startovní čára
+- [ ] Umožnit administrátorovi nastavit volitelný čas automatického startu `start_at` včetně časové zóny a srozumitelného lokálního zobrazení.
+- [ ] Umožnit ruční povel `SPUSTIT HRU NYNÍ`, který okamžitě přepne čekající týmy do stavu `HRA_POVOLENA` bez čekání na `start_at`.
+- [ ] Umožnit naplánovaný start změnit nebo zrušit, dokud hra nebyla spuštěna.
+- [ ] V čekárně zobrazit stav „Registrace dokončena, čekáme na společný start“ a případně živý odpočet k `start_at`.
+- [ ] Rozeslat změnu globálního stavu přes WebSocket všem připojeným lobby a herním klientům bez nutnosti obnovení stránky.
+- [ ] Zabránit obejití startu přímým WebSocket/HTTP požadavkem; oprávnění kontrolovat autoritativně na backendu u všech herních akcí.
+
+#### Deadline a ukončení
+- [ ] Umožnit administrátorovi nastavit volitelný automatický konec `end_at` včetně časové zóny.
+- [ ] Umožnit ruční povel `UKONČIT VŠECHNY HRY NYNÍ` s potvrzením a náhledem počtu aktivních týmů.
+- [ ] Umožnit automatický konec před jeho dosažením odložit o zadaný počet minut, přesunout na konkrétní čas nebo úplně zrušit.
+- [ ] Po automatickém či ručním konci atomicky uzavřít všechny dosud nedokončené relace se společným časem ukončení a důvodem `deadline` nebo `admin`.
+- [ ] Před koncem zobrazit týmům serverem řízená varování, například 15, 5 a 1 minutu před deadline; po odložení přepočítat další upozornění.
+- [ ] Rozlišit dokončení příběhu týmem od administrativního ukončení v čase, aby Síň slávy a vyhodnocení neoznačovaly nedokončenou hru jako úspěšně dohranou.
+
+#### Vyhodnocení a správa výjimek
+- [ ] Po uzavření her vytvořit neměnný výsledkový snapshot každého týmu: skóre, dosažený checkpoint, dokončení, počet nápověd, čas startu a čas ukončení.
+- [ ] V administraci zobrazit společnou výsledkovou tabulku i nedokončené týmy a umožnit export do CSV.
+- [ ] Určit pořadí výsledků: primárně dokončení příběhu, následně skóre a jako další kritérium čas dokončení; pravidlo viditelně uvést před startem.
+- [ ] Evidovat audit každého nastavení, spuštění, odložení, zrušení deadline a ručního ukončení včetně administrátora a času.
+- [ ] Připravit nouzovou výjimku pro konkrétní tým pouze jako explicitní administrátorský zásah; výchozí globální start a konec musí platit pro všechny stejně.
+- [ ] Otestovat registraci před startem, souběžný automatický start, ruční předčasný start, odložení a zrušení konce, restart serveru před časem T a souběh deadline s právě zpracovávaným tahem.
+
 ## 14. Migrace na cloud
 
 - [ ] Zmrazit deterministický produkční průchod bez povinné závislosti na Ollamě nebo ComfyUI.
