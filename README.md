@@ -23,6 +23,8 @@ Escape_Bot/
   todo.md           Projektový checklist
 ```
 
+Návrh přenosné lokální infrastruktury, včetně centralizované varianty MikroTik a experimentálního distribuovaného Turris meshe, je v dokumentu [`docs/portable-infrastructure.md`](docs/portable-infrastructure.md).
+
 ## Rychlý start backendu
 
 ```bash
