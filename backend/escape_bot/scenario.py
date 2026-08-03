@@ -18,7 +18,31 @@ class ScenarioLoader:
     def load(filepath: str) -> Scenario:
         with open(filepath, "r", encoding="utf-8") as f:
             data = json.load(f)
-        return Scenario(data)
+        scenario = Scenario(data)
+        validate_checkpoint_navigation(scenario)
+        return scenario
+
+
+def validate_checkpoint_navigation(scenario: Scenario) -> None:
+    """Ensure the declared route cannot silently skip a checkpoint."""
+    ordered = [
+        str(node["id"]) for node in scenario.data.get("scenario_flow", [])
+        if node.get("kind") == "checkpoint"
+    ]
+    checkpoints = scenario.data.get("checkpoints", {})
+    if set(ordered) != set(checkpoints):
+        missing = sorted(set(ordered) ^ set(checkpoints))
+        raise ValueError(f"Checkpointy a scenario_flow se liší: {', '.join(missing)}")
+    for index, checkpoint_id in enumerate(ordered):
+        checkpoint = checkpoints[checkpoint_id]
+        expected_next = ordered[index + 1] if index + 1 < len(ordered) else None
+        declared_next = checkpoint.get("next_checkpoint")
+        if declared_next != expected_next:
+            raise ValueError(f"Checkpoint {checkpoint_id} musí odkazovat na {expected_next or 'konec trasy'}.")
+        if expected_next and not checkpoint.get("navigation_message", {}).get("text"):
+            raise ValueError(f"Checkpoint {checkpoint_id} nemá navigační zprávu.")
+        if index and ordered[index - 1] not in checkpoint.get("requires", []):
+            raise ValueError(f"Checkpoint {checkpoint_id} může přeskočit předchozí stanoviště {ordered[index - 1]}.")
 
 
 def _parse_event_time(value: object) -> datetime | None:

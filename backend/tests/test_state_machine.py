@@ -1,4 +1,5 @@
 import unittest
+from copy import deepcopy
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
@@ -7,7 +8,7 @@ from escape_bot.line_game import completion_time_score
 from escape_bot.mine_karel import new_game as new_karel, public_game as public_karel, safe_path, validate_level
 from escape_bot.sokoban import execute as execute_sokoban, new_game as new_sokoban, parse_commands
 from escape_bot.team_lobby import LobbyRegistry, classify_activity, team_size_adjustment
-from escape_bot.scenario import ScenarioLoader, build_checkpoint_qr_set, build_demo_checkpoint_catalog, build_puzzle_telemetry, build_scenario_progress
+from escape_bot.scenario import Scenario, ScenarioLoader, build_checkpoint_qr_set, build_demo_checkpoint_catalog, build_puzzle_telemetry, build_scenario_progress, validate_checkpoint_navigation
 from escape_bot.state_machine import EscapeBotStateMachine, GamePhase
 
 
@@ -107,6 +108,19 @@ class StateMachineCheckpointTests(unittest.IsolatedAsyncioTestCase):
         qr_set = build_checkpoint_qr_set(self.scenario)
         self.assertEqual([item["id"] for item in qr_set], [node["id"] for node in self.scenario.data["scenario_flow"] if node["id"] in self.scenario.data["checkpoints"]])
         self.assertTrue(all(str(item["value"]).startswith("escapebot://checkpoint/") for item in qr_set))
+
+    def test_every_checkpoint_points_to_immediate_next_station(self) -> None:
+        validate_checkpoint_navigation(self.scenario)
+        broken = deepcopy(self.scenario.data)
+        broken["checkpoints"]["staircase_signal"]["next_checkpoint"] = "bowling_diagnostics"
+        with self.assertRaisesRegex(ValueError, "courtyard_minefield"):
+            validate_checkpoint_navigation(Scenario(broken))
+
+    async def test_staircase_warns_when_room_104_was_skipped(self) -> None:
+        self.machine.admin_set_checkpoint("reception_archive", "solved")
+        scanned = await self.scan("staircase_signal")
+        messages = [item.payload.get("text", "") for item in scanned if item.type == "bot.message"]
+        self.assertTrue(any("pokoj 104" in text for text in messages))
 
     async def test_checkpoint_order_is_enforced(self) -> None:
         responses = await self.scan("staircase_signal")
@@ -317,6 +331,8 @@ class StateMachineCheckpointTests(unittest.IsolatedAsyncioTestCase):
         )
         self.assertTrue(self.response(solved, "puzzle.result").payload["correct"])
         self.assertTrue(self.machine.state.flags["bowling_route_unlocked"])
+        messages = [item.payload.get("text", "") for item in solved if item.type == "bot.message"]
+        self.assertTrue(any("nádvoří" in text for text in messages))
 
         await self.solve_karel()
         allowed = await self.scan("bowling_diagnostics")

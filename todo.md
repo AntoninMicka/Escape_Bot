@@ -440,6 +440,7 @@
 - [x] Připravit Game Masterovi možnost ručně potvrdit nebo přeskočit porouchaný checkpoint.
 
 ### 13.12 Hádanky, nápovědy a testování
+- [x] Prověřit navigační odkazy mezi všemi checkpointy, doplnit postavám přechodové repliky a automaticky odmítnout scénář, který by přeskočil bezprostředně předchozí stanoviště.
 - [ ] U každé hádanky napsat zadání, řešení, mezikroky a akceptované varianty odpovědi.
 - [x] U všech šifrovacích hádanek připravit tři statické stupně nápověd s jednorázovou penalizací.
 - [ ] Střídat logické úlohy, klasické šifry, pohyb a manipulaci s artefakty.

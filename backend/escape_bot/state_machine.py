@@ -295,6 +295,10 @@ class EscapeBotStateMachine:
     def _apply_checkpoint_rewards(self, checkpoint: dict[str, Any]) -> None:
         self._apply_rewards(checkpoint.get("rewards", {}))
 
+    def _navigation_message(self, checkpoint_id: str, message: Message) -> Message | None:
+        navigation = self.scenario.data.get("checkpoints", {}).get(checkpoint_id, {}).get("navigation_message")
+        return reply("bot.message", navigation, message) if navigation else None
+
     def admin_set_checkpoint(self, checkpoint_id: str, status: str) -> dict[str, Any]:
         """Apply an explicit Game Master override without gameplay score bonuses."""
         checkpoint = self.scenario.data.get("checkpoints", {}).get(checkpoint_id)
@@ -560,7 +564,7 @@ class EscapeBotStateMachine:
         msg_template = checkpoint.get("message", self.scenario.data.get("global_events", {}).get("qr_detected", {})).copy()
         msg_template["text"] = msg_template.get("text", "").replace("{checkpoint_id}", checkpoint_id)
 
-        return [
+        responses = [
             reply("qr.result", {
                 "accepted": True,
                 "duplicate": False,
@@ -569,9 +573,12 @@ class EscapeBotStateMachine:
                 "status": checkpoint_status,
             }, message),
             reply("bot.message", msg_template, message),
-            Message("effect.trigger", {"effect": "glitch", "intensity": 0.35, "duration_ms": 900}),
-            self._state_message(),
         ]
+        warning = checkpoint.get("warning_if_missing_flag")
+        if warning and not self.state.flags.get(str(warning.get("flag", ""))):
+            responses.append(reply("bot.message", warning.get("message", {}), message))
+        responses.extend([Message("effect.trigger", {"effect": "glitch", "intensity": 0.35, "duration_ms": 900}), self._state_message()])
+        return responses
 
     async def _handle_puzzle_submit(self, message: Message) -> list[Message]:
         puzzle_id = str(message.payload.get("puzzle_id", "")).strip()
@@ -612,11 +619,14 @@ class EscapeBotStateMachine:
         checkpoint_state["solved_at"] = now
         checkpoint = self.scenario.data.get("checkpoints", {}).get(checkpoint_id, {})
         self._apply_checkpoint_rewards(checkpoint)
-        return [
+        responses = [
             reply("puzzle.result", {"correct": True, "puzzle_id": puzzle_id, "attempts": self.state.puzzle_attempts[puzzle_id]}, message),
             reply("bot.message", puzzle.get("success_message", {}), message),
-            self._state_message(),
         ]
+        navigation = self._navigation_message(checkpoint_id, message)
+        if navigation: responses.append(navigation)
+        responses.append(self._state_message())
+        return responses
 
     def _archive_game_state(self, puzzle_id: str, puzzle: dict[str, Any]) -> dict[str, Any]:
         config = puzzle.get("assembly", {})
@@ -781,6 +791,8 @@ class EscapeBotStateMachine:
                 reply("puzzle.result", {"correct": True, "puzzle_id": puzzle_id}, message),
                 reply("bot.message", puzzle.get("success_message", {}), message),
             ])
+            navigation = self._navigation_message(str(puzzle.get("checkpoint_id", "")), message)
+            if navigation: responses.append(navigation)
         responses.append(self._state_message())
         return responses
 
@@ -847,6 +859,8 @@ class EscapeBotStateMachine:
             checkpoint_state["status"] = "solved"; checkpoint_state["solved_at"] = datetime.now(UTC).isoformat()
             self._apply_checkpoint_rewards(self.scenario.data.get("checkpoints", {}).get(checkpoint_id, {}))
             responses.extend([reply("puzzle.result", {"correct": True, "puzzle_id": puzzle_id}, message), reply("bot.message", puzzle.get("success_message", {}), message)])
+            navigation = self._navigation_message(checkpoint_id, message)
+            if navigation: responses.append(navigation)
         if result["score_delta"]:
             responses.append(reply("score.update", {"score": self.state.score, "delta": result["score_delta"], "bonus": max(0, result["score_delta"]), "penalty": max(0, -result["score_delta"]), "reason": "mine_karel"}, message))
         responses.append(self._state_message())
@@ -876,6 +890,8 @@ class EscapeBotStateMachine:
             checkpoint["status"] = "solved"; checkpoint["solved_at"] = datetime.now(UTC).isoformat(); self._apply_checkpoint_rewards(self.scenario.data.get("checkpoints", {}).get(checkpoint_id, {}))
             bonus = int(puzzle.get("game", {}).get("completion_bonus", 60)); self.state.score += bonus
             responses.extend([reply("score.update", {"score": self.state.score, "delta": bonus, "bonus": bonus, "penalty": 0, "reason": "triad"}, message), reply("puzzle.result", {"correct": True, "puzzle_id": puzzle_id}, message), reply("bot.message", puzzle.get("success_message", {}), message)])
+            navigation = self._navigation_message(checkpoint_id, message)
+            if navigation: responses.append(navigation)
         responses.append(self._state_message()); return responses
 
     async def _handle_triad_reset(self, message: Message) -> list[Message]:
@@ -971,6 +987,8 @@ class EscapeBotStateMachine:
                 reply("puzzle.result", {"correct": True, "puzzle_id": puzzle_id}, message),
                 reply("bot.message", puzzle.get("success_message", {}), message),
             ])
+            navigation = self._navigation_message(str(puzzle.get("checkpoint_id", "")), message)
+            if navigation: responses.append(navigation)
         responses.append(self._state_message())
         return responses
 

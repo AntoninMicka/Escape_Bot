@@ -137,7 +137,7 @@
       ],
       "success_messages": [
         {"text": "Přístupový panel dveří 104 odemčen. Elektromagnetický zámek uvolněn.", "mood": "success", "channel": "general"},
-        {"text": "Slyšela jsem cvaknutí! Ty dveře do pokoje 104 se právě otevřely. Jdu dovnitř...", "mood": "relieved", "channel": "lost"}
+        {"text": "Slyšela jsem cvaknutí! Pokoj 104 je otevřený a archivní stopa zajištěná. Teď pokračujte ke schodišti a najděte tam další časovou kotvu.", "mood": "relieved", "channel": "lost"}
       ]
     }
   },
@@ -248,7 +248,7 @@
         "score_points_per_interval": 5,
         "seed": 5312026
       },
-      "success_message": {"text": "Oba časové proudy drží! Kalibrace 5–3–1 je dokončena a sportovní archiv se znovu objevil na Chronomapě.", "mood": "success", "channel": "lost"},
+      "success_message": {"text": "Oba časové proudy drží! Kalibrace 5–3–1 je dokončena a venkovní časové ozvěny jsou znovu čitelné.", "mood": "success", "channel": "lost"},
       "failure_message": {"text": "Kalibrační prostor se zahltil. Obnovte aktuální etapu a zkuste uzly rozložit úsporněji.", "mood": "error", "channel": "general"}
     },
     "courtyard_karel": {
@@ -317,7 +317,7 @@
           }
         ]
       },
-      "success_message": {"text": "Všechny tři servisní sektory jsou stabilní. Síť se rozběhla a KRYSTAL ČASOVÉ KOTVY se znovu materializoval ve vašem čase.", "mood": "success", "channel": "lost"},
+      "success_message": {"text": "Všechny tři servisní sektory jsou stabilní. Síť se rozběhla a archiv vydal obě části šifrovací tabulky.", "mood": "success", "channel": "lost"},
       "failure_message": {"text": "Článek se v této poloze nepohne. Potřebuji se k němu dostat z jiné strany.", "mood": "error", "channel": "lost"}
     },
     "sports_pigpen": {
@@ -410,6 +410,8 @@
       "requires": [],
       "requires_phase": "navigating",
       "puzzle_id": "reception_deduction",
+      "next_checkpoint": "staircase_signal",
+      "navigation_message": {"text": "Než opustíte recepci, použijte obnovený servisní otisk k odemčení virtuálního pokoje 104. Potom pokračujte ke schodišti; tam leží další časová kotva.", "mood": "focused", "channel": "captain"},
       "rewards": {"flags": ["reception_archive_unlocked"]},
       "message": {"text": "Časová kotva na recepci potvrzena. CHRONOMAPA obnovila recepční archiv.", "mood": "focused", "channel": "captain"}
     },
@@ -418,6 +420,9 @@
       "token": "74c67eaf38ef4b72b22f5c971b7bb7bd",
       "requires": ["reception_archive"],
       "puzzle_id": "staircase_semaphore",
+      "next_checkpoint": "courtyard_minefield",
+      "navigation_message": {"text": "Záznam skutečně ukazuje na bowling, ale přímá trasa je přerušená. Nejdřív aktivujte nestabilní kotvu na nádvoří a proveďte Elaru minovým polem.", "mood": "alert", "channel": "captain"},
+      "warning_if_missing_flag": {"flag": "room_104_unlocked", "message": {"text": "Schodišťová kotva reaguje, ale pokoj 104 jste nechali zamčený. Než se dostanete k finále, vraťte se k virtuálnímu panelu a použijte servisní otisk z recepce.", "mood": "tense", "channel": "lost"}},
       "found_rewards": {"cipher_tools": ["semaphore"]},
       "rewards": {"flags": ["bowling_route_unlocked"]},
       "message": {"text": "Další časová kotva drží. Z trosek se podařilo obnovit poškozený obrazový záznam; jeho význam ale nedokážu z této vrstvy spolehlivě určit.", "mood": "relieved", "channel": "lost"}
@@ -427,6 +432,8 @@
       "token": "a9dc930b787a4be6a5344e524d56073b",
       "requires": ["courtyard_minefield"],
       "puzzle_id": "bowling_binary",
+      "next_checkpoint": "timeline_calibration",
+      "navigation_message": {"text": "Motor máme. Chronomapa nyní zvýraznila kalibrační terminál časové osy; pokračujte k němu dřív, než se oba časové proudy znovu rozladí.", "mood": "focused", "channel": "captain"},
       "found_rewards": {"cipher_tools": ["binary_ascii"]},
       "rewards": {"inventory": ["TEMPORÁLNÍ MOTOR"], "flags": ["temporal_motor_recovered"]},
       "message": {"text": "Bowlingová kotva aktivní. Terminál obnovil binární diagnostický záznam a referenci ASCII.", "mood": "focused", "channel": "captain"}
@@ -436,6 +443,8 @@
       "token": "8fd7cd0a5c844702bc384665e864d335",
       "requires": ["timeline_calibration"],
       "puzzle_id": "terrace_morse",
+      "next_checkpoint": "courtyard_alignment",
+      "navigation_message": {"text": "HŘIŠTĚ potvrzeno. Ve sportovním areálu nejprve najděte kotvu zarovnání časových uzlů; až potom půjde otevřít samotný sportovní archiv.", "mood": "focused", "channel": "captain"},
       "rewards": {"inventory": ["FÁZOVÝ STABILIZÁTOR"], "flags": ["phase_stabilizer_recovered"]},
       "message": {"text": "Kotva u terasy zachytila noční světelný přenos. Obrazový záznam byl uložen do archivu hádanek.", "mood": "alert", "channel": "lost"}
     },
@@ -444,6 +453,8 @@
       "token": "9c6fa028b7614a669c9c43def9df1ba8",
       "requires": ["bowling_diagnostics"],
       "puzzle_id": "timeline_lines",
+      "next_checkpoint": "terrace_echo",
+      "navigation_message": {"text": "Kalibrace odhalila další ozvěnu venku u terasy a rybníka. Hledejte tam časovou kotvu s nočním obrazovým přenosem.", "mood": "alert", "channel": "lost"},
       "rewards": {"flags": ["timeline_calibrated"]},
       "message": {"text": "Kalibrační terminál je aktivní. Dva časové proudy se rozpadají; srovnejte jejich uzly do stabilních řad.", "mood": "focused", "channel": "captain"}
     },
@@ -452,6 +463,8 @@
       "token": "de724be50829411287a0536095cc9148",
       "requires": ["courtyard_alignment"],
       "puzzle_id": "sports_sokoban",
+      "next_checkpoint": "sports_cipher",
+      "navigation_message": {"text": "Napájení archivu drží. V jeho výstupu se objevily dvě části tabulky; přesuňte se ke sportovní šifrovací kotvě a složte je dohromady.", "mood": "focused", "channel": "captain"},
       "rewards": {"cipher_tools": ["pigpen"]},
       "message": {"text": "Sportovní archiv je nalezen, ale jeho servisní síť nemá napájení. Elara je v úplné tmě a mřížku vidíte jen vy na terminálu. Jeden z vás musí sledovat mapu a druhý ji navigovat přes interkom.", "mood": "focused", "channel": "captain"}
     },
@@ -460,6 +473,8 @@
       "token": "fbc646e76f0247d69589de21ea645f95",
       "requires": ["sports_archive"],
       "puzzle_id": "sports_pigpen",
+      "next_checkpoint": "future_archive",
+      "navigation_message": {"text": "Máme všechny tři součásti. Chronomapa zpřístupnila Archiv budoucnosti; otevřete jeho kotvu a obnovte návratový vektor.", "mood": "relieved", "channel": "lost"},
       "rewards": {"inventory": ["KRYSTAL ČASOVÉ KOTVY"], "flags": ["anchor_crystal_recovered", "future_archive_unlocked"]},
       "message": {"text": "Obě části šifrovací tabulky reagují. Složte je a převeďte symboly polského kříže.", "mood": "focused", "channel": "captain"}
     },
@@ -468,6 +483,8 @@
       "token": "4dc33e89b217a3a439dbb96e31c59ea4",
       "requires": ["sports_cipher"],
       "puzzle_id": "future_archive_cipher",
+      "next_checkpoint": "time_machine_console",
+      "navigation_message": {"text": "Vektor je kompletní. Vraťte se do startovní konferenční místnosti k finální konzoli stroje času.", "mood": "alert", "channel": "captain"},
       "found_rewards": {"cipher_tools": ["classical"]},
       "rewards": {"flags": ["return_vector_recovered"]},
       "message": {"text": "Archiv budoucnosti je otevřený. Poškozený obraz stroje času ukrývá návratový vektor pro Elaru.", "mood": "alert", "channel": "lost"}
@@ -485,6 +502,8 @@
       "token": "cb2ee52d5ae74fa6b68f94f59db75d63",
       "requires": ["terrace_echo"],
       "puzzle_id": "temporal_triad",
+      "next_checkpoint": "sports_archive",
+      "navigation_message": {"text": "Uzly drží. Teď můžete pokračovat k Archivu sportovního areálu a obnovit jeho servisní síť.", "mood": "relieved", "channel": "lost"},
       "rewards": {"flags": ["temporal_nodes_aligned"]},
       "message": {"text":"Trojice nestabilních os čeká na zarovnání. Zvolte barvy uzlů a propojte všechny směry.","mood":"focused","channel":"captain"}
     },
@@ -493,6 +512,8 @@
       "token": "6b0f716a2a264cc783d182b93f99a531",
       "requires": ["staircase_signal"],
       "puzzle_id": "courtyard_karel",
+      "next_checkpoint": "bowling_diagnostics",
+      "navigation_message": {"text": "Nádvoří je průchodné. Teď už můžete bezpečně pokračovat na bowling a aktivovat diagnostickou kotvu u kuželek.", "mood": "relieved", "channel": "lost"},
       "rewards": {"flags": ["courtyard_route_stable"]},
       "message": {"text": "Sonda zachytila nestabilní časová pole. Elara vidí jen tmu; rozdělte si mapu a navigaci.", "mood": "tense", "channel": "captain"}
     }
