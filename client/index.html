@@ -341,7 +341,9 @@
         .utility-button { margin-left: auto; background: #001b1b; color: #0ff; border: 1px solid #0aa; }
         .sound-controls { display: inline-flex; align-items: center; gap: 5px; padding: 3px 6px; border: 1px solid #055; background: #001416; }
         .sound-controls button { padding: 6px 8px; min-width: 42px; }
-        .sound-controls input { width: 82px; accent-color: #0cc; }
+        .sound-controls label { display: inline-flex; align-items: center; gap: 3px; font-size: .68rem; color: #8dd; }
+        .sound-controls input { width: 68px; accent-color: #0cc; }
+        .voice-play { margin: 6px 0 0; padding: 5px 8px; font-size: .75rem; border-color: #a7f; color: #daf; }
         .cipher-panel {
             position: fixed; z-index: 900; top: 72px; right: 24px;
             width: min(760px, calc(100vw - 32px)); max-height: calc(100vh - 96px);
@@ -662,7 +664,7 @@
         <button class="tab-button" onclick="openTab('tab-scanner', this)">SKENER (Kamera)</button>
         <button class="tab-button" onclick="openTab('tab-leaderboard', this)">SÍŇ SLÁVY</button>
         <button class="utility-button" onclick="toggleCipherPanel()">ŠIFROVACÍ POMŮCKY</button>
-        <span class="sound-controls"><button id="sound-toggle" onclick="toggleSound()" aria-label="Vypnout zvuk">🔊</button><input id="sound-volume" type="range" min="0" max="100" value="55" oninput="setSoundVolume(this.value)" aria-label="Hlasitost zvuků"></span>
+        <span class="sound-controls"><button id="sound-toggle" onclick="toggleSound()" aria-label="Vypnout zvuk">🔊</button><label>FX<input id="sound-volume" type="range" min="0" max="100" value="55" oninput="setSoundVolume(this.value)" aria-label="Hlasitost efektů"></label><label>HLAS<input id="voice-volume" type="range" min="0" max="100" value="80" oninput="setVoiceVolume(this.value)" aria-label="Hlasitost hlasových zpráv"></label></span>
     </div>
 
     <aside id="cipher-panel" class="cipher-panel" aria-label="Šifrovací pomůcky" aria-hidden="true">
@@ -1727,7 +1729,7 @@
         // --- Zvukový a Notifikační systém ---
         let audioCtx = null;
         let audioMaster = null;
-        let soundSettings = {muted:false, volume:0.55};
+        let soundSettings = {muted:false, volume:0.55, voiceVolume:0.8};
         try { soundSettings = {...soundSettings, ...JSON.parse(localStorage.getItem('escapeBotSound') || '{}')}; } catch (_) {}
 
         function ensureAudio() {
@@ -1779,13 +1781,47 @@
 
         function persistSoundSettings() { localStorage.setItem('escapeBotSound', JSON.stringify(soundSettings)); }
         function renderSoundControls() {
-            const button = document.getElementById('sound-toggle'), slider = document.getElementById('sound-volume');
+            const button = document.getElementById('sound-toggle'), slider = document.getElementById('sound-volume'), voiceSlider = document.getElementById('voice-volume');
             if (button) { button.textContent = soundSettings.muted ? '🔇' : '🔊'; button.setAttribute('aria-label', soundSettings.muted ? 'Zapnout zvuk' : 'Vypnout zvuk'); }
             if (slider) slider.value = String(Math.round(Number(soundSettings.volume) * 100));
+            if (voiceSlider) voiceSlider.value = String(Math.round(Number(soundSettings.voiceVolume) * 100));
         }
         function toggleSound() { soundSettings.muted = !soundSettings.muted; persistSoundSettings(); renderSoundControls(); if (!soundSettings.muted) playSound('success'); }
         function setSoundVolume(value) { soundSettings.volume = Math.max(0, Math.min(1, Number(value) / 100)); soundSettings.muted = false; persistSoundSettings(); renderSoundControls(); if (audioMaster && audioCtx) audioMaster.gain.setTargetAtTime(soundSettings.volume, audioCtx.currentTime, .02); }
+        function setVoiceVolume(value) { soundSettings.voiceVolume = Math.max(0, Math.min(1, Number(value) / 100)); soundSettings.muted = false; persistSoundSettings(); renderSoundControls(); }
         renderSoundControls();
+
+        const voiceMessages = new Map();
+        let voiceMessageCounter = 0;
+        let activeVoiceAudio = null;
+        function registerVoiceMessage(message) {
+            if (!message?.voice_id) return '';
+            const id = `voice-${++voiceMessageCounter}`;
+            voiceMessages.set(id, {text:String(message.text || ''), voice_id:String(message.voice_id), audio_url:String(message.audio_url || '')});
+            return `<button class="voice-play" onclick="playVoiceMessage('${id}')" aria-label="Přehrát hlasovou zprávu">▶ PŘEHRÁT HLAS</button>`;
+        }
+        function playVoiceMessage(id) {
+            const message = voiceMessages.get(id);
+            if (!message || soundSettings.muted) return;
+            if (activeVoiceAudio) { activeVoiceAudio.pause(); activeVoiceAudio = null; }
+            if ('speechSynthesis' in window) window.speechSynthesis.cancel();
+            if (message.audio_url) {
+                activeVoiceAudio = new Audio(message.audio_url);
+                activeVoiceAudio.volume = Number(soundSettings.voiceVolume);
+                activeVoiceAudio.play().catch(() => speakVoiceFallback(message));
+            } else speakVoiceFallback(message);
+        }
+        function speakVoiceFallback(message) {
+            if (!('speechSynthesis' in window)) { showNotification('Toto zařízení nemá dostupné hlasové přehrávání.', 'error'); return; }
+            const utterance = new SpeechSynthesisUtterance(message.text.replace(/\*[^*]+\*/g, ''));
+            utterance.lang = 'cs-CZ'; utterance.volume = Number(soundSettings.voiceVolume);
+            utterance.rate = message.voice_id.startsWith('captain') ? .96 : .9;
+            utterance.pitch = message.voice_id.startsWith('captain') ? .92 : 1.08;
+            const voices = window.speechSynthesis.getVoices();
+            const czech = voices.find(voice => voice.lang.toLowerCase().startsWith('cs'));
+            if (czech) utterance.voice = czech;
+            window.speechSynthesis.speak(utterance);
+        }
 
         function showNotification(message, type = 'info', sound = type) {
             const container = document.getElementById('hud-notifications');
@@ -1949,7 +1985,7 @@
 
                         if (m.role === 'bot') {
                             let sender = channel === 'captain' ? "Kapitánka" : (channel === 'lost' ? "Ztracená" : (channel === 'support' ? (m.sender || 'Game Master') : "Systém"));
-                            chatBox.innerHTML += `<div class="message bot"><img class="avatar" src="${getAvatarURL('bot', channel)}" alt="Avatar"><div class="msg-content"><b>[${sender}]:</b> <span class="msg-text">${m.text}</span></div></div>`;
+                            chatBox.innerHTML += `<div class="message bot"><img class="avatar" src="${getAvatarURL('bot', channel)}" alt="Avatar"><div class="msg-content"><b>[${sender}]:</b> <span class="msg-text">${escapeHtml(m.text || '')}</span>${registerVoiceMessage(m)}</div></div>`;
                         } else if (m.role === 'player') {
                             const sender = channel === 'support' ? (m.sender || 'Tým') : 'Ty';
                             chatBox.innerHTML += `<div class="message player"><img class="avatar" src="${getAvatarURL('player', channel)}" alt="Avatar"><div class="msg-content"><b>[${escapeHtml(sender)}]:</b> <span class="msg-text">${m.text}</span></div></div>`;
@@ -1972,7 +2008,7 @@
                         // Vytvoření prvků pro postupný výpis
                         const msgDiv = document.createElement('div');
                         msgDiv.className = 'message bot';
-                        msgDiv.innerHTML = `<img class="avatar" src="${getAvatarURL('bot', channel)}" alt="Avatar"><div class="msg-content"><b>[${sender}]:</b> <span class="msg-text typewriter-text"></span></div>`;
+                        msgDiv.innerHTML = `<img class="avatar" src="${getAvatarURL('bot', channel)}" alt="Avatar"><div class="msg-content"><b>[${sender}]:</b> <span class="msg-text typewriter-text"></span>${registerVoiceMessage(msg.payload)}</div>`;
                         chatBox.appendChild(msgDiv);
                         
                         const textSpan = msgDiv.querySelector('.typewriter-text');

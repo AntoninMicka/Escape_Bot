@@ -190,7 +190,9 @@ class EscapeBotStateMachine:
                 self.state.chat_history.append({
                     "role": "bot",
                     "channel": resp.payload.get("channel", "general"),
-                    "text": resp.payload.get("text", "")
+                    "text": resp.payload.get("text", ""),
+                    **({"voice_id": resp.payload["voice_id"]} if resp.payload.get("voice_id") else {}),
+                    **({"audio_url": resp.payload["audio_url"]} if resp.payload.get("audio_url") else {}),
                 })
 
         return responses
@@ -840,7 +842,7 @@ class EscapeBotStateMachine:
             reply("karel.result", result, message),
         ]
         if result["hit_mine"]:
-            responses.append(reply("bot.message", {"text": "Pozor! Narazila jsem na nestabilní pole a nouzový systém mě vrátil na začátek.", "mood": "tense", "channel": "lost"}, message))
+            responses.append(reply("bot.message", {"text": "Pozor! Narazila jsem na nestabilní pole a nouzový systém mě vrátil na začátek.", "mood": "tense", "channel": "lost", "voice_id": "elara_anomaly_hit"}, message))
         elif result["blocked"]:
             responses.append(reply("bot.message", {"text": "Tudy cesta nevede. Poslední povel by mě vyvedl mimo stabilní oblast.", "mood": "alert", "channel": "lost"}, message))
         elif result["frames"]:

@@ -629,6 +629,7 @@ class StateMachineCheckpointTests(unittest.IsolatedAsyncioTestCase):
         self.assertNotIn("clues", payload)
         self.assertEqual(self.machine.state.karel_games["courtyard_karel"]["player"], [0, 0])
         self.assertEqual(self.machine.state.score, score_before - 20)
+        self.assertEqual(self.machine.state.chat_history[-1]["voice_id"], "elara_anomaly_hit")
 
     def test_every_karel_level_has_safe_path_and_accessible_grid(self) -> None:
         config = self.scenario.data["puzzles"]["courtyard_karel"]["game"]

@@ -53,7 +53,8 @@
       "enter_message": {
         "text": "*ššš*... Tady Kapitánka. Slyšíme se? Interkom konečně naběhl. Potvrď příjem!",
         "mood": "alert",
-        "channel": "captain"
+        "channel": "captain",
+        "voice_id": "captain_first_contact"
       },
       "hints": [
         {"text": "Pro potvrzení příjmu stačí do chatu odeslat jakoukoliv zprávu.", "penalty": 5}
@@ -68,7 +69,7 @@
       "success_keyword": "734",
       "success_messages": [
         {"text": "Frekvence 734 přijata! Zachytila jsem chronální ozvěnu. Přepojuji... *píp*", "mood": "relieved", "channel": "captain"},
-        {"text": "Haló? Tady doktorka Elara. Jsem pořád v Kraskově, ale hotel vypadá, jako by tu nikdo nebyl celá desetiletí. Stroj se rozpadl při přenosu. Slyšíte mě?", "mood": "tense", "channel": "lost"}
+        {"text": "Haló? Tady doktorka Elara. Jsem pořád v Kraskově, ale hotel vypadá, jako by tu nikdo nebyl celá desetiletí. Stroj se rozpadl při přenosu. Slyšíte mě?", "mood": "tense", "channel": "lost", "voice_id": "elara_first_contact"}
       ],
       "hints": [
         {"text": "Každá skupina pulzů představuje právě jednu číslici. Pořadí skupin neměň.", "penalty": 10},
@@ -85,7 +86,8 @@
       "glitch_message": {
         "text": "Snažím se postupovat podle tvých instrukcí '{text}', ale... *GLITCH* něco mě tu ruší... *šum*",
         "mood": "glitchy",
-        "channel": "lost"
+        "channel": "lost",
+        "voice_id": "elara_signal_failure"
       },
       "error_message": {
         "text": "SYSTEM ERROR: CHRONOSIGNÁL ZTRACEN\n\nRozhraní interkomu neodpovídá.\nEnergetická smyčka byla přerušena.\nSynchronizace časových vrstev selhala.\nTerminál čeká na obnovovací příkaz.\nAktivní kanál nelze znovu naladit.\nRežim CHRONOMAPY zůstává uzamčen.\nTransmise byla pozastavena.\n\nZadejte jednoslovný obnovovací příkaz.",
@@ -98,7 +100,8 @@
       "success_message": {
          "text": "Uf, jsem zpět! Už tomu rozumím: jsme ve stejném Kraskově, ale já jsem uvázla v jeho budoucí časové vrstvě. Interkom přenese jen hlas a data; ven mě dostane až stabilní koridor. Havárie vymrštila tři součásti stroje do vašeho času. CHRONOMAPA je znovu online — najděte její první stabilní bod u recepčního archivu.",
          "mood": "alert",
-         "channel": "lost"
+         "channel": "lost",
+         "voice_id": "elara_temporal_reveal"
       },
       "hints": [
         {"text": "Diagnostika má sedm řádků a hledaný příkaz má sedm písmen.", "penalty": 10},
@@ -206,7 +209,7 @@
       "image": "assets/puzzles/bowling-binary-motor-v3.png",
       "answer": "MOTOR",
       "admin_solution": "MOTOR – sedmibitové ASCII v označených řadách 4+3: 1001101 1001111 1010100 1001111 1010010; přední řady 2+1 jsou šum",
-      "success_message": {"text": "Diagnostická sekvence potvrzena: MOTOR. TEMPORÁLNÍ MOTOR je znovu synchronizován s terminálem.", "mood": "success", "channel": "general"},
+      "success_message": {"text": "Diagnostická sekvence potvrzena: MOTOR. TEMPORÁLNÍ MOTOR je znovu synchronizován s terminálem.", "mood": "success", "channel": "captain", "voice_id": "captain_motor_recovered"},
       "failure_message": {"text": "Diagnostická sekvence tomuto označení součásti neodpovídá.", "mood": "error", "channel": "general"},
       "hints": [
         {"text": "V každém snímku použijte pouze označené řady 4 + 3; přední řady jsou obrazový šum.", "penalty": 10},
@@ -223,7 +226,7 @@
       "answer": "HRISTE",
       "answers": ["HRISTE", "HŘIŠTĚ"],
       "admin_solution": "HŘIŠTĚ – kotě = tečka, dospělá kočka = čárka; .... / .-. / .. / ... / - / .",
-      "success_message": {"text": "Světelný přenos potvrzen: HŘIŠTĚ. FÁZOVÝ STABILIZÁTOR se synchronizoval a Chronomapa označila sportovní areál.", "mood": "success", "channel": "lost"},
+      "success_message": {"text": "Světelný přenos potvrzen: HŘIŠTĚ. FÁZOVÝ STABILIZÁTOR se synchronizoval a Chronomapa označila sportovní areál.", "mood": "success", "channel": "lost", "voice_id": "elara_stabilizer_recovered"},
       "failure_message": {"text": "Chronální přenos tuto cílovou lokaci nepotvrzuje.", "mood": "error", "channel": "general"},
       "hints": [
         {"text": "Rozdělte zvířata do skupin podle větších mezer a zachovejte jejich pořadí.", "penalty": 10},
@@ -329,7 +332,7 @@
       "answer": "HODINY",
       "answers": ["HODINY", "HODINY V LOBBY", "LOBBY HODINY"],
       "admin_solution": "HODINY – obě poloviny tabulky polského kříže společně určují šest znaků H–O–D–I–N–Y.",
-      "success_message": {"text": "Zpráva potvrzena: HODINY. V jejich servisním pouzdře je třetí díl stroje – KRYSTAL ČASOVÉ KOTVY – a přístupový otisk Archivu budoucnosti.", "mood": "success", "channel": "captain"},
+      "success_message": {"text": "Zpráva potvrzena: HODINY. V jejich servisním pouzdře je třetí díl stroje – KRYSTAL ČASOVÉ KOTVY – a přístupový otisk Archivu budoucnosti.", "mood": "success", "channel": "captain", "voice_id": "captain_crystal_recovered"},
       "failure_message": {"text": "Archivní otisk tuto odpověď nepotvrzuje.", "mood": "error", "channel": "general"},
       "hints": [
         {"text": "V Šifrovacích pomůckách je grafická tabulka používající stejné rohy, kříže a klíny.", "penalty": 15},
@@ -341,7 +344,7 @@
       "title": "Archiv budoucnosti: návratový vektor",
       "type": "archive_vector",
       "checkpoint_id": "future_archive",
-      "instructions": "Poškozený obraz stroje času se rozpadl na devět částí. Výběrem dvou dílků je prohoďte a obnovte celý obraz. Až se archiv stabilizuje, použijte odhalený klíč k přečtení zachyceného přenosu a zadejte celý dešifrovaný text.",
+      "instructions": "Poškozený obraz stroje času se rozpadl na šestnáct částí. Výběrem dvou dílků je prohoďte a obnovte celý obraz. Až se archiv stabilizuje, použijte odhalený klíč k přečtení zachyceného přenosu a zadejte celý dešifrovaný text.",
       "ciphertext": "TVBRI OFWSR HEWKG KDQNG VXHAS QBSEA PFVBM NHGCE OVKTF HBFKV HSWYW RCAFF XFQUA RZ",
       "answer": "ROKDVANULATRISEDMCASDVAJEDNACTYRINULAPORADIMOTORSTABILIZATORKRYSTAL",
       "answers": ["ROKDVANULATRISEDMCASDVAJEDNACTYRINULAPORADIMOTORSTABILIZATORKRYSTAL", "ROK DVA NULA TRI SEDM CAS DVA JEDNA CTYRI NULA PORADI MOTOR STABILIZATOR KRYSTAL"],
@@ -373,7 +376,7 @@
         "revealed_key": "CHRONOS",
         "module_order": ["TEMPORÁLNÍ MOTOR", "FÁZOVÝ STABILIZÁTOR", "KRYSTAL ČASOVÉ KOTVY"]
       },
-      "success_message": {"text": "Návratový vektor obnoven: rok 2037, čas 21:40, pořadí MOTOR → STABILIZÁTOR → KRYSTAL. Vraťte se k základně stroje času.", "mood": "relieved", "channel": "lost"},
+      "success_message": {"text": "Návratový vektor obnoven: rok 2037, čas 21:40, pořadí MOTOR → STABILIZÁTOR → KRYSTAL. Vraťte se k základně stroje času.", "mood": "relieved", "channel": "lost", "voice_id": "elara_return_vector"},
       "failure_message": {"text": "Archiv vektor odmítl. Ověřte rok, čas i pořadí všech tří modulů.", "mood": "error", "channel": "general"},
       "hints": [
         {"text": "Sledujte výrazné kabely, kruhové konstrukce a barevné světelné stopy přes okraje dílků.", "penalty": 15},
@@ -398,8 +401,8 @@
       "admin_solution": "2037 · 21:40 · TEMPORÁLNÍ MOTOR → FÁZOVÝ STABILIZÁTOR → KRYSTAL ČASOVÉ KOTVY",
       "failure_message": {"text": "Synchronizace se rozpadá! Zadaný návratový vektor nesouhlasí s archivem budoucnosti.", "mood": "error", "channel": "lost"},
       "success_messages": [
-        {"text": "Vektor přijat. Spouštím desetisekundovou stabilizační sekvenci. Držte se dál od kotvy!", "mood": "alert", "channel": "captain"},
-        {"text": "Vidím vás! Časové vrstvy se překrývají… motor drží… jsem zpátky v Kraskově!", "mood": "relieved", "channel": "lost"}
+        {"text": "Vektor přijat. Spouštím desetisekundovou stabilizační sekvenci. Držte se dál od kotvy!", "mood": "alert", "channel": "captain", "voice_id": "captain_final_countdown"},
+        {"text": "Vidím vás! Časové vrstvy se překrývají… motor drží… jsem zpátky v Kraskově!", "mood": "relieved", "channel": "lost", "voice_id": "elara_returned"}
       ]
     }
   },
