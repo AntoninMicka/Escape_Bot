@@ -723,16 +723,20 @@ class StateMachineCheckpointTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn("KRYSTAL ČASOVÉ KOTVY", self.machine.state.inventory)
 
         await self.scan("future_archive")
-        assembly_moves = [
-            ("tile_1", "tile_5"), ("tile_2", "tile_5"), ("tile_3", "tile_8"),
-            ("tile_4", "tile_8"), ("tile_5", "tile_9"), ("tile_6", "tile_9"),
-            ("tile_7", "tile_9"),
-        ]
-        for card_id, target_id in assembly_moves:
+        assembly = self.scenario.data["puzzles"]["future_archive_cipher"]["assembly"]
+        current_order = list(assembly["initial_order"])
+        arranged = None
+        for index, card_id in enumerate(assembly["correct_order"]):
+            if current_order[index] == card_id:
+                continue
+            target_id = current_order[index]
             arranged = await self.machine.handle(Message("archive.arrange", {
                 "puzzle_id": "future_archive_cipher", "card_id": card_id,
                 "target_id": target_id, "action": "swap",
             }))
+            card_index = current_order.index(card_id)
+            current_order[index], current_order[card_index] = current_order[card_index], current_order[index]
+        self.assertIsNotNone(arranged)
         self.assertTrue(self.response(arranged, "archive.result").payload["assembled"])
         restored = EscapeBotStateMachine(self.scenario)
         restored.restore_state(self.machine.state.snapshot())

@@ -1,4 +1,4 @@
-const CACHE_NAME = 'escape-bot-v53';
+const CACHE_NAME = 'escape-bot-v55';
 const ASSETS_TO_CACHE = [
     './',
     './index.html',
@@ -8,6 +8,7 @@ const ASSETS_TO_CACHE = [
     './assets/puzzles/bowling-binary-motor-v3.png',
     './assets/puzzles/terrace-morse-cats-hriste-v2.png',
     './assets/puzzles/sports-pigpen-hodiny.svg',
+    './assets/puzzles/time-machine-jigsaw.png',
     'https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js'
 ];
 

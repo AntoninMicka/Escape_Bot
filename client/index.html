@@ -263,9 +263,11 @@
         .archive-card-controls { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; margin-top: 6px; }
         .archive-card-controls button { padding: 6px 3px; }
         .archive-reveal { border: 2px solid #0f8; padding: 12px; text-align: center; background: #002015; }
-        .jigsaw-board { display: grid; gap: 3px; width: min(100%, 600px); aspect-ratio: 1; margin: 14px auto; padding: 3px; border: 1px solid #0aa; background: #001013; }
-        .jigsaw-piece { min-width: 0; padding: 0; border: 1px solid #155; background-repeat: no-repeat; cursor: pointer; transition: transform .16s, border-color .16s, filter .16s; }
-        .jigsaw-piece:hover, .jigsaw-piece.selected { z-index: 1; border-color: #fff; filter: brightness(1.25); transform: scale(.97); box-shadow: 0 0 14px #0ff; }
+        .jigsaw-board { display: grid; gap: 0; width: min(88%, 560px); aspect-ratio: 1; margin: 28px auto; padding: 18px; border: 1px solid #0aa; background: radial-gradient(circle, #063038, #001013 70%); }
+        .jigsaw-piece { position: relative; min-width: 0; padding: 0; border: 0; background: transparent; overflow: visible; cursor: pointer; transition: transform .16s, filter .16s; }
+        .jigsaw-piece svg { display: block; width: 128%; height: 128%; margin: -14%; overflow: visible; filter: drop-shadow(0 2px 2px #000b); }
+        .jigsaw-piece:hover, .jigsaw-piece.selected { z-index: 2; filter: brightness(1.25); transform: scale(.96); box-shadow: none; }
+        .jigsaw-piece.selected svg { filter: drop-shadow(0 0 7px #0ff) drop-shadow(0 0 2px #fff); }
         .jigsaw-piece:focus-visible { outline: 3px solid #fc0; outline-offset: -3px; }
         .archive-key { font-size: clamp(1.8rem, 7vw, 3.6rem); letter-spacing: .25em; color: #8ff; text-shadow: 0 0 14px #0ff; }
         .archive-ciphertext { padding: 14px; border: 1px dashed #0aa; background: #001215; font: 1.05rem/1.7 monospace; letter-spacing: .1em; overflow-wrap: anywhere; }
@@ -2324,9 +2326,9 @@
                     const source = Number(tile.source_index || 0);
                     const x = source % size;
                     const y = Math.floor(source / size);
-                    const xPercent = size === 1 ? 0 : (x / (size - 1)) * 100;
-                    const yPercent = size === 1 ? 0 : (y / (size - 1)) * 100;
-                    return `<button class="jigsaw-piece ${selectedArchivePiece === cardId ? 'selected' : ''}" style="background-image:url('${escapeHtml(game.image)}');background-size:${size * 100}% ${size * 100}%;background-position:${xPercent}% ${yPercent}%" onclick="selectArchivePiece('${escapeHtml(puzzle.id)}','${escapeHtml(cardId)}')" aria-label="${escapeHtml(tile.label)}"></button>`;
+                    const clipId = `jigsaw-${puzzle.id}-${cardId}`.replace(/[^a-zA-Z0-9_-]/g, '');
+                    const path = jigsawPiecePath(source, size);
+                    return `<button class="jigsaw-piece ${selectedArchivePiece === cardId ? 'selected' : ''}" onclick="selectArchivePiece('${escapeHtml(puzzle.id)}','${escapeHtml(cardId)}')" aria-label="Dílek skládačky"><svg viewBox="-14 -14 128 128" aria-hidden="true"><defs><clipPath id="${clipId}"><path d="${path}"/></clipPath></defs><image href="${escapeHtml(game.image)}" x="${-x * 100}" y="${-y * 100}" width="${size * 100}" height="${size * 100}" preserveAspectRatio="none" clip-path="url(#${clipId})"/><path d="${path}" fill="none" stroke="#6ff" stroke-width="1.2" opacity=".7"/></svg></button>`;
                 }).join('');
                 const reveal = game.assembled ? `<div class="archive-reveal"><small>ODHALENÝ KLÍČ</small><div class="archive-key">${escapeHtml(game.revealed_key)}</div><p><strong>POŘADÍ MODULŮ:</strong> ${game.module_order.map(escapeHtml).join(' → ')}</p></div><h4>ZACHYCENÝ PŘENOS</h4><div class="archive-ciphertext">${escapeHtml(puzzle.ciphertext)}</div><div class="puzzle-answer"><input id="puzzle-answer-${escapeHtml(puzzle.id)}" maxlength="100" autocomplete="off" placeholder="CELÝ DEŠIFROVANÝ TEXT"><button onclick="submitPuzzle('${escapeHtml(puzzle.id)}')">OVĚŘIT</button></div>` : '<p class="cipher-note">Vyberte dva dílky, které chcete prohodit. Obraz zatím není úplný.</p>';
                 return `<div class="archive-assembly"><div class="jigsaw-board" style="grid-template-columns:repeat(${size},1fr)">${pieces}</div><p>PROHOZENÍ: ${Number(game.moves)}</p>${reveal}${renderHintButtons(puzzle)}<div class="puzzle-actions"><span>Pokusy: ${puzzle.attempts || 0}</span></div></div>`;
@@ -2338,6 +2340,16 @@
             }).join('');
             const reveal = game.assembled ? `<div class="archive-reveal"><small>ODHALENÝ KLÍČ</small><div class="archive-key">${escapeHtml(game.revealed_key)}</div><p><strong>POŘADÍ MODULŮ:</strong> ${game.module_order.map(escapeHtml).join(' → ')}</p></div><h4>ZACHYCENÝ PŘENOS</h4><div class="archive-ciphertext">${escapeHtml(puzzle.ciphertext)}</div><div class="puzzle-answer"><input id="puzzle-answer-${escapeHtml(puzzle.id)}" maxlength="100" autocomplete="off" placeholder="CELÝ DEŠIFROVANÝ TEXT"><button onclick="submitPuzzle('${escapeHtml(puzzle.id)}')">OVĚŘIT</button></div>` : '<p class="cipher-note">Křivka ani stupnice zatím nenavazují.</p>';
             return `<div class="archive-assembly"><div class="archive-cards">${cards}</div><p>TAHY: ${Number(game.moves)}</p>${reveal}${renderHintButtons(puzzle)}<div class="puzzle-actions"><span>Pokusy: ${puzzle.attempts || 0}</span></div></div>`;
+        }
+
+        function jigsawPiecePath(index, size) {
+            const row = Math.floor(index / size);
+            const column = index % size;
+            const top = row === 0 ? 'H100' : (column % 2 === 0 ? 'H38 C25,-13 75,-13 62,0 H100' : 'H38 C25,13 75,13 62,0 H100');
+            const right = column === size - 1 ? 'V100' : (row % 2 === 0 ? 'V38 C113,25 113,75 100,62 V100' : 'V38 C87,25 87,75 100,62 V100');
+            const bottom = row === size - 1 ? 'H0' : (column % 2 === 0 ? 'H62 C49,87 25,87 38,100 H0' : 'H62 C75,113 25,113 38,100 H0');
+            const left = column === 0 ? 'V0' : (row % 2 === 0 ? 'V62 C-13,49 -13,25 0,38 V0' : 'V62 C13,75 13,25 0,38 V0');
+            return `M0 0 ${top} ${right} ${bottom} ${left} Z`;
         }
 
         let selectedArchivePiece = '';

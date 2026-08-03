@@ -270,7 +270,7 @@
 - [x] Vybrat finální klasickou šifru, např. Caesarovu nebo Vigenèrovu.
 - [ ] Zajistit, aby klíč k šifře vznikl až správným složením fyzických dílů.
 - [x] Nechat hráče získat rok, přesný čas a pořadí modulů pro návrat Elary.
-- [x] Nahradit digitální řazení tří karet obrázkovým jigsaw puzzle 3×3 se serverovým ověřením a obnovou stavu.
+- [x] Nahradit digitální řazení tří karet obrázkovým jigsaw puzzle 4×4 se serverovým ověřením a obnovou stavu.
 
 ### 13.10 Checkpoint 7 – Finále stroje času
 **Místo:** startovní/finální konferenční místnost.
