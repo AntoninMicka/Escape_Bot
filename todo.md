@@ -204,6 +204,7 @@
 - [ ] Připravit suchou/vnitřní variantu venkovního checkpointu pro špatné počasí.
 - [ ] Ověřit dostupnost celé trasy pro zamýšlený počet týmů.
 - [ ] Stanovit cílovou délku hry a časový limit.
+- [ ] Až po potvrzení finálních stanovišť projít návaznosti všech hádanek, checkpointů a příběhových zpráv; aktualizovat odkazy, navigační texty a názvy následujících míst podle skutečné trasy v místě konání.
 
 ### 13.3 Checkpoint 0 – Havárie experimentu
 **Místo:** startovní konferenční místnost.
@@ -413,6 +414,15 @@
 - [x] Otestovat pořadí checkpointů, neplatnou výměnu, volné pořadí cílů, časový limit, kladné i záporné časové skóre, restart a obnovení relace.
 - [ ] Po uživatelském testu doladit časový limit, četnost kombinací a obtížnost náhodně doplňované mřížky.
 - [ ] V budoucím admin panelu přidat živý náhled mřížky a možnost dokončit či restartovat pokus.
+
+### 13.10.5 Redesign samostatné úlohy horizontální–vertikální–diagonální trojice
+- [ ] Přepracovat současnou úlohu, ve které hráči pouze umístí vodorovnou, svislou a diagonální trojici; aktuální varianta je příliš jednoduchá a nevyžaduje dostatečné plánování.
+- [ ] Prototypovat deterministického protihráče, který po každém tahu obsadí nebo zablokuje pole podle čitelného pravidla, aby hráči museli plánovat, bránit a vytvářet více možností současně.
+- [ ] Porovnat protihráče s alternativou bez soupeře: omezený počet kamenů, povinné střídání barev, posouvání již položených kamenů nebo měnící se blokovaná pole.
+- [ ] Zachovat cíl vytvořit horizontální, vertikální a diagonální trojici, ale zabránit řešení prostým postupným naklikáním tří předem zřejmých čar.
+- [ ] Zajistit plně deterministický průběh bez AI a alespoň jednu logicky odvoditelnou vítěznou strategii.
+- [ ] Připravit dvě až tři obtížnosti a v demo režimu zobrazit pravidlo protihráče, doporučený postup a možnost okamžitého restartu.
+- [ ] Novou variantu implementovat až po výběru pravidel na základě stolního prototypu a krátkého domácího testu.
 
 ### 13.11 QR checkpointy a ochrana postupu
 **Cíl:** QR kódy musí potvrzovat průchod trasou a bezpečně odemykat obsah.
