@@ -1,5 +1,6 @@
 import json
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from typing import Any
 
 @dataclass
@@ -18,6 +19,47 @@ class ScenarioLoader:
         with open(filepath, "r", encoding="utf-8") as f:
             data = json.load(f)
         return Scenario(data)
+
+
+def _parse_event_time(value: object) -> datetime | None:
+    try:
+        parsed = datetime.fromisoformat(str(value))
+        return parsed if parsed.tzinfo else parsed.replace(tzinfo=UTC)
+    except (TypeError, ValueError):
+        return None
+
+
+def build_puzzle_telemetry(scenario: Scenario, state: dict[str, Any]) -> list[dict[str, Any]]:
+    """Derive comparable puzzle metrics without mutating persisted game state."""
+    checkpoints = dict(state.get("checkpoint_states", {}))
+    attempts = dict(state.get("puzzle_attempts", {}))
+    hints = dict(state.get("hints_used", {}))
+    events = list(state.get("event_history", []))
+    event_times = sorted(filter(None, (_parse_event_time(item.get("at")) for item in events)))
+    result: list[dict[str, Any]] = []
+    for puzzle_id, puzzle in scenario.data.get("puzzles", {}).items():
+        checkpoint_id = str(puzzle.get("checkpoint_id", ""))
+        checkpoint = checkpoints.get(checkpoint_id)
+        if not isinstance(checkpoint, dict):
+            continue
+        started_at = checkpoint.get("first_scanned_at") or checkpoint.get("found_at")
+        completed_at = checkpoint.get("solved_at")
+        start = _parse_event_time(started_at)
+        end = _parse_event_time(completed_at) or datetime.now(UTC)
+        elapsed_seconds = max(0, int((end - start).total_seconds())) if start else 0
+        bounded = [time for time in event_times if start and start <= time <= end]
+        activity_points = [start, *bounded, end] if start else []
+        active_seconds = sum(min(300, max(0, int((later - earlier).total_seconds()))) for earlier, later in zip(activity_points, activity_points[1:]))
+        puzzle_events = [item for item in events if str(item.get("details", {}).get("puzzle_id", "")) == puzzle_id]
+        result.append({
+            "puzzle_id": puzzle_id, "checkpoint_id": checkpoint_id,
+            "title": str(puzzle.get("title", puzzle_id)), "type": str(puzzle.get("type", "puzzle")),
+            "status": str(checkpoint.get("status", "found")), "started_at": str(started_at or ""),
+            "completed_at": str(completed_at or ""), "elapsed_seconds": elapsed_seconds,
+            "active_seconds": active_seconds, "attempts": int(attempts.get(puzzle_id, 0)),
+            "hints": int(hints.get(f"puzzle.{puzzle_id}", hints.get(puzzle_id, 0))), "actions": len(puzzle_events),
+        })
+    return result
 
 
 def build_demo_checkpoint_catalog(scenario: Scenario) -> list[dict[str, Any]]:

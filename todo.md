@@ -477,6 +477,7 @@
 - [x] Oddělit datový snapshot postupu od vykreslení pro pozdější použití v admin panelu.
 - [x] Vytvořit samostatnou autentizovanou admin stránku se seznamem všech aktivních relací.
 - [x] Přidat do admin stránky detail týmu založený na stejné vizualizaci `scenario.progress`.
+- [x] Přidat telemetrii obtížnosti: celkový a aktivní čas hádanek, pokusy, nápovědy, akce, místa ukončení, filtrování období a CSV export.
 
 ### 13.14 Šifrovací pomůcky v aplikaci
 **Cíl:** nabídnout hráčům pasivní referenční pomůcku inspirovanou způsobem použití aplikace Šifrovací pomůcky Absolutno, aniž aplikace sama vyřeší zadanou hádanku.

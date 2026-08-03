@@ -17,7 +17,7 @@ from fastapi.staticfiles import StaticFiles
 
 from .protocol import Message
 from .state_machine import EscapeBotStateMachine
-from .scenario import ScenarioLoader, build_checkpoint_qr_set, build_demo_checkpoint_catalog, build_scenario_progress
+from .scenario import ScenarioLoader, build_checkpoint_qr_set, build_demo_checkpoint_catalog, build_puzzle_telemetry, build_scenario_progress
 from .ollama_adapter import OllamaAdapter
 from .team_lobby import Lobby, LobbyRegistry, classify_activity
 
@@ -287,6 +287,7 @@ def admin_overview(watched_sessions: set[str] | None = None) -> list[dict[str, o
             "timeline": timeline,
             "hints_used": dict(state.get("hints_used", {})),
             "puzzle_attempts": dict(state.get("puzzle_attempts", {})),
+            "puzzle_telemetry": build_puzzle_telemetry(scenario, state),
             "recent_messages": list(state.get("chat_history", []))[-8:],
             "support_chat": [item for item in state.get("chat_history", []) if item.get("channel") == "support"],
             "admin_support_joined": lobby.session_id in (watched_sessions or set()),

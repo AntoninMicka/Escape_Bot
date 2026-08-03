@@ -500,6 +500,10 @@
         .admin-leaderboard { margin-top: 22px; border-top: 2px solid #077; padding-top: 14px; }
         .admin-leaderboard table { width: 100%; border-collapse: collapse; }
         .admin-leaderboard th, .admin-leaderboard td { padding: 8px; border-bottom: 1px solid #044; text-align: left; }
+        .admin-analytics table { width: 100%; border-collapse: collapse; }
+        .admin-analytics th, .admin-analytics td { padding: 8px; border-bottom: 1px solid #044; text-align: left; }
+        .admin-analytics th { color: #0dd; }
+        .admin-analytics .table-wrap { overflow-x: auto; margin: 12px 0 24px; }
         .admin-progress { height: 10px; border: 1px solid #066; background: #000; margin: 8px 0; }
         .admin-progress > span { display: block; height: 100%; background: #0c8; }
         .admin-actions { display: grid; grid-template-columns: 90px 1fr auto; gap: 7px; margin-top: 12px; }
@@ -569,8 +573,9 @@
             <button onclick="loadAdminOverview()">NAČÍST / OBNOVIT</button>
             <span id="admin-status">Čekám na spojení…</span>
         </div>
-        <nav class="admin-nav"><button class="active" onclick="openAdminTab('teams',this)">TÝMY</button><button id="admin-chats-tab-button" onclick="openAdminTab('chats',this)">CHATY <span id="admin-chat-unread" class="unread-badge"></span></button><button onclick="openAdminTab('leaderboard',this)">SÍŇ SLÁVY</button><button onclick="openAdminTab('tools',this)">NÁSTROJE</button></nav>
+        <nav class="admin-nav"><button class="active" onclick="openAdminTab('teams',this)">TÝMY</button><button onclick="openAdminTab('analytics',this)">ANALYTIKA</button><button id="admin-chats-tab-button" onclick="openAdminTab('chats',this)">CHATY <span id="admin-chat-unread" class="unread-badge"></span></button><button onclick="openAdminTab('leaderboard',this)">SÍŇ SLÁVY</button><button onclick="openAdminTab('tools',this)">NÁSTROJE</button></nav>
         <section id="admin-tab-teams" class="admin-section"><div id="admin-summary" class="admin-summary"></div><div class="admin-filters"><input id="admin-team-search" type="search" placeholder="Hledat tým, hráče nebo kód…" oninput="applyAdminFilters()"><select id="admin-activity-filter" onchange="applyAdminFilters()"><option value="all">Všechny stavy</option><option value="active">Aktivní</option><option value="suspicious">Podezřelé</option><option value="abandoned">Opuštěné</option><option value="completed">Dokončené</option></select><select id="admin-online-filter" onchange="applyAdminFilters()"><option value="all">Online i offline</option><option value="online">Alespoň jeden online</option><option value="offline">Všichni offline</option></select></div><div id="admin-team-grid" class="admin-grid"></div></section>
+        <section id="admin-tab-analytics" class="admin-section admin-analytics hidden"><h2>[ TELEMETRIE OBTÍŽNOSTI ]</h2><div class="admin-toolbar"><label>OBDOBÍ <select id="analytics-period" onchange="renderAdminAnalytics()"><option value="all">Celá historie</option><option value="1">Posledních 24 hodin</option><option value="7">Posledních 7 dní</option><option value="30">Posledních 30 dní</option></select></label><button onclick="exportTelemetryCsv(true)">ANONYMIZOVANÉ CSV</button><button onclick="exportTelemetryCsv(false)">INTERNÍ CSV</button></div><div id="admin-analytics-summary" class="admin-summary"></div><div id="admin-analytics-content"></div></section>
         <section id="admin-tab-chats" class="admin-section hidden"><h2>[ PODPORA TÝMŮ ]</h2><div id="admin-chat-grid" class="admin-grid"></div></section>
         <section id="admin-tab-leaderboard" class="admin-section admin-leaderboard hidden"><h2>[ SPRÁVA SÍNĚ SLÁVY ]</h2><div id="admin-leaderboard"></div></section>
         <section id="admin-tab-tools" class="admin-section hidden"><h2>[ NÁSTROJE GAME MASTERA ]</h2><div class="admin-toolbar"><button onclick="requestAdminQrSet()">PŘIPRAVIT QR SADU</button><button onclick="exportAdminCsv()">EXPORT UDÁLOSTÍ A STATISTIK (CSV)</button><button id="admin-online-toggle" onclick="toggleAdminOnlineMode()">ONLINE REŽIM: ?</button></div></section>
@@ -1129,6 +1134,68 @@
             link.click();
             setTimeout(() => URL.revokeObjectURL(url), 1000);
         }
+        function downloadCsv(filename, rows) {
+            const quote = value => `"${String(value ?? '').replaceAll('"', '""')}"`;
+            const csv = '\ufeff' + rows.map(row => row.map(quote).join(';')).join('\r\n');
+            const url = URL.createObjectURL(new Blob([csv], {type:'text/csv;charset=utf-8'}));
+            const link = document.createElement('a');
+            link.href = url; link.download = filename; link.click();
+            setTimeout(() => URL.revokeObjectURL(url), 1000);
+        }
+
+        function filteredTelemetry() {
+            const days = document.getElementById('analytics-period')?.value || 'all';
+            const cutoff = days === 'all' ? 0 : Date.now() - Number(days) * 86400000;
+            return (latestAdminPayload?.teams || []).flatMap((team, teamIndex) =>
+                (team.puzzle_telemetry || []).filter(item => {
+                    const timestamp = Date.parse(item.completed_at || item.started_at || '') || 0;
+                    return !cutoff || timestamp >= cutoff;
+                }).map(item => ({...item, team_name:team.team_name, session_id:team.session_id, anonymous_team:`Tým ${teamIndex + 1}`}))
+            );
+        }
+
+        function telemetryDuration(seconds) {
+            const value = Math.max(0, Number(seconds) || 0);
+            return value < 60 ? `${value} s` : `${Math.floor(value / 60)} min ${value % 60} s`;
+        }
+
+        function median(values) {
+            const sorted = values.map(Number).filter(Number.isFinite).sort((a,b) => a-b);
+            if (!sorted.length) return 0;
+            const middle = Math.floor(sorted.length / 2);
+            return sorted.length % 2 ? sorted[middle] : Math.round((sorted[middle - 1] + sorted[middle]) / 2);
+        }
+
+        function renderAdminAnalytics() {
+            if (!latestAdminPayload) return;
+            const rows = filteredTelemetry();
+            const groups = new Map();
+            rows.forEach(item => {
+                const group = groups.get(item.puzzle_id) || {title:item.title, started:0, completed:0, elapsed:[], active:[], attempts:0, hints:0, actions:0};
+                group.started += 1;
+                if (item.status === 'solved') { group.completed += 1; group.elapsed.push(item.elapsed_seconds); group.active.push(item.active_seconds); }
+                group.attempts += Number(item.attempts || 0); group.hints += Number(item.hints || 0); group.actions += Number(item.actions || 0);
+                groups.set(item.puzzle_id, group);
+            });
+            const aggregate = [...groups.values()].sort((a,b) => (a.completed / a.started) - (b.completed / b.started) || median(b.active) - median(a.active));
+            const teams = latestAdminPayload.teams || [];
+            const endings = new Map();
+            teams.filter(team => !team.game_completed).forEach(team => {
+                const last = [...(team.puzzle_telemetry || [])].filter(item => item.started_at).sort((a,b) => String(a.started_at).localeCompare(String(b.started_at))).at(-1);
+                if (last) endings.set(last.title, (endings.get(last.title) || 0) + 1);
+            });
+            const completed = rows.filter(item => item.status === 'solved').length;
+            document.getElementById('admin-analytics-summary').innerHTML = `<div>ZÁZNAMY<br><strong>${rows.length}</strong></div><div>DOKONČENO<br><strong>${completed}</strong></div><div>ÚSPĚŠNOST<br><strong>${rows.length ? Math.round(completed * 100 / rows.length) : 0} %</strong></div><div>MEDIÁN AKTIVNÍHO ČASU<br><strong>${telemetryDuration(median(rows.filter(item => item.status === 'solved').map(item => item.active_seconds)))}</strong></div>`;
+            const puzzleRows = aggregate.map(group => `<tr><td>${escapeHtml(group.title)}</td><td>${group.started}</td><td>${group.completed} (${Math.round(group.completed * 100 / group.started)} %)</td><td>${telemetryDuration(median(group.elapsed))}</td><td>${telemetryDuration(median(group.active))}</td><td>${group.attempts}</td><td>${group.hints}</td><td>${group.actions}</td></tr>`).join('');
+            const endingRows = [...endings.entries()].sort((a,b) => b[1]-a[1]).map(([title,count]) => `<tr><td>${escapeHtml(title)}</td><td>${count}</td></tr>`).join('');
+            document.getElementById('admin-analytics-content').innerHTML = `<h3>OBTÍŽNOST PODLE HÁDANKY</h3><div class="table-wrap"><table><thead><tr><th>Hádanka</th><th>Zahájeno</th><th>Dokončeno</th><th>Medián celkem</th><th>Medián aktivně</th><th>Pokusy</th><th>Nápovědy</th><th>Akce</th></tr></thead><tbody>${puzzleRows || '<tr><td colspan="8">Zatím nejsou dostupná data.</td></tr>'}</tbody></table></div><h3>POSLEDNÍ MÍSTO NEDOKONČENÝCH TÝMŮ</h3><div class="table-wrap"><table><thead><tr><th>Hádanka</th><th>Týmů</th></tr></thead><tbody>${endingRows || '<tr><td colspan="2">Žádné nedokončené průchody.</td></tr>'}</tbody></table></div><p><small>Aktivní čas omezuje každou mezeru mezi zaznamenanými akcemi na nejvýše 5 minut, takže dlouhé odpojení nenavyšuje metriku neomezeně.</small></p>`;
+        }
+
+        function exportTelemetryCsv(anonymized) {
+            const rows = [['team','session_id','puzzle_id','title','type','status','started_at','completed_at','elapsed_seconds','active_seconds','attempts','hints','actions']];
+            filteredTelemetry().forEach(item => rows.push([anonymized ? item.anonymous_team : item.team_name, anonymized ? '' : item.session_id, item.puzzle_id, item.title, item.type, item.status, item.started_at, item.completed_at, item.elapsed_seconds, item.active_seconds, item.attempts, item.hints, item.actions]));
+            downloadCsv(`escape-bot-telemetrie-${anonymized ? 'anonymni-' : ''}${new Date().toISOString().slice(0,10)}.csv`, rows);
+        }
         function toggleAdminOnlineMode() {
             if (!window.confirm(`${onlineModeEnabled ? 'Vypnout' : 'Zapnout'} online režim pro všechny týmy?`)) return;
             sendAdmin('admin.online_mode', {enabled:!onlineModeEnabled});
@@ -1196,6 +1263,7 @@
                 updateAdminChatNotifications(latestAdminPayload.teams || [], false);
                 renderAdminChats(latestAdminPayload.teams || []);
             }
+            if (name === 'analytics') renderAdminAnalytics();
         }
 
         function startAdminSpectate(sessionId) { sendAdmin('admin.spectate_start', {session_id:sessionId}); }
@@ -1316,6 +1384,7 @@
             renderAdminLeaderboard(latestAdminPayload.leaderboard || []);
             updateAdminChatNotifications(allTeams);
             renderAdminChats(allTeams);
+            renderAdminAnalytics();
             if (!teams.length) {
                 grid.innerHTML = `<p>${allTeams.length ? 'Filtrům neodpovídá žádný tým.' : 'Nejsou evidované žádné týmy.'}</p>`;
                 return;

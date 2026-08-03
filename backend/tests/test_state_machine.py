@@ -6,7 +6,7 @@ from escape_bot.protocol import Message
 from escape_bot.line_game import completion_time_score
 from escape_bot.sokoban import execute as execute_sokoban, new_game as new_sokoban, parse_commands
 from escape_bot.team_lobby import LobbyRegistry, classify_activity, team_size_adjustment
-from escape_bot.scenario import ScenarioLoader, build_checkpoint_qr_set, build_demo_checkpoint_catalog, build_scenario_progress
+from escape_bot.scenario import ScenarioLoader, build_checkpoint_qr_set, build_demo_checkpoint_catalog, build_puzzle_telemetry, build_scenario_progress
 from escape_bot.state_machine import EscapeBotStateMachine, GamePhase
 
 
@@ -179,6 +179,27 @@ class StateMachineCheckpointTests(unittest.IsolatedAsyncioTestCase):
         restored = EscapeBotStateMachine(self.scenario)
         restored.restore_state(self.machine.state.snapshot())
         self.assertEqual(restored.state.event_history, self.machine.state.event_history)
+
+    def test_puzzle_telemetry_reports_duration_attempts_hints_and_actions(self) -> None:
+        self.machine.state.checkpoint_states["reception_archive"] = {
+            "status": "solved",
+            "first_scanned_at": "2026-08-03T10:00:00+00:00",
+            "solved_at": "2026-08-03T10:20:00+00:00",
+        }
+        self.machine.state.puzzle_attempts["reception_deduction"] = 3
+        self.machine.state.hints_used["puzzle.reception_deduction"] = 2
+        self.machine.state.event_history = [
+            {"at": "2026-08-03T10:02:00+00:00", "type": "puzzle.submit", "details": {"puzzle_id": "reception_deduction"}},
+            {"at": "2026-08-03T10:18:00+00:00", "type": "puzzle.hint", "details": {"puzzle_id": "reception_deduction"}},
+        ]
+
+        metric = next(item for item in build_puzzle_telemetry(self.scenario, self.machine.state.snapshot()) if item["puzzle_id"] == "reception_deduction")
+
+        self.assertEqual(metric["elapsed_seconds"], 1200)
+        self.assertEqual(metric["active_seconds"], 540)
+        self.assertEqual(metric["attempts"], 3)
+        self.assertEqual(metric["hints"], 2)
+        self.assertEqual(metric["actions"], 2)
 
     async def test_restart_unlocks_chronomap(self) -> None:
         self.machine.state.phase = GamePhase.CONNECTION_LOST
