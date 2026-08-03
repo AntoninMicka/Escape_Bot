@@ -74,6 +74,7 @@ def swap(
         raise ValueError("Tato výměna nevytvoří žádnou řadu.")
 
     state["swaps"] += 1
+    animation_frames = [{"phase": "swap", "board": deepcopy(board), "first": list(first), "second": list(second)}]
     scored = {"3": 0, "4": 0, "5": 0}
     cascades = 0
     while runs and cascades < 20:
@@ -90,8 +91,12 @@ def swap(
                         scored[length] += 1
         for row, column in clear_cells:
             board[row][column] = ""
+        animation_frames.append({"phase": "clear", "board": deepcopy(board),
+                                 "cells": [list(cell) for cell in sorted(clear_cells)], "cascade": cascades})
         _collapse(board)
+        animation_frames.append({"phase": "collapse", "board": deepcopy(board), "cascade": cascades})
         _refill(state, config)
+        animation_frames.append({"phase": "refill", "board": deepcopy(board), "cascade": cascades})
         runs = _find_runs(board)
 
     complete = all(
@@ -103,6 +108,7 @@ def swap(
     return {
         "scored": scored,
         "cascades": cascades,
+        "animation_frames": animation_frames,
         "game_complete": complete,
         "score_delta": completion_time_score(config, state, current) if complete else 0,
     }

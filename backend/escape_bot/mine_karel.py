@@ -35,6 +35,7 @@ def execute(state: dict[str, Any], config: dict[str, Any], commands: list[str], 
     if not commands or len(commands) > 30 or any(item not in DIRECTIONS for item in commands): raise ValueError("Neplatná navigační sekvence.")
     mines = {_pos(item) for item in state["mines"]}; frames, score_delta, hit_mine, blocked = [], 0, False, False
     for command in commands:
+        origin = list(state["player"])
         dr, dc = DIRECTIONS[command]; target = state["player"][0] + dr, state["player"][1] + dc
         if not (0 <= target[0] < state["rows"] and 0 <= target[1] < state["columns"]): blocked = True; break
         state["history"].append(list(state["player"])); state["moves"] += 1; state["total_moves"] += 1
@@ -44,7 +45,9 @@ def execute(state: dict[str, Any], config: dict[str, Any], commands: list[str], 
         else:
             state["player"] = list(target)
             if list(target) not in state["revealed"]: state["revealed"].append(list(target))
-        frames.append({"command": command, "player": list(state["player"]), "hit_mine": hit_mine})
+        clue = None if target in mines else _adjacent(target, mines)
+        frames.append({"command": command, "from": origin, "entered": list(target),
+                       "player": list(state["player"]), "clue": clue, "hit_mine": hit_mine})
         if hit_mine or state["player"] == state["exit"]: break
     level_complete = state["player"] == state["exit"]; game_complete = False; completed_level_id = None
     if level_complete:

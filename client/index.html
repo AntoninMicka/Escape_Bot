@@ -287,6 +287,8 @@
             80% { transform: translate(3px, -3px) }
             100% { transform: translate(0) }
         }
+        body.checkpoint-unlock::after { content: 'ČASOVÁ KOTVA SYNCHRONIZOVÁNA'; position: fixed; inset: 0; z-index: 1450; display: grid; place-items: center; pointer-events: none; color: #0ff; background: radial-gradient(circle, #00ffff26, transparent 65%); font-size: clamp(1rem, 4vw, 2.2rem); letter-spacing: .16em; text-align: center; animation: checkpoint-unlock .85s ease-out forwards; }
+        @keyframes checkpoint-unlock { 0% { opacity: 0; transform: scale(.85); } 30% { opacity: 1; } 100% { opacity: 0; transform: scale(1.08); } }
 
         /* HUD Notifikace */
         #hud-notifications {
@@ -428,6 +430,14 @@
         .line-game-cell.violet { color: #fff; background: #7135a8; }
         .line-game-cell.green { color: #fff; background: #267a43; }
         .line-game-cell.red { color: #fff; background: #a8323e; }
+        .line-game-cell.anim-clear { animation: cell-clear .34s ease-in forwards; }
+        .line-game-cell.anim-drop { animation: cell-drop .32s cubic-bezier(.2,.8,.3,1); }
+        .line-game-cell.anim-place { animation: node-place .4s cubic-bezier(.2,1.7,.4,1); }
+        .line-game-cell.anim-line { animation: line-complete .75s ease-in-out 2; }
+        @keyframes cell-clear { 55% { transform: scale(1.18); filter: brightness(1.8); } 100% { transform: scale(0); opacity: 0; } }
+        @keyframes cell-drop { from { transform: translateY(-55%); opacity: .2; } }
+        @keyframes node-place { from { transform: scale(.15) rotate(-90deg); filter: brightness(2); } }
+        @keyframes line-complete { 50% { transform: scale(1.1); box-shadow: 0 0 22px currentColor; filter: brightness(1.7); } }
         .line-game-meta { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px; color: #9dd; }
         .line-game-failed { padding: 10px; border: 1px solid #f44; color: #f66; margin: 10px 0; }
         .sokoban-game { max-width: 620px; margin-top: 16px; padding: 14px; border: 1px solid #0a7; background: #000d0b; }
@@ -438,9 +448,23 @@
         .sokoban-cell.box { color: #ffb000; background: #382600; border-color: #ffb000; }
         .sokoban-cell.box-on-target { color: #00150d; background: #00df89; border-color: #8fffc9; box-shadow: 0 0 10px #00df89; }
         .sokoban-cell.player { color: #fff; background: #005761; border-color: #0ff; text-shadow: 0 0 7px #0ff; }
+        .sokoban-cell.player.moving { animation: player-step .36s ease-out; }
+        .sokoban-cell.mine-hit { animation: mine-hit .65s ease-out; background: #720000; color: #fff; }
+        .sokoban-cell.positioned::after { content: attr(data-position); position: absolute; right: 2px; bottom: 1px; color: #9ff; font-size: clamp(.46rem, 1.7vw, .66rem); opacity: .8; }
+        .sokoban-cell.positioned { position: relative; }
+        .mine-position-readout { margin: 8px 0; padding: 8px; border: 1px solid #0aa; color: #0ff; text-align: center; letter-spacing: .08em; }
+        @keyframes player-step { from { transform: translate(var(--step-x, 0), var(--step-y, 0)); opacity: .35; } }
+        @keyframes mine-hit { 20% { transform: scale(1.2); box-shadow: 0 0 28px #f00; } 45% { transform: translateX(-7px); } 65% { transform: translateX(7px); } }
         .sokoban-meta { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px; color: #9dd; }
         .sokoban-command { margin: 10px 0; padding: 9px; border: 1px solid #0aa; color: #0ff; text-align: center; background: #001c20; }
         .sokoban-command.blocked { border-color: #f44; color: #f66; background: #240505; }
+        .finale-overlay > div { text-align: center; animation: finale-pulse 1s ease-in-out infinite; }
+        .finale-overlay small { display: block; margin-top: 12px; font-size: clamp(.75rem, 2.4vw, 1.2rem); letter-spacing: .2em; }
+        .finale-overlay .finale-modules-live { display: flex; justify-content: center; gap: 8px; margin-top: 20px; font-size: .8rem; }
+        .finale-overlay .finale-modules-live span { padding: 6px 9px; border: 1px solid #088; color: #577; }
+        .finale-overlay .finale-modules-live span.online { color: #0ff; border-color: #0ff; box-shadow: 0 0 12px #0ff8; }
+        @keyframes finale-pulse { 50% { text-shadow: 0 0 42px #0ff; transform: scale(1.025); } }
+        @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; scroll-behavior: auto !important; transition-duration: .01ms !important; } }
         .sokoban-controls { display: grid; grid-template-columns: repeat(3, 64px); justify-content: center; gap: 6px; margin: 12px 0; }
         .sokoban-controls button { padding: 12px 5px; }
         .team-sokoban-intercom { display: none; border: 1px solid #0aa; background: #001c20; padding: 10px; margin: 0 0 10px; text-align: center; }
@@ -760,6 +784,9 @@
         let selectedTriadSymbol = 'cyan';
         let pendingSokobanAnimation = null;
         let deferredPuzzlesState = null;
+        let pendingKarelAnimation = null;
+        let pendingLineAnimation = null;
+        let pendingTriadEffect = null;
         let selectedCipherTool = null;
         let onlineModeEnabled = false;
         let runtimeCheckpoints = [];
@@ -1888,9 +1915,16 @@
                     if (pendingSokobanAnimation) {
                         deferredPuzzlesState = incomingPuzzles;
                         if (!pendingSokobanAnimation.running) startSokobanAnimation();
+                    } else if (pendingKarelAnimation) {
+                        deferredPuzzlesState = incomingPuzzles;
+                        if (!pendingKarelAnimation.running) startKarelAnimation();
+                    } else if (pendingLineAnimation) {
+                        deferredPuzzlesState = incomingPuzzles;
+                        if (!pendingLineAnimation.running) startLineAnimation();
                     } else {
                         puzzlesState = incomingPuzzles;
                         renderPuzzles();
+                        if (pendingTriadEffect) requestAnimationFrame(playTriadEffect);
                     }
                     if (document.getElementById('cipher-panel').classList.contains('open')) renderCipherTools();
                     const scoreDisplay = document.getElementById('score-display');
@@ -1929,6 +1963,8 @@
                         showNotification('Tato časová kotva už byla zaznamenána.', 'info');
                     } else {
                         showNotification(`Časová kotva aktivována: ${msg.payload.checkpoint_id}`, 'success');
+                        document.body.classList.add('checkpoint-unlock');
+                        setTimeout(() => document.body.classList.remove('checkpoint-unlock'), 850);
                         if (msg.payload.puzzle_id) showNotification('V archivu byla zpřístupněna nová hádanka.', 'success');
                     }
                 }
@@ -1964,6 +2000,16 @@
                     } else if (msg.payload.reset) {
                         showNotification('Aktuální etapa byla obnovena.', 'info');
                     }
+                    if (msg.payload.success && (msg.payload.animation_frames || []).length) prepareLineAnimation(msg.payload);
+                }
+                else if (msg.type === 'karel.result') {
+                    if (!msg.payload.success) showNotification(msg.payload.reason || 'Pohyb nelze provést.', 'error');
+                    else if ((msg.payload.frames || []).length) prepareKarelAnimation(msg.payload);
+                    else if (msg.payload.reset) showNotification('Minové pole obnoveno.', 'info');
+                }
+                else if (msg.type === 'triad.result') {
+                    if (!msg.payload.success) showNotification(msg.payload.reason || 'Uzel nelze umístit.', 'error');
+                    else pendingTriadEffect = msg.payload;
                 }
                 else if (msg.type === 'sokoban.result') {
                     if (!msg.payload.success) showNotification(msg.payload.reason || 'Pohyb nelze provést.', 'error');
@@ -2269,7 +2315,14 @@
             const overlay = document.createElement('div'); overlay.id = 'finale-overlay'; overlay.className = 'finale-overlay';
             document.body.appendChild(overlay); let remaining = Math.max(1, Number(seconds) || 10);
             let timer = null;
-            const tick = () => { overlay.innerHTML = `<div>${remaining}<small>STABILIZACE ČASOVÉ OSY</small></div>`; if (remaining-- <= 1) { if (timer) clearInterval(timer); setTimeout(() => overlay.remove(), 900); } };
+            const total = remaining;
+            const tick = () => {
+                const elapsed = total - remaining;
+                const online = Math.min(3, Math.max(0, Math.floor(elapsed / Math.max(1, total / 4))));
+                const finalPulse = remaining <= 1;
+                overlay.innerHTML = `<div>${finalPulse ? 'ELARA' : remaining}<small>${finalPulse ? 'NÁVRAT POTVRZEN' : (online < 3 ? 'AKTIVACE TEMPORÁLNÍCH MODULŮ' : 'STABILIZACE ČASOVÉ OSY')}</small><div class="finale-modules-live">${['MOTOR','STABILIZÁTOR','KOTVA'].map((label,index) => `<span class="${index < online ? 'online' : ''}">${label}</span>`).join('')}</div></div>`;
+                if (remaining-- <= 1) { if (timer) clearInterval(timer); playSound('success'); setTimeout(() => overlay.remove(), 1400); }
+            };
             tick(); timer = setInterval(tick, 1000);
         }
 
@@ -2319,16 +2372,20 @@
             const clues = game.clues || {}, triggered = new Set((game.triggered_mines || []).map(p => `${p[0]}:${p[1]}`));
             let cells = '';
             for (let row = 0; row < game.rows; row++) for (let column = 0; column < game.columns; column++) {
-                const key = `${row}:${column}`; let symbol = '·', cellClass = '';
-                if (triggered.has(key)) { symbol = '✹'; cellClass = 'box'; }
-                else if (game.player[0] === row && game.player[1] === column) { symbol = 'E'; cellClass = 'player'; }
+                const key = `${row}:${column}`; let symbol = '·', cellClass = 'positioned';
+                if (game.animation_mine && game.animation_mine[0] === row && game.animation_mine[1] === column) { symbol = '✹'; cellClass += ' mine-hit'; }
+                else if (triggered.has(key)) { symbol = '✹'; cellClass += ' box'; }
+                else if (game.player[0] === row && game.player[1] === column) { symbol = 'E'; cellClass = 'player positioned'; }
                 else if (game.exit[0] === row && game.exit[1] === column) { symbol = 'X'; cellClass = 'target'; }
                 else if (Object.hasOwn(clues, key)) { symbol = String(clues[key]); cellClass = 'target'; }
-                cells += `<div class="sokoban-cell ${cellClass}">${symbol}</div>`;
+                const fieldNumber = row * game.columns + column + 1;
+                cells += `<div class="sokoban-cell ${cellClass}" data-position="${fieldNumber}" aria-label="${symbol === 'E' ? 'Elara, ' : ''}řádek ${row + 1}, sloupec ${column + 1}, pole ${fieldNumber}">${symbol}</div>`;
             }
+            const playerRow = Number(game.player[0]) + 1, playerColumn = Number(game.player[1]) + 1;
+            const playerField = Number(game.player[0]) * game.columns + Number(game.player[1]) + 1;
             const soloControls = demoModeRequested && currentLobby?.mode !== 'team' ? `<div class="sokoban-controls"><span></span><button onclick="sendKarelCommand('${escapeHtml(puzzle.id)}','up')">↑</button><span></span><button onclick="sendKarelCommand('${escapeHtml(puzzle.id)}','left')">←</button><button onclick="sendKarelCommand('${escapeHtml(puzzle.id)}','down')">↓</button><button onclick="sendKarelCommand('${escapeHtml(puzzle.id)}','right')">→</button></div>` : '';
             const levels = (game.active_level_ids || []).map((id, index) => `<div class="line-game-objective ${index < game.completed_levels.length ? 'complete' : (index === game.level_index ? 'active' : '')}"><strong>POLE ${index + 1}</strong><br>${index < game.completed_levels.length ? `+${game.points_per_level} bodů` : (index === game.level_index ? 'AKTIVNÍ' : 'ČEKÁ')}</div>`).join('');
-            return `<div class="sokoban-game"><div class="line-game-progress">${levels}</div><div class="sokoban-meta"><strong>${escapeHtml(game.level_label)} · ${game.level_index + 1}/${game.total_levels}</strong><span>KROKY: ${game.moves}</span><span>ZÁSAHY: ${game.strikes}</span><span>RESTARTY: ${game.restarts}</span><strong class="sokoban-timer" data-deadline="${escapeHtml(game.deadline_at)}">ČAS ${formatLineGameTime(game.remaining_seconds)}</strong></div><div class="sokoban-board" style="grid-template-columns:repeat(${game.columns},1fr)">${cells}</div><p>Číslo udává počet min v osmi sousedních polích. Každé dokončené pole přidá <strong>+${game.points_per_level} bodů</strong>. Ovládání tým najde v interkomu.</p>${soloControls}<button onclick="resetKarel('${escapeHtml(puzzle.id)}')">RESET AKTUÁLNÍHO POLE</button></div>`;
+            return `<div class="sokoban-game"><div class="line-game-progress">${levels}</div><div class="sokoban-meta"><strong>${escapeHtml(game.level_label)} · ${game.level_index + 1}/${game.total_levels}</strong><span>KROKY: ${game.moves}</span><span>ZÁSAHY: ${game.strikes}</span><span>RESTARTY: ${game.restarts}</span><strong class="sokoban-timer" data-deadline="${escapeHtml(game.deadline_at)}">ČAS ${formatLineGameTime(game.remaining_seconds)}</strong></div><div class="mine-position-readout">ELARA: R${playerRow} C${playerColumn} · POLE ${playerField}${game.animation_clue !== undefined && game.animation_clue !== null ? ` · SONDA ${game.animation_clue}` : ''}</div><div class="sokoban-board" style="grid-template-columns:repeat(${game.columns},1fr)">${cells}</div><p>Malé číslo v rohu je pořadové číslo pole. Číslo uprostřed udává počet min v osmi sousedních polích. Každé dokončené pole přidá <strong>+${game.points_per_level} bodů</strong>.</p>${soloControls}<button onclick="resetKarel('${escapeHtml(puzzle.id)}')">RESET AKTUÁLNÍHO POLE</button></div>`;
         }
 
         function renderTriad(puzzle, solved) {
@@ -2338,7 +2395,7 @@
             const objectives = (game.required_orientations || []).map(item => `<div class="line-game-objective ${(game.completed_orientations || []).includes(item) ? 'complete' : ''}"><strong>${labels[item]}</strong><br>${(game.completed_orientations || []).includes(item) ? 'HOTOVO' : 'ČEKÁ'}</div>`).join('');
             const cells = game.board.map((row, r) => row.map((value, c) => blocked.has(`${r}:${c}`)
                 ? '<button class="line-game-cell" disabled>×</button>'
-                : `<button class="line-game-cell ${value || ''}" onclick="placeTriad('${escapeHtml(puzzle.id)}',${r},${c})" ${value || solved ? 'disabled' : ''}>${value ? '●' : '·'}</button>`).join('')).join('');
+                : `<button class="line-game-cell ${value || ''}" data-row="${r}" data-column="${c}" onclick="placeTriad('${escapeHtml(puzzle.id)}',${r},${c})" ${value || solved ? 'disabled' : ''}>${value ? '●' : '·'}</button>`).join('')).join('');
             return `<div class="line-game"><div class="line-game-progress">${objectives}</div><div class="line-game-meta"><span>UMÍSTĚNÍ: ${game.placements}</span><span>RESTARTY: ${game.restarts}</span><strong class="line-game-timer" data-deadline="${escapeHtml(game.deadline_at)}">ČAS ${formatLineGameTime(game.remaining_seconds)}</strong></div><div class="puzzle-actions"><button class="${selectedTriadSymbol === 'cyan' ? 'active' : ''}" onclick="selectTriadSymbol('cyan')">AZUROVÁ</button><button onclick="selectTriadSymbol('amber')">JANTAROVÁ</button></div><div class="line-game-board" style="grid-template-columns:repeat(${game.size},1fr)">${cells}</div><button onclick="resetTriad('${escapeHtml(puzzle.id)}')">NOVÉ POLE</button></div>`;
         }
         function selectTriadSymbol(symbol) { selectedTriadSymbol = symbol; renderPuzzles(); }
@@ -2350,6 +2407,82 @@
         }
         function resetKarel(puzzleId) {
             if (window.confirm('Obnovit minové pole?')) ws.send(JSON.stringify({type:'karel.reset', payload:{puzzle_id:puzzleId}}));
+        }
+
+        function prepareKarelAnimation(payload) {
+            const puzzle = puzzlesState.find(item => item.type === 'mine_karel' && item.status === 'found');
+            if (!puzzle?.game) return;
+            pendingKarelAnimation = {puzzleId:puzzle.id, base:JSON.parse(JSON.stringify(puzzle.game)), frames:payload.frames || [], index:0, running:false, timer:null};
+        }
+        function startKarelAnimation() { if (!pendingKarelAnimation) return; pendingKarelAnimation.running = true; advanceKarelAnimation(); }
+        function advanceKarelAnimation() {
+            const animation = pendingKarelAnimation;
+            if (!animation) return;
+            if (animation.index >= animation.frames.length) { finishKarelAnimation(); return; }
+            const frame = animation.frames[animation.index++];
+            const game = JSON.parse(JSON.stringify(animation.base));
+            game.player = frame.hit_mine ? frame.entered : frame.player;
+            game.animation_clue = frame.clue;
+            if (frame.hit_mine) game.animation_mine = frame.entered;
+            else {
+                if (!game.revealed?.some(item => item[0] === frame.player[0] && item[1] === frame.player[1])) game.revealed = [...(game.revealed || []), frame.player];
+                game.clues = {...(game.clues || {}), [`${frame.player[0]}:${frame.player[1]}`]:frame.clue};
+            }
+            puzzlesState = puzzlesState.map(item => item.id === animation.puzzleId ? {...item, game} : item);
+            renderPuzzles();
+            animation.timer = setTimeout(() => {
+                if (frame.hit_mine) {
+                    game.player = animation.base.start;
+                    delete game.animation_mine;
+                    puzzlesState = puzzlesState.map(item => item.id === animation.puzzleId ? {...item, game} : item);
+                    renderPuzzles();
+                }
+                animation.timer = setTimeout(advanceKarelAnimation, frame.hit_mine ? 420 : 80);
+            }, frame.hit_mine ? 700 : 380);
+        }
+        function finishKarelAnimation() {
+            if (pendingKarelAnimation) clearTimeout(pendingKarelAnimation.timer);
+            pendingKarelAnimation = null;
+            if (deferredPuzzlesState) puzzlesState = deferredPuzzlesState;
+            deferredPuzzlesState = null;
+            renderPuzzles();
+        }
+
+        function prepareLineAnimation(payload) {
+            const puzzle = puzzlesState.find(item => item.type === 'line_game' && item.status === 'found');
+            if (!puzzle?.game) return;
+            pendingLineAnimation = {puzzleId:puzzle.id, base:JSON.parse(JSON.stringify(puzzle.game)), frames:payload.animation_frames || [], index:0, running:false, timer:null};
+        }
+        function startLineAnimation() { if (!pendingLineAnimation) return; pendingLineAnimation.running = true; advanceLineAnimation(); }
+        function advanceLineAnimation() {
+            const animation = pendingLineAnimation;
+            if (!animation) return;
+            if (animation.index >= animation.frames.length) { finishLineAnimation(); return; }
+            const frame = animation.frames[animation.index++];
+            const game = {...JSON.parse(JSON.stringify(animation.base)), board:frame.board, animation_phase:frame.phase};
+            puzzlesState = puzzlesState.map(item => item.id === animation.puzzleId ? {...item, game} : item);
+            renderPuzzles();
+            const delay = ({swap:330, clear:360, collapse:330, refill:360})[frame.phase] || 300;
+            animation.timer = setTimeout(advanceLineAnimation, delay);
+        }
+        function finishLineAnimation() {
+            if (pendingLineAnimation) clearTimeout(pendingLineAnimation.timer);
+            pendingLineAnimation = null;
+            if (deferredPuzzlesState) puzzlesState = deferredPuzzlesState;
+            deferredPuzzlesState = null;
+            renderPuzzles();
+        }
+
+        function playTriadEffect() {
+            const effect = pendingTriadEffect;
+            pendingTriadEffect = null;
+            if (!effect) return;
+            const placed = document.querySelector(`.line-game-cell[data-row="${effect.row}"][data-column="${effect.column}"]`);
+            placed?.classList.add('anim-place');
+            (effect.new_lines || []).forEach(line => line.cells.forEach(key => {
+                const [row, column] = key.split(':');
+                document.querySelector(`.line-game-cell[data-row="${row}"][data-column="${column}"]`)?.classList.add('anim-line');
+            }));
         }
 
         function renderLineGame(puzzle, solved) {
@@ -2365,7 +2498,8 @@
             }
             const cells = game.board.map((row, rowIndex) => row.map((cell, columnIndex) => {
                 const label = `${cell}, pole ${rowIndex + 1}, ${columnIndex + 1}`;
-                return `<button class="line-game-cell ${cell}" aria-label="${label}" data-row="${rowIndex}" data-column="${columnIndex}" onclick="selectLineGameCell(this, '${escapeHtml(puzzle.id)}', ${rowIndex}, ${columnIndex})">●</button>`;
+                const phaseClass = game.animation_phase === 'clear' && !cell ? 'anim-clear' : (['collapse','refill'].includes(game.animation_phase) ? 'anim-drop' : '');
+                return `<button class="line-game-cell ${cell} ${phaseClass}" aria-label="${label}" data-row="${rowIndex}" data-column="${columnIndex}" onclick="selectLineGameCell(this, '${escapeHtml(puzzle.id)}', ${rowIndex}, ${columnIndex})">${cell ? '●' : ''}</button>`;
             }).join('')).join('');
             const failed = game.status === 'expired' ? '<div class="line-game-failed">ČAS VYPRŠEL · spusťte nový pokus</div>' : '';
             return `<div class="line-game">
@@ -2439,7 +2573,7 @@
                     if (walls.has(key)) { cellClass = 'wall'; symbol = '▓'; label = 'stěna'; }
                     else if (boxes.has(key) && targets.has(key)) { cellClass = 'box-on-target'; symbol = '◆'; label = 'článek na cíli'; }
                     else if (boxes.has(key)) { cellClass = 'box'; symbol = '◆'; label = 'energetický článek'; }
-                    else if (key === player) { cellClass = 'player'; symbol = 'E'; label = 'Elara'; }
+                    else if (key === player) { cellClass = `player${game.animation_command ? ' moving' : ''}`; symbol = 'E'; label = 'Elara'; }
                     else if (targets.has(key)) { cellClass = 'target'; symbol = '◎'; label = 'cílové lůžko'; }
                     cells += `<div class="sokoban-cell ${cellClass}" aria-label="${label}, pole ${row + 1}, ${column + 1}">${symbol}</div>`;
                 }

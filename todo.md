@@ -313,7 +313,7 @@
 - [ ] Nepoužívat volné AI vyhodnocení pro samotný pohyb; příkazy parsovat deterministicky.
 - [ ] Nechat Elaru před pohybem zopakovat pochopenou sekvenci.
 - [ ] Po každém kroku odeslat krátkou reakci odpovídající novému okolí.
-- [ ] Při odhalení čísla sdělit počet okolních anomálií i textově kvůli přístupnosti.
+- [x] Při odhalení čísla sdělit počet okolních anomálií i textově kvůli přístupnosti.
 - [ ] Připravit reakce na slepou cestu, opakované pole, chybný příkaz a blízkost anomálie.
 - [ ] Při úspěchu spustit příběhovou zprávu a odemknout navazující uzel scénáře.
 
@@ -322,7 +322,7 @@
 - [ ] Zobrazit Elaru jako postavu se zřetelnou orientací.
 - [ ] Rozlišit skryté, odkryté, navštívené, označené a cílové pole.
 - [ ] Zobrazit čísla okolních anomálií podobně jako ve hře Miny.
-- [ ] Animovat pohyb krok po kroku tak, aby hráči viděli, který příkaz se právě provádí.
+- [x] Animovat pohyb krok po kroku tak, aby hráči viděli, který příkaz se právě provádí.
 - [ ] Umožnit na mobilu současně sledovat šachovnici a posloupnost příkazů.
 - [ ] Vizuálně odlišit potvrzená bezpečná pole od pouhých hráčských odhadů.
 - [ ] Připravit alternativní textové zobrazení mřížky pro přístupnost a nouzový provoz.

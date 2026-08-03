@@ -414,7 +414,11 @@ class StateMachineCheckpointTests(unittest.IsolatedAsyncioTestCase):
         game = self.prepare_five_match()
         response = await self.line_swap([0, 4], [1, 4])
 
-        self.assertTrue(self.response(response, "line_game.result").payload["success"])
+        result = self.response(response, "line_game.result").payload
+        self.assertTrue(result["success"])
+        self.assertEqual(result["animation_frames"][0]["phase"], "swap")
+        self.assertIn("clear", {frame["phase"] for frame in result["animation_frames"]})
+        self.assertEqual(result["animation_frames"][-1]["board"], game["board"])
         self.assertEqual(game["progress"]["5"], 1)
         self.assertLess(game["progress"]["3"], 5)
         self.assertLess(game["progress"]["4"], 3)
@@ -580,6 +584,9 @@ class StateMachineCheckpointTests(unittest.IsolatedAsyncioTestCase):
         }))
         payload = self.response(result, "karel.result").payload
         self.assertTrue(payload["hit_mine"])
+        self.assertEqual(payload["frames"][-1]["entered"], [0, 3])
+        self.assertTrue(payload["frames"][-1]["hit_mine"])
+        self.assertEqual(payload["frames"][-1]["player"], [0, 0])
         self.assertNotIn("mines", payload)
         self.assertNotIn("clues", payload)
         self.assertEqual(self.machine.state.karel_games["courtyard_karel"]["player"], [0, 0])

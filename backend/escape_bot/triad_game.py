@@ -42,7 +42,8 @@ def place(state: dict[str, Any], config: dict[str, Any], row: int, column: int, 
                     if normalized not in state["completed_orientations"]: state["completed_orientations"].append(normalized)
     complete = all(item in state["completed_orientations"] for item in ("horizontal", "vertical", "diagonal"))
     if complete: state["status"] = "complete"
-    return {"success": True, "new_lines": new_lines, "game_complete": complete}
+    return {"success": True, "row": row, "column": column, "symbol": symbol,
+            "new_lines": new_lines, "game_complete": complete}
 
 
 def reset(config: dict[str, Any], state: dict[str, Any], now: datetime | None = None) -> None:

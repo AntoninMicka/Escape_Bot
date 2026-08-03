@@ -2685,11 +2685,70 @@
     "archive_games": {},
     "event_history": []
   },
-  "30c575aa0e264cc894e085181326844d": {
-    "phase": "searching_lost",
-    "unlocked_discoveries": [],
-    "inventory": [],
-    "flags": {},
+  "b0356f657c2d495388eb95ba0ec0db7f": {
+    "phase": "portal_open",
+    "unlocked_discoveries": [
+      "bowling_diagnostics",
+      "courtyard_alignment",
+      "courtyard_minefield",
+      "future_archive",
+      "reception_archive",
+      "sports_archive",
+      "sports_cipher",
+      "staircase_signal",
+      "terrace_echo",
+      "time_machine_console",
+      "timeline_calibration"
+    ],
+    "inventory": [
+      "TEMPORÁLNÍ MOTOR",
+      "FÁZOVÝ STABILIZÁTOR",
+      "KRYSTAL ČASOVÉ KOTVY"
+    ],
+    "flags": {
+      "chronomap_unlocked": true,
+      "reception_archive_unlocked": true,
+      "room_104_unlocked": true,
+      "bowling_route_unlocked": true,
+      "courtyard_route_stable": true,
+      "admin_actions": [
+        {
+          "action": "checkpoint",
+          "label": "Checkpoint courtyard_minefield: solved · Technická chyba / uznat bez postihu",
+          "at": "2026-08-03T05:32:21.569973+00:00",
+          "checkpoint_id": "courtyard_minefield",
+          "previous_status": "found",
+          "status": "solved"
+        },
+        {
+          "action": "checkpoint",
+          "label": "Checkpoint sports_archive: solved · Technická chyba / uznat bez postihu",
+          "at": "2026-08-03T05:38:11.729614+00:00",
+          "checkpoint_id": "sports_archive",
+          "previous_status": "found",
+          "status": "solved"
+        },
+        {
+          "action": "checkpoint",
+          "label": "Checkpoint future_archive: solved · Technická chyba / uznat bez postihu",
+          "at": "2026-08-03T05:42:33.003646+00:00",
+          "checkpoint_id": "future_archive",
+          "previous_status": "found",
+          "status": "solved"
+        }
+      ],
+      "temporal_motor_recovered": true,
+      "timeline_calibrated": true,
+      "phase_stabilizer_recovered": true,
+      "temporal_nodes_aligned": true,
+      "anchor_crystal_recovered": true,
+      "future_archive_unlocked": true,
+      "return_vector_recovered": true,
+      "elara_rescued": true,
+      "game_completed": true,
+      "completed_at": "2026-08-03T05:44:23.298075+00:00",
+      "final_rating": "STABILIZOVÁNO"
+    },
     "chat_history": [
       {
         "role": "bot",
@@ -2697,35 +2756,9 @@
         "text": "*ššš*... Tady Kapitánka. Slyšíme se? Interkom konečně naběhl. Potvrď příjem!"
       },
       {
-        "role": "bot",
-        "channel": "support",
-        "text": "Game Master se připojil k podpoře týmu.",
-        "at": "2026-08-02T19:15:44.427719+00:00"
-      },
-      {
-        "role": "player",
-        "channel": "support",
-        "text": "pomoc",
-        "sender": "PC",
-        "at": "2026-08-02T19:16:11.637109+00:00"
-      },
-      {
-        "role": "bot",
-        "channel": "support",
-        "text": "Game Master ukončil přímé připojení k týmu.",
-        "at": "2026-08-02T19:16:56.666497+00:00"
-      },
-      {
-        "role": "player",
-        "channel": "support",
-        "text": "help",
-        "sender": "PC",
-        "at": "2026-08-02T19:25:24.403282+00:00"
-      },
-      {
         "role": "player",
         "channel": "captain",
-        "text": "jo"
+        "text": "ok"
       },
       {
         "role": "bot",
@@ -2734,41 +2767,1715 @@
       },
       {
         "role": "player",
-        "channel": "support",
-        "text": "help",
-        "sender": "PC",
-        "at": "2026-08-02T19:31:46.477944+00:00"
+        "channel": "captain",
+        "text": "734"
       },
       {
         "role": "bot",
-        "channel": "support",
-        "text": "wtf?",
-        "sender": "Game Master",
-        "at": "2026-08-02T19:32:10.311080+00:00"
+        "channel": "captain",
+        "text": "Frekvence 734 přijata! Zachytila jsem chronální ozvěnu. Přepojuji... *píp*"
+      },
+      {
+        "role": "bot",
+        "channel": "lost",
+        "text": "Haló? Tady doktorka Elara. Jsem pořád v Kraskově, ale hotel vypadá, jako by tu nikdo nebyl celá desetiletí. Stroj se rozpadl při přenosu. Slyšíte mě?"
+      },
+      {
+        "role": "player",
+        "channel": "lost",
+        "text": "ano"
+      },
+      {
+        "role": "bot",
+        "channel": "lost",
+        "text": "Snažím se postupovat podle tvých instrukcí 'ano', ale... *GLITCH* něco mě tu ruší... *šum*"
+      },
+      {
+        "role": "bot",
+        "channel": "general",
+        "text": "SYSTEM ERROR: CHRONOSIGNÁL ZTRACEN\n\nRozhraní interkomu neodpovídá.\nEnergetická smyčka byla přerušena.\nSynchronizace časových vrstev selhala.\nTerminál čeká na obnovovací příkaz.\nAktivní kanál nelze znovu naladit.\nRežim CHRONOMAPY zůstává uzamčen.\nTransmise byla pozastavena.\n\nZadejte jednoslovný obnovovací příkaz."
+      },
+      {
+        "role": "player",
+        "channel": "lost",
+        "text": "restart"
+      },
+      {
+        "role": "bot",
+        "channel": "lost",
+        "text": "Uf, jsem zpět! Už tomu rozumím: jsme ve stejném Kraskově, ale já jsem uvázla v jeho budoucí časové vrstvě. Interkom přenese jen hlas a data; ven mě dostane až stabilní koridor. Havárie vymrštila tři součásti stroje do vašeho času. CHRONOMAPA je znovu online — najděte její první stabilní bod u recepčního archivu."
+      },
+      {
+        "role": "bot",
+        "channel": "captain",
+        "text": "Časová kotva na recepci potvrzena. CHRONOMAPA obnovila recepční archiv."
+      },
+      {
+        "role": "bot",
+        "channel": "captain",
+        "text": "Archiv potvrzuje shodu: Elara, pokoj 214, pozice 7. V dokumentaci se obnovil servisní otisk panelu dveří 104:\n\nI   |   X   |   IV\n\nKaždá oddělená skupina tvoří jednu část čtyřmístného přístupového kódu."
+      },
+      {
+        "role": "bot",
+        "channel": "general",
+        "text": "Přístupový panel dveří 104 odemčen. Elektromagnetický zámek uvolněn."
+      },
+      {
+        "role": "bot",
+        "channel": "lost",
+        "text": "Slyšela jsem cvaknutí! Ty dveře do pokoje 104 se právě otevřely. Jdu dovnitř..."
+      },
+      {
+        "role": "bot",
+        "channel": "lost",
+        "text": "Další časová kotva drží. Z trosek se podařilo obnovit poškozený obrazový záznam; jeho význam ale nedokážu z této vrstvy spolehlivě určit."
+      },
+      {
+        "role": "bot",
+        "channel": "lost",
+        "text": "Signál přeložen: BOWLING. Chronomapa zachytila diagnostické impulzy v prostoru kuželek."
+      },
+      {
+        "role": "bot",
+        "channel": "captain",
+        "text": "Sonda zachytila nestabilní časová pole. Elara vidí jen tmu; rozdělte si mapu a navigaci."
+      },
+      {
+        "role": "bot",
+        "channel": "lost",
+        "text": "Pozor! Narazila jsem na nestabilní pole a nouzový systém mě vrátil na začátek."
+      },
+      {
+        "role": "bot",
+        "channel": "lost",
+        "text": "Pozor! Narazila jsem na nestabilní pole a nouzový systém mě vrátil na začátek."
+      },
+      {
+        "role": "bot",
+        "channel": "lost",
+        "text": "Pozor! Narazila jsem na nestabilní pole a nouzový systém mě vrátil na začátek."
+      },
+      {
+        "role": "bot",
+        "channel": "captain",
+        "text": "Bowlingová kotva aktivní. Terminál obnovil binární diagnostický záznam a referenci ASCII."
+      },
+      {
+        "role": "bot",
+        "channel": "general",
+        "text": "Diagnostická sekvence potvrzena: MOTOR. TEMPORÁLNÍ MOTOR je znovu synchronizován s terminálem."
+      },
+      {
+        "role": "bot",
+        "channel": "captain",
+        "text": "Kalibrační terminál je aktivní. Dva časové proudy se rozpadají; srovnejte jejich uzly do stabilních řad."
+      },
+      {
+        "role": "bot",
+        "channel": "lost",
+        "text": "Oba časové proudy drží! Kalibrace 5–3–1 je dokončena a sportovní archiv se znovu objevil na Chronomapě."
+      },
+      {
+        "role": "bot",
+        "channel": "lost",
+        "text": "Kotva u terasy zachytila noční světelný přenos. Obrazový záznam byl uložen do archivu hádanek."
+      },
+      {
+        "role": "bot",
+        "channel": "lost",
+        "text": "Světelný přenos potvrzen: HŘIŠTĚ. FÁZOVÝ STABILIZÁTOR se synchronizoval a Chronomapa označila sportovní areál."
+      },
+      {
+        "role": "bot",
+        "channel": "captain",
+        "text": "Trojice nestabilních os čeká na zarovnání. Zvolte barvy uzlů a propojte všechny směry."
+      },
+      {
+        "role": "bot",
+        "channel": "lost",
+        "text": "Tři osy jsou zarovnané. Časové uzly vytvořily stabilní průchod ke sportovnímu archivu."
+      },
+      {
+        "role": "bot",
+        "channel": "captain",
+        "text": "Sportovní archiv je nalezen, ale jeho servisní síť nemá napájení. Elara je v úplné tmě a mřížku vidíte jen vy na terminálu. Jeden z vás musí sledovat mapu a druhý ji navigovat přes interkom."
+      },
+      {
+        "role": "bot",
+        "channel": "captain",
+        "text": "Obě části šifrovací tabulky reagují. Složte je a převeďte symboly polského kříže."
+      },
+      {
+        "role": "bot",
+        "channel": "captain",
+        "text": "Zpráva potvrzena: HODINY. V jejich servisním pouzdře je třetí díl stroje – KRYSTAL ČASOVÉ KOTVY – a přístupový otisk Archivu budoucnosti."
+      },
+      {
+        "role": "bot",
+        "channel": "lost",
+        "text": "Archiv budoucnosti je otevřený. Tři karty součástí ukrývají návratový vektor pro Elaru."
+      },
+      {
+        "role": "bot",
+        "channel": "general",
+        "text": "Archiv vektor odmítl. Ověřte rok, čas i pořadí všech tří modulů."
+      },
+      {
+        "role": "bot",
+        "channel": "general",
+        "text": "Archiv vektor odmítl. Ověřte rok, čas i pořadí všech tří modulů."
+      },
+      {
+        "role": "bot",
+        "channel": "general",
+        "text": "Archiv vektor odmítl. Ověřte rok, čas i pořadí všech tří modulů."
+      },
+      {
+        "role": "bot",
+        "channel": "general",
+        "text": "NÁPOVĚDA SYSTÉMU: Karty nejsou tři oddělené zprávy. Jejich barevné hrany, stupnice a signálová křivka musí navazovat."
+      },
+      {
+        "role": "bot",
+        "channel": "general",
+        "text": "NÁPOVĚDA SYSTÉMU: Karty nejsou tři oddělené zprávy. Jejich barevné hrany, stupnice a signálová křivka musí navazovat."
+      },
+      {
+        "role": "bot",
+        "channel": "general",
+        "text": "NÁPOVĚDA SYSTÉMU: Správně složené karty odhalí sedmipísmenný klíč a pořadí tří modulů."
+      },
+      {
+        "role": "bot",
+        "channel": "general",
+        "text": "NÁPOVĚDA SYSTÉMU: Použijte Vigenèrovu tabulku. Klíč CHRONOS opakujte nad celým archivním záznamem."
+      },
+      {
+        "role": "bot",
+        "channel": "captain",
+        "text": "Základna stroje času je online. Terminál čeká na tři moduly a návratový vektor."
+      },
+      {
+        "role": "bot",
+        "channel": "captain",
+        "text": "Vektor přijat. Spouštím desetisekundovou stabilizační sekvenci. Držte se dál od kotvy!"
+      },
+      {
+        "role": "bot",
+        "channel": "lost",
+        "text": "Vidím vás! Časové vrstvy se překrývají… motor drží… jsem zpátky v Kraskově!"
       }
     ],
-    "score": 1020,
-    "hints_used": {},
-    "checkpoint_states": {},
+    "score": 920,
+    "hints_used": {
+      "puzzle.future_archive_cipher": 3
+    },
+    "checkpoint_states": {
+      "reception_archive": {
+        "status": "solved",
+        "first_scanned_at": "2026-08-03T05:29:33.523849+00:00",
+        "solved_at": "2026-08-03T05:29:46.286921+00:00"
+      },
+      "staircase_signal": {
+        "status": "solved",
+        "first_scanned_at": "2026-08-03T05:30:17.330336+00:00",
+        "solved_at": "2026-08-03T05:30:27.371369+00:00"
+      },
+      "courtyard_minefield": {
+        "status": "solved",
+        "first_scanned_at": "2026-08-03T05:30:46.761491+00:00",
+        "admin_override_at": "2026-08-03T05:32:21.569952+00:00",
+        "solved_at": "2026-08-03T05:32:21.569952+00:00"
+      },
+      "bowling_diagnostics": {
+        "status": "solved",
+        "first_scanned_at": "2026-08-03T05:32:45.080046+00:00",
+        "solved_at": "2026-08-03T05:32:54.648390+00:00"
+      },
+      "timeline_calibration": {
+        "status": "solved",
+        "first_scanned_at": "2026-08-03T05:33:20.352492+00:00",
+        "solved_at": "2026-08-03T05:36:52.194211+00:00"
+      },
+      "terrace_echo": {
+        "status": "solved",
+        "first_scanned_at": "2026-08-03T05:37:04.838916+00:00",
+        "solved_at": "2026-08-03T05:37:15.405753+00:00"
+      },
+      "courtyard_alignment": {
+        "status": "solved",
+        "first_scanned_at": "2026-08-03T05:37:31.869434+00:00",
+        "solved_at": "2026-08-03T05:37:49.763584+00:00"
+      },
+      "sports_archive": {
+        "status": "solved",
+        "first_scanned_at": "2026-08-03T05:37:59.439927+00:00",
+        "admin_override_at": "2026-08-03T05:38:11.729597+00:00",
+        "solved_at": "2026-08-03T05:38:11.729597+00:00"
+      },
+      "sports_cipher": {
+        "status": "solved",
+        "first_scanned_at": "2026-08-03T05:38:29.378957+00:00",
+        "solved_at": "2026-08-03T05:38:38.355973+00:00"
+      },
+      "future_archive": {
+        "status": "solved",
+        "first_scanned_at": "2026-08-03T05:38:50.918377+00:00",
+        "admin_override_at": "2026-08-03T05:42:33.003633+00:00",
+        "solved_at": "2026-08-03T05:42:33.003633+00:00"
+      },
+      "time_machine_console": {
+        "status": "solved",
+        "first_scanned_at": "2026-08-03T05:42:46.403277+00:00",
+        "solved_at": "2026-08-03T05:44:23.298075+00:00"
+      }
+    },
     "unlocked_cipher_tools": [
       "a1z26",
-      "morse"
+      "binary_ascii",
+      "classical",
+      "morse",
+      "pigpen",
+      "semaphore"
     ],
     "paid_cipher_tools": [],
-    "puzzle_attempts": {},
-    "interactive_games": {},
-    "sokoban_games": {},
-    "karel_games": {},
-    "last_activity_at": "2026-08-02T19:32:10.311080+00:00",
-    "triad_games": {},
-    "archive_games": {},
+    "puzzle_attempts": {
+      "reception_deduction": 1,
+      "staircase_semaphore": 1,
+      "bowling_binary": 1,
+      "terrace_morse": 1,
+      "sports_pigpen": 1,
+      "future_archive_cipher": 3,
+      "time_machine_finale": 1
+    },
+    "interactive_games": {
+      "timeline_lines": {
+        "progress": {
+          "3": 5,
+          "4": 3,
+          "5": 1
+        },
+        "status": "complete",
+        "started_at": "2026-08-03T05:33:20.352552+00:00",
+        "deadline_at": "2026-08-03T05:38:20.352552+00:00",
+        "swaps": 32,
+        "rng": 25667301,
+        "board": [
+          [
+            "green",
+            "cyan",
+            "red",
+            "violet",
+            "amber",
+            "amber",
+            "violet"
+          ],
+          [
+            "green",
+            "cyan",
+            "green",
+            "amber",
+            "cyan",
+            "amber",
+            "amber"
+          ],
+          [
+            "cyan",
+            "amber",
+            "cyan",
+            "green",
+            "cyan",
+            "red",
+            "violet"
+          ],
+          [
+            "red",
+            "violet",
+            "violet",
+            "amber",
+            "green",
+            "amber",
+            "amber"
+          ],
+          [
+            "violet",
+            "green",
+            "red",
+            "amber",
+            "violet",
+            "amber",
+            "green"
+          ],
+          [
+            "violet",
+            "red",
+            "violet",
+            "red",
+            "cyan",
+            "green",
+            "violet"
+          ],
+          [
+            "green",
+            "amber",
+            "green",
+            "violet",
+            "green",
+            "violet",
+            "violet"
+          ]
+        ]
+      }
+    },
+    "sokoban_games": {
+      "sports_sokoban": {
+        "active_level_ids": [
+          "sector_a",
+          "sector_b",
+          "sector_c"
+        ],
+        "level_index": 0,
+        "completed_levels": [],
+        "awarded_points": 0,
+        "moves": 0,
+        "pushes": 0,
+        "total_moves": 0,
+        "total_pushes": 0,
+        "restarts": 0,
+        "status": "expired",
+        "command_history": [],
+        "player": [
+          5,
+          6
+        ],
+        "boxes": [
+          [
+            2,
+            5
+          ],
+          [
+            5,
+            5
+          ]
+        ],
+        "walls": [
+          [
+            0,
+            0
+          ],
+          [
+            0,
+            1
+          ],
+          [
+            0,
+            2
+          ],
+          [
+            0,
+            3
+          ],
+          [
+            0,
+            4
+          ],
+          [
+            0,
+            5
+          ],
+          [
+            0,
+            6
+          ],
+          [
+            0,
+            7
+          ],
+          [
+            1,
+            0
+          ],
+          [
+            1,
+            1
+          ],
+          [
+            1,
+            4
+          ],
+          [
+            1,
+            7
+          ],
+          [
+            2,
+            0
+          ],
+          [
+            2,
+            7
+          ],
+          [
+            3,
+            0
+          ],
+          [
+            3,
+            1
+          ],
+          [
+            3,
+            2
+          ],
+          [
+            3,
+            7
+          ],
+          [
+            4,
+            0
+          ],
+          [
+            4,
+            7
+          ],
+          [
+            5,
+            0
+          ],
+          [
+            5,
+            7
+          ],
+          [
+            6,
+            0
+          ],
+          [
+            6,
+            7
+          ],
+          [
+            7,
+            0
+          ],
+          [
+            7,
+            1
+          ],
+          [
+            7,
+            2
+          ],
+          [
+            7,
+            3
+          ],
+          [
+            7,
+            4
+          ],
+          [
+            7,
+            5
+          ],
+          [
+            7,
+            6
+          ],
+          [
+            7,
+            7
+          ]
+        ],
+        "targets": [
+          [
+            4,
+            4
+          ],
+          [
+            5,
+            3
+          ]
+        ],
+        "rows": 8,
+        "columns": 8,
+        "level_id": "sector_a",
+        "level_label": "Servisní sektor A",
+        "history": [],
+        "level_speakers": [],
+        "started_at": "2026-08-03T05:37:59.440194+00:00",
+        "deadline_at": "2026-08-03T05:39:59.440194+00:00"
+      }
+    },
+    "karel_games": {
+      "courtyard_karel": {
+        "active_level_ids": [
+          "field_a",
+          "field_b",
+          "field_c"
+        ],
+        "level_index": 0,
+        "completed_levels": [],
+        "awarded_points": 0,
+        "total_moves": 25,
+        "total_strikes": 3,
+        "restarts": 0,
+        "status": "expired",
+        "level_id": "field_a",
+        "level_label": "Pole A",
+        "rows": 7,
+        "columns": 7,
+        "mines": [
+          [
+            0,
+            3
+          ],
+          [
+            1,
+            1
+          ],
+          [
+            1,
+            5
+          ],
+          [
+            2,
+            3
+          ],
+          [
+            3,
+            1
+          ],
+          [
+            3,
+            5
+          ],
+          [
+            4,
+            3
+          ],
+          [
+            5,
+            1
+          ],
+          [
+            5,
+            5
+          ],
+          [
+            6,
+            3
+          ]
+        ],
+        "start": [
+          0,
+          0
+        ],
+        "exit": [
+          6,
+          6
+        ],
+        "player": [
+          0,
+          0
+        ],
+        "revealed": [
+          [
+            0,
+            1
+          ],
+          [
+            1,
+            0
+          ],
+          [
+            2,
+            2
+          ],
+          [
+            2,
+            4
+          ],
+          [
+            3,
+            3
+          ],
+          [
+            4,
+            2
+          ],
+          [
+            4,
+            4
+          ],
+          [
+            5,
+            6
+          ],
+          [
+            6,
+            5
+          ],
+          [
+            0,
+            0
+          ],
+          [
+            6,
+            6
+          ],
+          [
+            0,
+            2
+          ],
+          [
+            1,
+            2
+          ],
+          [
+            1,
+            3
+          ],
+          [
+            1,
+            4
+          ],
+          [
+            2,
+            0
+          ],
+          [
+            2,
+            1
+          ],
+          [
+            3,
+            2
+          ],
+          [
+            4,
+            1
+          ],
+          [
+            4,
+            0
+          ],
+          [
+            3,
+            0
+          ],
+          [
+            3,
+            4
+          ]
+        ],
+        "triggered_mines": [
+          [
+            0,
+            3
+          ],
+          [
+            1,
+            5
+          ],
+          [
+            3,
+            5
+          ]
+        ],
+        "moves": 25,
+        "strikes": 3,
+        "history": [
+          [
+            0,
+            0
+          ],
+          [
+            0,
+            1
+          ],
+          [
+            0,
+            2
+          ],
+          [
+            0,
+            0
+          ],
+          [
+            0,
+            1
+          ],
+          [
+            0,
+            2
+          ],
+          [
+            1,
+            2
+          ],
+          [
+            1,
+            3
+          ],
+          [
+            1,
+            4
+          ],
+          [
+            0,
+            0
+          ],
+          [
+            1,
+            0
+          ],
+          [
+            2,
+            0
+          ],
+          [
+            2,
+            1
+          ],
+          [
+            2,
+            2
+          ],
+          [
+            3,
+            2
+          ],
+          [
+            4,
+            2
+          ],
+          [
+            4,
+            1
+          ],
+          [
+            4,
+            0
+          ],
+          [
+            3,
+            0
+          ],
+          [
+            2,
+            0
+          ],
+          [
+            2,
+            1
+          ],
+          [
+            2,
+            2
+          ],
+          [
+            3,
+            2
+          ],
+          [
+            3,
+            3
+          ],
+          [
+            3,
+            4
+          ]
+        ],
+        "started_at": "2026-08-03T05:30:46.761555+00:00",
+        "deadline_at": "2026-08-03T05:33:46.761555+00:00"
+      }
+    },
+    "last_activity_at": "2026-08-03T05:44:23.298008+00:00",
+    "triad_games": {
+      "temporal_triad": {
+        "size": 5,
+        "board": [
+          [
+            null,
+            "cyan",
+            "cyan",
+            "cyan",
+            null
+          ],
+          [
+            null,
+            null,
+            null,
+            "cyan",
+            null
+          ],
+          [
+            null,
+            null,
+            null,
+            "cyan",
+            "cyan"
+          ],
+          [
+            null,
+            null,
+            null,
+            null,
+            null
+          ],
+          [
+            null,
+            null,
+            null,
+            null,
+            null
+          ]
+        ],
+        "blocked": [
+          [
+            0,
+            4
+          ],
+          [
+            2,
+            2
+          ],
+          [
+            4,
+            0
+          ]
+        ],
+        "completed_orientations": [
+          "diagonal",
+          "vertical",
+          "horizontal"
+        ],
+        "scored_lines": [
+          [
+            "0:2",
+            "1:3",
+            "2:4"
+          ],
+          [
+            "0:3",
+            "1:3",
+            "2:3"
+          ],
+          [
+            "0:1",
+            "0:2",
+            "0:3"
+          ]
+        ],
+        "placements": 6,
+        "restarts": 0,
+        "status": "complete",
+        "started_at": "2026-08-03T05:37:31.869564+00:00",
+        "deadline_at": "2026-08-03T05:40:31.869564+00:00"
+      }
+    },
+    "archive_games": {
+      "future_archive_cipher": {
+        "order": [
+          "motor",
+          "stabilizer",
+          "crystal"
+        ],
+        "rotations": {
+          "motor": 0,
+          "stabilizer": 0,
+          "crystal": 0
+        },
+        "moves": 12,
+        "assembled": true
+      }
+    },
     "event_history": [
       {
-        "at": "2026-08-02T19:30:54.625421+00:00",
+        "at": "2026-08-03T05:28:45.257465+00:00",
         "type": "player.message",
         "details": {
           "channel": "captain"
         }
+      },
+      {
+        "at": "2026-08-03T05:28:55.525248+00:00",
+        "type": "player.message",
+        "details": {
+          "channel": "captain"
+        }
+      },
+      {
+        "at": "2026-08-03T05:29:08.024488+00:00",
+        "type": "player.message",
+        "details": {
+          "channel": "lost"
+        }
+      },
+      {
+        "at": "2026-08-03T05:29:14.262864+00:00",
+        "type": "player.message",
+        "details": {
+          "channel": "lost"
+        }
+      },
+      {
+        "at": "2026-08-03T05:29:33.523804+00:00",
+        "type": "qr.detected",
+        "details": {
+          "value": "escapebot://checkpoint/4ec67b900c4a491ba180c8a48d5309f2"
+        }
+      },
+      {
+        "at": "2026-08-03T05:29:46.286879+00:00",
+        "type": "puzzle.submit",
+        "details": {
+          "puzzle_id": "reception_deduction"
+        }
+      },
+      {
+        "at": "2026-08-03T05:29:59.457878+00:00",
+        "type": "room.unlock",
+        "details": {}
+      },
+      {
+        "at": "2026-08-03T05:30:17.330305+00:00",
+        "type": "qr.detected",
+        "details": {
+          "value": "escapebot://checkpoint/74c67eaf38ef4b72b22f5c971b7bb7bd"
+        }
+      },
+      {
+        "at": "2026-08-03T05:30:27.371325+00:00",
+        "type": "puzzle.submit",
+        "details": {
+          "puzzle_id": "staircase_semaphore"
+        }
+      },
+      {
+        "at": "2026-08-03T05:30:46.761450+00:00",
+        "type": "qr.detected",
+        "details": {
+          "value": "escapebot://checkpoint/6b0f716a2a264cc783d182b93f99a531"
+        }
+      },
+      {
+        "at": "2026-08-03T05:30:59.058143+00:00",
+        "type": "karel.command",
+        "details": {
+          "puzzle_id": "courtyard_karel",
+          "commands": "['right']"
+        }
+      },
+      {
+        "at": "2026-08-03T05:31:10.083587+00:00",
+        "type": "karel.command",
+        "details": {
+          "puzzle_id": "courtyard_karel",
+          "commands": "['right']"
+        }
+      },
+      {
+        "at": "2026-08-03T05:31:16.218388+00:00",
+        "type": "karel.command",
+        "details": {
+          "puzzle_id": "courtyard_karel",
+          "commands": "['right']"
+        }
+      },
+      {
+        "at": "2026-08-03T05:31:19.615944+00:00",
+        "type": "karel.command",
+        "details": {
+          "puzzle_id": "courtyard_karel",
+          "commands": "['right']"
+        }
+      },
+      {
+        "at": "2026-08-03T05:31:20.119353+00:00",
+        "type": "karel.command",
+        "details": {
+          "puzzle_id": "courtyard_karel",
+          "commands": "['right']"
+        }
+      },
+      {
+        "at": "2026-08-03T05:31:20.853555+00:00",
+        "type": "karel.command",
+        "details": {
+          "puzzle_id": "courtyard_karel",
+          "commands": "['down']"
+        }
+      },
+      {
+        "at": "2026-08-03T05:31:21.979376+00:00",
+        "type": "karel.command",
+        "details": {
+          "puzzle_id": "courtyard_karel",
+          "commands": "['right']"
+        }
+      },
+      {
+        "at": "2026-08-03T05:31:24.798824+00:00",
+        "type": "karel.command",
+        "details": {
+          "puzzle_id": "courtyard_karel",
+          "commands": "['right']"
+        }
+      },
+      {
+        "at": "2026-08-03T05:31:28.023757+00:00",
+        "type": "karel.command",
+        "details": {
+          "puzzle_id": "courtyard_karel",
+          "commands": "['right']"
+        }
+      },
+      {
+        "at": "2026-08-03T05:31:30.424290+00:00",
+        "type": "karel.command",
+        "details": {
+          "puzzle_id": "courtyard_karel",
+          "commands": "['down']"
+        }
+      },
+      {
+        "at": "2026-08-03T05:31:32.104616+00:00",
+        "type": "karel.command",
+        "details": {
+          "puzzle_id": "courtyard_karel",
+          "commands": "['down']"
+        }
+      },
+      {
+        "at": "2026-08-03T05:31:33.453820+00:00",
+        "type": "karel.command",
+        "details": {
+          "puzzle_id": "courtyard_karel",
+          "commands": "['right']"
+        }
+      },
+      {
+        "at": "2026-08-03T05:31:34.279273+00:00",
+        "type": "karel.command",
+        "details": {
+          "puzzle_id": "courtyard_karel",
+          "commands": "['right']"
+        }
+      },
+      {
+        "at": "2026-08-03T05:31:37.728789+00:00",
+        "type": "karel.command",
+        "details": {
+          "puzzle_id": "courtyard_karel",
+          "commands": "['down']"
+        }
+      },
+      {
+        "at": "2026-08-03T05:31:44.974013+00:00",
+        "type": "karel.command",
+        "details": {
+          "puzzle_id": "courtyard_karel",
+          "commands": "['down']"
+        }
+      },
+      {
+        "at": "2026-08-03T05:31:47.965509+00:00",
+        "type": "karel.command",
+        "details": {
+          "puzzle_id": "courtyard_karel",
+          "commands": "['left']"
+        }
+      },
+      {
+        "at": "2026-08-03T05:31:48.702272+00:00",
+        "type": "karel.command",
+        "details": {
+          "puzzle_id": "courtyard_karel",
+          "commands": "['left']"
+        }
+      },
+      {
+        "at": "2026-08-03T05:31:50.073787+00:00",
+        "type": "karel.command",
+        "details": {
+          "puzzle_id": "courtyard_karel",
+          "commands": "['up']"
+        }
+      },
+      {
+        "at": "2026-08-03T05:31:54.657957+00:00",
+        "type": "karel.command",
+        "details": {
+          "puzzle_id": "courtyard_karel",
+          "commands": "['up']"
+        }
+      },
+      {
+        "at": "2026-08-03T05:31:55.600679+00:00",
+        "type": "karel.command",
+        "details": {
+          "puzzle_id": "courtyard_karel",
+          "commands": "['right']"
+        }
+      },
+      {
+        "at": "2026-08-03T05:31:56.089714+00:00",
+        "type": "karel.command",
+        "details": {
+          "puzzle_id": "courtyard_karel",
+          "commands": "['right']"
+        }
+      },
+      {
+        "at": "2026-08-03T05:31:56.831907+00:00",
+        "type": "karel.command",
+        "details": {
+          "puzzle_id": "courtyard_karel",
+          "commands": "['down']"
+        }
+      },
+      {
+        "at": "2026-08-03T05:31:57.820044+00:00",
+        "type": "karel.command",
+        "details": {
+          "puzzle_id": "courtyard_karel",
+          "commands": "['right']"
+        }
+      },
+      {
+        "at": "2026-08-03T05:31:58.301180+00:00",
+        "type": "karel.command",
+        "details": {
+          "puzzle_id": "courtyard_karel",
+          "commands": "['right']"
+        }
+      },
+      {
+        "at": "2026-08-03T05:32:04.922008+00:00",
+        "type": "karel.command",
+        "details": {
+          "puzzle_id": "courtyard_karel",
+          "commands": "['right']"
+        }
+      },
+      {
+        "at": "2026-08-03T05:32:45.080008+00:00",
+        "type": "qr.detected",
+        "details": {
+          "value": "escapebot://checkpoint/a9dc930b787a4be6a5344e524d56073b"
+        }
+      },
+      {
+        "at": "2026-08-03T05:32:54.648355+00:00",
+        "type": "puzzle.submit",
+        "details": {
+          "puzzle_id": "bowling_binary"
+        }
+      },
+      {
+        "at": "2026-08-03T05:33:20.352452+00:00",
+        "type": "qr.detected",
+        "details": {
+          "value": "escapebot://checkpoint/9c6fa028b7614a669c9c43def9df1ba8"
+        }
+      },
+      {
+        "at": "2026-08-03T05:33:27.834725+00:00",
+        "type": "line_game.move",
+        "details": {
+          "puzzle_id": "timeline_lines"
+        }
+      },
+      {
+        "at": "2026-08-03T05:33:34.818855+00:00",
+        "type": "line_game.move",
+        "details": {
+          "puzzle_id": "timeline_lines"
+        }
+      },
+      {
+        "at": "2026-08-03T05:33:39.737511+00:00",
+        "type": "line_game.move",
+        "details": {
+          "puzzle_id": "timeline_lines"
+        }
+      },
+      {
+        "at": "2026-08-03T05:33:48.498365+00:00",
+        "type": "line_game.move",
+        "details": {
+          "puzzle_id": "timeline_lines"
+        }
+      },
+      {
+        "at": "2026-08-03T05:33:52.517038+00:00",
+        "type": "line_game.move",
+        "details": {
+          "puzzle_id": "timeline_lines"
+        }
+      },
+      {
+        "at": "2026-08-03T05:34:04.398136+00:00",
+        "type": "line_game.move",
+        "details": {
+          "puzzle_id": "timeline_lines"
+        }
+      },
+      {
+        "at": "2026-08-03T05:34:11.193861+00:00",
+        "type": "line_game.move",
+        "details": {
+          "puzzle_id": "timeline_lines"
+        }
+      },
+      {
+        "at": "2026-08-03T05:34:19.960537+00:00",
+        "type": "line_game.move",
+        "details": {
+          "puzzle_id": "timeline_lines"
+        }
+      },
+      {
+        "at": "2026-08-03T05:34:25.502488+00:00",
+        "type": "line_game.move",
+        "details": {
+          "puzzle_id": "timeline_lines"
+        }
+      },
+      {
+        "at": "2026-08-03T05:34:34.599793+00:00",
+        "type": "line_game.move",
+        "details": {
+          "puzzle_id": "timeline_lines"
+        }
+      },
+      {
+        "at": "2026-08-03T05:34:37.743080+00:00",
+        "type": "line_game.move",
+        "details": {
+          "puzzle_id": "timeline_lines"
+        }
+      },
+      {
+        "at": "2026-08-03T05:34:43.862669+00:00",
+        "type": "line_game.move",
+        "details": {
+          "puzzle_id": "timeline_lines"
+        }
+      },
+      {
+        "at": "2026-08-03T05:34:51.871156+00:00",
+        "type": "line_game.move",
+        "details": {
+          "puzzle_id": "timeline_lines"
+        }
+      },
+      {
+        "at": "2026-08-03T05:34:58.629552+00:00",
+        "type": "line_game.move",
+        "details": {
+          "puzzle_id": "timeline_lines"
+        }
+      },
+      {
+        "at": "2026-08-03T05:35:03.534709+00:00",
+        "type": "line_game.move",
+        "details": {
+          "puzzle_id": "timeline_lines"
+        }
+      },
+      {
+        "at": "2026-08-03T05:35:08.335309+00:00",
+        "type": "line_game.move",
+        "details": {
+          "puzzle_id": "timeline_lines"
+        }
+      },
+      {
+        "at": "2026-08-03T05:35:14.501526+00:00",
+        "type": "line_game.move",
+        "details": {
+          "puzzle_id": "timeline_lines"
+        }
+      },
+      {
+        "at": "2026-08-03T05:35:18.933662+00:00",
+        "type": "line_game.move",
+        "details": {
+          "puzzle_id": "timeline_lines"
+        }
+      },
+      {
+        "at": "2026-08-03T05:35:34.247613+00:00",
+        "type": "line_game.move",
+        "details": {
+          "puzzle_id": "timeline_lines"
+        }
+      },
+      {
+        "at": "2026-08-03T05:35:41.416371+00:00",
+        "type": "line_game.move",
+        "details": {
+          "puzzle_id": "timeline_lines"
+        }
+      },
+      {
+        "at": "2026-08-03T05:35:47.784752+00:00",
+        "type": "line_game.move",
+        "details": {
+          "puzzle_id": "timeline_lines"
+        }
+      },
+      {
+        "at": "2026-08-03T05:35:50.950332+00:00",
+        "type": "line_game.move",
+        "details": {
+          "puzzle_id": "timeline_lines"
+        }
+      },
+      {
+        "at": "2026-08-03T05:35:54.107042+00:00",
+        "type": "line_game.move",
+        "details": {
+          "puzzle_id": "timeline_lines"
+        }
+      },
+      {
+        "at": "2026-08-03T05:36:00.325986+00:00",
+        "type": "line_game.move",
+        "details": {
+          "puzzle_id": "timeline_lines"
+        }
+      },
+      {
+        "at": "2026-08-03T05:36:04.801574+00:00",
+        "type": "line_game.move",
+        "details": {
+          "puzzle_id": "timeline_lines"
+        }
+      },
+      {
+        "at": "2026-08-03T05:36:11.904062+00:00",
+        "type": "line_game.move",
+        "details": {
+          "puzzle_id": "timeline_lines"
+        }
+      },
+      {
+        "at": "2026-08-03T05:36:14.978577+00:00",
+        "type": "line_game.move",
+        "details": {
+          "puzzle_id": "timeline_lines"
+        }
+      },
+      {
+        "at": "2026-08-03T05:36:20.183473+00:00",
+        "type": "line_game.move",
+        "details": {
+          "puzzle_id": "timeline_lines"
+        }
+      },
+      {
+        "at": "2026-08-03T05:36:25.216770+00:00",
+        "type": "line_game.move",
+        "details": {
+          "puzzle_id": "timeline_lines"
+        }
+      },
+      {
+        "at": "2026-08-03T05:36:31.330520+00:00",
+        "type": "line_game.move",
+        "details": {
+          "puzzle_id": "timeline_lines"
+        }
+      },
+      {
+        "at": "2026-08-03T05:36:45.121833+00:00",
+        "type": "line_game.move",
+        "details": {
+          "puzzle_id": "timeline_lines"
+        }
+      },
+      {
+        "at": "2026-08-03T05:36:52.194014+00:00",
+        "type": "line_game.move",
+        "details": {
+          "puzzle_id": "timeline_lines"
+        }
+      },
+      {
+        "at": "2026-08-03T05:37:02.913241+00:00",
+        "type": "qr.detected",
+        "details": {
+          "value": "escapebot://checkpoint/de724be50829411287a0536095cc9148"
+        }
+      },
+      {
+        "at": "2026-08-03T05:37:04.838879+00:00",
+        "type": "qr.detected",
+        "details": {
+          "value": "escapebot://checkpoint/8fd7cd0a5c844702bc384665e864d335"
+        }
+      },
+      {
+        "at": "2026-08-03T05:37:15.405715+00:00",
+        "type": "puzzle.submit",
+        "details": {
+          "puzzle_id": "terrace_morse"
+        }
+      },
+      {
+        "at": "2026-08-03T05:37:24.514426+00:00",
+        "type": "qr.detected",
+        "details": {
+          "value": "escapebot://checkpoint/de724be50829411287a0536095cc9148"
+        }
+      },
+      {
+        "at": "2026-08-03T05:37:26.614221+00:00",
+        "type": "qr.detected",
+        "details": {
+          "value": "escapebot://checkpoint/fbc646e76f0247d69589de21ea645f95"
+        }
+      },
+      {
+        "at": "2026-08-03T05:37:28.652078+00:00",
+        "type": "qr.detected",
+        "details": {
+          "value": "escapebot://checkpoint/4dc33e89b217a3a439dbb96e31c59ea4"
+        }
+      },
+      {
+        "at": "2026-08-03T05:37:31.869404+00:00",
+        "type": "qr.detected",
+        "details": {
+          "value": "escapebot://checkpoint/cb2ee52d5ae74fa6b68f94f59db75d63"
+        }
+      },
+      {
+        "at": "2026-08-03T05:37:41.385959+00:00",
+        "type": "triad.place",
+        "details": {
+          "puzzle_id": "temporal_triad"
+        }
+      },
+      {
+        "at": "2026-08-03T05:37:43.350846+00:00",
+        "type": "triad.place",
+        "details": {
+          "puzzle_id": "temporal_triad"
+        }
+      },
+      {
+        "at": "2026-08-03T05:37:44.311028+00:00",
+        "type": "triad.place",
+        "details": {
+          "puzzle_id": "temporal_triad"
+        }
+      },
+      {
+        "at": "2026-08-03T05:37:47.182944+00:00",
+        "type": "triad.place",
+        "details": {
+          "puzzle_id": "temporal_triad"
+        }
+      },
+      {
+        "at": "2026-08-03T05:37:47.932090+00:00",
+        "type": "triad.place",
+        "details": {
+          "puzzle_id": "temporal_triad"
+        }
+      },
+      {
+        "at": "2026-08-03T05:37:49.763400+00:00",
+        "type": "triad.place",
+        "details": {
+          "puzzle_id": "temporal_triad"
+        }
+      },
+      {
+        "at": "2026-08-03T05:37:57.849678+00:00",
+        "type": "qr.detected",
+        "details": {
+          "value": "escapebot://checkpoint/6b0f716a2a264cc783d182b93f99a531"
+        }
+      },
+      {
+        "at": "2026-08-03T05:37:59.439887+00:00",
+        "type": "qr.detected",
+        "details": {
+          "value": "escapebot://checkpoint/de724be50829411287a0536095cc9148"
+        }
+      },
+      {
+        "at": "2026-08-03T05:38:29.378926+00:00",
+        "type": "qr.detected",
+        "details": {
+          "value": "escapebot://checkpoint/fbc646e76f0247d69589de21ea645f95"
+        }
+      },
+      {
+        "at": "2026-08-03T05:38:38.355933+00:00",
+        "type": "puzzle.submit",
+        "details": {
+          "puzzle_id": "sports_pigpen"
+        }
+      },
+      {
+        "at": "2026-08-03T05:38:50.918337+00:00",
+        "type": "qr.detected",
+        "details": {
+          "value": "escapebot://checkpoint/4dc33e89b217a3a439dbb96e31c59ea4"
+        }
+      },
+      {
+        "at": "2026-08-03T05:38:55.576242+00:00",
+        "type": "archive.arrange",
+        "details": {
+          "puzzle_id": "future_archive_cipher"
+        }
+      },
+      {
+        "at": "2026-08-03T05:38:56.152201+00:00",
+        "type": "archive.arrange",
+        "details": {
+          "puzzle_id": "future_archive_cipher"
+        }
+      },
+      {
+        "at": "2026-08-03T05:38:57.300469+00:00",
+        "type": "archive.arrange",
+        "details": {
+          "puzzle_id": "future_archive_cipher"
+        }
+      },
+      {
+        "at": "2026-08-03T05:38:57.900735+00:00",
+        "type": "archive.arrange",
+        "details": {
+          "puzzle_id": "future_archive_cipher"
+        }
+      },
+      {
+        "at": "2026-08-03T05:38:58.403256+00:00",
+        "type": "archive.arrange",
+        "details": {
+          "puzzle_id": "future_archive_cipher"
+        }
+      },
+      {
+        "at": "2026-08-03T05:39:00.885357+00:00",
+        "type": "archive.arrange",
+        "details": {
+          "puzzle_id": "future_archive_cipher"
+        }
+      },
+      {
+        "at": "2026-08-03T05:39:05.355475+00:00",
+        "type": "archive.arrange",
+        "details": {
+          "puzzle_id": "future_archive_cipher"
+        }
+      },
+      {
+        "at": "2026-08-03T05:39:10.290641+00:00",
+        "type": "archive.arrange",
+        "details": {
+          "puzzle_id": "future_archive_cipher"
+        }
+      },
+      {
+        "at": "2026-08-03T05:39:10.949729+00:00",
+        "type": "archive.arrange",
+        "details": {
+          "puzzle_id": "future_archive_cipher"
+        }
+      },
+      {
+        "at": "2026-08-03T05:39:14.364265+00:00",
+        "type": "archive.arrange",
+        "details": {
+          "puzzle_id": "future_archive_cipher"
+        }
+      },
+      {
+        "at": "2026-08-03T05:39:15.712505+00:00",
+        "type": "archive.arrange",
+        "details": {
+          "puzzle_id": "future_archive_cipher"
+        }
+      },
+      {
+        "at": "2026-08-03T05:39:18.345790+00:00",
+        "type": "archive.arrange",
+        "details": {
+          "puzzle_id": "future_archive_cipher"
+        }
+      },
+      {
+        "at": "2026-08-03T05:40:35.279303+00:00",
+        "type": "puzzle.submit",
+        "details": {
+          "puzzle_id": "future_archive_cipher"
+        }
+      },
+      {
+        "at": "2026-08-03T05:41:00.165284+00:00",
+        "type": "puzzle.submit",
+        "details": {
+          "puzzle_id": "future_archive_cipher"
+        }
+      },
+      {
+        "at": "2026-08-03T05:41:19.500718+00:00",
+        "type": "puzzle.submit",
+        "details": {
+          "puzzle_id": "future_archive_cipher"
+        }
+      },
+      {
+        "at": "2026-08-03T05:41:24.423393+00:00",
+        "type": "puzzle.hint",
+        "details": {
+          "puzzle_id": "future_archive_cipher"
+        }
+      },
+      {
+        "at": "2026-08-03T05:41:28.222816+00:00",
+        "type": "puzzle.hint",
+        "details": {
+          "puzzle_id": "future_archive_cipher"
+        }
+      },
+      {
+        "at": "2026-08-03T05:41:49.535746+00:00",
+        "type": "puzzle.hint",
+        "details": {
+          "puzzle_id": "future_archive_cipher"
+        }
+      },
+      {
+        "at": "2026-08-03T05:42:11.015151+00:00",
+        "type": "puzzle.hint",
+        "details": {
+          "puzzle_id": "future_archive_cipher"
+        }
+      },
+      {
+        "at": "2026-08-03T05:42:46.403238+00:00",
+        "type": "qr.detected",
+        "details": {
+          "value": "escapebot://checkpoint/b9ae752e80e5d4d85965e805bbc4b62f"
+        }
+      },
+      {
+        "at": "2026-08-03T05:44:23.298008+00:00",
+        "type": "finale.activate",
+        "details": {}
       }
     ]
   }
