@@ -25,6 +25,8 @@ Escape_Bot/
 
 Návrh přenosné lokální infrastruktury, včetně centralizované varianty MikroTik a experimentálního distribuovaného Turris meshe, je v dokumentu [`docs/portable-infrastructure.md`](docs/portable-infrastructure.md).
 
+Nativní administrační wrapper s vloženým webovým adminem a podporou vytvoření Wi-Fi AP na Linuxu je v adresáři [`desktop/`](desktop/README.md).
+
 ## Rychlý start backendu
 
 ```bash
