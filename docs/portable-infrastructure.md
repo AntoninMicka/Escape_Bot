@@ -14,6 +14,60 @@ Internet není součástí kritické cesty hry ani v jedné variantě. Může sl
 - Veškeré vybavení musí před odjezdem projít testem se stejnou konfigurací, jaká bude použita na místě.
 - Captive portal může hráči usnadnit nalezení adresy, ale není náhradou důvěryhodného HTTPS. Vestavěné captive prohlížeče navíc nemusejí spolehlivě podporovat kameru, PWA a WebSockety.
 
+### Kompatibilita zařízení a simulace síťových služeb
+
+Některé telefony a notebooky po přidělení adresy aktivně ověřují, zda Wi-Fi skutečně nabízí internet. Pokud kontrola selže nebo vrátí neočekávanou odpověď, zařízení může síť označit jako nepoužitelnou, nabídnout její odpojení, přepnout provoz na mobilní data nebo opakovaně otevírat captive portal. Nestačí proto simulovat pouze backend hry.
+
+> **Architektonické rozhodnutí:** výchozím řešením je standard CAPPORT, nikoli emulace endpointů jednotlivých výrobců. Síť oznámí Captive Portal API pomocí DHCP option 114, případně příslušné IPv6 RA/DHCPv6 volby, podle RFC 8910. Stav sítě a adresu vstupní stránky poskytne přes API podle RFC 8908. Výrobní simulace systémových sond je pouze kompatibilitní fallback pro konkrétní předem otestované zařízení.
+
+CAPPORT korektně popisuje captive nebo izolovanou síť, ale nemůže pravdivě deklarovat obecný přístup k internetu, pokud síť internet neposkytuje. U spravovaných herních tabletů lze chování Wi-Fi předem nastavit profilem zařízení. U telefonů hráčů je nejspolehlivější buď povolit minimální WAN přístup k systémovým kontrolám, nebo uživatele jednou nechat potvrdit, že chce síť používat i bez internetu. Přesné chování se mezi výrobci a verzemi systému liší.
+
+Lokální infrastruktura má poskytovat alespoň:
+
+- autoritativní DHCP se správnou bránou, DNS servery a dobou zápůjčky,
+- redundantní lokální DNS na alespoň dvou uzlech v distribuované variantě,
+- lokální NTP nebo spolehlivý čas routerů kvůli TLS, event logu a lease,
+- HTTPS/WSS endpoint hry s platným certifikátem a úplným certifikačním řetězcem,
+- případně Captive Portal API a vstupní stránku,
+- lokální kopii všech assetů; PWA nesmí za běhu vyžadovat CDN, webfont, analytiku ani knihovnu z internetu.
+
+#### Doporučené provozní režimy
+
+1. **Internet je dostupný:** systémové sondy se propustí přes omezený WAN allowlist a nefalšují se. Herní backend a DNS nadále zůstávají lokální.
+2. **Síť je záměrně offline:** síť korektně inzeruje captive stav a nabídne stránku hry. Použije se Captive Portal API podle RFC 8908, oznámené pomocí DHCP option 114 podle RFC 8910. API i portál musejí používat veřejně důvěryhodný certifikát.
+3. **Kompatibilitní simulace pro problematická zařízení:** lokální responder obslouží pouze přesně zdokumentované DNS a nešifrované HTTP sondy. Pravidla se volí podle platformy a verze OS a před akcí se ověří na skutečných telefonech.
+
+Android od verze 12 může použít Captive Portal API oznámené DHCP option 114. Android současně používá HTTP i HTTPS validační sondy a při rozdílném výsledku může síť označit jen za částečně dostupnou. Standardizované API je proto spolehlivější než závislost na konkrétních URL sond, které se mohou měnit podle výrobce telefonu.
+
+Windows NCSI používá mimo jiné DNS a HTTP kontrolu `www.msftconnecttest.com/connecttest.txt` a očekává stav 200 s přesným obsahem `Microsoft Connect Test`; starší systémy používaly `www.msftncsi.com/ncsi.txt`. Tyto odpovědi lze v laboratorní, plně lokální síti emulovat pomocí DNS překladu a malého HTTP responderu. Seznam musí být konfigurovatelný, protože operační systém jej může změnit.
+
+U Apple zařízení se má primárně otestovat standardní captive flow a chování volby „používat bez internetu“. Konkrétní požadavky dané verze iOS/iPadOS je vhodné zjistit packet capturem při připojení testovacího zařízení a přidat je do verzované kompatibilitní matice; nemá se předpokládat, že jediná historicky známá URL pokryje všechny verze.
+
+#### Bezpečnostní hranice simulace
+
+- DNS lze přesměrovat pouze pro známé testovací hosty a HTTP responder musí vracet jen očekávaný statický obsah.
+- HTTPS hosty výrobců se nesmějí podvrhovat vlastním certifikátem ani transparentním TLS proxy. Zařízení bez nainstalované vlastní CA by správně odmítlo spojení a instalace CA do telefonů hráčů by byla nepřiměřená a riziková.
+- Simulovaná odpověď hlásí systému internetovou dostupnost, přestože obecný internet nefunguje. Je proto nutné ověřit, že aplikace telefonu kvůli tomu nezůstanou viset na Wi-Fi místo použití mobilních dat. Herní UI má stav sítě vysvětlit hráči.
+- DNS hijacking se nesmí vztahovat na libovolné domény. Privátní DNS, DNS-over-HTTPS, VPN a Apple Private Relay mohou lokální přesměrování obejít; testovací instrukce mají požadovat jejich dočasné vypnutí pouze tehdy, když skutečně brání vstupu do hry.
+- Simulace nesmí vytvořit otevřený DNS resolver, proxy ani NTP službu přístupnou z WAN.
+
+#### Kompatibilitní test před akcí
+
+Pro každou podporovanou kombinaci systému a zařízení se zaznamená:
+
+| Kontrola | Očekávaný výsledek |
+|---|---|
+| první připojení k SSID | zařízení zůstane připojené a nezapomene síť |
+| mobilní data současně zapnutá | doména hry a WSS vedou přes lokální Wi-Fi |
+| otevření captive okna | nabídne vstup do hry nebo jasný přechod do plného prohlížeče |
+| zamknutí a probuzení telefonu | Wi-Fi se obnoví a klient reconnectne relaci |
+| roaming mezi dvěma AP | relace pokračuje bez nového přihlášení |
+| výpadek WAN | hra pokračuje, nevznikne nekonečná smyčka portálu |
+| výpadek DNS nebo jednoho mesh uzlu | klient použije druhou službu nebo zobrazí řízenou chybu |
+| kamera a PWA | fungují v plném prohlížeči přes důvěryhodné HTTPS |
+
+Packet capture z testu se uloží spolu s verzí OS, modelem telefonu a výsledkem. Z něj vznikne verzovaný seznam simulovaných hostů, cest, návratových kódů a payloadů. Tento seznam je součástí konfigurace infrastruktury, nikoli natvrdo zapsaná součást herního backendu.
+
 ## Varianta A: centrální backend a řízená AP
 
 ### Topologie
@@ -227,6 +281,11 @@ Při porovnání středů uvedených rozpětí vychází distribuovaná varianta
 - [RouterOS WiFi a CAPsMAN](https://help.mikrotik.com/docs/spaces/ROS/pages/224559120/WiFi)
 - [Turris Omnia](https://www.turris.com/en/produkty/omnia/)
 - [Turris Omnia Wi-Fi 6 – datasheet](https://static.turris.com/docs/omnia/omnia-wifi6-datasheet.pdf)
+- [RFC 8908 – Captive Portal API](https://www.rfc-editor.org/info/rfc8908/)
+- [RFC 8910 – Captive Portal Identification v DHCP/RA](https://www.rfc-editor.org/info/rfc8910/)
+- [Android – Captive Portal API a DHCP option 114](https://source.android.com/docs/core/connect/android-custom-tabs-captive-portal)
+- [Microsoft – NCSI FAQ](https://learn.microsoft.com/en-us/windows-server/networking/ncsi/ncsi-frequently-asked-questions)
+- [Apple – použití captive Wi-Fi sítí](https://support.apple.com/en-ie/102554)
 - [Orientační cena cAP ax](https://www.zbozi.cz/vyrobek/mikrotik-cap-ax/)
 - [Orientační cena RB5009UPr+S+IN](https://www.zbozi.cz/vyrobek/mikrotik-rb5009upr-s-in/)
 - [Orientační cena Turris Omnia Wi-Fi 6](https://www.heureka.cz/?h%5Bfraze%5D=turris+omnia)
