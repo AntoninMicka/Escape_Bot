@@ -821,9 +821,28 @@ class EscapeBotStateMachine:
             return [reply("karel.result", {"success": False, "reason": str(error)}, message), self._state_message()]
         if result["score_delta"]:
             self.state.score += result["score_delta"]
-        responses = [reply("karel.result", result, message)]
+        command_names = {"up": "NAHORU", "down": "DOLŮ", "left": "VLEVO", "right": "VPRAVO"}
+        understood = ", ".join(command_names.get(item, item.upper()) for item in message.payload.get("commands", []))
+        responses = [
+            reply("bot.message", {"text": f"Rozumím sekvenci: {understood}. Provádím.", "mood": "focused", "channel": "lost"}, message),
+            reply("karel.result", result, message),
+        ]
         if result["hit_mine"]:
             responses.append(reply("bot.message", {"text": "Pozor! Narazila jsem na nestabilní pole a nouzový systém mě vrátil na začátek.", "mood": "tense", "channel": "lost"}, message))
+        elif result["blocked"]:
+            responses.append(reply("bot.message", {"text": "Tudy cesta nevede. Poslední povel by mě vyvedl mimo stabilní oblast.", "mood": "alert", "channel": "lost"}, message))
+        elif result["frames"]:
+            last_frame = result["frames"][-1]
+            clue = int(last_frame.get("clue") or 0)
+            if last_frame.get("revisited"):
+                text = f"Toto pole už znám. Sonda stále hlásí {clue} okolních anomálií."
+            elif clue >= 3:
+                text = f"Silné rušení. V osmi okolních polích jsou {clue} anomálie."
+            elif clue:
+                text = f"Sonda hlásí {clue} okolní anomálie. Postupuji opatrně."
+            else:
+                text = "Okolí je čisté, sonda nehlásí žádnou anomálii."
+            responses.append(reply("bot.message", {"text": text, "mood": "focused", "channel": "lost"}, message))
         if result["game_complete"]:
             checkpoint_state["status"] = "solved"; checkpoint_state["solved_at"] = datetime.now(UTC).isoformat()
             self._apply_checkpoint_rewards(self.scenario.data.get("checkpoints", {}).get(checkpoint_id, {}))

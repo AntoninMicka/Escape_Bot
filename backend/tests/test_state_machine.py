@@ -4,6 +4,7 @@ from pathlib import Path
 
 from escape_bot.protocol import Message
 from escape_bot.line_game import completion_time_score
+from escape_bot.mine_karel import new_game as new_karel, public_game as public_karel, safe_path, validate_level
 from escape_bot.sokoban import execute as execute_sokoban, new_game as new_sokoban, parse_commands
 from escape_bot.team_lobby import LobbyRegistry, classify_activity, team_size_adjustment
 from escape_bot.scenario import ScenarioLoader, build_checkpoint_qr_set, build_demo_checkpoint_catalog, build_puzzle_telemetry, build_scenario_progress
@@ -612,6 +613,32 @@ class StateMachineCheckpointTests(unittest.IsolatedAsyncioTestCase):
         self.assertNotIn("clues", payload)
         self.assertEqual(self.machine.state.karel_games["courtyard_karel"]["player"], [0, 0])
         self.assertEqual(self.machine.state.score, score_before - 20)
+
+    def test_every_karel_level_has_safe_path_and_accessible_grid(self) -> None:
+        config = self.scenario.data["puzzles"]["courtyard_karel"]["game"]
+        for level in config["levels"]:
+            validate_level(level)
+            self.assertGreater(len(safe_path(level)), 1, level["id"])
+        game = new_karel({**config, "active_level_ids": ["field_a"]})
+        public = public_karel(config, game)
+        self.assertEqual(len(public["text_grid"]), public["rows"])
+        self.assertTrue(all(len(row.split()) == public["columns"] for row in public["text_grid"]))
+        self.assertNotIn("mines", public)
+
+    def test_karel_rejects_level_without_safe_route(self) -> None:
+        blocked = {"id": "blocked", "rows": 2, "columns": 2, "start": [0, 0], "exit": [1, 1], "mines": [[0, 1], [1, 0]]}
+        with self.assertRaisesRegex(ValueError, "nemá bezpečnou trasu"):
+            validate_level(blocked)
+
+    async def test_karel_repeats_sequence_and_describes_sonda(self) -> None:
+        await self.solve_staircase()
+        await self.scan("courtyard_minefield")
+        responses = await self.machine.handle(Message("karel.command", {
+            "puzzle_id": "courtyard_karel", "commands": ["down", "down"],
+        }))
+        messages = [item.payload.get("text", "") for item in responses if item.type == "bot.message"]
+        self.assertTrue(any("DOLŮ, DOLŮ" in text for text in messages))
+        self.assertTrue(any("Sonda hlásí" in text or "Okolí je čisté" in text for text in messages))
 
     async def test_mine_karel_completion_unlocks_bowling(self) -> None:
         await self.solve_staircase()

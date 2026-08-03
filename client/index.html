@@ -517,6 +517,11 @@
         .admin-node-actions { display: flex; flex-wrap: wrap; gap: 5px; margin: 4px 0 9px 20px; }
         .admin-node-actions button { padding: 5px 8px; font-size: .78rem; }
         .admin-node-actions .danger { border-color: #d66; color: #f99; }
+        .admin-mine-board { display: grid; gap: 2px; width: min(100%, 300px); aspect-ratio: 1; margin: 8px 0; }
+        .admin-mine-cell { display: grid; place-items: center; border: 1px solid #164; background: #031413; font-size: .72rem; }
+        .admin-mine-cell.path { background: #06352b; color: #7fc; }
+        .admin-mine-cell.mine { background: #510b14; color: #faa; }
+        .admin-mine-cell.player { outline: 2px solid #0ff; color: #fff; }
         .qr-print-sheet { display: none; }
         .qr-print-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10mm; }
         .qr-print-card { break-inside: avoid; border: 1.5px dashed #000; padding: 6mm; color: #000; background: #fff; text-align: center; }
@@ -1329,6 +1334,20 @@
             return `${Math.floor(value / 86400)} d ${Math.floor(value % 86400 / 3600)} h`;
         }
 
+        function renderAdminMineBoard(game) {
+            const mines = new Set((game.mines || []).map(item => `${item[0]}:${item[1]}`));
+            const path = new Set((game.safe_path || []).map(item => `${item[0]}:${item[1]}`));
+            const player = (game.player || []).join(':');
+            const exit = (game.exit || []).join(':');
+            let cells = '';
+            for (let row = 0; row < Number(game.rows); row++) for (let column = 0; column < Number(game.columns); column++) {
+                const key = `${row}:${column}`;
+                const symbol = key === player ? 'E' : (key === exit ? 'X' : (mines.has(key) ? '✹' : (path.has(key) ? '·' : '')));
+                cells += `<span class="admin-mine-cell ${mines.has(key) ? 'mine' : ''} ${path.has(key) ? 'path' : ''} ${key === player ? 'player' : ''}">${symbol}</span>`;
+            }
+            return `<div class="admin-mine-board" style="grid-template-columns:repeat(${Number(game.columns)},1fr)" aria-label="Admin mapa min a bezpečné trasy">${cells}</div>`;
+        }
+
         function renderAdminLeaderboard(entries) {
             const container = document.getElementById('admin-leaderboard');
             if (!entries.length) { container.innerHTML = '<p>Síň slávy je prázdná.</p>'; return; }
@@ -1414,7 +1433,7 @@
                 const hints = Object.entries(team.hints_used || {}).map(([id, count]) => `${escapeHtml(id)}: ${Number(count)}`).join(', ') || 'žádné';
                 const attempts = Object.entries(team.puzzle_attempts || {}).map(([id, count]) => `${escapeHtml(id)}: ${Number(count)}`).join(', ') || 'žádné';
                 const lineGame = ((team.game_metrics || {}).line || []).map(game => `Kalibrace [${escapeHtml(game.status)}]: ${game.swaps} výměn · cíle ${Object.entries(game.progress || {}).map(([length, count]) => `${length}×: ${count}`).join(', ')}`).join('<br>') || 'Kalibrace dosud neaktivní';
-                const karel = ((team.game_metrics || {}).karel || []).map(game => `Karel ${escapeHtml(game.level)}: pozice ${escapeHtml((game.player || []).join(','))}, ${game.completed} hotovo, ${game.moves} kroků, ${game.strikes} min, ${game.restarts} restartů`).join('<br>') || 'Karel dosud neaktivní';
+                const karel = ((team.game_metrics || {}).karel || []).map(game => `<strong>Karel ${escapeHtml(game.level)}</strong>: pozice ${escapeHtml((game.player || []).join(','))}, ${game.completed} hotovo, ${game.moves} kroků, ${game.strikes} min, ${game.restarts} restartů${renderAdminMineBoard(game)}<small>Červeně miny, zeleně jedna bezpečná trasa, E = Elara, X = cíl.</small>`).join('<br>') || 'Karel dosud neaktivní';
                 const sokoban = ((team.game_metrics || {}).sokoban || []).map(game => `Sokoban ${escapeHtml(game.level)}: pozice ${escapeHtml((game.player || []).join(','))}, články na cíli ${(game.boxes || []).filter(box => (game.targets || []).some(target => target[0] === box[0] && target[1] === box[1])).length}/${(game.boxes || []).length}, ${game.moves} kroků, ${game.pushes} zatlačení, ${game.restarts} restartů`).join('<br>') || 'Sokoban dosud neaktivní';
                 const triad = ((team.game_metrics || {}).triad || []).map(game => `Tři v řadě [${escapeHtml(game.status)}]: ${game.placements} kamenů · směry ${(game.completed_orientations || []).map(escapeHtml).join(', ') || 'žádné'}`).join('<br>') || 'Tři v řadě dosud neaktivní';
                 const archive = ((team.game_metrics || {}).archive || []).map(game => `Jigsaw stroje času: ${game.assembled ? 'sestaven' : 'rozložen'} · ${game.moves} prohození · pořadí ${(game.order || []).map(escapeHtml).join(' → ')}`).join('<br>') || 'Archiv budoucnosti dosud neaktivní';
@@ -2530,7 +2549,9 @@
             const playerField = Number(game.player[0]) * game.columns + Number(game.player[1]) + 1;
             const soloControls = demoModeRequested && currentLobby?.mode !== 'team' ? `<div class="sokoban-controls"><span></span><button onclick="sendKarelCommand('${escapeHtml(puzzle.id)}','up')">↑</button><span></span><button onclick="sendKarelCommand('${escapeHtml(puzzle.id)}','left')">←</button><button onclick="sendKarelCommand('${escapeHtml(puzzle.id)}','down')">↓</button><button onclick="sendKarelCommand('${escapeHtml(puzzle.id)}','right')">→</button></div>` : '';
             const levels = (game.active_level_ids || []).map((id, index) => `<div class="line-game-objective ${index < game.completed_levels.length ? 'complete' : (index === game.level_index ? 'active' : '')}"><strong>POLE ${index + 1}</strong><br>${index < game.completed_levels.length ? `+${game.points_per_level} bodů` : (index === game.level_index ? 'AKTIVNÍ' : 'ČEKÁ')}</div>`).join('');
-            return `<div class="sokoban-game"><div class="line-game-progress">${levels}</div><div class="sokoban-meta"><strong>${escapeHtml(game.level_label)} · ${game.level_index + 1}/${game.total_levels}</strong><span>KROKY: ${game.moves}</span><span>ZÁSAHY: ${game.strikes}</span><span>RESTARTY: ${game.restarts}</span><strong class="sokoban-timer" data-deadline="${escapeHtml(game.deadline_at)}">ČAS ${formatLineGameTime(game.remaining_seconds)}</strong></div><div class="mine-position-readout">ELARA: R${playerRow} C${playerColumn} · POLE ${playerField}${game.animation_clue !== undefined && game.animation_clue !== null ? ` · SONDA ${game.animation_clue}` : ''}</div><div class="sokoban-board" style="grid-template-columns:repeat(${game.columns},1fr)">${cells}</div><p>Malé číslo v rohu je pořadové číslo pole. Číslo uprostřed udává počet min v osmi sousedních polích. Každé dokončené pole přidá <strong>+${game.points_per_level} bodů</strong>.</p>${soloControls}<button onclick="resetKarel('${escapeHtml(puzzle.id)}')">RESET AKTUÁLNÍHO POLE</button></div>`;
+            const playback = pendingKarelAnimation?.puzzleId === puzzle.id ? `<div class="puzzle-actions"><button onclick="startKarelAnimation()">▶ PŘEHRÁT</button><button onclick="pauseKarelAnimation()">Ⅱ POZASTAVIT</button><button onclick="stepKarelAnimation()">KROK</button><button onclick="cancelKarelAnimation()">ZRUŠIT PŘEHRÁVÁNÍ</button></div>` : '';
+            const textGrid = (game.text_grid || []).map(line => escapeHtml(line)).join('\n');
+            return `<div class="sokoban-game"><div class="line-game-progress">${levels}</div><div class="sokoban-meta"><strong>${escapeHtml(game.level_label)} · ${game.level_index + 1}/${game.total_levels}</strong><span>KROKY: ${game.moves}</span><span>ZÁSAHY: ${game.strikes}</span><span>RESTARTY: ${game.restarts}</span><strong class="sokoban-timer" data-deadline="${escapeHtml(game.deadline_at)}">ČAS ${formatLineGameTime(game.remaining_seconds)}</strong></div><div class="mine-position-readout" role="status" aria-live="polite">ELARA: R${playerRow} C${playerColumn} · POLE ${playerField}${game.animation_clue !== undefined && game.animation_clue !== null ? ` · SONDA ${game.animation_clue}` : ''}</div><div class="sokoban-board" style="grid-template-columns:repeat(${game.columns},1fr)">${cells}</div>${playback}<details><summary>TEXTOVÉ ZOBRAZENÍ MŘÍŽKY</summary><pre aria-label="Textová mapa minového pole">${textGrid}</pre><p>E = Elara, S = start, X = cíl, ! = aktivovaná anomálie, ? = neprozkoumané pole.</p></details><p>Malé číslo v rohu je pořadové číslo pole. Číslo uprostřed udává počet min v osmi sousedních polích. Každé dokončené pole přidá <strong>+${game.points_per_level} bodů</strong>.</p>${soloControls}<button onclick="resetKarel('${escapeHtml(puzzle.id)}')">RESET AKTUÁLNÍHO POLE</button></div>`;
         }
 
         function renderTriad(puzzle, solved) {
@@ -2559,7 +2580,10 @@
             if (!puzzle?.game) return;
             pendingKarelAnimation = {puzzleId:puzzle.id, base:JSON.parse(JSON.stringify(puzzle.game)), frames:payload.frames || [], index:0, running:false, timer:null};
         }
-        function startKarelAnimation() { if (!pendingKarelAnimation) return; pendingKarelAnimation.running = true; advanceKarelAnimation(); }
+        function startKarelAnimation() { if (!pendingKarelAnimation || pendingKarelAnimation.running) return; pendingKarelAnimation.running = true; clearTimeout(pendingKarelAnimation.timer); advanceKarelAnimation(); }
+        function pauseKarelAnimation() { if (!pendingKarelAnimation) return; pendingKarelAnimation.running = false; clearTimeout(pendingKarelAnimation.timer); renderPuzzles(); }
+        function stepKarelAnimation() { if (!pendingKarelAnimation || pendingKarelAnimation.running) return; advanceKarelAnimation(); }
+        function cancelKarelAnimation() { finishKarelAnimation(); }
         function advanceKarelAnimation() {
             const animation = pendingKarelAnimation;
             if (!animation) return;
@@ -2582,7 +2606,7 @@
                     puzzlesState = puzzlesState.map(item => item.id === animation.puzzleId ? {...item, game} : item);
                     renderPuzzles();
                 }
-                animation.timer = setTimeout(advanceKarelAnimation, frame.hit_mine ? 420 : 80);
+                if (animation.running) animation.timer = setTimeout(advanceKarelAnimation, frame.hit_mine ? 420 : 80);
             }, frame.hit_mine ? 700 : 380);
         }
         function finishKarelAnimation() {

@@ -312,12 +312,12 @@
 - [x] Rozšířit admin detail o poslední aktivitu, stav checkpointů, zásahy min, restarty, pohyby, nápovědy, pokusy, poslední zprávy a časovou osu událostí.
 - [x] Umožnit adminovi obnovit identitu hráče na novém zařízení pomocí návratového QR.
 - [x] Vložit časovanou variaci na tři v řadě mezi Morseovu úlohu a Sokoban: pole 5×5, dvě barvy, blokovaná pole a povinná vodorovná, svislá a diagonální trojice v libovolném pořadí.
-- [ ] Nepoužívat volné AI vyhodnocení pro samotný pohyb; příkazy parsovat deterministicky.
-- [ ] Nechat Elaru před pohybem zopakovat pochopenou sekvenci.
-- [ ] Po každém kroku odeslat krátkou reakci odpovídající novému okolí.
+- [x] Nepoužívat volné AI vyhodnocení pro samotný pohyb; příkazy parsovat deterministicky.
+- [x] Nechat Elaru před pohybem zopakovat pochopenou sekvenci.
+- [ ] Volitelně rozšířit souhrnnou reakci po sekvenci na samostatnou reakci po každém kroku; současná verze záměrně nezaplňuje interkom dlouhou dávkou zpráv.
 - [x] Při odhalení čísla sdělit počet okolních anomálií i textově kvůli přístupnosti.
-- [ ] Připravit reakce na slepou cestu, opakované pole, chybný příkaz a blízkost anomálie.
-- [ ] Při úspěchu spustit příběhovou zprávu a odemknout navazující uzel scénáře.
+- [x] Připravit reakce na slepou cestu, opakované pole, chybný příkaz a blízkost anomálie.
+- [x] Při úspěchu spustit příběhovou zprávu a odemknout navazující uzel scénáře.
 
 #### Vizualizace šachovnice
 - [ ] Přidat samostatný panel nebo záložku s responzivní šachovnicí.
@@ -327,12 +327,12 @@
 - [x] Animovat pohyb krok po kroku tak, aby hráči viděli, který příkaz se právě provádí.
 - [ ] Umožnit na mobilu současně sledovat šachovnici a posloupnost příkazů.
 - [ ] Vizuálně odlišit potvrzená bezpečná pole od pouhých hráčských odhadů.
-- [ ] Připravit alternativní textové zobrazení mřížky pro přístupnost a nouzový provoz.
+- [x] Připravit alternativní textové zobrazení mřížky pro přístupnost a nouzový provoz.
 
 #### Chyby, penalizace a obnovení
 - [ ] Rozhodnout, zda vstup na anomálii znamená okamžitý neúspěch, odečet bodů, návrat na poslední kotvu nebo změnu mapy.
 - [ ] Zabránit nevratnému zablokování hry po chybném pohybu.
-- [ ] Ukládat aktuální pozici, orientaci, odkrytá pole a historii příkazů do stavu relace.
+- [x] Ukládat aktuální pozici, orientaci, odkrytá pole a historii příkazů do stavu relace.
 - [ ] Připravit omezený počet bezpečnostních skenů nebo možnost jejich zakoupení za body.
 - [ ] Připravit volitelné nápovědy: upozornění na bezpečné pole, odhalení čísla nebo zobrazení dalšího správného kroku.
 - [ ] Umožnit Game Masterovi vrátit postavu na poslední bezpečné pole nebo úkol ručně dokončit.
@@ -340,17 +340,17 @@
 #### Demo a budoucí admin panel
 - [ ] V demo režimu zobrazit celé rozmístění anomálií a správnou bezpečnou trasu.
 - [ ] Umožnit v demo režimu simulovat příkazy tlačítky bez psaní do interkomu.
-- [ ] V admin snapshotu zobrazit pozici, orientaci, poslední příkaz, odkrytá pole a počet chyb.
-- [ ] Umožnit administrátorovi sledovat animaci pohybu aktivního týmu v reálném čase.
-- [ ] Zaznamenat celou historii příkazů pro pozdější vyhodnocení obtížnosti.
+- [x] V admin snapshotu zobrazit pozici, odkrytá pole, počet chyb, miny a bezpečnou trasu.
+- [x] Umožnit administrátorovi sledovat animaci pohybu aktivního týmu v reálném čase.
+- [x] Zaznamenat historii příkazů pro pozdější vyhodnocení obtížnosti.
 
 #### Implementace a testování
-- [ ] Definovat mapu, start, cíl, anomálie a pravidla v datech scénáře, ne v UI.
-- [ ] Implementovat deterministický simulátor pohybu nezávislý na WebSocketu a vykreslení.
+- [x] Definovat mapu, start, cíl, anomálie a pravidla v datech scénáře, ne v UI.
+- [x] Implementovat deterministický simulátor pohybu nezávislý na WebSocketu a vykreslení.
 - [ ] Přidat protokolové zprávy pro naplánování, potvrzení a vykonání příkazů.
 - [ ] Ošetřit souběžné povely z více klientů stejného týmu.
-- [ ] Otestovat hranice mapy, rotaci, kolize, anomálie, opakování a obnovení uložené relace.
-- [ ] Automaticky ověřit, že navržená mapa má alespoň jednu bezpečnou trasu a není řešitelná náhodným jedním krokem.
+- [x] Otestovat hranice mapy, kolize, anomálie, opakování a obnovení uložené relace.
+- [x] Automaticky ověřit, že každá navržená mapa má alespoň jednu bezpečnou trasu.
 - [ ] Udělat stolní test s hráči bez znalosti programování.
 - [ ] Změřit, zda je srozumitelná kombinace dedukce Min a sekvenčních příkazů Karla.
 

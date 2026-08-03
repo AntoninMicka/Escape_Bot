@@ -20,6 +20,7 @@ from .state_machine import EscapeBotStateMachine
 from .scenario import ScenarioLoader, build_checkpoint_qr_set, build_demo_checkpoint_catalog, build_puzzle_telemetry, build_scenario_progress
 from .ollama_adapter import OllamaAdapter
 from .team_lobby import Lobby, LobbyRegistry, classify_activity
+from .mine_karel import safe_path as karel_safe_path
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger("EscapeBot")
@@ -297,7 +298,12 @@ def admin_overview(watched_sessions: set[str] | None = None) -> list[dict[str, o
                          for game_id, game in line_games.items()],
                 "karel": [{"id": game_id, "level": game.get("level_label", ""), "completed": len(game.get("completed_levels", [])),
                            "moves": game.get("total_moves", 0), "strikes": game.get("total_strikes", 0), "restarts": game.get("restarts", 0),
-                           "player": list(game.get("player", []))}
+                           "player": list(game.get("player", [])), "rows": game.get("rows", 0), "columns": game.get("columns", 0),
+                           "mines": list(game.get("mines", [])), "revealed": list(game.get("revealed", [])),
+                           "exit": list(game.get("exit", [])), "safe_path": karel_safe_path({
+                               "rows": game.get("rows", 0), "columns": game.get("columns", 0), "start": game.get("start", []),
+                               "exit": game.get("exit", []), "mines": game.get("mines", []),
+                           }) if game.get("rows") and game.get("columns") else []}
                           for game_id, game in karel_games.items()],
                 "sokoban": [{"id": game_id, "level": game.get("level_label", ""), "completed": len(game.get("completed_levels", [])),
                               "moves": game.get("total_moves", 0), "pushes": game.get("total_pushes", 0), "restarts": game.get("restarts", 0),

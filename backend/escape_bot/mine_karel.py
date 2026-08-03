@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from copy import deepcopy
+from collections import deque
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
@@ -10,6 +11,7 @@ DIRECTIONS = {"up": (-1, 0), "down": (1, 0), "left": (0, -1), "right": (0, 1)}
 def new_game(config: dict[str, Any], now: datetime | None = None) -> dict[str, Any]:
     levels = _levels(config); active = list(config.get("active_level_ids", []))
     if not active or any(item not in levels for item in active): raise ValueError("Karel vyžaduje platné aktivní úrovně.")
+    for level in levels.values(): validate_level(level)
     state = {"active_level_ids": active, "level_index": 0, "completed_levels": [], "awarded_points": 0,
              "total_moves": 0, "total_strikes": 0, "restarts": 0, "status": "playing"}
     _load_level(state, config, now or datetime.now(UTC)); return state
@@ -22,6 +24,20 @@ def public_game(config: dict[str, Any], state: dict[str, Any], now: datetime | N
     mines = {_pos(item) for item in state["mines"]}; revealed = {_pos(item) for item in state["revealed"]}
     result = {key: deepcopy(value) for key, value in state.items() if key not in {"mines", "history"}}
     result["clues"] = {f"{r}:{c}": _adjacent((r, c), mines) for r, c in revealed if (r, c) not in mines}
+    text_grid = []
+    for row in range(int(state["rows"])):
+        line = []
+        for column in range(int(state["columns"])):
+            position = (row, column); key = f"{row}:{column}"
+            if list(position) == state["player"]: symbol = "E"
+            elif list(position) == state["start"]: symbol = "S"
+            elif list(position) == state["exit"]: symbol = "X"
+            elif list(position) in state["triggered_mines"]: symbol = "!"
+            elif key in result["clues"]: symbol = str(result["clues"][key])
+            else: symbol = "?"
+            line.append(symbol)
+        text_grid.append(" ".join(line))
+    result["text_grid"] = text_grid
     result.update({"remaining_seconds": remaining, "total_levels": len(state["active_level_ids"]),
                    "points_per_level": int(config.get("points_per_level", 40)),
                    "reserve_levels": max(0, len(config.get("levels", [])) - len(state["active_level_ids"]))})
@@ -38,6 +54,7 @@ def execute(state: dict[str, Any], config: dict[str, Any], commands: list[str], 
         origin = list(state["player"])
         dr, dc = DIRECTIONS[command]; target = state["player"][0] + dr, state["player"][1] + dc
         if not (0 <= target[0] < state["rows"] and 0 <= target[1] < state["columns"]): blocked = True; break
+        revisited = list(target) in state["revealed"]
         state["history"].append(list(state["player"])); state["moves"] += 1; state["total_moves"] += 1
         if target in mines:
             state["strikes"] += 1; state["total_strikes"] += 1; state["triggered_mines"].append(list(target)); state["player"] = list(state["start"])
@@ -47,7 +64,7 @@ def execute(state: dict[str, Any], config: dict[str, Any], commands: list[str], 
             if list(target) not in state["revealed"]: state["revealed"].append(list(target))
         clue = None if target in mines else _adjacent(target, mines)
         frames.append({"command": command, "from": origin, "entered": list(target),
-                       "player": list(state["player"]), "clue": clue, "hit_mine": hit_mine})
+                       "player": list(state["player"]), "clue": clue, "hit_mine": hit_mine, "revisited": revisited})
         if hit_mine or state["player"] == state["exit"]: break
     level_complete = state["player"] == state["exit"]; game_complete = False; completed_level_id = None
     if level_complete:
@@ -77,3 +94,33 @@ def _levels(config: dict[str, Any]) -> dict[str, dict[str, Any]]: return {str(it
 def _pos(value: Any) -> tuple[int, int]: return int(value[0]), int(value[1])
 def _adjacent(position: tuple[int, int], mines: set[tuple[int, int]]) -> int:
     r, c = position; return sum((r + dr, c + dc) in mines for dr in (-1, 0, 1) for dc in (-1, 0, 1) if dr or dc)
+
+
+def safe_path(level: dict[str, Any]) -> list[list[int]]:
+    rows, columns = int(level["rows"]), int(level["columns"])
+    start, exit_position = _pos(level["start"]), _pos(level["exit"])
+    mines = {_pos(item) for item in level.get("mines", [])}
+    queue = deque([start]); previous: dict[tuple[int, int], tuple[int, int] | None] = {start: None}
+    while queue:
+        current = queue.popleft()
+        if current == exit_position: break
+        for dr, dc in DIRECTIONS.values():
+            neighbor = current[0] + dr, current[1] + dc
+            if 0 <= neighbor[0] < rows and 0 <= neighbor[1] < columns and neighbor not in mines and neighbor not in previous:
+                previous[neighbor] = current; queue.append(neighbor)
+    if exit_position not in previous: return []
+    path, current = [], exit_position
+    while current is not None:
+        path.append(list(current)); current = previous[current]
+    return list(reversed(path))
+
+
+def validate_level(level: dict[str, Any]) -> None:
+    rows, columns = int(level.get("rows", 0)), int(level.get("columns", 0))
+    if rows < 2 or columns < 2: raise ValueError("Karel vyžaduje mřížku alespoň 2×2.")
+    start, exit_position = _pos(level.get("start", [])), _pos(level.get("exit", []))
+    mines = {_pos(item) for item in level.get("mines", [])}
+    if start == exit_position or start in mines or exit_position in mines: raise ValueError("Start, cíl a miny Karla se nesmí překrývat.")
+    if any(not (0 <= row < rows and 0 <= column < columns) for row, column in {start, exit_position, *mines}):
+        raise ValueError("Souřadnice mapy Karla leží mimo mřížku.")
+    if not safe_path(level): raise ValueError(f"Pole {level.get('id', '')} nemá bezpečnou trasu.")
