@@ -257,6 +257,11 @@ class StateMachineCheckpointTests(unittest.IsolatedAsyncioTestCase):
         solutions = {node["id"]: node["solution"] for node in progress["nodes"]}
         self.assertEqual(solutions["searching_lost"], "734")
         self.assertIn("2147", solutions["reception_archive"])
+        self.assertIn("2037", solutions["time_machine_finale"])
+
+    def test_every_puzzle_has_an_admin_solution(self) -> None:
+        missing = [puzzle_id for puzzle_id, puzzle in self.scenario.data["puzzles"].items() if not puzzle.get("admin_solution")]
+        self.assertEqual(missing, [])
 
     async def test_intro_frequency_puzzle_provides_signal_without_revealing_answer(self) -> None:
         self.machine.state.phase = GamePhase.COMMS_OFFLINE

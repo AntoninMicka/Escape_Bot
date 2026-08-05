@@ -43,6 +43,7 @@
 - [x] Atmosférické efekty přes hardwarovou akceleraci (CRT, glitching, odlesky).
 - [x] Synchronizace základního offline zvukového designu s interkomem, checkpointy, hádankami, Karlem, Sokobanem, jigsaw puzzle a finále; uživatelská hlasitost a mute.
 - [x] Přidat přehrávač klíčových hlasových replik se samostatnou hlasitostí, textovým ekvivalentem, opakováním a lokálním syntetickým fallbackem pro budoucí nahrávky.
+- [ ] Dokončit ženské hlasové nahrávky Kapitánky a Elary pro všechny klíčové repliky interkomu; zachovat titulky, opakování a syntetický fallback.
 
 ## 7. Vizuální editor her (Produkční nástroje)
 - [ ] Nodové rozhraní (desktop Qt/C++) pro návrh příběhových větví a stavového automatu.
@@ -295,6 +296,7 @@
 - [x] Implementovat zadání roku, času a pořadí modulů do terminálu.
 - [x] Před spuštěním ověřit všechny povinné QR checkpointy a inventář.
 - [x] Připravit odpočet, zvuk stroje, glitch efekt a zprávu o návratu Elary.
+- [ ] Doplnit animaci aktivace stroje času vizuálně odvozenou od sestaveného obrázku z puzzle; navázat ji na odpočet, zapojení modulů a potvrzení Elařina návratu.
 - [x] Dokončit výpočet skóre, penalizace za nápovědy a zápis do Síně slávy.
 
 ### 13.10.1 Interkomová navigace – Minové pole / Robot Karel

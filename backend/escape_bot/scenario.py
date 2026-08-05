@@ -154,16 +154,15 @@ def build_scenario_progress(scenario: Scenario, state: dict[str, Any]) -> dict[s
         else:
             status = "locked"
 
-        puzzle = None
-        if kind == "checkpoint":
+        puzzle = scenario.data.get("puzzles", {}).get(node_id)
+        if not puzzle and kind == "checkpoint":
             puzzle = next(
                 (item for item in scenario.data.get("puzzles", {}).values() if item.get("checkpoint_id") == node_id),
                 None,
             )
         solution = node.get("solution")
-        if not solution and kind == "checkpoint":
-            if puzzle:
-                solution = puzzle.get("admin_solution", puzzle.get("answer"))
+        if not solution and puzzle:
+            solution = puzzle.get("admin_solution", puzzle.get("answer"))
         if not solution and kind == "room":
             room_id = node_id.removeprefix("room_")
             solution = scenario.data.get("rooms", {}).get(room_id, {}).get("pin")

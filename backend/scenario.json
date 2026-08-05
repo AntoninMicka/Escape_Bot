@@ -177,6 +177,7 @@
         "Elara nepřivezla ani motor, ani krystal."
       ],
       "answer": "2147",
+      "admin_solution": "2147 – Elara bydlela v pokoji 214 a její dokumentace je na pozici archivu 7.",
       "success_message": {"text": "Archiv potvrzuje shodu: Elara, pokoj 214, pozice 7. V dokumentaci se obnovil servisní otisk panelu dveří 104:\n\nI   |   X   |   IV\n\nKaždá oddělená skupina tvoří jednu část čtyřmístného přístupového kódu.", "mood": "success", "channel": "captain"},
       "failure_message": {"text": "Archivní kombinace nesouhlasí. Zkontrolujte vazby mezi pokoji, součástkami a pozicemi.", "mood": "error", "channel": "general"},
       "hints": [
