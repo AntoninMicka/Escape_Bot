@@ -1,6 +1,6 @@
 # Kompletní checklist projektu "Escape Bot"
 
-> **Audit aktuálnosti 2026-08-02:** Aktivní roadmapu tvoří produkční scénář v oddílu 13 a cloudová migrace v oddílu 14. Oddíly 8 a 12 jsou ponechané pouze jako historie původního konceptu a jejich nezaškrtnuté body nejsou aktivní backlog. QML/WASM byl nahrazen webovou PWA. AI/Ollama není podmínkou herního průchodu a její další rozvoj je odložen.
+> **Audit aktuálnosti 2026-08-05:** Aktivní roadmapu tvoří produkční scénář v oddílu 13, cloudová migrace v oddílu 14 a volitelný sdílený 3D svět v oddílu 15. Oddíly 8 a 12 jsou ponechané pouze jako historie původního konceptu a jejich nezaškrtnuté body nejsou aktivní backlog. QML/WASM byl nahrazen webovou PWA. AI/Ollama není podmínkou herního průchodu a její další rozvoj je odložen.
 
 ## 1. Návrh komunikačního protokolu (Frontend <-> Backend)
 - [x] Definice formátu zpráv (JSON přes WebSockets).
@@ -628,3 +628,71 @@
 - [ ] Otestovat reconnect, více týmů, souběžné povely, restart instance a obnovu databáze.
 - [ ] Připravit DNS, reverzní proxy, bezpečnostní hlavičky, rate limiting a plán rollbacku.
 - [ ] Provést zkušební migraci kopií lokálních dat, ověřit počty relací a Síň slávy a teprve potom přepnout produkční DNS.
+
+## 15. Volitelný modul „Doomovka“ – sdílený alternativní svět
+
+**Vize:** hráči vstoupí z komunikátoru do stylizovaného prostoru vykresleného přímo v prohlížeči, vidí avatary ostatních členů týmu, společně se pohybují a aktivují úkoly. První verze má ověřit zábavu, ovládání a synchronizaci na běžných telefonech; nemá nahrazovat hlavní scénář ani z něj dělat akční střílečku. Do budoucna může stejný modul představovat jinou časovou vrstvu hotelu nebo samostatný alternativní svět.
+
+### 15.1 Hranice modulu a technický prototyp
+
+- [ ] Sepsat krátký design prototypu: příběhový vstup, cílová délka 5–10 minut, počet hráčů, jeden společný úkol a podmínka návratu do komunikátoru.
+- [ ] Implementovat modul jako samostatnou obrazovku PWA načítanou pouze po odemčení scénářem; zachovat běžný interkom, mapu i fyzickou trasu beze změny.
+- [ ] Zvolit styl první verze: jednoduchý 2.5D raycasting ve stylu raných FPS, nebo nízkopolygonové WebGL 3D. Předběžně preferovat WebGL 3D s lokálně uloženou knihovnou a bez CDN, pokud test na cílových telefonech potvrdí stabilní výkon.
+- [ ] Vykreslovat svět kompletně na zařízení hráče; neposílat obraz ze serveru ani mezi hráči.
+- [ ] Připravit jednu malou testovací mapu se starty, stěnami, dveřmi, jedním interaktivním objektem a návratovým portálem.
+- [ ] Definovat rozpočty pro cílové zařízení: velikost assetů, počet trojúhelníků a světel, maximální počet avatarů a minimální stabilní snímkovou frekvenci.
+- [ ] Přidat detekci nepodporovaného nebo pomalého zařízení a bezpečný 2D/mapový fallback, aby modul nikdy nezablokoval hlavní herní průchod.
+
+### 15.2 Pohyb a ovládání v prohlížeči
+
+- [ ] Přidat ovládání klávesnicí a myší na notebooku: `WASD`, otáčení myší, interakce a opuštění modulu.
+- [ ] Přidat mobilní dotykové ovládání se dvěma zónami nebo virtuálními joysticky, velkým tlačítkem interakce a podporou orientace na šířku.
+- [ ] Pointer Lock a pohybové senzory používat pouze po výslovném gestu hráče; hra musí zůstat ovladatelná bez gyroskopu.
+- [ ] Přidat nastavení citlivosti, omezení rychlosti otáčení, redukci pohybu, vypnutí houpání kamery a režim s většími ovládacími prvky.
+- [ ] Zabránit pádu mimo mapu, průchodu stěnou a uváznutí; nabídnout bezpečný návrat na poslední kontrolní bod.
+- [ ] Pozastavit renderovací smyčku na skryté kartě a po návratu načíst autoritativní stav ze serveru.
+
+### 15.3 Multiplayer – hráči se navzájem vidí
+
+- [ ] Rozšířit identitu existující týmové relace o `player_id`, zobrazované jméno, barvu a jednoduchý avatar; nepřidávat druhé paralelní lobby.
+- [ ] Definovat oddělené zprávy `world.join`, `world.input`, `world.snapshot`, `world.event`, `world.interact` a `world.leave` s verzí protokolu a `request_id` pro idempotentní interakce.
+- [ ] Nechat server autoritativně řídit místnost, pozice, rychlost, kolize, interakce a stav úkolů. Klient posílá vstupy, nikoli důvěryhodnou výslednou pozici.
+- [ ] Pro první lokální test rozesílat snapshoty přibližně 10–15× za sekundu a na klientovi použít interpolaci ostatních avatarů a krátkou predikci vlastního pohybu; hodnoty upravit podle měření.
+- [ ] Při odpojení ponechat avatar krátce neaktivní, po reconnectu obnovit stejnou identitu a pozici a po delší prodlevě jej bezpečně odstranit ze světa.
+- [ ] Zobrazit jméno, barvu, směr pohledu a jednoduchou animaci pohybu spoluhráče; nepřenášet kameru, video ani biometrická data.
+- [ ] Omezit první verzi na členy stejného týmu a jednu instanci mapy na relaci; mezitýmové setkávání řešit až po cloudové migraci, moderaci a kapacitních testech.
+- [ ] Přidat serverové limity frekvence zpráv, validaci čísel a hranic mapy a odmítnutí vstupů od hráče, který do světa nevstoupil.
+
+### 15.4 První kooperativní vertikální řez
+
+- [ ] Navrhnout úkol, který skutečně využije více hráčů, například současné držení dvou spínačů, navigaci podle rozdělených indicií nebo přenos energie přes několik stanovišť.
+- [ ] Umožnit sólo průchod pomocí přepínání stanovišť, časové pojistky nebo pomocného hologramu; hlavní scénář nesmí být bez týmu nedohratelný.
+- [ ] Ukládat stav dveří, spínačů, sebraných předmětů a dokončených cílů do autoritativního stavu relace.
+- [ ] Napojit vstup do světa i jeho dokončení na scénářová data, inventář, skóre a události stejným způsobem jako současné minihry.
+- [ ] Nechat komunikátor během modulu zobrazovat krátké cíle a textový přepis důležitých zvukových nebo prostorových indicií.
+- [ ] Přidat Game Masterovi read-only 2D půdorys s pozicemi hráčů, stavem úkolu a možností bezpečně vrátit hráče na checkpoint nebo modul technicky přeskočit.
+
+### 15.5 Datový formát map a tvorba obsahu
+
+- [ ] Oddělit mapu od enginu do verzovaného balíčku: geometrie, spawn pointy, kolizní vrstvy, interaktivní entity, cíle, texty a odkazy na lokální assety.
+- [ ] Pro první prototyp použít ručně udržovaný JSON a validaci při startu backendu; editor nezačínat dříve, než se ustálí datový formát na alespoň dvou mapách.
+- [ ] U 3D varianty standardizovat assety na glTF/GLB, komprimované textury a předem vypočítané nebo velmi jednoduché osvětlení.
+- [ ] Každému interaktivnímu objektu přidělit stabilní ID a jeho stav ukládat nezávisle na vizuálním modelu.
+- [ ] Po ověření dvou map navrhnout jednoduchý webový editor spawnů, kolizí, dveří, spínačů a vazeb úkolů; export musí být čitelný a verzovatelný se scénářem.
+- [ ] Připravit kontrolu chyb mapy: chybějící asset, spawn ve stěně, nedosažitelný cíl, duplicitní ID a chybějící návratová cesta.
+
+### 15.6 Zvuk, komunikace a atmosféra
+
+- [ ] Přidat prostorový zvuk jen pro atmosféru a herní indicie, vždy s titulkem nebo vizuálním ekvivalentem.
+- [ ] V první verzi ponechat týmovou komunikaci mimo modul osobně nebo přes existující textový interkom; hlasový chat není podmínkou prototypu.
+- [ ] WebRTC hlas zvažovat až pro vzdálené hráče a až po vyřešení oprávnění mikrofonu, signalizace, NAT/TURN, moderace a ochrany soukromí.
+- [ ] Zachovat jednotný vizuální jazyk CRT/glitch efektů, ale omezit efekty, které zhoršují orientaci nebo mohou vyvolávat nevolnost.
+
+### 15.7 Testovací brány a rozhodnutí o dalším rozvoji
+
+- [ ] Brána A – sólo prototyp: na cílovém telefonu se lze pohybovat, interagovat a vrátit do hlavní hry bez ztráty stavu.
+- [ ] Brána B – dva hráči v lokální Wi-Fi: navzájem se vidí, dokončí společný úkol a přežijí uspání či reconnect jednoho zařízení.
+- [ ] Brána C – plný tým a slabší zařízení: změřit FPS, latenci vstupu, objem přenosu, spotřebu baterie, zahřívání a chování při ztrátě paketů.
+- [ ] Provést krátký uživatelský test zaměřený na orientaci, nevolnost, dotykové ovládání, pochopení společného cíle a přínos oproti 2D minihře.
+- [ ] Modul zapnout do produkčního scénáře až tehdy, když má bezpečný fallback, obnovu relace, administrátorský skip a neprodlužuje čekání ostatních týmů.
+- [ ] Po vertikálním řezu rozhodnout mezi třemi směry: jednorázová 3D minihra, sada scénářových místností, nebo trvalejší alternativní svět. Teprve poslední varianta vyžaduje zónování, více serverových instancí, databázi světa, moderaci a provozní monitoring.
