@@ -303,24 +303,24 @@
 **Cíl:** spojit logické odhalování bezpečných polí ve stylu Min s programováním pohybu postavy ve stylu Robota Karla. Hráči navigují Elaru přes interkom a její polohu sledují na šachovnici.
 
 #### Herní princip
-- [ ] Určit vhodné zasazení do příběhu, např. nestabilní časové pole mezi Elarou a strojem času.
-- [ ] Navrhnout obdélníkovou nebo čtvercovou herní mřížku s jasně označeným startem a cílem.
-- [ ] Rozmístit skryté časové anomálie fungující jako miny.
-- [ ] Na odkrytých polích zobrazovat počet anomálií v sousedních polích.
-- [ ] Zvolit, zda se počítají čtyři ortogonální, nebo všech osm okolních polí.
-- [ ] Zajistit alespoň jednu logicky odvoditelnou bezpečnou trasu bez nutnosti náhodného hádání.
-- [ ] Určit, zda je cílem pouze dojít do cíle, nebo cestou sebrat klíč, artefakt či aktivovat spínače.
-- [ ] Navázat dokončení úkolu na konkrétní odměnu, checkpoint nebo součást stroje času.
+- [x] Příběhově zasadit úkol jako nestabilní časové pole, kterým Elara prochází.
+- [x] Navrhnout obdélníkovou herní mřížku s jasně označeným startem a cílem.
+- [x] Rozmístit skryté časové anomálie fungující jako miny.
+- [x] Na odkrytých polích zobrazovat počet anomálií v sousedních polích.
+- [x] Počítat anomálie ve všech osmi okolních polích.
+- [x] Zajistit alespoň jednu bezpečnou trasu a její dosažitelnost automaticky validovat.
+- [x] Stanovit jako cíl bezpečný přesun Elary ze startu k východu.
+- [x] Navázat dokončení úkolu na body a odemčení navazujícího checkpointu.
 
 #### Ovládání ve stylu Robota Karla
 - [ ] Definovat základní příkazy `KROK`, `VLEVO`, `VPRAVO` a `ZPET`.
-- [ ] Rozhodnout, zda Elara stojí natočená určitým směrem, nebo se pohybuje přímo pomocí `NAHORU`, `DOLU`, `VLEVO`, `VPRAVO`.
-- [ ] Umožnit zadat jeden příkaz nebo celou sekvenci příkazů najednou.
+- [x] Použít přímý pohyb pomocí `NAHORU`, `DOLŮ`, `VLEVO`, `VPRAVO` bez orientace postavy.
+- [x] Umožnit zadat jeden příkaz nebo celou sekvenci příkazů najednou.
 - [ ] Zvažit jednoduché programové konstrukce `OPAKUJ n`, podmínku nebo pojmenovanou sekvenci.
 - [ ] Definovat maximální délku programu a způsob jeho potvrzení před spuštěním.
 - [ ] Zobrazit náhled naplánované sekvence před jejím vykonáním.
 - [ ] Umožnit krokové provedení, pozastavení a bezpečné zrušení nevykonané části sekvence.
-- [ ] Rozlišit neplatný příkaz, náraz do stěny a vstup na nebezpečné pole.
+- [x] Rozlišit neplatný příkaz, opuštění hranice mapy a vstup na nebezpečné pole.
 
 #### Interkom a odezva Elary
 - [x] Přijímat navigační příkazy v kanálu Elary a v týmovém režimu zobrazit šipky pouze v interkomu.
@@ -330,7 +330,7 @@
 - [x] Zpřesnit rozdělení informací lokálním režimem zařízení `MAPA / INTERKOM / VOLNĚ`; role lze kdykoli měnit, mapové indicie se neposílají v odpovědích interkomu a mapový režim nemá ovládací šipky.
 - [x] Rozšířit admin detail o poslední aktivitu, stav checkpointů, zásahy min, restarty, pohyby, nápovědy, pokusy, poslední zprávy a časovou osu událostí.
 - [x] Umožnit adminovi obnovit identitu hráče na novém zařízení pomocí návratového QR.
-- [x] Vložit časovanou variaci na tři v řadě mezi Morseovu úlohu a Sokoban: pole 5×5, dvě barvy, blokovaná pole a povinná vodorovná, svislá a diagonální trojice v libovolném pořadí.
+- [x] Vložit časovanou variaci na tři v řadě mezi Morseovu úlohu a Sokoban: pole 6×6, dvě volitelné barvy, tahy blokujícího automatu a splnění dvou ze tří směrů.
 - [x] Nepoužívat volné AI vyhodnocení pro samotný pohyb; příkazy parsovat deterministicky.
 - [x] Nechat Elaru před pohybem zopakovat pochopenou sekvenci.
 - [ ] Volitelně rozšířit souhrnnou reakci po sekvenci na samostatnou reakci po každém kroku; současná verze záměrně nezaplňuje interkom dlouhou dávkou zpráv.
@@ -342,15 +342,15 @@
 - [ ] Přidat samostatný panel nebo záložku s responzivní šachovnicí.
 - [ ] Zobrazit Elaru jako postavu se zřetelnou orientací.
 - [ ] Rozlišit skryté, odkryté, navštívené, označené a cílové pole.
-- [ ] Zobrazit čísla okolních anomálií podobně jako ve hře Miny.
+- [x] Zobrazit čísla okolních anomálií podobně jako ve hře Miny.
 - [x] Animovat pohyb krok po kroku tak, aby hráči viděli, který příkaz se právě provádí.
 - [ ] Umožnit na mobilu současně sledovat šachovnici a posloupnost příkazů.
 - [ ] Vizuálně odlišit potvrzená bezpečná pole od pouhých hráčských odhadů.
 - [x] Připravit alternativní textové zobrazení mřížky pro přístupnost a nouzový provoz.
 
 #### Chyby, penalizace a obnovení
-- [ ] Rozhodnout, zda vstup na anomálii znamená okamžitý neúspěch, odečet bodů, návrat na poslední kotvu nebo změnu mapy.
-- [ ] Zabránit nevratnému zablokování hry po chybném pohybu.
+- [x] Při vstupu na anomálii odečíst body a vrátit Elaru na start aktuální mapy.
+- [x] Zabránit nevratnému zablokování hry po chybném pohybu pomocí návratu na start a restartu mapy.
 - [x] Ukládat aktuální pozici, orientaci, odkrytá pole a historii příkazů do stavu relace.
 - [ ] Připravit omezený počet bezpečnostních skenů nebo možnost jejich zakoupení za body.
 - [ ] Připravit volitelné nápovědy: upozornění na bezpečné pole, odhalení čísla nebo zobrazení dalšího správného kroku.
@@ -358,7 +358,7 @@
 
 #### Demo a budoucí admin panel
 - [ ] V demo režimu zobrazit celé rozmístění anomálií a správnou bezpečnou trasu.
-- [ ] Umožnit v demo režimu simulovat příkazy tlačítky bez psaní do interkomu.
+- [x] Umožnit v demo režimu simulovat příkazy tlačítky bez psaní do interkomu.
 - [x] V admin snapshotu zobrazit pozici, odkrytá pole, počet chyb, miny a bezpečnou trasu.
 - [x] Umožnit administrátorovi sledovat animaci pohybu aktivního týmu v reálném čase.
 - [x] Zaznamenat historii příkazů pro pozdější vyhodnocení obtížnosti.
@@ -436,11 +436,11 @@
 - [ ] V budoucím admin panelu přidat živý náhled mřížky a možnost dokončit či restartovat pokus.
 
 ### 13.10.5 Redesign samostatné úlohy horizontální–vertikální–diagonální trojice
-- [ ] Přepracovat současnou úlohu, ve které hráči pouze umístí vodorovnou, svislou a diagonální trojici; aktuální varianta je příliš jednoduchá a nevyžaduje dostatečné plánování.
-- [ ] Prototypovat deterministického protihráče, který po každém tahu obsadí nebo zablokuje pole podle čitelného pravidla, aby hráči museli plánovat, bránit a vytvářet více možností současně.
+- [x] Přepracovat původní úlohu doplněním aktivního protihráče a mírnější podmínky dvou ze tří směrů.
+- [x] Implementovat deterministického protihráče, který po každém tahu blokuje nejsilnější hrozbu a jinak obsadí strategické pole.
 - [ ] Porovnat protihráče s alternativou bez soupeře: omezený počet kamenů, povinné střídání barev, posouvání již položených kamenů nebo měnící se blokovaná pole.
-- [ ] Zachovat cíl vytvořit horizontální, vertikální a diagonální trojici, ale zabránit řešení prostým postupným naklikáním tří předem zřejmých čar.
-- [ ] Zajistit plně deterministický průběh bez AI a alespoň jednu logicky odvoditelnou vítěznou strategii.
+- [x] Zachovat tři sledované směry, vyžadovat dva z nich a zabránit řešení prostým naklikáním předem zřejmých čar.
+- [x] Zajistit plně deterministický průběh bez AI a automaticky ověřenou vítěznou sekvenci.
 - [ ] Připravit dvě až tři obtížnosti a v demo režimu zobrazit pravidlo protihráče, doporučený postup a možnost okamžitého restartu.
 - [ ] Novou variantu implementovat až po výběru pravidel na základě stolního prototypu a krátkého domácího testu.
 
