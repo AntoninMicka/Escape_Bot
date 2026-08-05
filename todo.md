@@ -1,6 +1,6 @@
 # Kompletní checklist projektu "Escape Bot"
 
-> **Audit aktuálnosti 2026-08-05:** Aktivní roadmapu tvoří produkční scénář v oddílu 13, cloudová migrace v oddílu 14 a volitelný sdílený 3D svět v oddílu 15. Oddíly 8 a 12 jsou ponechané pouze jako historie původního konceptu a jejich nezaškrtnuté body nejsou aktivní backlog. QML/WASM byl nahrazen webovou PWA. AI/Ollama není podmínkou herního průchodu a její další rozvoj je odložen.
+> **Audit aktuálnosti 2026-08-05:** Aktivní roadmapu tvoří produkční scénář v oddílu 13, cloudová migrace v oddílu 14, volitelný sdílený 3D svět v oddílu 15 a provoz více her s rezervacemi a platbami v oddílu 16. Oddíly 8 a 12 jsou ponechané pouze jako historie původního konceptu a jejich nezaškrtnuté body nejsou aktivní backlog. QML/WASM byl nahrazen webovou PWA. AI/Ollama není podmínkou herního průchodu a její další rozvoj je odložen.
 
 ## 1. Návrh komunikačního protokolu (Frontend <-> Backend)
 - [x] Definice formátu zpráv (JSON přes WebSockets).
@@ -696,3 +696,74 @@
 - [ ] Provést krátký uživatelský test zaměřený na orientaci, nevolnost, dotykové ovládání, pochopení společného cíle a přínos oproti 2D minihře.
 - [ ] Modul zapnout do produkčního scénáře až tehdy, když má bezpečný fallback, obnovu relace, administrátorský skip a neprodlužuje čekání ostatních týmů.
 - [ ] Po vertikálním řezu rozhodnout mezi třemi směry: jednorázová 3D minihra, sada scénářových místností, nebo trvalejší alternativní svět. Teprve poslední varianta vyžaduje zónování, více serverových instancí, databázi světa, moderaci a provozní monitoring.
+
+## 16. Provoz více her, rezervace a platební brána
+
+**Výchozí stav:** backend již drží více nezávislých týmových relací v `active_sessions`, ale všechny vznikají nad jedním scénářem načteným při startu procesu. Pro komerční provoz je proto nutné oddělit titul hry, konkrétní verzi scénáře, herní termín a týmovou relaci. Platba má vytvářet oprávnění ke vstupu, nikdy přímo měnit rozehraný herní stav.
+
+### 16.1 Doménový model více her
+
+- [ ] Zavést stabilní entity `game` (nabízený titul), `scenario_version` (neměnná publikovaná verze obsahu), `venue` (místo), `slot` (termín/kapacita), `booking` (rezervace) a `session` (rozehraná týmová relace).
+- [ ] Přidat do každé relace povinné `game_id`, `scenario_version_id`, `venue_id` a volitelné `booking_id`; po spuštění hry nesmí aktualizace katalogu změnit její scénář.
+- [ ] Načítat více validovaných scénářových balíčků současně a zakládat stavový automat z verze vybrané pro konkrétní termín, nikoli z jednoho globálního `scenario.json`.
+- [ ] Oddělit assety, leaderboard, provozní nastavení a administrační oprávnění podle hry a místa; podporu a globální dohled ponechat dostupné centrálnímu správci.
+- [ ] Zavést životní cyklus scénáře `draft`, `published`, `retired`; rozehrané relace musí umět dokončit i vyřazenou verzi.
+- [ ] Připravit katalog her s názvem, popisem, délkou, doporučeným počtem hráčů, jazykem, věkovým omezením, dostupností a vazbou na publikovanou verzi scénáře.
+- [ ] Zajistit, aby URL nebo vstupní QR jednoznačně určily hru a případně termín, ale neobsahovaly citlivé údaje rezervace.
+
+### 16.2 Ověření souběžného provozu
+
+- [ ] Doplnit integrační test, který současně založí několik týmů ve dvou různých hrách, provede v nich odlišné akce a ověří úplnou izolaci stavu, chatu, skóre, inventáře a leaderboardu.
+- [ ] Otestovat dva termíny stejné hry nad různými verzemi scénáře a potvrdit, že publikace nové verze neovlivní již vytvořený ani rozehraný termín.
+- [ ] Otestovat souběžné WebSocket broadcasty, reconnect, restart backendu, administrátorský dohled a ukončení jedné hry bez dopadu na ostatní.
+- [ ] Definovat kapacitu termínu počtem týmů, hráčů a případně fyzických zdrojů; zabránit překročení kapacity transakčně, ne pouze kontrolou v klientovi.
+- [ ] Vytvořit zátěžový profil pro běžný provoz a 3D modul: počet současných relací, zařízení na tým, zprávy za sekundu, paměť na relaci a cílová latence.
+- [ ] Před horizontálním škálováním ověřit maximum jedné instance; poté test zopakovat s PostgreSQL, Redis pub/sub, distribuovanými zámky a více ASGI workery/instancemi.
+- [ ] Zajistit per-game health metriky a upozornění: aktivní týmy, chybovost, latence zpráv, reconnecty, obsazenost termínů a nedokončené platby.
+
+### 16.3 Termíny a rezervace
+
+- [ ] Umožnit správci vypsat termíny s místem, začátkem, délkou, kapacitou, cenou, měnou a stavem `draft`, `open`, `sold_out`, `closed` nebo `cancelled`.
+- [ ] Při zahájení objednávky vytvořit krátkodobou rezervaci kapacity s expirací; po úspěšné platbě ji potvrdit, po vypršení nebo neúspěchu kapacitu automaticky uvolnit.
+- [ ] Zabránit dvojímu prodeji posledního místa databázovou transakcí nebo zámkem a unikátním omezením, nikoli pořadím HTTP požadavků.
+- [ ] Podporovat jednorázový bezpečný vstupní token nebo QR navázaný na potvrzenou rezervaci; jeho použití vytvoří či otevře správnou lobby.
+- [ ] Umožnit ruční rezervaci, nulovou cenu, promo kód a administrátorské pozvání bez obcházení stejné evidence kapacity a auditu.
+- [ ] Posílat potvrzení rezervace odděleně od herních zpráv a nabídnout bezpečné znovuzobrazení vstupního odkazu bez ukládání citlivých platebních dat.
+- [ ] Definovat pravidla změny termínu, storna, nedostavení se a zrušení akce provozovatelem ještě před implementací automatických refundací.
+
+### 16.4 Integrace platební brány
+
+- [ ] Vytvořit interní rozhraní poskytovatele plateb, aby šlo nasadit jednu bránu a později ji vyměnit nebo doplnit bez změn rezervací a herního enginu.
+- [ ] Pro první verzi použít hostovanou platební stránku poskytovatele; čísla karet ani bezpečnostní kódy nikdy nepřijímat a neukládat v Escape Botu.
+- [ ] Evidovat vlastní `order_id`, očekávanou částku, měnu a stav platby; identifikátor transakce poskytovatele ukládat odděleně a s unikátním omezením.
+- [ ] Považovat platbu za potvrzenou pouze podle serverově ověřeného webhooku nebo následného serverového dotazu na API brány; návratová stránka v prohlížeči není důkaz zaplacení.
+- [ ] Ověřovat podpis webhooku nad nezměněným tělem požadavku, kontrolovat částku, měnu a příjemce a zpracovávat opakované či opožděné události idempotentně.
+- [ ] Navrhnout stavový automat platby minimálně `created`, `pending`, `paid`, `failed`, `expired`, `cancelled`, `partially_refunded`, `refunded` a uchovávat audit každého přechodu.
+- [ ] Udržet webhook rychlý a odolný: událost bezpečně uložit, potvrdit přijetí a navazující e-mail, rezervaci či refundaci zpracovat opakovatelnou úlohou.
+- [ ] Tajné klíče držet pouze na serveru v secret manageru, oddělit testovací a produkční prostředí a pravidelně rotovat webhooková tajemství.
+- [ ] Výběr konkrétní brány provést až podle cílových zemí, měn, firemního subjektu, poplatků, podporovaných metod, refundací, účetnictví a kvality sandboxu/API.
+
+### 16.5 Aktivace hry po zaplacení
+
+- [ ] Po potvrzení platby vytvořit samostatné `entitlement` opravňující k určité hře/termínu; tím oddělit účetní událost od technického vstupu do hry.
+- [ ] Uplatnění oprávnění provést atomicky a idempotentně, aby obnovení stránky ani opakovaný webhook nevytvořily více lobby nebo nevyčerpaly další kapacitu.
+- [ ] Umožnit kupujícímu předat pozvánku zakladateli týmu bez zpřístupnění historie platby či osobních údajů ostatním hráčům.
+- [ ] Při refundaci definovat, zda se pouze zruší budoucí oprávnění, nebo se ukončí již aktivovaná relace; rozehranou hru nikdy nevypínat automaticky bez explicitního provozního pravidla.
+- [ ] Připravit administrátorský přehled vazby objednávka → platba → rezervace → oprávnění → herní relace s auditovanou ruční opravou chybného spárování.
+
+### 16.6 Bezpečnost, soukromí a provoz
+
+- [ ] Minimalizovat osobní údaje; oddělit kontaktní údaje kupujícího od přezdívek hráčů a určit retenční lhůty objednávek, herní telemetrie a technických logů.
+- [ ] Nezapisovat tokeny, celé webhooky s osobními údaji ani platební návratové URL do běžných aplikačních logů; citlivá pole redigovat.
+- [ ] Doplnit obchodní podmínky, informace o zpracování osobních údajů, storno/refundační pravidla a souhlasy podle skutečného provozovatele a cílového trhu.
+- [ ] Vyřešit číslování objednávek a dokladů, DPH, účetní export a případné napojení na fakturační systém odděleně od platební brány.
+- [ ] Přidat denní kontrolu nesouladů: zaplaceno bez rezervace, rezervace bez oprávnění, částka nebo měna nesouhlasí, refundace se nepropsala a webhook se opakovaně nezdařil.
+- [ ] Připravit provozní postup pro výpadek brány: rezervace s časovým limitem, ruční ověření v administraci poskytovatele a auditované ruční vydání oprávnění.
+
+### 16.7 Doporučené pořadí realizace
+
+- [ ] Etapa A – více her bez plateb: katalog, verzované scénáře, termíny a integrační test izolace.
+- [ ] Etapa B – rezervace bez peněz: kapacitní zámek, expirace, vstupní QR a ruční potvrzení administrátorem.
+- [ ] Etapa C – sandbox platební brány: hostovaný checkout, podepsané webhooky, idempotence a testovací refundace.
+- [ ] Etapa D – omezený produkční pilot jedné hry a několika termínů se souběžnou ruční kontrolou každé platby.
+- [ ] Etapa E – více her a míst, automatizované refundace, účetní export a horizontální škálování až podle naměřené zátěže.
