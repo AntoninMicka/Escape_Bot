@@ -277,9 +277,9 @@
       "title": "Zarovnání časových uzlů",
       "type": "triad",
       "checkpoint_id": "courtyard_alignment",
-      "instructions": "Umísťujte azurové a jantarové uzly na volná pole. V libovolném pořadí vytvořte alespoň jednu vodorovnou, jednu svislou a jednu diagonální trojici stejné barvy. Porušená pole nelze použít.",
-      "admin_solution": "Azurová na souřadnice (1,1), (1,2), (1,3), (2,1), (3,1), (2,2). Vznikne vodorovná, svislá a vedlejší diagonála; souřadnice jsou 1-based.",
-      "game": {"size":5,"symbols":["cyan","amber"],"blocked":[[0,4],[2,2],[4,0]],"time_limit_seconds":180,"completion_bonus":60},
+      "instructions": "V každém tahu zvolte azurový nebo jantarový uzel a umístěte jej na volné pole. Automat potom položí červený rušivý uzel a pokusí se zablokovat vaši nejsilnější hrozbu. Vytvořte trojice stejné barvy ve dvou libovolných směrech ze tří: vodorovně, svisle nebo diagonálně. Již dokončený směr zůstává započítaný. Rušivé uzly nelze použít.",
+      "admin_solution": "Hra reaguje na každý tah, proto nemá jedinou pevnou sekvenci. Vytvářejte současně dvě hrozby, mezi nimiž si automat musí vybrat; hráč může v každém tahu změnit barvu. Dokončené směry zůstávají započítané.",
+      "game": {"size":6,"symbols":["cyan","amber"],"blocked":[],"required_orientation_count":2,"time_limit_seconds":180,"completion_bonus":60},
       "success_message": {"text":"Tři osy jsou zarovnané. Časové uzly vytvořily stabilní průchod ke sportovnímu archivu.","mood":"success","channel":"lost"}
     },
     "sports_sokoban": {

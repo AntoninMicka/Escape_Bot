@@ -441,6 +441,7 @@
         .line-game-cell.violet { color: #fff; background: #7135a8; }
         .line-game-cell.green { color: #fff; background: #267a43; }
         .line-game-cell.red { color: #fff; background: #a8323e; }
+        .line-game-cell.opponent { color: #fff; background: #8f2430; box-shadow: inset 0 0 12px #ff6677; }
         .line-game-cell.anim-clear { animation: cell-clear .34s ease-in forwards; }
         .line-game-cell.anim-drop { animation: cell-drop .32s cubic-bezier(.2,.8,.3,1); }
         .line-game-cell.anim-place { animation: node-place .4s cubic-bezier(.2,1.7,.4,1); }
@@ -2180,7 +2181,7 @@
                 }
                 else if (msg.type === 'triad.result') {
                     if (!msg.payload.success) showNotification(msg.payload.reason || 'Uzel nelze umístit.', 'error');
-                    else pendingTriadEffect = msg.payload;
+                    else { pendingTriadEffect = msg.payload; if (msg.payload.opponent_move) showNotification('Automat umístil rušivý uzel.', 'info'); }
                 }
                 else if (msg.type === 'sokoban.result') {
                     if (!msg.payload.success) showNotification(msg.payload.reason || 'Pohyb nelze provést.', 'error');
@@ -2438,7 +2439,7 @@
                     <ol class="puzzle-clues">${clues}</ol>
                     ${interactiveGame || (solved
                         ? '<p class="puzzle-status solved">HÁDANKA VYŘEŠENA · CHECKPOINT POTVRZEN</p>'
-                        : `<div class="puzzle-answer"><input id="puzzle-answer-${escapeHtml(puzzle.id)}" maxlength="80" autocomplete="off" placeholder="ODPOVĚĎ / KÓD"><button onclick="submitPuzzle('${escapeHtml(puzzle.id)}')">OVĚŘIT</button></div>
+                        : `<div class="puzzle-answer"><input id="puzzle-answer-${escapeHtml(puzzle.id)}" maxlength="180" autocomplete="off" placeholder="ODPOVĚĎ / KÓD"><button onclick="submitPuzzle('${escapeHtml(puzzle.id)}')">OVĚŘIT</button></div>
                            ${renderHintButtons(puzzle)}<div class="puzzle-actions"><span>Pokusy: ${puzzle.attempts || 0}</span></div>`)}
                 </article>`;
             }).join('');
@@ -2612,7 +2613,7 @@
             const cells = game.board.map((row, r) => row.map((value, c) => blocked.has(`${r}:${c}`)
                 ? '<button class="line-game-cell" disabled>×</button>'
                 : `<button class="line-game-cell ${value || ''}" data-row="${r}" data-column="${c}" onclick="placeTriad('${escapeHtml(puzzle.id)}',${r},${c})" ${value || solved ? 'disabled' : ''}>${value ? '●' : '·'}</button>`).join('')).join('');
-            return `<div class="line-game"><div class="line-game-progress">${objectives}</div><div class="line-game-meta"><span>UMÍSTĚNÍ: ${game.placements}</span><span>RESTARTY: ${game.restarts}</span><strong class="line-game-timer" data-deadline="${escapeHtml(game.deadline_at)}">ČAS ${formatLineGameTime(game.remaining_seconds)}</strong></div><div class="puzzle-actions"><button class="${selectedTriadSymbol === 'cyan' ? 'active' : ''}" onclick="selectTriadSymbol('cyan')">AZUROVÁ</button><button onclick="selectTriadSymbol('amber')">JANTAROVÁ</button></div><div class="line-game-board" style="grid-template-columns:repeat(${game.size},1fr)">${cells}</div><button onclick="resetTriad('${escapeHtml(puzzle.id)}')">NOVÉ POLE</button></div>`;
+            return `<div class="line-game"><div class="line-game-progress">${objectives}</div><p>SPLŇTE LIBOVOLNÉ <strong>${game.required_orientation_count || 3} ZE 3 SMĚRŮ</strong></p><div class="line-game-meta"><span>VAŠE UZLY: ${game.placements}</span><span>TAHY AUTOMATU: ${game.opponent_moves || 0}</span><span>RESTARTY: ${game.restarts}</span><strong class="line-game-timer" data-deadline="${escapeHtml(game.deadline_at)}">ČAS ${formatLineGameTime(game.remaining_seconds)}</strong></div><p><strong>ČERVENÝ UZEL</strong> pokládá automat a blokuje vaše vznikající řady.</p><div class="puzzle-actions"><button class="${selectedTriadSymbol === 'cyan' ? 'active' : ''}" onclick="selectTriadSymbol('cyan')">AZUROVÁ</button><button class="${selectedTriadSymbol === 'amber' ? 'active' : ''}" onclick="selectTriadSymbol('amber')">JANTAROVÁ</button></div><div class="line-game-board" style="grid-template-columns:repeat(${game.size},1fr)">${cells}</div><button onclick="resetTriad('${escapeHtml(puzzle.id)}')">NOVÉ POLE</button></div>`;
         }
         function selectTriadSymbol(symbol) { selectedTriadSymbol = symbol; renderPuzzles(); }
         function placeTriad(puzzleId,row,column) { if (ws?.readyState === WebSocket.OPEN) ws.send(JSON.stringify({type:'triad.place',payload:{puzzle_id:puzzleId,row,column,symbol:selectedTriadSymbol}})); }

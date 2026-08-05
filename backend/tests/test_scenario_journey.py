@@ -84,8 +84,8 @@ class CompleteScenarioJourneyTest(unittest.IsolatedAsyncioTestCase):
         await self.scan("terrace_echo")
         await self.send("puzzle.submit", puzzle_id="terrace_morse", answer="HŘIŠTĚ")
         await self.scan("courtyard_alignment")
-        for row, column in [(0, 0), (0, 1), (0, 2), (1, 0), (2, 0), (1, 1)]:
-            triad = await self.send("triad.place", puzzle_id="temporal_triad", row=row, column=column, symbol="cyan")
+        for row, column, symbol in [(5, 1, "cyan"), (0, 0, "cyan"), (2, 1, "cyan"), (3, 4, "cyan"), (5, 2, "cyan"), (2, 4, "cyan"), (0, 2, "cyan"), (5, 3, "cyan"), (4, 0, "cyan"), (1, 1, "amber"), (3, 0, "cyan"), (3, 2, "cyan"), (1, 0, "cyan")]:
+            triad = await self.send("triad.place", puzzle_id="temporal_triad", row=row, column=column, symbol=symbol)
         self.assertTrue(self.response(triad, "triad.result").payload["game_complete"])
 
         await self.scan("sports_archive")
@@ -119,4 +119,3 @@ class CompleteScenarioJourneyTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(set(self.machine.state.inventory), {"TEMPORÁLNÍ MOTOR", "FÁZOVÝ STABILIZÁTOR", "KRYSTAL ČASOVÉ KOTVY"})
         self.assertTrue(self.machine.state.flags["game_completed"])
         self.assertGreater(self.machine.state.score, 0)
-

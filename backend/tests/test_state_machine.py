@@ -87,8 +87,8 @@ class StateMachineCheckpointTests(unittest.IsolatedAsyncioTestCase):
         await self.scan("terrace_echo")
         await self.machine.handle(Message("puzzle.submit", {"puzzle_id": "terrace_morse", "answer": "HŘIŠTĚ"}))
         await self.scan("courtyard_alignment")
-        for row, column in [(0,0),(0,1),(0,2),(1,0),(2,0),(1,1)]:
-            await self.machine.handle(Message("triad.place", {"puzzle_id":"temporal_triad","row":row,"column":column,"symbol":"cyan"}))
+        for row, column, symbol in [(5,1,"cyan"),(0,0,"cyan"),(2,1,"cyan"),(3,4,"cyan"),(5,2,"cyan"),(2,4,"cyan"),(0,2,"cyan"),(5,3,"cyan"),(4,0,"cyan"),(1,1,"amber"),(3,0,"cyan"),(3,2,"cyan"),(1,0,"cyan")]:
+            await self.machine.handle(Message("triad.place", {"puzzle_id":"temporal_triad","row":row,"column":column,"symbol":symbol}))
         return await self.scan("sports_archive")
 
     @staticmethod
@@ -668,7 +668,7 @@ class StateMachineCheckpointTests(unittest.IsolatedAsyncioTestCase):
         bowling = await self.scan("bowling_diagnostics")
         self.assertTrue(self.response(bowling, "qr.result").payload["accepted"])
 
-    async def test_triad_requires_three_orientations_and_unlocks_sokoban(self) -> None:
+    async def test_triad_requires_two_orientations_and_unlocks_sokoban(self) -> None:
         await self.unlock_timeline_game()
         game = self.prepare_five_match(); game["progress"] = {"3": 5, "4": 3, "5": 0}
         await self.line_swap([0, 4], [1, 4])
@@ -676,12 +676,25 @@ class StateMachineCheckpointTests(unittest.IsolatedAsyncioTestCase):
         await self.machine.handle(Message("puzzle.submit", {"puzzle_id":"terrace_morse","answer":"HŘIŠTĚ"}))
         await self.scan("courtyard_alignment")
         response = None
-        for row, column in [(0,0),(0,1),(0,2),(1,0),(2,0),(1,1)]:
-            response = await self.machine.handle(Message("triad.place", {"puzzle_id":"temporal_triad","row":row,"column":column,"symbol":"cyan"}))
+        for row, column, symbol in [(5,1,"cyan"),(0,0,"cyan"),(2,1,"cyan"),(3,4,"cyan"),(5,2,"cyan"),(2,4,"cyan"),(0,2,"cyan"),(5,3,"cyan"),(4,0,"cyan"),(1,1,"amber"),(3,0,"cyan"),(3,2,"cyan"),(1,0,"cyan")]:
+            response = await self.machine.handle(Message("triad.place", {"puzzle_id":"temporal_triad","row":row,"column":column,"symbol":symbol}))
         self.assertTrue(self.response(response, "triad.result").payload["game_complete"])
-        self.assertEqual(set(self.machine.state.triad_games["temporal_triad"]["completed_orientations"]), {"horizontal","vertical","diagonal"})
+        self.assertEqual(set(self.machine.state.triad_games["temporal_triad"]["completed_orientations"]), {"horizontal","diagonal"})
         sports = await self.scan("sports_archive")
         self.assertTrue(self.response(sports, "qr.result").payload["accepted"])
+
+    async def test_triad_opponent_blocks_an_immediate_player_line(self) -> None:
+        await self.unlock_timeline_game()
+        game = self.prepare_five_match(); game["progress"] = {"3": 5, "4": 3, "5": 0}
+        await self.line_swap([0, 4], [1, 4])
+        await self.scan("terrace_echo")
+        await self.machine.handle(Message("puzzle.submit", {"puzzle_id":"terrace_morse","answer":"HŘIŠTĚ"}))
+        await self.scan("courtyard_alignment")
+        await self.machine.handle(Message("triad.place", {"puzzle_id":"temporal_triad","row":0,"column":0,"symbol":"cyan"}))
+        response = await self.machine.handle(Message("triad.place", {"puzzle_id":"temporal_triad","row":0,"column":1,"symbol":"cyan"}))
+        result = self.response(response, "triad.result").payload
+        self.assertEqual(result["opponent_move"], {"row": 0, "column": 2, "symbol": "opponent"})
+        self.assertEqual(self.machine.state.triad_games["temporal_triad"]["board"][0][2], "opponent")
 
     def test_team_size_score_adjustments(self) -> None:
         self.assertEqual(team_size_adjustment("solo", 1), 20)
@@ -810,7 +823,7 @@ class StateMachineCheckpointTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(archive_puzzle["archive_game"]["revealed_key"], "CHRONOS")
         archive = await self.machine.handle(Message("puzzle.submit", {
             "puzzle_id": "future_archive_cipher",
-            "answer": "ROK DVA NULA TRI SEDM CAS DVA JEDNA CTYRI NULA PORADI MOTOR STABILIZATOR KRYSTAL",
+            "answer": "ROK DVA NULA TŘI SEDM / ČAS DVA JEDNA ČTYŘI NULA / POŘADÍ MOTOR STABILIZÁTOR KRYSTAL",
         }))
         self.assertTrue(self.response(archive, "puzzle.result").payload["correct"])
         self.assertTrue(self.machine.state.flags["return_vector_recovered"])

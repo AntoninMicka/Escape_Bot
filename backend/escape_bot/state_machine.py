@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import unicodedata
 import urllib.parse
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
@@ -23,6 +24,11 @@ from .mine_karel import execute as execute_karel, new_game as new_karel, public_
 from .triad_game import new_game as new_triad, place as place_triad, public_game as public_triad, reset as reset_triad
 
 LLM_ENABLED = os.getenv("ESCAPEBOT_LLM_ENABLED", "").lower() in {"1", "true", "yes", "on"}
+
+
+def _normalize_puzzle_answer(value: Any) -> str:
+    decomposed = unicodedata.normalize("NFKD", str(value).strip().upper())
+    return "".join(character for character in decomposed if character.isascii() and character.isalnum())
 
 
 class GamePhase(StrEnum):
@@ -584,7 +590,7 @@ class EscapeBotStateMachine:
 
     async def _handle_puzzle_submit(self, message: Message) -> list[Message]:
         puzzle_id = str(message.payload.get("puzzle_id", "")).strip()
-        answer = str(message.payload.get("answer", "")).strip().replace(" ", "").upper()
+        answer = _normalize_puzzle_answer(message.payload.get("answer", ""))
         puzzle = self.scenario.data.get("puzzles", {}).get(puzzle_id)
         if puzzle is None:
             return [reply("puzzle.result", {"correct": False, "reason": "Neznámá hádanka."}, message)]
@@ -606,7 +612,7 @@ class EscapeBotStateMachine:
         self.state.puzzle_attempts[puzzle_id] = self.state.puzzle_attempts.get(puzzle_id, 0) + 1
         accepted_answers = puzzle.get("answers", [puzzle.get("answer", "")])
         normalized_answers = {
-            str(candidate).strip().replace(" ", "").upper()
+            _normalize_puzzle_answer(candidate)
             for candidate in accepted_answers
         }
         if answer not in normalized_answers:
@@ -876,7 +882,7 @@ class EscapeBotStateMachine:
 
     def _triad_state(self, puzzle_id: str, config: dict[str, Any]) -> dict[str, Any]:
         game = self.state.triad_games.get(puzzle_id)
-        if not isinstance(game, dict) or not game.get("deadline_at"):
+        if not isinstance(game, dict) or not game.get("deadline_at") or int(game.get("size", 0)) != int(config.get("size", 5)):
             game = new_triad(config); self.state.triad_games[puzzle_id] = game
         return game
 
