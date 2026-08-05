@@ -1,6 +1,22 @@
 # Kompletní checklist projektu "Escape Bot"
 
-> **Audit aktuálnosti 2026-08-05:** Aktivní roadmapu tvoří produkční scénář v oddílu 13, cloudová migrace v oddílu 14, volitelný sdílený 3D svět v oddílu 15 a provoz více her s rezervacemi a platbami v oddílu 16. Oddíly 8 a 12 jsou ponechané pouze jako historie původního konceptu a jejich nezaškrtnuté body nejsou aktivní backlog. QML/WASM byl nahrazen webovou PWA. AI/Ollama není podmínkou herního průchodu a její další rozvoj je odložen.
+> **Audit aktuálnosti 2026-08-05:** Do dokončení a prvního ostrého ověření Kraskova, plánovaného na konec září 2026, tvoří aktivní roadmapu pouze produkční scénář v oddílu 13. Cloudová migrace, sdílený 3D svět, komerční provoz více her a obecné příběhové šablony v oddílech 14–17 jsou návrhy pro období po Kraskovu a do té doby se neimplementují. Oddíly 8 a 12 jsou pouze historie původního konceptu. QML/WASM byl nahrazen webovou PWA a AI/Ollama není podmínkou herního průchodu.
+
+## Aktuální milník – Kraskov do konce září 2026
+
+**Cíl:** první verzi hry opakovaně projít v reálných podmínkách, odstranit technická a herní třecí místa a připravit ji k bezpečnému provozu. Nové platformní směry z oddílů 14–17 se do tohoto milníku nepřidávají, pokud neřeší konkrétní blokující problém Kraskova.
+
+- [ ] Potvrdit s hotelem finální trasu, povolená stanoviště, startovní/finální místnost, vnitřní variantu pro špatné počasí a cílovou délku hry.
+- [ ] Dokončit a zkontrolovat všechny fyzické rekvizity, QR, šifrovací tabulky, organizační mapu, nouzové obálky a instalační checklist.
+- [ ] Udělat stolní průchod všech hádanek bez pohybu a zaznamenat čas, chyby zadání, počet nápověd a místa, kde tester neví, co dělat dál.
+- [ ] Udělat technický průchod celé trasy v Hotelu Kraskov alespoň s jedním kompletním týmem a bez zásahu autora, pokud nejde o skutečnou provozní závadu.
+- [ ] Otestovat tři a více fyzických telefonů, uspání aplikace, reconnect, ztrátu Wi-Fi, opakovaný QR, souběžné povely a obnovu po restartu backendu.
+- [ ] Ověřit mobilní čitelnost, hlasitost, titulky, ovládání jednou rukou, venkovní světlo, slabší zařízení a bezpečný návrat z každé obrazovky.
+- [ ] Změřit obtížnost a délku jednotlivých etap, upravit nápovědy, časové limity a bodování podle dat, ne pouze podle autorského průchodu.
+- [ ] Udělat zátěžový/provozní test více týmů se startovními rozestupy a ověřit, že se nepotkávají u úzkých stanovišť ani si neprozrazují řešení.
+- [ ] Projít s Game Masterem administraci, podporu, technický skip, obnovu hráče, diskvalifikaci či ukončení hry a nouzové postupy při výpadku.
+- [ ] Před ostrým během uzavřít obsahový freeze; po něm přijímat pouze opravy chyb, bezpečnosti, nejasností a provozních blokátorů.
+- [ ] Po prvním ostrém běhu udělat retrospektivu a teprve poté seřadit oddíly 14–17 podle skutečné obchodní a hráčské hodnoty.
 
 ## 1. Návrh komunikačního protokolu (Frontend <-> Backend)
 - [x] Definice formátu zpráv (JSON přes WebSockets).
@@ -616,7 +632,7 @@
 - [ ] Počítat s tím, že inkognito režim, jiný prohlížeč, smazaná data nebo více profilů detekci obejdou; funkci prezentovat pouze jako pomoc při dohledu, nikoli jako důkaz identity osoby.
 - [ ] Otestovat stejné zařízení ve dvou týmech, více hráčů na jednom tabletu, smazání cookies, anonymní režim, obnovení identity a falešnou shodu doplňkového fingerprintu.
 
-## 14. Migrace na cloud
+## 14. Migrace na cloud (odloženo po Kraskovu, nejdříve říjen 2026)
 
 - [ ] Zmrazit deterministický produkční průchod bez povinné závislosti na Ollamě nebo ComfyUI.
 - [ ] Kontejnerizovat FastAPI aplikaci a statický PWA klient; doplnit produkční ASGI konfiguraci.
@@ -629,7 +645,7 @@
 - [ ] Připravit DNS, reverzní proxy, bezpečnostní hlavičky, rate limiting a plán rollbacku.
 - [ ] Provést zkušební migraci kopií lokálních dat, ověřit počty relací a Síň slávy a teprve potom přepnout produkční DNS.
 
-## 15. Volitelný modul „Doomovka“ – sdílený alternativní svět
+## 15. Volitelný modul „Doomovka“ – sdílený alternativní svět (odloženo po Kraskovu)
 
 **Vize:** hráči vstoupí z komunikátoru do stylizovaného prostoru vykresleného přímo v prohlížeči, vidí avatary ostatních členů týmu, společně se pohybují a aktivují úkoly. První verze má ověřit zábavu, ovládání a synchronizaci na běžných telefonech; nemá nahrazovat hlavní scénář ani z něj dělat akční střílečku. Do budoucna může stejný modul představovat jinou časovou vrstvu hotelu nebo samostatný alternativní svět.
 
@@ -697,7 +713,7 @@
 - [ ] Modul zapnout do produkčního scénáře až tehdy, když má bezpečný fallback, obnovu relace, administrátorský skip a neprodlužuje čekání ostatních týmů.
 - [ ] Po vertikálním řezu rozhodnout mezi třemi směry: jednorázová 3D minihra, sada scénářových místností, nebo trvalejší alternativní svět. Teprve poslední varianta vyžaduje zónování, více serverových instancí, databázi světa, moderaci a provozní monitoring.
 
-## 16. Provoz více her, rezervace a platební brána
+## 16. Provoz více her, rezervace a platební brána (odloženo po Kraskovu)
 
 **Výchozí stav:** backend již drží více nezávislých týmových relací v `active_sessions`, ale všechny vznikají nad jedním scénářem načteným při startu procesu. Pro komerční provoz je proto nutné oddělit titul hry, konkrétní verzi scénáře, herní termín a týmovou relaci. Platba má vytvářet oprávnění ke vstupu, nikdy přímo měnit rozehraný herní stav.
 
@@ -767,3 +783,81 @@
 - [ ] Etapa C – sandbox platební brány: hostovaný checkout, podepsané webhooky, idempotence a testovací refundace.
 - [ ] Etapa D – omezený produkční pilot jedné hry a několika termínů se souběžnou ruční kontrolou každé platby.
 - [ ] Etapa E – více her a míst, automatizované refundace, účetní export a horizontální škálování až podle naměřené zátěže.
+
+## 17. Obecné příběhy a konkrétní realizace v různých lokalitách (odloženo po Kraskovu)
+
+**Cíl:** jeden příběh navrhnout pouze jednou a provozovat jej v několika městech, budovách, venkovních trasách nebo virtuálních světech. Obecný scénář určuje děj, role stanovišť, pravidla, návaznosti a výukové cíle. Konkrétní realizace určuje skutečná či virtuální místa, lokální navigaci, rekvizity, assety, bezpečnostní omezení a případné náhradní úkoly.
+
+### 17.1 Vrstvy obsahu a jejich odpovědnosti
+
+- [ ] Zavést vrstvu `story_template`: obecný příběh, postavy, kapitoly, abstraktní uzly, podmínky postupu, odměny, povinné schopnosti hráčů a význam jednotlivých úkolů v ději.
+- [ ] Zavést vrstvu `realization`: konkrétní výběr a konfigurace uzlů pro určité město, objekt, akci nebo virtuální svět.
+- [ ] Zavést vrstvu `deployment`: provozní nasazení realizace na konkrétní termín a místo, včetně aktivních QR tokenů, dostupných tras, počasí, kapacity a lokálních nastavení.
+- [ ] Ponechat `session` jako rozehraný a neměnný snapshot konkrétního deploymentu; pozdější změna šablony ani realizace nesmí změnit běžící hru.
+- [ ] Nepoužívat volné přepisování libovolných JSON polí. Každá vrstva musí mít vlastní explicitní schéma a jasně definovaná místa rozšíření.
+
+### 17.2 Abstraktní role míst a úkolů
+
+- [ ] Popisovat příběhová stanoviště rolí a požadovanými vlastnostmi místo konkrétního názvu, například `START_BASE`, `PUBLIC_ARCHIVE`, `VERTICAL_TRANSITION`, `SOCIAL_AREA`, `OUTDOOR_LANDMARK` a `FINAL_BASE`.
+- [ ] U každé role určit povinné schopnosti: fyzická přítomnost, GPS, QR, kamera, zvuk, tma, schody, obsluha Game Masterem, více zařízení nebo vstup do 3D světa.
+- [ ] Oddělit logický cíl úkolu od jeho prezentace. Například „získat čtyřmístný kód dedukcí“ může mít hotelovou, městskou, muzejní nebo virtuální grafiku a texty.
+- [ ] Umožnit realizaci vybrat z několika kompatibilních variant úkolu, pokud konkrétní lokalita nepodporuje původní mechanismus.
+- [ ] Definovat povinné příběhové informace, které musí každá varianta hráči předat, aby náhradní úkol nezpůsobil mezeru v ději.
+- [ ] Rozlišit uzly `required`, `optional`, `bonus` a `fallback`; validátor musí potvrdit alespoň jednu průchodnou cestu od startu do finále.
+
+### 17.3 Typy realizací
+
+- [ ] Podporovat `physical_indoor`: budova nebo areál s QR, rekvizitami a lokální navigací.
+- [ ] Podporovat `physical_outdoor`: městská či přírodní trasa s GPS/geofencingem, veřejnými orientačními body a nouzovou variantou při uzavírce nebo špatném počasí.
+- [ ] Podporovat `virtual`: kompletní průchod přes webové obrazovky, 2D mapy nebo sdílený 3D svět bez fyzických checkpointů.
+- [ ] Podporovat `hybrid`: část postupu v reálné lokalitě a část ve virtuálním světě, se společným stavem relace a inventářem.
+- [ ] Umožnit jedné realizaci nabídnout více tras nebo režimů dostupnosti, například bezbariérovou, zkrácenou, deštivou a vzdálenou variantu.
+
+### 17.4 Mapování do měst a konkrétních míst
+
+- [ ] Vytvořit kartu lokace s názvem pro hráče, interním ID, souřadnicemi nebo virtuální mapou, přístupností, otevírací dobou, kapacitou, riziky a kontaktem provozovatele.
+- [ ] Mapovat každou abstraktní roli scénáře na konkrétní lokaci a uvést lokální navigační text, checkpoint, rekvizitu, variantu úkolu a nouzovou náhradu.
+- [ ] Nepoužívat jako povinnou stopu nestabilní detail veřejného prostoru bez záložní varianty; u soch, výloh, nápisů a podniků evidovat datum posledního ověření.
+- [ ] U městských realizací zabránit vedení hráčů do soukromých, nebezpečných, dopravně exponovaných nebo časově nedostupných prostor.
+- [ ] Počítat s více týmy na trase: určit kapacitu stanovišť, rozestupy startů, alternativní pořadí nezávislých uzlů a prevenci prozrazení řešení mezi týmy.
+- [ ] Uchovávat organizační mapu s přesnými checkpointy odděleně od hráčské mapy, která nesmí předem prozrazovat trasu ani řešení.
+
+### 17.5 Lokalizace jazyka a kulturní adaptace
+
+- [ ] Oddělit všechny zobrazované texty, dialogy, titulky, nápovědy a názvy assetů od logiky do lokalizačních klíčů.
+- [ ] Rozlišit jazykový překlad od lokální adaptace příběhu; jiné město může vyžadovat změnu reálií, ale nesmí svévolně porušit pravidla obecného příběhu.
+- [ ] U slovních šifer deklarovat jazykovou závislost a pro každý podporovaný jazyk vyžadovat samostatně ověřenou variantu řešení a nápověd.
+- [ ] Přidat fallback jazyka a validaci chybějících překladů; publikaci realizace zablokovat, pokud chybí povinný text nebo přístupnostní alternativa.
+
+### 17.6 Balíčky assetů a konfigurace
+
+- [ ] Rozdělit assety na společné příběhové, lokální a provozní; sdílené soubory neduplikovat do každé realizace.
+- [ ] Používat stabilní logická ID assetů a manifest s hashem, typem, velikostí, licencí a offline dostupností.
+- [ ] Umožnit realizaci nahradit pouze povolené prezentační assety, například mapu, fotografie, hlasové varianty a modely prostředí, bez změny serverové logiky.
+- [ ] Při publikaci sestavit neměnný balíček obsahující přesné verze šablony, realizace, překladů, assetů a datového schématu.
+- [ ] PWA musí před startem ověřit dostupnost povinných assetů pro danou realizaci a nabídnout řízený fallback místo částečně načtené hry.
+
+### 17.7 Validace a automatické testování realizací
+
+- [ ] Vytvořit validátor kompatibility `story_template` × `realization`: obsazené povinné role, podporované schopnosti, úplnost textů, existující assety a dosažitelnost finále.
+- [ ] Generovat automatický deterministický smoke průchod pro každou publikovanou realizaci včetně všech zvolených variant a fallbackových tras.
+- [ ] Ověřit, že žádný lokální QR, GPS bod, PIN, odpověď nebo asset nemůže omylem změnit jinou realizaci stejného příběhu.
+- [ ] Přidat maticový test: jeden příběh ve dvou fyzických městech, jedné virtuální realizaci a jednom hybridu běží současně bez sdílení stavu.
+- [ ] Před publikací fyzické realizace vyžadovat technický průchod na místě a datum schválení; po stanovené době nebo významné změně lokality ji označit k opětovnému ověření.
+- [ ] Zobrazit v administraci přesnou provenienci relace: příběh, verzi šablony, realizaci, deployment, jazyk a všechny aktivní fallbacky.
+
+### 17.8 Nástroj pro tvorbu nové realizace
+
+- [ ] První dvě realizace vytvořit ručně v datových souborech, aby se ověřil model a odhalilo, co je skutečně společné a co lokální.
+- [ ] Poté připravit průvodce: výběr příběhu → typ realizace → přiřazení rolí míst → varianty úkolů → navigace → assety → bezpečnost → test → publikace.
+- [ ] U každého kroku zobrazit chybějící povinné prvky, kompatibilní varianty a náhled hráčské i organizační mapy.
+- [ ] Umožnit realizaci klonovat pro další město, ale po klonování vyžadovat nové ověření všech lokací, navigace, QR tokenů, práv k assetům a bezpečnostních údajů.
+- [ ] Zavést role `autor příběhu`, `editor realizace`, `lokální provozovatel`, `tester` a `schvalovatel`; publikace musí být auditovaná a oddělená od běžné editace.
+
+### 17.9 Doporučený referenční experiment
+
+- [ ] Nejprve vytáhnout z existujícího Kraskova obecnou šablonu `Ztracená v čase` bez názvů hotelových míst a konkrétních rekvizit.
+- [ ] Zachovat současný Hotel Kraskov jako první fyzickou realizaci a porovnat její průchod se stávajícím smoke testem bez funkční změny.
+- [ ] Vytvořit druhou malou virtuální realizaci stejného příběhu, ve které jsou fyzické role nahrazené 2D/3D místnostmi a digitálními checkpointy.
+- [ ] Vytvořit papírový návrh realizace pro druhé město a ověřit, zda lze všechny obecné role obsadit bez změny společné dějové logiky.
+- [ ] Teprve po těchto třech variantách zmrazit první verzi schématu a začít stavět editor realizací.
