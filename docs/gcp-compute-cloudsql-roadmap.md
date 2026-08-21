@@ -217,6 +217,130 @@ Odhad: první 1–2 týdny provozu.
 4. Sepsat runbook pro výpadek VM, Cloud SQL, DNS, certifikátu a chybné nasazení.
 5. Po stabilizaci rozhodnout, zda samostatná Cloud SQL stačí, nebo je nutné regionální HA.
 
+## Fáze 8 – průběžný deploy změn a oprav
+
+Odhad zavedení: 2–4 dny. Poté jde o standardní proces každého releasu.
+
+### Release infrastruktura
+
+1. Ukládat produkční image do Artifact Registry, nikdy je nestavět přímo na produkční VM.
+2. Použít Cloud Build nebo GitHub Actions s Workload Identity Federation; nepoužívat dlouhodobý JSON service-account klíč.
+3. Každý image označit:
+   - neměnným Git SHA,
+   - čitelnou verzí `vX.Y.Z`,
+   - prostředím pouze jako pohyblivým aliasem, nikoli jako jedinou identitou.
+4. Staging a produkce používají stejný image digest. Produkce nesmí sestavovat jiný artefakt ze stejného commitu.
+5. Uchovávat minimálně posledních pět ověřených produkčních image pro rychlý rollback.
+6. Terraformem nebo jiným Infrastructure as Code spravovat VM, firewall, service accounts, Secret Manager, Cloud SQL, Artifact Registry, monitoring a snapshot policy.
+
+### CI pipeline pro každý pull request
+
+Povinné kontroly před sloučením:
+
+1. Python unit a integrační testy.
+2. Kompletní scenario journey smoke test.
+3. Validace JSON scénáře a runtime konfigurace.
+4. Kontrola syntaxe klientského JavaScriptu.
+5. Statická analýza Pythonu a kontrola závislostí.
+6. Sestavení Docker image.
+7. Start image v dočasném kontejneru a ověření `/api/health` a `/api/ready`.
+8. Test databázových migrací na prázdné PostgreSQL i kopii předchozího schématu.
+9. Kontrola, že v repozitáři ani image nejsou tajemství, `.env`, certifikáty nebo produkční exporty.
+
+Pull request nelze sloučit, pokud některá povinná kontrola neprojde.
+
+### Automatický deploy na staging
+
+Po sloučení do hlavní větve:
+
+1. Sestavit image a publikovat ho do Artifact Registry pod Git SHA.
+2. Vytvořit release manifest obsahující image digest, Git SHA, databázovou revizi a čas sestavení.
+3. Spustit dopředné databázové migrace na stagingu.
+4. Nasadit přesný image digest na staging VM.
+5. Spustit healthcheck, WebSocket reconnect test a automatický průchod scénářem.
+6. Při chybě automaticky vrátit předchozí image; databázi vracet pouze podle explicitního migračního postupu.
+7. Označit image jako kandidáta pro produkci pouze po úspěšném smoke testu.
+
+### Produkční deploy běžné změny
+
+Produkce se spouští ručně z již ověřeného release kandidáta:
+
+1. Zkontrolovat stav monitoringu, poslední zálohu a volné místo.
+2. V admin dashboardu zastavit nové starty týmů.
+3. Pokud změna není plně kompatibilní s běžícími relacemi, počkat na dokončení týmů nebo vyhlásit servisní okno.
+4. Vytvořit on-demand databázovou zálohu/export a zaznamenat aktuální image digest.
+5. Spustit pouze předem ověřené, zpětně kompatibilní migrace.
+6. Stáhnout nový image podle digestu, nikoli podle samotného tagu `latest`.
+7. Spustit nový kontejner, ověřit readiness a teprve potom přepnout Caddy.
+8. Původní kontejner ponechat krátce dostupný pro okamžitý aplikační rollback, pokud to dovoluje databázová kompatibilita.
+9. Spustit produkční smoke test: lobby, sólo start, týmové připojení, WebSocket, admin a health endpoint.
+10. Znovu povolit start týmů a alespoň 30 minut sledovat zvýšený dohled.
+
+### Kompatibilita rozehraných her
+
+Každá změna herního snapshotu musí splnit jednu z možností:
+
+- nový kód umí načíst aktuální i předchozí `schema_version`, nebo
+- před deployem jsou všechny rozehrané relace dokončené či administrativně uzavřené.
+
+Změna scénáře nesmí tiše změnit význam již uloženého checkpointu. Pokud se mění ID, odměna, závislost nebo pravidlo minihry, musí existovat explicitní migrace snapshotu a test obnovení staré relace.
+
+### Databázové migrace bez odstávky
+
+Používat vzor expand–migrate–contract:
+
+1. **Expand:** přidat nové nullable sloupce/tabulky bez odstranění starých.
+2. **Migrate:** nasadit kód, který zvládá starý i nový formát, a převést existující data.
+3. **Contract:** staré sloupce odstranit až v pozdějším releasu po ověření a skončení rollback okna.
+
+Ve stejném releasu se nemá současně odstranit databázové pole a nasadit kód, který jej už neumí číst. Destruktivní migrace vyžaduje samostatné schválení a ověřenou zálohu.
+
+### Deploy urgentní opravy
+
+Hotfix má zkrácený, ale nevynechaný proces:
+
+1. Vytvořit větev z aktuálně nasazeného produkčního tagu, ne automaticky z hlavní větve.
+2. Přidat regresní test reprodukující chybu.
+3. Spustit povinné unit testy, scenario smoke test, build image a migrační kontrolu.
+4. Nasadit hotfix nejprve na staging a provést cílený test opravené cesty.
+5. Pokud chyba ohrožuje integritu dat, globálně zastavit provoz ještě před deployem.
+6. Publikovat nový patch release, například `v1.4.2`, a nasadit ho standardním produkčním krokem.
+7. Opravu následně sloučit zpět do hlavní vývojové větve.
+8. Do 48 hodin doplnit krátký incident report: příčina, dopad, detekce, oprava a prevence.
+
+### Rollback aplikace
+
+Rollback smí používat pouze známý předchozí image digest:
+
+1. Zastavit nové starty týmů.
+2. Přepnout Caddy nebo Compose na předchozí image.
+3. Ověřit health/readiness a reconnect jedné testovací relace.
+4. Znovu povolit provoz až po smoke testu.
+
+Pokud nový release provedl pouze kompatibilní expand migraci, databáze se při aplikačním rollbacku nevrací. Pokud databáze kompatibilní není, jde o databázový incident a obnova se provádí podle samostatného runbooku; automatické spuštění downgrade SQL není bezpečný výchozí postup.
+
+### Evidence každého releasu
+
+U každého produkčního nasazení uchovat:
+
+- verzi a Git SHA,
+- image digest,
+- revizi databázového schématu,
+- osobu, která deploy schválila,
+- čas začátku a konce,
+- odkaz na CI běh,
+- výsledek smoke testu,
+- vytvořenou zálohu,
+- případný rollback nebo incident.
+
+### Doporučené release rytmy
+
+- běžné opravy a menší změny: plánované okno jednou týdně,
+- změny scénáře nebo persistence: samostatné servisní okno,
+- bezpečnostní hotfix: podle závažnosti okamžitě,
+- aktualizace operačního systému: měsíční okno po ověření na staging VM,
+- major upgrade PostgreSQL: samostatný projekt s nácvikem obnovy.
+
 ## Navazující vysoká dostupnost
 
 Teprve po stabilní databázové migraci:
@@ -245,12 +369,14 @@ zátěžové a recovery testy
         ↓
 produkční přepnutí
         ↓
+CI/CD pro změny a hotfixy
+        ↓
 Redis a více instancí pouze podle potřeby
 ```
 
 ## Odhad celku
 
-Pro jednoho vývojáře přibližně 10–16 pracovních dní včetně stagingu, importu, testů obnovy a produkčního přepnutí. Samotné vytvoření VM je malá část práce; největší riziko a objem představuje bezpečný přesun persistence, souběžné zápisy a ověřený rollback.
+Pro jednoho vývojáře přibližně 12–20 pracovních dní včetně stagingu, importu, testů obnovy, produkčního přepnutí a základní CI/CD pipeline. Samotné vytvoření VM je malá část práce; největší riziko a objem představuje bezpečný přesun persistence, souběžné zápisy, kompatibilní databázové migrace a ověřený rollback.
 
 ## Oficiální dokumentace
 
