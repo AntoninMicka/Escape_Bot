@@ -1,0 +1,15 @@
+.git
+.agents
+.codex
+.venv
+build
+desktop
+docs
+ai
+searxng
+backend/__pycache__
+backend/tests
+backend/*.json
+!backend/scenario.json
+backend/*.pem
+*.bat

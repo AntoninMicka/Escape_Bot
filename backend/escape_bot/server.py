@@ -7,6 +7,7 @@ import socket
 import secrets
 import threading
 import hmac
+import tempfile
 import uvicorn
 from io import BytesIO
 from contextlib import asynccontextmanager
@@ -15,6 +16,7 @@ from zoneinfo import ZoneInfo
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.responses import RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
+from starlette.middleware.trustedhost import TrustedHostMiddleware
 
 from .protocol import Message
 from .state_machine import EscapeBotStateMachine
@@ -29,9 +31,10 @@ logger = logging.getLogger("EscapeBot")
 # Dynamické nalezení absolutní cesty do složky client/
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 CLIENT_DIR = os.path.join(BASE_DIR, "client")
-SESSIONS_FILE = os.path.join(BASE_DIR, "backend", "sessions.json")
-LOBBIES_FILE = os.path.join(BASE_DIR, "backend", "lobbies.json")
-RUNTIME_SETTINGS_FILE = os.path.join(BASE_DIR, "backend", "runtime_settings.json")
+DATA_DIR = os.path.abspath(os.getenv("ESCAPEBOT_DATA_DIR", os.path.join(BASE_DIR, "backend")))
+SESSIONS_FILE = os.path.join(DATA_DIR, "sessions.json")
+LOBBIES_FILE = os.path.join(DATA_DIR, "lobbies.json")
+RUNTIME_SETTINGS_FILE = os.path.join(DATA_DIR, "runtime_settings.json")
 
 # Úložiště pro nezávislé relace hráčů (session_id -> state_machine)
 active_sessions: dict[str, EscapeBotStateMachine] = {}
@@ -134,8 +137,18 @@ async def operations_monitor() -> None:
         if changed: save_sessions()
         await asyncio.sleep(30)
 
-LEADERBOARD_FILE = os.path.join(BASE_DIR, "backend", "leaderboard.json")
+LEADERBOARD_FILE = os.path.join(DATA_DIR, "leaderboard.json")
 global_leaderboard = []
+
+def _write_json(path: str, data: object) -> None:
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    descriptor, temporary_path = tempfile.mkstemp(prefix=".escape-bot-", suffix=".json", dir=os.path.dirname(path))
+    try:
+        with os.fdopen(descriptor, "w", encoding="utf-8") as file:
+            json.dump(data, file, indent=2, ensure_ascii=False); file.flush(); os.fsync(file.fileno())
+        os.replace(temporary_path, path)
+    finally:
+        if os.path.exists(temporary_path): os.unlink(temporary_path)
 
 
 def leaderboard_entries() -> list[dict[str, object]]:
@@ -151,8 +164,7 @@ def leaderboard_entries() -> list[dict[str, object]]:
     return sorted(result, key=lambda item: int(item.get("score", 0)), reverse=True)
 
 def save_leaderboard():
-    with open(LEADERBOARD_FILE, "w", encoding="utf-8") as f:
-        json.dump(global_leaderboard, f, indent=2, ensure_ascii=False)
+    _write_json(LEADERBOARD_FILE, global_leaderboard)
 
 def load_leaderboard():
     global global_leaderboard
@@ -173,8 +185,7 @@ def load_leaderboard():
 
 def save_sessions():
     data = {sid: sm.state.snapshot() for sid, sm in active_sessions.items()}
-    with open(SESSIONS_FILE, "w", encoding="utf-8") as f:
-        json.dump(data, f, indent=2, ensure_ascii=False)
+    _write_json(SESSIONS_FILE, data)
 
 def load_sessions(scenario):
     if os.path.exists(SESSIONS_FILE):
@@ -190,8 +201,7 @@ def load_sessions(scenario):
             logger.error(f"Chyba při načítání souboru relací: {e}")
 
 def save_lobbies():
-    with open(LOBBIES_FILE, "w", encoding="utf-8") as file:
-        json.dump(lobby_registry.snapshot(), file, indent=2, ensure_ascii=False)
+    _write_json(LOBBIES_FILE, lobby_registry.snapshot())
 
 def load_lobbies():
     if not os.path.exists(LOBBIES_FILE):
@@ -209,13 +219,17 @@ def load_runtime_settings():
         except Exception as error: logger.error(f"Chyba nastavení režimu: {error}")
 
 def save_runtime_settings():
-    with open(RUNTIME_SETTINGS_FILE, "w", encoding="utf-8") as file: json.dump(runtime_settings, file, indent=2, ensure_ascii=False)
+    _write_json(RUNTIME_SETTINGS_FILE, runtime_settings)
 
 scenario_path = os.path.join(BASE_DIR, "backend", "scenario.json")
 scenario = ScenarioLoader.load(scenario_path)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    os.makedirs(DATA_DIR, exist_ok=True)
+    if not os.access(DATA_DIR, os.W_OK): raise RuntimeError(f"Datový adresář není zapisovatelný: {DATA_DIR}")
+    if os.getenv("ESCAPEBOT_ENV", "development").lower() == "production" and not ADMIN_TOKEN:
+        raise RuntimeError("V produkci je povinná proměnná ESCAPEBOT_ADMIN_TOKEN.")
     load_leaderboard()
     load_lobbies()
     load_runtime_settings()
@@ -231,6 +245,19 @@ async def lifespan(app: FastAPI):
 
 # --- Inicializace FastAPI ---
 app = FastAPI(title="Escape Bot", lifespan=lifespan)
+allowed_hosts = [item.strip() for item in os.getenv("ESCAPEBOT_ALLOWED_HOSTS", "*").split(",") if item.strip()]
+app.add_middleware(TrustedHostMiddleware, allowed_hosts=allowed_hosts or ["*"])
+
+@app.middleware("http")
+async def security_headers(request, call_next):
+    response = await call_next(request)
+    response.headers.setdefault("X-Content-Type-Options", "nosniff")
+    response.headers.setdefault("X-Frame-Options", "DENY")
+    response.headers.setdefault("Referrer-Policy", "same-origin")
+    response.headers.setdefault("Permissions-Policy", "geolocation=(), microphone=()")
+    if os.getenv("ESCAPEBOT_ENV", "development").lower() == "production":
+        response.headers.setdefault("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
+    return response
 
 
 def connected_client_ids(session_id: str) -> set[str]:
@@ -486,7 +513,9 @@ async def qr_code(data: str) -> Response:
 
 @app.get("/api/health")
 async def health() -> dict[str, object]:
-    return {"status": "ok", "admin_enabled": bool(ADMIN_TOKEN), "online_mode": bool(runtime_settings.get("online_mode"))}
+    return {"status": "ok", "admin_enabled": bool(ADMIN_TOKEN), "online_mode": bool(runtime_settings.get("online_mode")),
+            "environment": os.getenv("ESCAPEBOT_ENV", "development"), "storage_writable": os.access(DATA_DIR, os.W_OK),
+            "active_sessions": len(active_sessions)}
 
 
 @app.get("/api/captive")

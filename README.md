@@ -29,6 +29,10 @@ Nativní administrační wrapper s vloženým webovým adminem a podporou vytvo�
 
 Wrapper lze sestavit a rovnou spustit příkazem `./build_and_run_desktop.sh`.
 
+## Cloudové nasazení
+
+První produkční cloudová varianta používá jednu instanci FastAPI, perzistentní Docker volume a Caddy pro automatické HTTPS/WSS. Konfigurace je v `compose.cloud.yml`; přesný postup, zálohování a omezení jedné repliky popisuje [`docs/cloud-migration.md`](docs/cloud-migration.md).
+
 ## Rychlý start backendu
 
 ```bash

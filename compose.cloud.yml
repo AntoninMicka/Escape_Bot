@@ -1,0 +1,42 @@
+services:
+  app:
+    build: .
+    restart: unless-stopped
+    environment:
+      ESCAPEBOT_ENV: production
+      ESCAPEBOT_DATA_DIR: /data
+      ESCAPEBOT_ADMIN_TOKEN: ${ESCAPEBOT_ADMIN_TOKEN:?set ESCAPEBOT_ADMIN_TOKEN}
+      ESCAPEBOT_ALLOWED_HOSTS: ${ESCAPEBOT_DOMAIN:?set ESCAPEBOT_DOMAIN}
+      ESCAPEBOT_DEMO_MODE: "0"
+      ESCAPEBOT_LLM_ENABLED: "0"
+    volumes:
+      - escape_bot_data:/data
+    expose:
+      - "8080"
+    networks: [web]
+
+  caddy:
+    image: caddy:2.8-alpine
+    restart: unless-stopped
+    depends_on:
+      app:
+        condition: service_healthy
+    environment:
+      ESCAPEBOT_DOMAIN: ${ESCAPEBOT_DOMAIN:?set ESCAPEBOT_DOMAIN}
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    networks: [web]
+
+volumes:
+  escape_bot_data:
+  caddy_data:
+  caddy_config:
+
+networks:
+  web:
