@@ -297,9 +297,12 @@ def admin_overview(watched_sessions: set[str] | None = None) -> list[dict[str, o
             "support_chat": [item for item in state.get("chat_history", []) if item.get("channel") == "support"],
             "admin_support_joined": lobby.session_id in (watched_sessions or set()),
             "game_metrics": {
-                "line": [{"id": game_id, "status": game.get("status", ""), "swaps": game.get("swaps", 0),
-                          "progress": dict(game.get("progress", {}))}
-                         for game_id, game in line_games.items()],
+                "line": [{"id": game_id, "player_id": player_id, "player_name": str(lobby.players.get(player_id, {}).get("name", "Hráč")),
+                          "excluded": player_id in state.get("game_exclusions", {}).get(game_id, []), "status": game.get("status", ""),
+                          "swaps": game.get("swaps", 0), "progress": dict(game.get("progress", {})),
+                          "result": state.get("game_results", {}).get(game_id, {}).get(player_id)}
+                         for game_id, container in line_games.items()
+                         for player_id, game in (container.get("players", {}) if isinstance(container.get("players"), dict) else {next(iter(lobby.players), "legacy-client"): container}).items()],
                 "karel": [{"id": game_id, "level": game.get("level_label", ""), "completed": len(game.get("completed_levels", [])),
                            "moves": game.get("total_moves", 0), "strikes": game.get("total_strikes", 0), "restarts": game.get("restarts", 0),
                            "player": list(game.get("player", [])), "rows": game.get("rows", 0), "columns": game.get("columns", 0),
@@ -313,9 +316,12 @@ def admin_overview(watched_sessions: set[str] | None = None) -> list[dict[str, o
                               "moves": game.get("total_moves", 0), "pushes": game.get("total_pushes", 0), "restarts": game.get("restarts", 0),
                               "player": list(game.get("player", [])), "boxes": list(game.get("boxes", [])), "targets": list(game.get("targets", []))}
                              for game_id, game in sokoban_games.items()],
-                "triad": [{"id": game_id, "status": game.get("status", ""), "placements": game.get("placements", 0),
-                           "completed_orientations": list(game.get("completed_orientations", []))}
-                          for game_id, game in triad_games.items()],
+                "triad": [{"id": game_id, "player_id": player_id, "player_name": str(lobby.players.get(player_id, {}).get("name", "Hráč")),
+                           "excluded": player_id in state.get("game_exclusions", {}).get(game_id, []), "status": game.get("status", ""),
+                           "placements": game.get("placements", 0), "completed_orientations": list(game.get("completed_orientations", [])),
+                           "result": state.get("game_results", {}).get(game_id, {}).get(player_id)}
+                          for game_id, container in triad_games.items()
+                          for player_id, game in (container.get("players", {}) if isinstance(container.get("players"), dict) else {next(iter(lobby.players), "legacy-client"): container}).items()],
                 "archive": [{"id": game_id, "assembled": bool(game.get("assembled")), "moves": int(game.get("moves", 0)),
                              "order": list(game.get("order", [])), "rotations": dict(game.get("rotations", {}))}
                             for game_id, game in archive_games.items()],
@@ -359,6 +365,7 @@ async def sync_started_client(websocket: WebSocket, state_machine: EscapeBotStat
         state_machine._current_player_id = player_id or state_machine._current_player_id
         state_machine._participant_ids = list(lobby.players)
         state_machine._team_mode = lobby.mode
+        state_machine._participant_names = {player_id: str(player.get("name", "Hráč")) for player_id, player in lobby.players.items()}
     await send_message(websocket, Message("chat.history", {"messages": state_machine.state.chat_history}))
     await send_message(websocket, state_machine._state_message(player_id))
     await send_message(websocket, Message(
@@ -430,7 +437,7 @@ async def websocket_endpoint(websocket: WebSocket):
                 data = json.loads(message_str)
                 msg = Message.from_json(data)
 
-                if msg.type in {"admin.list", "admin.penalty", "admin.delete", "admin.qr_set", "admin.online_mode", "admin.checkpoint", "admin.game_reset", "admin.player_recovery", "admin.leaderboard_delete", "admin.support_join", "admin.support_leave", "admin.support_message", "admin.spectate_start", "admin.spectate_stop"}:
+                if msg.type in {"admin.list", "admin.penalty", "admin.delete", "admin.qr_set", "admin.online_mode", "admin.checkpoint", "admin.game_reset", "admin.game_player", "admin.player_recovery", "admin.leaderboard_delete", "admin.support_join", "admin.support_leave", "admin.support_message", "admin.spectate_start", "admin.spectate_stop"}:
                     try:
                         require_admin(msg.payload)
                         authenticated_admin_sockets.add(websocket)
@@ -533,6 +540,23 @@ async def websocket_endpoint(websocket: WebSocket):
                                 "team_name": lobby.team_name,
                                 "expires_in_seconds": 600,
                             }))
+                            continue
+
+                        if msg.type == "admin.game_player":
+                            machine = ensure_state_machine(target_session)
+                            machine._participant_ids = list(lobby.players)
+                            machine._participant_names = {key: str(value.get("name", "Hráč")) for key, value in lobby.players.items()}
+                            machine._team_mode = lobby.mode
+                            result = machine.admin_set_game_player(str(msg.payload.get("puzzle_id", "")), str(msg.payload.get("player_id", "")), str(msg.payload.get("action", "")))
+                            save_sessions()
+                            updates = [machine._state_message()]
+                            if result.get("team_complete"):
+                                puzzle = scenario.data.get("puzzles", {}).get(str(result.get("puzzle_id", "")), {})
+                                updates.insert(0, Message("bot.message", puzzle.get("success_message", {})))
+                                updates.insert(0, Message("puzzle.result", {"correct": True, "puzzle_id": result.get("puzzle_id"), "team_summary": result.get("team_summary")}))
+                            await broadcast_session(target_session, updates)
+                            await send_message(websocket, Message("admin.game_player", result))
+                            await send_admin_overview(websocket)
                             continue
 
                         if msg.type == "admin.penalty":
@@ -655,6 +679,7 @@ async def websocket_endpoint(websocket: WebSocket):
                                 raise ValueError("Týmová relace už neexistuje.")
                             old_client_id = str(recovery.get("player_id", ""))
                             player = lobby.transfer_player(old_client_id, requested_client_id)
+                            ensure_state_machine(lobby.session_id).transfer_player_game_identity(old_client_id, requested_client_id)
                             for old_socket in list(session_connections.get(lobby.session_id, set())):
                                 if str(connection_info.get(old_socket, {}).get("client_id", "")) == old_client_id:
                                     try:
@@ -744,7 +769,8 @@ async def websocket_endpoint(websocket: WebSocket):
                             if msg.type in {"lobby.solo", "lobby.start"}:
                                 hello = Message("client.hello", {"session_id": session_id, "demo_mode": demo_client,
                                                                 "_client_id": client_id, "_participant_ids": list(lobby.players),
-                                                                "_team_mode": lobby.mode})
+                                                                "_team_mode": lobby.mode,
+                                                                "_participant_names": {key: str(value.get("name", "Hráč")) for key, value in lobby.players.items()}})
                                 responses = await state_machine.handle(hello)
                                 responses.extend(score_messages)
                                 if demo_client:
@@ -810,6 +836,7 @@ async def websocket_endpoint(websocket: WebSocket):
                     if lobby_context:
                         msg.payload["_participant_ids"] = list(lobby_context.players)
                         msg.payload["_team_mode"] = lobby_context.mode
+                        msg.payload["_participant_names"] = {key: str(value.get("name", "Hráč")) for key, value in lobby_context.players.items()}
                     if msg.type == "player.message" and str(msg.payload.get("channel", "")) == "support" and session_id:
                         text_value = " ".join(str(msg.payload.get("text", "")).strip().split())[:500]
                         if not text_value:

@@ -1328,6 +1328,12 @@
             sendAdmin('admin.game_reset', {session_id:sessionId, puzzle_id:puzzleId});
         }
 
+        function manageAdminGamePlayer(sessionId, puzzleId, playerId, action) {
+            const verbs = {exclude:'vyřadit z minihry', include:'vrátit do minihry', reset:'restartovat jeho vlastní desku'};
+            if (!window.confirm(`Opravdu ${verbs[action] || action} tohoto hráče?`)) return;
+            sendAdmin('admin.game_player', {session_id:sessionId, puzzle_id:puzzleId, player_id:playerId, action});
+        }
+
         function deleteLeaderboardEntry(entryId) {
             if (!window.confirm('Odstranit tento výsledek ze Síně slávy? Rozehraná relace tím nebude dotčena.')) return;
             sendAdmin('admin.leaderboard_delete', {entry_id:entryId});
@@ -1439,10 +1445,10 @@
                 }).join('');
                 const hints = Object.entries(team.hints_used || {}).map(([id, count]) => `${escapeHtml(id)}: ${Number(count)}`).join(', ') || 'žádné';
                 const attempts = Object.entries(team.puzzle_attempts || {}).map(([id, count]) => `${escapeHtml(id)}: ${Number(count)}`).join(', ') || 'žádné';
-                const lineGame = ((team.game_metrics || {}).line || []).map(game => `Kalibrace [${escapeHtml(game.status)}]: ${game.swaps} výměn · cíle ${Object.entries(game.progress || {}).map(([length, count]) => `${length}×: ${count}`).join(', ')}`).join('<br>') || 'Kalibrace dosud neaktivní';
+                const lineGame = ((team.game_metrics || {}).line || []).map(game => `Kalibrace · <strong>${escapeHtml(game.player_name)}</strong> [${game.excluded ? 'vyřazen' : escapeHtml(game.status)}]: ${game.swaps} výměn · cíle ${Object.entries(game.progress || {}).map(([length, count]) => `${length}×: ${count}`).join(', ')}${game.result ? ` · čas ${formatLineGameTime(game.result.elapsed_seconds)} · ${Number(game.result.score_delta) >= 0 ? '+' : ''}${Number(game.result.score_delta)} b` : ''} <button onclick="manageAdminGamePlayer('${team.session_id}','${game.id}','${game.player_id}','reset')">RESTART HRÁČE</button> <button onclick="manageAdminGamePlayer('${team.session_id}','${game.id}','${game.player_id}','${game.excluded ? 'include' : 'exclude'}')">${game.excluded ? 'VRÁTIT' : 'VYŘADIT'}</button>`).join('<br>') || 'Kalibrace dosud neaktivní';
                 const karel = ((team.game_metrics || {}).karel || []).map(game => `<strong>Karel ${escapeHtml(game.level)}</strong>: pozice ${escapeHtml((game.player || []).join(','))}, ${game.completed} hotovo, ${game.moves} kroků, ${game.strikes} min, ${game.restarts} restartů${renderAdminMineBoard(game)}<small>Červeně miny, zeleně jedna bezpečná trasa, E = Elara, X = cíl.</small>`).join('<br>') || 'Karel dosud neaktivní';
                 const sokoban = ((team.game_metrics || {}).sokoban || []).map(game => `Sokoban ${escapeHtml(game.level)}: pozice ${escapeHtml((game.player || []).join(','))}, články na cíli ${(game.boxes || []).filter(box => (game.targets || []).some(target => target[0] === box[0] && target[1] === box[1])).length}/${(game.boxes || []).length}, ${game.moves} kroků, ${game.pushes} zatlačení, ${game.restarts} restartů`).join('<br>') || 'Sokoban dosud neaktivní';
-                const triad = ((team.game_metrics || {}).triad || []).map(game => `Tři v řadě [${escapeHtml(game.status)}]: ${game.placements} kamenů · směry ${(game.completed_orientations || []).map(escapeHtml).join(', ') || 'žádné'}`).join('<br>') || 'Tři v řadě dosud neaktivní';
+                const triad = ((team.game_metrics || {}).triad || []).map(game => `Tři v řadě · <strong>${escapeHtml(game.player_name)}</strong> [${game.excluded ? 'vyřazen' : escapeHtml(game.status)}]: ${game.placements} kamenů · směry ${(game.completed_orientations || []).map(escapeHtml).join(', ') || 'žádné'}${game.result ? ` · čas ${formatLineGameTime(game.result.elapsed_seconds)} · +${Number(game.result.score_delta)} b` : ''} <button onclick="manageAdminGamePlayer('${team.session_id}','${game.id}','${game.player_id}','reset')">RESTART HRÁČE</button> <button onclick="manageAdminGamePlayer('${team.session_id}','${game.id}','${game.player_id}','${game.excluded ? 'include' : 'exclude'}')">${game.excluded ? 'VRÁTIT' : 'VYŘADIT'}</button>`).join('<br>') || 'Tři v řadě dosud neaktivní';
                 const archive = ((team.game_metrics || {}).archive || []).map(game => `Jigsaw stroje času: ${game.assembled ? 'sestaven' : 'rozložen'} · ${game.moves} prohození · pořadí ${(game.order || []).map(escapeHtml).join(' → ')}`).join('<br>') || 'Archiv budoucnosti dosud neaktivní';
                 const eventLabels = {'checkpoint_solved':'checkpoint vyřešen', 'checkpoint_found':'checkpoint nalezen', 'admin_action':'zásah GM', 'admin_penalty':'malus GM', 'player.message':'zpráva hráče', 'qr.detected':'načten QR', 'arg.verify':'ověření stopy', 'room.unlock':'odemčení místnosti', 'cipher_tool.unlock':'odemčení pomůcky', 'puzzle.submit':'odpověď na hádanku', 'puzzle.hint':'vyžádána nápověda', 'line_game.move':'tah kalibrace', 'line_game.reset':'restart kalibrace', 'sokoban.command':'povel Sokobanu', 'sokoban.undo':'vrácení tahu Sokobanu', 'sokoban.reset':'restart Sokobanu', 'karel.command':'povel Karlovi', 'karel.reset':'restart Karla', 'triad.place':'tah Tři v řadě', 'triad.reset':'restart Tři v řadě', 'finale.activate':'aktivace finále', 'archive.arrange':'pohyb v archivu'};
                 const timeline = (team.timeline || []).map(item => {
@@ -2616,7 +2622,7 @@
                 ? '<button class="line-game-cell" disabled>×</button>'
                 : `<button class="line-game-cell ${value || ''}" data-row="${r}" data-column="${c}" onclick="placeTriad('${escapeHtml(puzzle.id)}',${r},${c})" ${value || solved || game.status === 'complete' ? 'disabled' : ''}>${value ? '●' : '·'}</button>`).join('')).join('');
             const waiting = !solved && game.status === 'complete' ? '<p class="puzzle-status solved">VAŠE 2 ZE 3 SMĚRŮ JSOU SPLNĚNÉ · ČEKÁ SE NA TÝM</p>' : '';
-            return `<div class="line-game"><div class="line-game-progress">${objectives}</div><p>SPLŇTE LIBOVOLNÉ <strong>${game.required_orientation_count || 3} ZE 3 SMĚRŮ</strong></p>${waiting}<div class="line-game-meta"><span>VAŠE UZLY: ${game.placements}</span><span>TAHY AUTOMATU: ${game.opponent_moves || 0}</span><span>RESTARTY: ${game.restarts}</span><strong class="line-game-timer" data-deadline="${escapeHtml(game.deadline_at)}">ČAS ${formatLineGameTime(game.remaining_seconds)}</strong></div><p><strong>ČERVENÝ UZEL</strong> pokládá automat a blokuje vaše vznikající řady.</p><div class="puzzle-actions"><button class="${selectedTriadSymbol === 'cyan' ? 'active' : ''}" onclick="selectTriadSymbol('cyan')">AZUROVÁ</button><button class="${selectedTriadSymbol === 'amber' ? 'active' : ''}" onclick="selectTriadSymbol('amber')">JANTAROVÁ</button></div><div class="line-game-board" style="grid-template-columns:repeat(${game.size},1fr)">${cells}</div><button onclick="resetTriad('${escapeHtml(puzzle.id)}')">NOVÉ POLE</button></div>`;
+            return `<div class="line-game">${renderTeamGameProgress(puzzle, solved)}<div class="line-game-progress">${objectives}</div><p>SPLŇTE LIBOVOLNÉ <strong>${game.required_orientation_count || 3} ZE 3 SMĚRŮ</strong></p>${waiting}<div class="line-game-meta"><span>VAŠE UZLY: ${game.placements}</span><span>TAHY AUTOMATU: ${game.opponent_moves || 0}</span><span>RESTARTY: ${game.restarts}</span><strong class="line-game-timer" data-deadline="${escapeHtml(game.deadline_at)}">ČAS ${formatLineGameTime(game.remaining_seconds)}</strong></div><p><strong>ČERVENÝ UZEL</strong> pokládá automat a blokuje vaše vznikající řady.</p><div class="puzzle-actions"><button class="${selectedTriadSymbol === 'cyan' ? 'active' : ''}" onclick="selectTriadSymbol('cyan')">AZUROVÁ</button><button class="${selectedTriadSymbol === 'amber' ? 'active' : ''}" onclick="selectTriadSymbol('amber')">JANTAROVÁ</button></div><div class="line-game-board" style="grid-template-columns:repeat(${game.size},1fr)">${cells}</div><button onclick="resetTriad('${escapeHtml(puzzle.id)}')">NOVÉ POLE</button></div>`;
         }
         function selectTriadSymbol(symbol) { selectedTriadSymbol = symbol; renderPuzzles(); }
         function placeTriad(puzzleId,row,column) { if (ws?.readyState === WebSocket.OPEN) ws.send(JSON.stringify({type:'triad.place',payload:{puzzle_id:puzzleId,row,column,symbol:selectedTriadSymbol}})); }
@@ -2708,6 +2714,20 @@
             }));
         }
 
+        function renderTeamGameProgress(puzzle, solved) {
+            const progress = puzzle.team_progress;
+            if (!progress?.players?.length) return '';
+            const labels = {'3':'TROJICE','4':'ČTVEŘICE','5':'PĚTICE',horizontal:'VODOROVNĚ',vertical:'SVISLE',diagonal:'DIAGONÁLNĚ'};
+            const players = progress.players.map(player => {
+                const result = player.result ? ` · ${formatLineGameTime(player.result.elapsed_seconds)} · ${Number(player.result.score_delta) >= 0 ? '+' : ''}${Number(player.result.score_delta)} b` : '';
+                const conditions = (player.conditions || []).map(item => labels[item] || item).join(', ') || 'zatím nic';
+                return `<li><strong>${escapeHtml(player.name)}</strong>: ${player.status === 'excluded' ? 'VYŘAZEN GM' : (player.status === 'complete' ? 'HOTOVO' : 'HRAJE')} · ${escapeHtml(conditions)}${result}</li>`;
+            }).join('');
+            const covered = (progress.covered_conditions || []).map(item => labels[item] || item).join(', ') || 'zatím žádná';
+            const recommendation = progress.recommendation && !solved ? `<p class="cipher-note">Týmu chybí poslední podmínka: <strong>${escapeHtml(labels[progress.recommendation] || progress.recommendation)}</strong>. Nedokončení hráči se na ni nyní mohou zaměřit.</p>` : '';
+            return `<div class="team-game-progress"><strong>${solved ? 'VÝSLEDNÝ PŘÍNOS TÝMU' : 'TÝMOVÝ POSTUP'}</strong><ul>${players}</ul><p>Společně pokryto: <strong>${escapeHtml(covered)}</strong></p>${recommendation}</div>`;
+        }
+
         function renderLineGame(puzzle, solved) {
             const game = puzzle.game;
             if (!game) return '<p class="puzzle-locked">Kalibrační mřížka se načítá…</p>';
@@ -2718,7 +2738,7 @@
             }).join('');
             if (solved || game.status === 'complete') {
                 const status = solved ? 'TÝMOVÁ KALIBRACE DOKONČENA · CHECKPOINT POTVRZEN' : 'VAŠE 2 ZE 3 PODMÍNEK JSOU SPLNĚNÉ · ČEKÁ SE NA TÝM';
-                return `<div class="line-game"><div class="line-game-progress">${objectives}</div><p class="puzzle-status solved">${status}</p></div>`;
+                return `<div class="line-game">${renderTeamGameProgress(puzzle, solved)}<div class="line-game-progress">${objectives}</div><p class="puzzle-status solved">${status}</p></div>`;
             }
             const cells = game.board.map((row, rowIndex) => row.map((cell, columnIndex) => {
                 const label = `${cell}, pole ${rowIndex + 1}, ${columnIndex + 1}`;
@@ -2726,7 +2746,7 @@
                 return `<button class="line-game-cell ${cell} ${phaseClass}" aria-label="${label}" data-row="${rowIndex}" data-column="${columnIndex}" onclick="selectLineGameCell(this, '${escapeHtml(puzzle.id)}', ${rowIndex}, ${columnIndex})">${cell ? '●' : ''}</button>`;
             }).join('')).join('');
             const failed = game.status === 'expired' ? '<div class="line-game-failed">ČAS VYPRŠEL · spusťte nový pokus</div>' : '';
-            return `<div class="line-game">
+            return `<div class="line-game">${renderTeamGameProgress(puzzle, solved)}
                 <div class="line-game-progress">${objectives}</div>
                 <div class="line-game-meta"><span>POČÍTAJÍ SE: AZUROVÁ + JANTAROVÁ</span><span>VÝMĚNY: ${game.swaps}</span><strong class="line-game-timer" data-deadline="${escapeHtml(game.deadline_at)}">ČAS ${formatLineGameTime(game.remaining_seconds)}</strong></div>
                 ${failed}

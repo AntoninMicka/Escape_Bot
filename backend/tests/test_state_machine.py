@@ -33,6 +33,9 @@ class StateMachineCheckpointTests(unittest.IsolatedAsyncioTestCase):
         self.assertFalse(self.machine._team_conditions_complete("timeline_lines", "line_game"))
         bob["progress"] = {"3": 0, "4": 3, "5": 1}
         self.assertTrue(self.machine._team_conditions_complete("timeline_lines", "line_game"))
+        progress = self.machine._team_game_progress("timeline_lines", "line_game")
+        self.assertEqual(progress["missing_conditions"], [])
+        self.assertEqual(len(progress["players"]), 2)
 
     def test_team_triad_games_require_each_player_and_all_three_directions(self) -> None:
         self.machine._team_mode = "team"
@@ -46,6 +49,22 @@ class StateMachineCheckpointTests(unittest.IsolatedAsyncioTestCase):
         bob["status"] = "complete"
         self.assertFalse(self.machine._team_conditions_complete("temporal_triad", "triad"))
         bob["completed_orientations"] = ["vertical", "diagonal"]
+        self.assertTrue(self.machine._team_conditions_complete("temporal_triad", "triad"))
+
+    def test_team_progress_recommends_only_the_single_missing_condition_and_honors_exclusion(self) -> None:
+        self.machine._team_mode = "team"; self.machine._participant_ids = ["alice", "bob", "cara"]
+        self.machine._participant_names = {"alice": "Alice", "bob": "Bob", "cara": "Cara"}
+        config = self.scenario.data["puzzles"]["temporal_triad"]["game"]
+        for player_id in self.machine._participant_ids:
+            game = self.machine._triad_state("temporal_triad", config, player_id)
+            game["completed_orientations"] = ["horizontal", "vertical"]
+        progress = self.machine._team_game_progress("temporal_triad", "triad")
+        self.assertEqual(progress["recommendation"], "diagonal")
+        self.machine.state.game_exclusions["temporal_triad"] = ["cara"]
+        progress = self.machine._team_game_progress("temporal_triad", "triad")
+        self.assertEqual(next(item for item in progress["players"] if item["id"] == "cara")["status"], "excluded")
+        for player_id in ("alice", "bob"):
+            self.machine.state.triad_games["temporal_triad"]["players"][player_id]["status"] = "complete"
         self.assertTrue(self.machine._team_conditions_complete("temporal_triad", "triad"))
 
     async def scan(self, checkpoint_id: str):

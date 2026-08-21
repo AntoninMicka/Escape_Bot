@@ -251,6 +251,7 @@
         "neutral_time_seconds": 180,
         "score_interval_seconds": 10,
         "score_points_per_interval": 5,
+        "team_completion_bonus": 40,
         "seed": 5312026
       },
       "success_message": {"text": "Oba časové proudy drží! Kalibrace 5–3–1 je dokončena a venkovní časové ozvěny jsou znovu čitelné.", "mood": "success", "channel": "lost"},
@@ -281,7 +282,7 @@
       "checkpoint_id": "courtyard_alignment",
       "instructions": "Každý hráč zarovnává vlastní pole. Vytvořte trojice stejné barvy ve 2 ze 3 směrů: vodorovně, svisle nebo diagonálně. V týmu musí být společně pokryté všechny tři směry; sólo hráči dokončí hru vlastními dvěma. Automat po každém tahu pokládá červený rušivý uzel.",
       "admin_solution": "Hra reaguje na každý tah, proto nemá jedinou pevnou sekvenci. Vytvářejte současně dvě hrozby, mezi nimiž si automat musí vybrat; hráč může v každém tahu změnit barvu. Dokončené směry zůstávají započítané.",
-      "game": {"size":6,"symbols":["cyan","amber"],"blocked":[],"required_orientation_count":2,"time_limit_seconds":180,"completion_bonus":60},
+      "game": {"size":6,"symbols":["cyan","amber"],"blocked":[],"required_orientation_count":2,"time_limit_seconds":180,"individual_completion_bonus":20,"team_completion_bonus":60},
       "success_message": {"text":"Tři osy jsou zarovnané. Časové uzly vytvořily stabilní průchod ke sportovnímu archivu.","mood":"success","channel":"lost"}
     },
     "sports_sokoban": {

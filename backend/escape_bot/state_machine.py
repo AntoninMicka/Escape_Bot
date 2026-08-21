@@ -62,6 +62,8 @@ class GameState:
     triad_games: dict[str, dict[str, Any]] = field(default_factory=dict)
     archive_games: dict[str, dict[str, Any]] = field(default_factory=dict)
     event_history: list[dict[str, Any]] = field(default_factory=list)
+    game_exclusions: dict[str, list[str]] = field(default_factory=dict)
+    game_results: dict[str, dict[str, dict[str, Any]]] = field(default_factory=dict)
 
     def snapshot(self) -> dict[str, Any]:
         return {
@@ -83,6 +85,8 @@ class GameState:
             "triad_games": self.triad_games,
             "archive_games": self.archive_games,
             "event_history": self.event_history,
+            "game_exclusions": self.game_exclusions,
+            "game_results": self.game_results,
         }
 
     @classmethod
@@ -106,6 +110,8 @@ class GameState:
         state.triad_games = dict(data.get("triad_games", {}))
         state.archive_games = dict(data.get("archive_games", {}))
         state.event_history = list(data.get("event_history", []))
+        state.game_exclusions = {str(key): list(value) for key, value in data.get("game_exclusions", {}).items()}
+        state.game_results = dict(data.get("game_results", {}))
         return state
 
 
@@ -118,6 +124,7 @@ class EscapeBotStateMachine:
         self._current_player_id = "legacy-client"
         self._participant_ids = ["legacy-client"]
         self._team_mode = "solo"
+        self._participant_names: dict[str, str] = {"legacy-client": "Hráč"}
 
     def restore_state(self, data: dict[str, Any]) -> None:
         self.state = GameState.restore(data)
@@ -136,6 +143,8 @@ class EscapeBotStateMachine:
         if isinstance(participants, list) and participants:
             self._participant_ids = [str(item) for item in participants if str(item)]
         self._team_mode = str(message.payload.get("_team_mode", self._team_mode))
+        names = message.payload.get("_participant_names")
+        if isinstance(names, dict): self._participant_names = {str(key): str(value) for key, value in names.items()}
         now = datetime.now(UTC).isoformat()
         self.state.last_activity_at = now
         if message.type not in {"client.hello", "camera.frame"}:
@@ -264,6 +273,7 @@ class EscapeBotStateMachine:
                     config = puzzle.get("game", {})
                     game = self._line_game_state(puzzle_id, config, player_id)
                     item["game"] = public_game(config, game)
+                    item["team_progress"] = self._team_game_progress(puzzle_id, "line_game")
                 elif puzzle.get("type") == "sokoban":
                     game = self._sokoban_state(puzzle_id, puzzle.get("game", {}))
                     item["game"] = public_sokoban(puzzle.get("game", {}), game)
@@ -272,6 +282,7 @@ class EscapeBotStateMachine:
                     item["game"] = public_karel(puzzle.get("game", {}), game)
                 elif puzzle.get("type") == "triad":
                     game = self._triad_state(puzzle_id, puzzle.get("game", {}), player_id); item["game"] = public_triad(puzzle.get("game", {}), game)
+                    item["team_progress"] = self._team_game_progress(puzzle_id, "triad")
                 elif puzzle.get("type") == "finale":
                     item["finale"] = {
                         "module_labels": list(puzzle.get("module_labels", [])),
@@ -803,10 +814,13 @@ class EscapeBotStateMachine:
         if self._team_mode == "solo" and isinstance(container, dict) and container.get("status") == "complete":
             return True
         players = container.get("players", {}) if isinstance(container, dict) else {}
-        required_players = self._participant_ids or [self._current_player_id]
+        excluded = set(self.state.game_exclusions.get(puzzle_id, []))
+        required_players = [item for item in (self._participant_ids or [self._current_player_id]) if item not in excluded]
+        if not required_players:
+            return False
         if not all(players.get(player_id, {}).get("status") == "complete" for player_id in required_players):
             return False
-        if self._team_mode == "solo" or len(required_players) == 1:
+        if self._team_mode == "solo":
             return True
         covered: set[str] = set()
         for player_id in required_players:
@@ -817,10 +831,80 @@ class EscapeBotStateMachine:
                                if game.get("progress", {}).get(str(length), 0) >= int(required))
             else:
                 covered.update(game.get("completed_orientations", []))
-        return len(covered) >= 3
+        # Explicit GM exclusion is the recovery path for a lost/broken device;
+        # once every remaining player is done it must not deadlock the team.
+        return len(covered) >= 3 or bool(excluded)
+
+    def _condition_set(self, puzzle_id: str, game_type: str, game: dict[str, Any]) -> set[str]:
+        if game_type == "triad": return set(game.get("completed_orientations", []))
+        config = self.scenario.data["puzzles"][puzzle_id].get("game", {})
+        return {str(length) for length, required in config.get("objectives", {}).items()
+                if game.get("progress", {}).get(str(length), 0) >= int(required)}
+
+    def _team_game_progress(self, puzzle_id: str, game_type: str) -> dict[str, Any]:
+        store = self.state.interactive_games if game_type == "line_game" else self.state.triad_games
+        container = store.get(puzzle_id, {})
+        players = container.get("players", {}) if isinstance(container, dict) and isinstance(container.get("players"), dict) else {self._current_player_id: container}
+        excluded = set(self.state.game_exclusions.get(puzzle_id, []))
+        all_conditions = {"3", "4", "5"} if game_type == "line_game" else {"horizontal", "vertical", "diagonal"}
+        covered: set[str] = set()
+        summaries = []
+        results = self.state.game_results.get(puzzle_id, {})
+        for player_id in self._participant_ids:
+            game = players.get(player_id, {})
+            conditions = self._condition_set(puzzle_id, game_type, game) if isinstance(game, dict) else set()
+            if player_id not in excluded: covered.update(conditions)
+            summaries.append({"id": player_id, "name": self._participant_names.get(player_id, "Hráč"),
+                              "status": "excluded" if player_id in excluded else ("complete" if game.get("status") == "complete" else "playing"),
+                              "conditions": sorted(conditions), "result": results.get(player_id)})
+        missing = sorted(all_conditions - covered)
+        return {"players": summaries, "covered_conditions": sorted(covered), "missing_conditions": missing,
+                "recommendation": missing[0] if len(missing) == 1 else None,
+                "team_complete": self._team_conditions_complete(puzzle_id, game_type)}
+
+    def admin_set_game_player(self, puzzle_id: str, player_id: str, action: str) -> dict[str, Any]:
+        if player_id not in self._participant_ids: raise ValueError("Hráč do týmu nepatří.")
+        puzzle = self.scenario.data.get("puzzles", {}).get(puzzle_id, {})
+        if puzzle.get("type") not in {"line_game", "triad"}: raise ValueError("Tato minihra nepodporuje individuální správu.")
+        checkpoint_id = str(puzzle.get("checkpoint_id", ""))
+        checkpoint = self.state.checkpoint_states.get(checkpoint_id, {})
+        if checkpoint.get("status") != "found": raise ValueError("Spravovat lze pouze aktivní minihru.")
+        excluded = self.state.game_exclusions.setdefault(puzzle_id, [])
+        if action == "exclude":
+            if player_id not in excluded: excluded.append(player_id)
+        elif action == "include":
+            if player_id in excluded: excluded.remove(player_id)
+        elif action == "reset":
+            config = puzzle.get("game", {})
+            game = self._line_game_state(puzzle_id, config, player_id) if puzzle.get("type") == "line_game" else self._triad_state(puzzle_id, config, player_id)
+            (reset_game if puzzle.get("type") == "line_game" else reset_triad)(config, game)
+            self.state.game_results.get(puzzle_id, {}).pop(player_id, None)
+        else: raise ValueError("Neplatná administrační akce.")
+        game_type = str(puzzle.get("type"))
+        team_complete = self._team_conditions_complete(puzzle_id, game_type)
+        if team_complete:
+            checkpoint["status"] = "solved"; checkpoint["solved_at"] = datetime.now(UTC).isoformat()
+            self._apply_checkpoint_rewards(self.scenario.data.get("checkpoints", {}).get(checkpoint_id, {}))
+            bonus = int(puzzle.get("game", {}).get("team_completion_bonus", 40 if game_type == "line_game" else 60)) if self._team_mode == "team" else 0
+            self.state.score += bonus
+        return {"puzzle_id": puzzle_id, "player_id": player_id, "action": action, "team_complete": team_complete,
+                "team_summary": self._team_game_progress(puzzle_id, game_type) if team_complete else None}
+
+    def transfer_player_game_identity(self, old_player_id: str, new_player_id: str) -> None:
+        for store in (self.state.interactive_games, self.state.triad_games):
+            for container in store.values():
+                players = container.get("players", {}) if isinstance(container, dict) else {}
+                if old_player_id in players: players[new_player_id] = players.pop(old_player_id)
+        for excluded in self.state.game_exclusions.values():
+            if old_player_id in excluded:
+                excluded[excluded.index(old_player_id)] = new_player_id
+        for results in self.state.game_results.values():
+            if old_player_id in results: results[new_player_id] = results.pop(old_player_id)
 
     async def _handle_line_game_move(self, message: Message) -> list[Message]:
         puzzle_id = str(message.payload.get("puzzle_id", "")).strip()
+        if self._current_player_id in self.state.game_exclusions.get(puzzle_id, []):
+            return [reply("line_game.result", {"success": False, "reason": "Game Master vás z této týmové minihry dočasně vyřadil."}, message), self._state_message()]
         try:
             puzzle, checkpoint_state, game = self._active_line_game(puzzle_id)
             first = message.payload.get("first", [])
@@ -836,21 +920,33 @@ class EscapeBotStateMachine:
 
         result["team_complete"] = self._team_conditions_complete(puzzle_id, "line_game")
         responses = [reply("line_game.result", {"success": True, **result}, message)]
+        if result["game_complete"]:
+            results = self.state.game_results.setdefault(puzzle_id, {})
+            if self._current_player_id not in results:
+                elapsed = max(0, int((datetime.now(UTC) - datetime.fromisoformat(game["started_at"])).total_seconds()))
+                individual_delta = int(result.get("score_delta", 0))
+                results[self._current_player_id] = {"elapsed_seconds": elapsed, "score_delta": individual_delta,
+                                                    "conditions": sorted(self._condition_set(puzzle_id, "line_game", game))}
+                self.state.score += individual_delta
+                responses.append(reply("score.update", {"score": self.state.score, "delta": individual_delta,
+                    "bonus": max(0, individual_delta), "penalty": max(0, -individual_delta), "reason": "line_game_individual"}, message))
         if result["team_complete"]:
             now = datetime.now(UTC).isoformat()
             checkpoint_state["status"] = "solved"
             checkpoint_state["solved_at"] = now
             checkpoint = self.scenario.data.get("checkpoints", {}).get(puzzle.get("checkpoint_id"), {})
             self._apply_checkpoint_rewards(checkpoint)
-            score_delta = int(result.get("score_delta", 0))
+            score_delta = int(puzzle.get("game", {}).get("team_completion_bonus", 40)) if self._team_mode == "team" else 0
             self.state.score += score_delta
             responses.append(reply("score.update", {
                 "score": self.state.score,
                 "delta": score_delta,
                 "bonus": max(0, score_delta),
                 "penalty": max(0, -score_delta),
-                "reason": "line_game_time",
+                "reason": "line_game_team",
             }, message))
+            result["team_summary"] = self._team_game_progress(puzzle_id, "line_game")
+            responses[0].payload["team_summary"] = result["team_summary"]
             responses.extend([
                 reply("puzzle.result", {"correct": True, "puzzle_id": puzzle_id}, message),
                 reply("bot.message", puzzle.get("success_message", {}), message),
@@ -960,6 +1056,8 @@ class EscapeBotStateMachine:
 
     async def _handle_triad_place(self, message: Message) -> list[Message]:
         puzzle_id = str(message.payload.get("puzzle_id", "")); puzzle = self.scenario.data.get("puzzles", {}).get(puzzle_id, {})
+        if self._current_player_id in self.state.game_exclusions.get(puzzle_id, []):
+            return [reply("triad.result", {"success": False, "reason": "Game Master vás z této týmové minihry dočasně vyřadil."}, message), self._state_message()]
         checkpoint_id = str(puzzle.get("checkpoint_id", "")); checkpoint = self.state.checkpoint_states.get(checkpoint_id)
         if puzzle.get("type") != "triad" or not checkpoint or checkpoint.get("status") != "found": return [reply("triad.result", {"success": False, "reason": "Pole není aktivní."}, message)]
         try:
@@ -967,9 +1065,21 @@ class EscapeBotStateMachine:
         except (ValueError, TypeError) as error: return [reply("triad.result", {"success": False, "reason": str(error)}, message), self._state_message()]
         responses = [reply("triad.result", result, message)]
         result["team_complete"] = self._team_conditions_complete(puzzle_id, "triad")
+        if result["game_complete"]:
+            results = self.state.game_results.setdefault(puzzle_id, {})
+            if self._current_player_id not in results:
+                game = self._triad_state(puzzle_id, puzzle.get("game", {}))
+                elapsed = max(0, int((datetime.now(UTC) - datetime.fromisoformat(game["started_at"])).total_seconds()))
+                individual_delta = int(puzzle.get("game", {}).get("individual_completion_bonus", 20))
+                results[self._current_player_id] = {"elapsed_seconds": elapsed, "score_delta": individual_delta,
+                    "conditions": sorted(self._condition_set(puzzle_id, "triad", game))}
+                self.state.score += individual_delta
+                responses.append(reply("score.update", {"score": self.state.score, "delta": individual_delta,
+                    "bonus": individual_delta, "penalty": 0, "reason": "triad_individual"}, message))
         if result["team_complete"]:
             checkpoint["status"] = "solved"; checkpoint["solved_at"] = datetime.now(UTC).isoformat(); self._apply_checkpoint_rewards(self.scenario.data.get("checkpoints", {}).get(checkpoint_id, {}))
-            bonus = int(puzzle.get("game", {}).get("completion_bonus", 60)); self.state.score += bonus
+            bonus = int(puzzle.get("game", {}).get("team_completion_bonus", 60)) if self._team_mode == "team" else 0; self.state.score += bonus
+            result["team_summary"] = self._team_game_progress(puzzle_id, "triad")
             responses.extend([reply("score.update", {"score": self.state.score, "delta": bonus, "bonus": bonus, "penalty": 0, "reason": "triad"}, message), reply("puzzle.result", {"correct": True, "puzzle_id": puzzle_id}, message), reply("bot.message", puzzle.get("success_message", {}), message)])
             navigation = self._navigation_message(checkpoint_id, message)
             if navigation: responses.append(navigation)
