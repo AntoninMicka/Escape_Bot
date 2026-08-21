@@ -36,6 +36,7 @@ def public_game(config: dict[str, Any], state: dict[str, Any], now: datetime | N
         "colors": list(config.get("colors", [])),
         "scoring_colors": list(config.get("scoring_colors", [])),
         "objectives": {str(length): int(required) for length, required in config.get("objectives", {}).items()},
+        "required_condition_count": int(config.get("required_condition_count", len(config.get("objectives", {})))),
         "time_limit_seconds": int(config.get("time_limit_seconds", 300)),
         "remaining_seconds": remaining,
     })
@@ -99,10 +100,12 @@ def swap(
         animation_frames.append({"phase": "refill", "board": deepcopy(board), "cascade": cascades})
         runs = _find_runs(board)
 
-    complete = all(
-        state["progress"].get(str(length), 0) >= int(required)
-        for length, required in config.get("objectives", {}).items()
-    )
+    completed_conditions = [
+        str(length) for length, required in config.get("objectives", {}).items()
+        if state["progress"].get(str(length), 0) >= int(required)
+    ]
+    required_count = int(config.get("required_condition_count", len(config.get("objectives", {}))))
+    complete = len(completed_conditions) >= required_count
     if complete:
         state["status"] = "complete"
     return {
@@ -110,6 +113,7 @@ def swap(
         "cascades": cascades,
         "animation_frames": animation_frames,
         "game_complete": complete,
+        "completed_conditions": completed_conditions,
         "score_delta": completion_time_score(config, state, current) if complete else 0,
     }
 

@@ -167,7 +167,11 @@ async def broadcast_session(session_id: str, messages: list[Message], exclude: W
             continue
         for message in messages:
             try:
-                await send_message(websocket, message)
+                outgoing = message
+                if message.type == "game.state" and session_id in active_sessions:
+                    player_id = str(connection_info.get(websocket, {}).get("client_id", ""))
+                    outgoing = active_sessions[session_id]._state_message(player_id)
+                await send_message(websocket, outgoing)
             except Exception:
                 pass
     for admin_socket, watched_session in list(admin_spectator_sessions.items()):
@@ -348,8 +352,15 @@ async def push_admin_support_update(session_id: str) -> None:
 
 async def sync_started_client(websocket: WebSocket, state_machine: EscapeBotStateMachine, demo_client: bool) -> None:
     """Send a complete authoritative snapshot after join, resume, or device wake-up."""
+    info = connection_info.get(websocket, {})
+    player_id = str(info.get("client_id", ""))
+    lobby = lobby_registry.by_session.get(str(info.get("session_id", "")))
+    if lobby:
+        state_machine._current_player_id = player_id or state_machine._current_player_id
+        state_machine._participant_ids = list(lobby.players)
+        state_machine._team_mode = lobby.mode
     await send_message(websocket, Message("chat.history", {"messages": state_machine.state.chat_history}))
-    await send_message(websocket, state_machine._state_message())
+    await send_message(websocket, state_machine._state_message(player_id))
     await send_message(websocket, Message(
         "scenario.progress",
         build_scenario_progress(scenario, state_machine.state.snapshot()),
@@ -731,7 +742,9 @@ async def websocket_endpoint(websocket: WebSocket):
                         if lobby.started:
                             score_messages = apply_lobby_score(lobby, state_machine)
                             if msg.type in {"lobby.solo", "lobby.start"}:
-                                hello = Message("client.hello", {"session_id": session_id, "demo_mode": demo_client})
+                                hello = Message("client.hello", {"session_id": session_id, "demo_mode": demo_client,
+                                                                "_client_id": client_id, "_participant_ids": list(lobby.players),
+                                                                "_team_mode": lobby.mode})
                                 responses = await state_machine.handle(hello)
                                 responses.extend(score_messages)
                                 if demo_client:
@@ -793,6 +806,10 @@ async def websocket_endpoint(websocket: WebSocket):
                 if state_machine:
                     if client_id:
                         msg.payload["_client_id"] = client_id
+                    lobby_context = lobby_registry.by_session.get(str(session_id))
+                    if lobby_context:
+                        msg.payload["_participant_ids"] = list(lobby_context.players)
+                        msg.payload["_team_mode"] = lobby_context.mode
                     if msg.type == "player.message" and str(msg.payload.get("channel", "")) == "support" and session_id:
                         text_value = " ".join(str(msg.payload.get("text", "")).strip().split())[:500]
                         if not text_value:

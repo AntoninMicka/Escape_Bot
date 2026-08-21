@@ -21,6 +21,33 @@ class StateMachineCheckpointTests(unittest.IsolatedAsyncioTestCase):
         self.machine = EscapeBotStateMachine(self.scenario)
         self.machine.state.phase = GamePhase.NAVIGATING
 
+    def test_team_line_games_are_independent_and_require_full_team_coverage(self) -> None:
+        self.machine._team_mode = "team"
+        self.machine._participant_ids = ["alice", "bob"]
+        config = self.scenario.data["puzzles"]["timeline_lines"]["game"]
+        alice = self.machine._line_game_state("timeline_lines", config, "alice")
+        bob = self.machine._line_game_state("timeline_lines", config, "bob")
+        self.assertIsNot(alice, bob)
+        alice["progress"] = {"3": 5, "4": 3, "5": 0}; alice["status"] = "complete"
+        bob["progress"] = {"3": 5, "4": 3, "5": 0}; bob["status"] = "complete"
+        self.assertFalse(self.machine._team_conditions_complete("timeline_lines", "line_game"))
+        bob["progress"] = {"3": 0, "4": 3, "5": 1}
+        self.assertTrue(self.machine._team_conditions_complete("timeline_lines", "line_game"))
+
+    def test_team_triad_games_require_each_player_and_all_three_directions(self) -> None:
+        self.machine._team_mode = "team"
+        self.machine._participant_ids = ["alice", "bob"]
+        config = self.scenario.data["puzzles"]["temporal_triad"]["game"]
+        alice = self.machine._triad_state("temporal_triad", config, "alice")
+        bob = self.machine._triad_state("temporal_triad", config, "bob")
+        alice["completed_orientations"] = ["horizontal", "vertical"]; alice["status"] = "complete"
+        bob["completed_orientations"] = ["horizontal", "vertical"]
+        self.assertFalse(self.machine._team_conditions_complete("temporal_triad", "triad"))
+        bob["status"] = "complete"
+        self.assertFalse(self.machine._team_conditions_complete("temporal_triad", "triad"))
+        bob["completed_orientations"] = ["vertical", "diagonal"]
+        self.assertTrue(self.machine._team_conditions_complete("temporal_triad", "triad"))
+
     async def scan(self, checkpoint_id: str):
         token = self.scenario.data["checkpoints"][checkpoint_id]["token"]
         return await self.machine.handle(

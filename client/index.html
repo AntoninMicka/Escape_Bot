@@ -2162,8 +2162,10 @@
                 else if (msg.type === 'line_game.result') {
                     if (!msg.payload.success) {
                         showNotification(msg.payload.reason || 'Tah nelze provést.', 'error');
+                    } else if (msg.payload.team_complete) {
+                        showNotification('Kalibrace časové osy dokončena celým týmem!', 'success');
                     } else if (msg.payload.game_complete) {
-                        showNotification('Kalibrace časové osy dokončena!', 'success');
+                        showNotification('Vaše kalibrace je hotová. Čekám na ostatní hráče a pokrytí všech tří podmínek.', 'success');
                     } else if (msg.payload.scored && Object.values(msg.payload.scored).some(value => value > 0)) {
                         const gained = Object.entries(msg.payload.scored).filter(([, value]) => value > 0).map(([length, value]) => `${value}× řada ${length}`).join(', ');
                         showNotification(`Časová kalibrace: ${gained}.`, 'success');
@@ -2181,7 +2183,7 @@
                 }
                 else if (msg.type === 'triad.result') {
                     if (!msg.payload.success) showNotification(msg.payload.reason || 'Uzel nelze umístit.', 'error');
-                    else { pendingTriadEffect = msg.payload; if (msg.payload.opponent_move) showNotification('Automat umístil rušivý uzel.', 'info'); }
+                    else { pendingTriadEffect = msg.payload; if (msg.payload.team_complete) showNotification('Všechny časové uzly týmu jsou zarovnané!', 'success'); else if (msg.payload.game_complete) showNotification('Vaše dva směry jsou hotové. Čekám na ostatní hráče a třetí týmový směr.', 'success'); else if (msg.payload.opponent_move) showNotification('Automat umístil rušivý uzel.', 'info'); }
                 }
                 else if (msg.type === 'sokoban.result') {
                     if (!msg.payload.success) showNotification(msg.payload.reason || 'Pohyb nelze provést.', 'error');
@@ -2612,8 +2614,9 @@
             const objectives = (game.required_orientations || []).map(item => `<div class="line-game-objective ${(game.completed_orientations || []).includes(item) ? 'complete' : ''}"><strong>${labels[item]}</strong><br>${(game.completed_orientations || []).includes(item) ? 'HOTOVO' : 'ČEKÁ'}</div>`).join('');
             const cells = game.board.map((row, r) => row.map((value, c) => blocked.has(`${r}:${c}`)
                 ? '<button class="line-game-cell" disabled>×</button>'
-                : `<button class="line-game-cell ${value || ''}" data-row="${r}" data-column="${c}" onclick="placeTriad('${escapeHtml(puzzle.id)}',${r},${c})" ${value || solved ? 'disabled' : ''}>${value ? '●' : '·'}</button>`).join('')).join('');
-            return `<div class="line-game"><div class="line-game-progress">${objectives}</div><p>SPLŇTE LIBOVOLNÉ <strong>${game.required_orientation_count || 3} ZE 3 SMĚRŮ</strong></p><div class="line-game-meta"><span>VAŠE UZLY: ${game.placements}</span><span>TAHY AUTOMATU: ${game.opponent_moves || 0}</span><span>RESTARTY: ${game.restarts}</span><strong class="line-game-timer" data-deadline="${escapeHtml(game.deadline_at)}">ČAS ${formatLineGameTime(game.remaining_seconds)}</strong></div><p><strong>ČERVENÝ UZEL</strong> pokládá automat a blokuje vaše vznikající řady.</p><div class="puzzle-actions"><button class="${selectedTriadSymbol === 'cyan' ? 'active' : ''}" onclick="selectTriadSymbol('cyan')">AZUROVÁ</button><button class="${selectedTriadSymbol === 'amber' ? 'active' : ''}" onclick="selectTriadSymbol('amber')">JANTAROVÁ</button></div><div class="line-game-board" style="grid-template-columns:repeat(${game.size},1fr)">${cells}</div><button onclick="resetTriad('${escapeHtml(puzzle.id)}')">NOVÉ POLE</button></div>`;
+                : `<button class="line-game-cell ${value || ''}" data-row="${r}" data-column="${c}" onclick="placeTriad('${escapeHtml(puzzle.id)}',${r},${c})" ${value || solved || game.status === 'complete' ? 'disabled' : ''}>${value ? '●' : '·'}</button>`).join('')).join('');
+            const waiting = !solved && game.status === 'complete' ? '<p class="puzzle-status solved">VAŠE 2 ZE 3 SMĚRŮ JSOU SPLNĚNÉ · ČEKÁ SE NA TÝM</p>' : '';
+            return `<div class="line-game"><div class="line-game-progress">${objectives}</div><p>SPLŇTE LIBOVOLNÉ <strong>${game.required_orientation_count || 3} ZE 3 SMĚRŮ</strong></p>${waiting}<div class="line-game-meta"><span>VAŠE UZLY: ${game.placements}</span><span>TAHY AUTOMATU: ${game.opponent_moves || 0}</span><span>RESTARTY: ${game.restarts}</span><strong class="line-game-timer" data-deadline="${escapeHtml(game.deadline_at)}">ČAS ${formatLineGameTime(game.remaining_seconds)}</strong></div><p><strong>ČERVENÝ UZEL</strong> pokládá automat a blokuje vaše vznikající řady.</p><div class="puzzle-actions"><button class="${selectedTriadSymbol === 'cyan' ? 'active' : ''}" onclick="selectTriadSymbol('cyan')">AZUROVÁ</button><button class="${selectedTriadSymbol === 'amber' ? 'active' : ''}" onclick="selectTriadSymbol('amber')">JANTAROVÁ</button></div><div class="line-game-board" style="grid-template-columns:repeat(${game.size},1fr)">${cells}</div><button onclick="resetTriad('${escapeHtml(puzzle.id)}')">NOVÉ POLE</button></div>`;
         }
         function selectTriadSymbol(symbol) { selectedTriadSymbol = symbol; renderPuzzles(); }
         function placeTriad(puzzleId,row,column) { if (ws?.readyState === WebSocket.OPEN) ws.send(JSON.stringify({type:'triad.place',payload:{puzzle_id:puzzleId,row,column,symbol:selectedTriadSymbol}})); }
@@ -2714,7 +2717,8 @@
                 return `<div class="line-game-objective ${stateClass}"><strong>${required}× ŘADA ${length}</strong><br>${progress}/${required}</div>`;
             }).join('');
             if (solved || game.status === 'complete') {
-                return `<div class="line-game"><div class="line-game-progress">${objectives}</div><p class="puzzle-status solved">KALIBRACE 5–3–1 DOKONČENA · CHECKPOINT POTVRZEN</p></div>`;
+                const status = solved ? 'TÝMOVÁ KALIBRACE DOKONČENA · CHECKPOINT POTVRZEN' : 'VAŠE 2 ZE 3 PODMÍNEK JSOU SPLNĚNÉ · ČEKÁ SE NA TÝM';
+                return `<div class="line-game"><div class="line-game-progress">${objectives}</div><p class="puzzle-status solved">${status}</p></div>`;
             }
             const cells = game.board.map((row, rowIndex) => row.map((cell, columnIndex) => {
                 const label = `${cell}, pole ${rowIndex + 1}, ${columnIndex + 1}`;
