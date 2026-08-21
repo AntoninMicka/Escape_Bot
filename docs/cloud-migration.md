@@ -6,6 +6,8 @@ Konkrétní realizační plán pro Google Cloud je v dokumentu [`gcp-compute-clo
 
 Repozitář obsahuje `Dockerfile`, `compose.cloud.yml`, Caddy konfiguraci a ukázkové proměnné prostředí. Tato varianta je určena pro jeden cloudový server a právě jednu aplikační instanci. Caddy automaticky získá veřejný TLS certifikát, obslouží HTTPS/WSS a předá provoz FastAPI. Herní JSON data jsou uložena v pojmenovaném Docker volume `escape_bot_data` a aplikace je zapisuje atomickou výměnou souboru.
 
+Persistence je oddělena rozhraním `Storage`; současný `JsonStorage` se volí pomocí `ESCAPEBOT_STORAGE_BACKEND=json`. Liveness endpoint `/api/health` potvrzuje běh procesu, zatímco `/api/ready` provede skutečný test zápisu do úložiště a používá se pro Docker healthcheck.
+
 ### Požadavky
 
 - Linuxový server s veřejnými porty 80 a 443,
@@ -21,6 +23,7 @@ cp .env.cloud.example .env
 docker compose --env-file .env -f compose.cloud.yml up -d --build
 docker compose --env-file .env -f compose.cloud.yml ps
 curl https://VAŠE_DOMÉNA/api/health
+curl https://VAŠE_DOMÉNA/api/ready
 ```
 
 DNS musí ukazovat na server ještě před startem Caddy. Admin je dostupný na `https://VAŠE_DOMÉNA/admin`. Produkční kontejner vyžaduje `ESCAPEBOT_ADMIN_TOKEN`, běží jako neprivilegovaný uživatel a přijímá pouze hostname z `ESCAPEBOT_DOMAIN`.

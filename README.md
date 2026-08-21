@@ -65,7 +65,7 @@ Administrační konzoli povolte při startu vlastním heslem:
 ./start_backend.sh --demo --admin-token=ZVOLENE_HESLO
 ```
 
-Poté otevřete `https://ADRESA-SERVERU:8088/admin` (případně `/?admin=1`). Konzole ukazuje týmy, hráče a jejich online stav, skóre, fázi a postup scénářem. Umožňuje udělit bodový malus s povinným důvodem nebo po potvrzení tým a jeho rozehranou relaci odstranit. Heslo se drží pouze v aktuální kartě prohlížeče (`sessionStorage`); bez proměnné `ESCAPEBOT_ADMIN_TOKEN` zůstává administrační API vypnuté. Dostupnost backendu lze ověřit na `/api/health`.
+Poté otevřete `https://ADRESA-SERVERU:8088/admin` (případně `/?admin=1`). Konzole ukazuje týmy, hráče a jejich online stav, skóre, fázi a postup scénářem. Umožňuje udělit bodový malus s povinným důvodem nebo po potvrzení tým a jeho rozehranou relaci odstranit. Heslo se drží pouze v aktuální kartě prohlížeče (`sessionStorage`); bez proměnné `ESCAPEBOT_ADMIN_TOKEN` zůstává administrační API vypnuté. Živost procesu ověřuje `/api/health`, připravenost aplikace včetně zápisu do úložiště `/api/ready`.
 
 Admin může globálně přepnout **ONLINE REŽIM**. V něm se fyzické QR checkpointy nahradí akčními tlačítky přímo v Chronomapě; používají stejnou kontrolu pořadí a odměn jako QR skener. Přepnutí se okamžitě projeví všem týmům a ukládá se do `backend/runtime_settings.json`. Tisk QR sady zůstává dostupný i v online režimu.
 

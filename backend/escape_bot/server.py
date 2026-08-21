@@ -7,14 +7,13 @@ import socket
 import secrets
 import threading
 import hmac
-import tempfile
 import uvicorn
 from io import BytesIO
 from contextlib import asynccontextmanager
 from datetime import UTC, datetime, timedelta
 from zoneinfo import ZoneInfo
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
-from fastapi.responses import RedirectResponse, Response
+from fastapi.responses import JSONResponse, RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 
@@ -24,6 +23,7 @@ from .scenario import ScenarioLoader, build_checkpoint_qr_set, build_demo_checkp
 from .ollama_adapter import OllamaAdapter
 from .team_lobby import Lobby, LobbyRegistry, classify_activity
 from .mine_karel import safe_path as karel_safe_path
+from .storage import JsonStorage, Storage
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger("EscapeBot")
@@ -32,9 +32,10 @@ logger = logging.getLogger("EscapeBot")
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 CLIENT_DIR = os.path.join(BASE_DIR, "client")
 DATA_DIR = os.path.abspath(os.getenv("ESCAPEBOT_DATA_DIR", os.path.join(BASE_DIR, "backend")))
-SESSIONS_FILE = os.path.join(DATA_DIR, "sessions.json")
-LOBBIES_FILE = os.path.join(DATA_DIR, "lobbies.json")
-RUNTIME_SETTINGS_FILE = os.path.join(DATA_DIR, "runtime_settings.json")
+STORAGE_BACKEND = os.getenv("ESCAPEBOT_STORAGE_BACKEND", "json").strip().lower()
+if STORAGE_BACKEND != "json":
+    raise RuntimeError(f"Nepodporovaný backend úložiště: {STORAGE_BACKEND}")
+storage: Storage = JsonStorage(DATA_DIR)
 
 # Úložiště pro nezávislé relace hráčů (session_id -> state_machine)
 active_sessions: dict[str, EscapeBotStateMachine] = {}
@@ -137,18 +138,7 @@ async def operations_monitor() -> None:
         if changed: save_sessions()
         await asyncio.sleep(30)
 
-LEADERBOARD_FILE = os.path.join(DATA_DIR, "leaderboard.json")
 global_leaderboard = []
-
-def _write_json(path: str, data: object) -> None:
-    os.makedirs(os.path.dirname(path), exist_ok=True)
-    descriptor, temporary_path = tempfile.mkstemp(prefix=".escape-bot-", suffix=".json", dir=os.path.dirname(path))
-    try:
-        with os.fdopen(descriptor, "w", encoding="utf-8") as file:
-            json.dump(data, file, indent=2, ensure_ascii=False); file.flush(); os.fsync(file.fileno())
-        os.replace(temporary_path, path)
-    finally:
-        if os.path.exists(temporary_path): os.unlink(temporary_path)
 
 
 def leaderboard_entries() -> list[dict[str, object]]:
@@ -164,70 +154,62 @@ def leaderboard_entries() -> list[dict[str, object]]:
     return sorted(result, key=lambda item: int(item.get("score", 0)), reverse=True)
 
 def save_leaderboard():
-    _write_json(LEADERBOARD_FILE, global_leaderboard)
+    storage.save_leaderboard(global_leaderboard)
 
 def load_leaderboard():
     global global_leaderboard
-    if os.path.exists(LEADERBOARD_FILE):
-        try:
-            with open(LEADERBOARD_FILE, "r", encoding="utf-8") as f:
-                global_leaderboard = json.load(f)
-            changed = False
-            for entry in global_leaderboard:
-                if not entry.get("entry_id"):
-                    entry["entry_id"] = secrets.token_hex(8)
-                    changed = True
-            if changed:
-                save_leaderboard()
-            logger.info(f"Úspěšně načtena Síň slávy ({len(global_leaderboard)} záznamů).")
-        except Exception as e:
-            logger.error(f"Chyba při načítání Síně slávy: {e}")
+    try:
+        global_leaderboard = storage.load_leaderboard()
+        changed = False
+        for entry in global_leaderboard:
+            if not entry.get("entry_id"):
+                entry["entry_id"] = secrets.token_hex(8)
+                changed = True
+        if changed:
+            save_leaderboard()
+        logger.info(f"Úspěšně načtena Síň slávy ({len(global_leaderboard)} záznamů).")
+    except Exception as e:
+        logger.error(f"Chyba při načítání Síně slávy: {e}")
 
 def save_sessions():
     data = {sid: sm.state.snapshot() for sid, sm in active_sessions.items()}
-    _write_json(SESSIONS_FILE, data)
+    storage.save_sessions(data)
 
 def load_sessions(scenario):
-    if os.path.exists(SESSIONS_FILE):
-        try:
-            with open(SESSIONS_FILE, "r", encoding="utf-8") as f:
-                data = json.load(f)
-            for sid, s_data in data.items():
-                sm = EscapeBotStateMachine(scenario)
-                sm.restore_state(s_data)
-                active_sessions[sid] = sm
-            logger.info(f"Úspěšně obnoveno {len(active_sessions)} uložených relací ze souboru sessions.json.")
-        except Exception as e:
-            logger.error(f"Chyba při načítání souboru relací: {e}")
+    try:
+        data = storage.load_sessions()
+        for sid, s_data in data.items():
+            sm = EscapeBotStateMachine(scenario)
+            sm.restore_state(s_data)
+            active_sessions[sid] = sm
+        logger.info(f"Úspěšně obnoveno {len(active_sessions)} uložených relací.")
+    except Exception as e:
+        logger.error(f"Chyba při načítání uložených relací: {e}")
 
 def save_lobbies():
-    _write_json(LOBBIES_FILE, lobby_registry.snapshot())
+    storage.save_lobbies(lobby_registry.snapshot())
 
 def load_lobbies():
-    if not os.path.exists(LOBBIES_FILE):
-        return
     try:
-        with open(LOBBIES_FILE, "r", encoding="utf-8") as file:
-            lobby_registry.restore(json.load(file))
+        lobby_registry.restore(storage.load_lobbies())
     except Exception as error:
         logger.error(f"Chyba při načítání týmových lobby: {error}")
 
 def load_runtime_settings():
-    if os.path.exists(RUNTIME_SETTINGS_FILE):
-        try:
-            with open(RUNTIME_SETTINGS_FILE, "r", encoding="utf-8") as file: runtime_settings.update(json.load(file))
-        except Exception as error: logger.error(f"Chyba nastavení režimu: {error}")
+    try:
+        runtime_settings.update(storage.load_runtime_settings())
+    except Exception as error:
+        logger.error(f"Chyba nastavení režimu: {error}")
 
 def save_runtime_settings():
-    _write_json(RUNTIME_SETTINGS_FILE, runtime_settings)
+    storage.save_runtime_settings(runtime_settings)
 
 scenario_path = os.path.join(BASE_DIR, "backend", "scenario.json")
 scenario = ScenarioLoader.load(scenario_path)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    os.makedirs(DATA_DIR, exist_ok=True)
-    if not os.access(DATA_DIR, os.W_OK): raise RuntimeError(f"Datový adresář není zapisovatelný: {DATA_DIR}")
+    storage.check_ready()
     if os.getenv("ESCAPEBOT_ENV", "development").lower() == "production" and not ADMIN_TOKEN:
         raise RuntimeError("V produkci je povinná proměnná ESCAPEBOT_ADMIN_TOKEN.")
     load_leaderboard()
@@ -513,9 +495,17 @@ async def qr_code(data: str) -> Response:
 
 @app.get("/api/health")
 async def health() -> dict[str, object]:
-    return {"status": "ok", "admin_enabled": bool(ADMIN_TOKEN), "online_mode": bool(runtime_settings.get("online_mode")),
-            "environment": os.getenv("ESCAPEBOT_ENV", "development"), "storage_writable": os.access(DATA_DIR, os.W_OK),
-            "active_sessions": len(active_sessions)}
+    return {"status": "ok", "environment": os.getenv("ESCAPEBOT_ENV", "development")}
+
+
+@app.get("/api/ready")
+async def ready() -> JSONResponse:
+    try:
+        storage_status = storage.check_ready()
+    except Exception as error:
+        logger.warning("Kontrola připravenosti úložiště selhala: %s", error)
+        return JSONResponse({"status": "not_ready", "storage": {"backend": storage.backend_name}}, status_code=503)
+    return JSONResponse({"status": "ready", "storage": storage_status, "active_sessions": len(active_sessions)})
 
 
 @app.get("/api/captive")
