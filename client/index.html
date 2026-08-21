@@ -589,7 +589,7 @@
         <section id="admin-tab-analytics" class="admin-section admin-analytics hidden"><h2>[ TELEMETRIE OBTÍŽNOSTI ]</h2><div class="admin-toolbar"><label>OBDOBÍ <select id="analytics-period" onchange="renderAdminAnalytics()"><option value="all">Celá historie</option><option value="1">Posledních 24 hodin</option><option value="7">Posledních 7 dní</option><option value="30">Posledních 30 dní</option></select></label><button onclick="exportTelemetryCsv(true)">ANONYMIZOVANÉ CSV</button><button onclick="exportTelemetryCsv(false)">INTERNÍ CSV</button></div><div id="admin-analytics-summary" class="admin-summary"></div><div id="admin-analytics-content"></div></section>
         <section id="admin-tab-chats" class="admin-section hidden"><h2>[ PODPORA TÝMŮ ]</h2><div id="admin-chat-grid" class="admin-grid"></div></section>
         <section id="admin-tab-leaderboard" class="admin-section admin-leaderboard hidden"><h2>[ SPRÁVA SÍNĚ SLÁVY ]</h2><div id="admin-leaderboard"></div></section>
-        <section id="admin-tab-tools" class="admin-section hidden"><h2>[ NÁSTROJE GAME MASTERA ]</h2><div class="admin-toolbar"><button onclick="requestAdminQrSet()">PŘIPRAVIT QR SADU</button><button onclick="exportAdminCsv()">EXPORT UDÁLOSTÍ A STATISTIK (CSV)</button><button id="admin-online-toggle" onclick="toggleAdminOnlineMode()">ONLINE REŽIM: ?</button></div></section>
+        <section id="admin-tab-tools" class="admin-section hidden"><h2>[ PROVOZ HRY ]</h2><button id="admin-operations-toggle" onclick="toggleAdminOperations()" style="width:100%;padding:22px;font-size:1.35rem">NAČÍTÁM STAV…</button><div class="admin-actions" style="margin:16px 0"><label>Max. týmů<input id="schedule-max-teams" type="number" min="1" max="100"></label><label>Rozestup startů (min)<input id="schedule-interval" type="number" min="0" max="240"></label><label>Délka hry (min)<input id="schedule-duration" type="number" min="15" max="720"></label><label>Otevření<input id="schedule-opening" type="time"></label><label>Uzavření<input id="schedule-closing" type="time"></label><label>Časová zóna<input id="schedule-timezone" value="Europe/Prague"></label><button onclick="saveScheduleSettings()">ULOŽIT PROVOZNÍ NASTAVENÍ</button></div><p id="admin-schedule-status"></p><h2>[ NÁSTROJE GAME MASTERA ]</h2><div class="admin-toolbar"><button onclick="requestAdminQrSet()">PŘIPRAVIT QR SADU</button><button onclick="exportAdminCsv()">EXPORT UDÁLOSTÍ A STATISTIK (CSV)</button><button id="admin-online-toggle" onclick="toggleAdminOnlineMode()">ONLINE REŽIM: ?</button></div></section>
     </section>
     <div id="admin-spectator-bar" class="admin-spectator-bar hidden"><strong id="admin-spectator-label">NÁHLED HRY</strong><button onclick="stopAdminSpectate()">ZPĚT DO ADMINISTRACE</button></div>
     <section id="qr-print-sheet" class="qr-print-sheet"></section>
@@ -610,6 +610,7 @@
                 <button onclick="showRecoveryPanel()">OBNOVIT HRÁČE<br><small>návratový kód od správce</small></button>
             </div>
             <div id="lobby-status">Čekám na spojení se serverem…</div>
+            <div id="lobby-availability" class="cipher-note">Načítám provozní dostupnost…</div>
             <div id="lobby-team" class="lobby-team">
                 <h2>[ TÝMOVÁ RELACE: <span id="lobby-team-title"></span> ]</h2>
                 <p>Doporučení: jeden z hráčů používá notebook jako týmový terminál, ostatní vlastní telefon či notebook. Každý hráč má právě jedno zařízení a každé přidané zařízení představuje jednoho regulérního hráče.</p>
@@ -812,6 +813,8 @@
         let pendingTriadEffect = null;
         let selectedCipherTool = null;
         let onlineModeEnabled = false;
+        let operationsEnabled = true;
+        let runtimeAvailability = null;
         let runtimeCheckpoints = [];
         let latestScenarioProgress = null;
         let deviceRole = localStorage.getItem('escapeBotDeviceRole') || 'free';
@@ -1212,6 +1215,31 @@
             if (!window.confirm(`${onlineModeEnabled ? 'Vypnout' : 'Zapnout'} online režim pro všechny týmy?`)) return;
             sendAdmin('admin.online_mode', {enabled:!onlineModeEnabled});
         }
+        function toggleAdminOperations() {
+            const action = operationsEnabled ? 'ZASTAVIT provoz a ukončit všechny aktivní hry' : 'SPUSTIT herní provoz';
+            if (!window.confirm(`${action}?`)) return;
+            sendAdmin('admin.operations', {enabled:!operationsEnabled});
+        }
+        function saveScheduleSettings() {
+            sendAdmin('admin.schedule_settings', {
+                max_active_teams:Number(document.getElementById('schedule-max-teams').value),
+                start_interval_minutes:Number(document.getElementById('schedule-interval').value),
+                game_duration_minutes:Number(document.getElementById('schedule-duration').value),
+                opening_time:document.getElementById('schedule-opening').value,
+                closing_time:document.getElementById('schedule-closing').value,
+                timezone:document.getElementById('schedule-timezone').value.trim()
+            });
+        }
+        function renderLobbyAvailability() {
+            const box = document.getElementById('lobby-availability'); if (!box || !runtimeAvailability) return;
+            const next = runtimeAvailability.next_start_at ? new Date(runtimeAvailability.next_start_at) : null;
+            const seconds = next ? Math.max(0, Math.ceil((next - new Date()) / 1000)) : 0;
+            const countdown = seconds > 0 ? ` · další start za ${Math.floor(seconds/60)}:${String(seconds%60).padStart(2,'0')}` : '';
+            box.innerHTML = `<strong>${runtimeAvailability.start_allowed ? 'START JE DOSTUPNÝ' : 'START NYNÍ NENÍ MOŽNÝ'}</strong><br>${escapeHtml(runtimeAvailability.reason || `Aktivní týmy: ${runtimeAvailability.active_teams}/${runtimeAvailability.max_active_teams}`)}${countdown}<br>Provoz ${new Date(runtimeAvailability.opening_at).toLocaleTimeString('cs-CZ',{hour:'2-digit',minute:'2-digit'})}–${new Date(runtimeAvailability.closing_at).toLocaleTimeString('cs-CZ',{hour:'2-digit',minute:'2-digit'})} · hra ${runtimeAvailability.game_duration_minutes} min · nejzazší start ${new Date(runtimeAvailability.latest_start_at).toLocaleTimeString('cs-CZ',{hour:'2-digit',minute:'2-digit'})}`;
+            document.querySelectorAll('#lobby-modes button').forEach((button,index) => { if (index === 0) button.disabled = !runtimeAvailability.start_allowed; });
+            const start = document.getElementById('lobby-start-button'); if (start) start.disabled = !runtimeAvailability.start_allowed;
+        }
+        setInterval(renderLobbyAvailability, 1000);
 
         function renderAdminQrSet(payload) {
             const startUrl = new URL('/', window.location.origin);
@@ -1332,6 +1360,10 @@
             const verbs = {exclude:'vyřadit z minihry', include:'vrátit do minihry', reset:'restartovat jeho vlastní desku'};
             if (!window.confirm(`Opravdu ${verbs[action] || action} tohoto hráče?`)) return;
             sendAdmin('admin.game_player', {session_id:sessionId, puzzle_id:puzzleId, player_id:playerId, action});
+        }
+        function evaluateAdminTeam(sessionId) {
+            if (!window.confirm('Uzavřít aktuální skóre týmu a zapsat jej do Síně slávy?')) return;
+            sendAdmin('admin.evaluate_team', {session_id:sessionId});
         }
 
         function deleteLeaderboardEntry(entryId) {
@@ -1458,7 +1490,7 @@
                     return `<li><strong>${item.at ? new Date(item.at).toLocaleString('cs-CZ') : '—'}</strong> · ${escapeHtml(eventLabels[item.type] || item.type || 'událost')}${amount} · ${escapeHtml(label)}</li>`;
                 }).join('') || '<li>Žádné události</li>';
                 const recentMessages = (team.recent_messages || []).map(item => `<li><strong>${escapeHtml(item.channel || 'general')}</strong> · ${item.role === 'player' ? 'hráč' : 'systém'}: ${escapeHtml(String(item.text || '').slice(0, 180))}</li>`).join('') || '<li>Žádné zprávy</li>';
-                const activityText = team.game_completed ? 'DOKONČENO' : (team.activity_status === 'abandoned' ? 'PRAVDĚPODOBNĚ OPUŠTĚNÁ' : (team.activity_status === 'suspicious' ? 'PODEZŘELÁ NEAKTIVITA' : 'AKTIVNÍ'));
+                const activityText = team.game_completed ? 'DOKONČENO' : (team.administratively_ended ? 'UKONČENO · PŘIPRAVENO K VYHODNOCENÍ' : (team.activity_status === 'abandoned' ? 'PRAVDĚPODOBNĚ OPUŠTĚNÁ' : (team.activity_status === 'suspicious' ? 'PODEZŘELÁ NEAKTIVITA' : 'AKTIVNÍ')));
                 const inventory = ((team.progress || {}).inventory || []).map(escapeHtml).join(', ') || 'prázdný';
                 const tools = ((team.progress || {}).unlocked_cipher_tools || []).map(escapeHtml).join(', ') || 'žádné';
                 return `<article class="admin-team ${online ? '' : 'offline'} ${escapeHtml(team.activity_status)}">
@@ -1474,6 +1506,7 @@
                     <details class="admin-detail" data-detail="${team.session_id}:progress"><summary>Detail postupu a her</summary><ul class="admin-detail-list">${progressNodes}</ul><p><strong>Inventář:</strong> ${inventory}</p><p><strong>Pomůcky:</strong> ${tools}</p><p><strong>Nápovědy:</strong> ${hints}</p><p><strong>Pokusy:</strong> ${attempts}</p><p>${lineGame}</p><p>${karel}</p><p>${triad}</p><p>${sokoban}</p><p>${archive}</p></details>
                     <details class="admin-detail" data-detail="${team.session_id}:timeline"><summary>Časová osa</summary><ul class="admin-detail-list">${timeline}</ul></details>
                     <details class="admin-detail" data-detail="${team.session_id}:messages"><summary>Poslední zprávy</summary><ul class="admin-detail-list">${recentMessages}</ul></details>
+                    ${team.administratively_ended && !team.administratively_evaluated ? `<button onclick="evaluateAdminTeam('${team.session_id}')" style="width:100%;margin-top:10px">VYHODNOTIT A ZAPSAT VÝSLEDEK</button>` : ''}
                     <button onclick="startAdminSpectate('${team.session_id}')" style="width:100%;margin-top:10px">ZOBRAZIT HRU JAKO HRÁČ</button>
                     <div class="admin-actions">
                         <input id="admin-amount-${team.session_id}" type="number" min="1" max="1000" value="30" aria-label="Výše malusu">
@@ -1926,9 +1959,17 @@
                 }
                 else if (msg.type === 'runtime.settings') {
                     onlineModeEnabled = Boolean(msg.payload.online_mode);
+                    operationsEnabled = Boolean(msg.payload.gameplay_enabled);
+                    runtimeAvailability = msg.payload.availability || null;
                     runtimeCheckpoints = msg.payload.checkpoints || [];
                     const toggle = document.getElementById('admin-online-toggle');
                     if (toggle) toggle.textContent = `ONLINE REŽIM: ${onlineModeEnabled ? 'ZAPNUT' : 'VYPNUT'}`;
+                    const operations = document.getElementById('admin-operations-toggle');
+                    if (operations) { operations.textContent = operationsEnabled ? '■ ZASTAVIT HERNÍ PROVOZ' : '▶ SPUSTIT HERNÍ PROVOZ'; operations.classList.toggle('danger', operationsEnabled); }
+                    const settings = {"schedule-max-teams":msg.payload.max_active_teams,"schedule-interval":msg.payload.start_interval_minutes,"schedule-duration":msg.payload.game_duration_minutes,"schedule-opening":msg.payload.opening_time,"schedule-closing":msg.payload.closing_time,"schedule-timezone":msg.payload.timezone};
+                    Object.entries(settings).forEach(([id,value]) => { const field=document.getElementById(id); if (field && document.activeElement !== field) field.value=value ?? ''; });
+                    const scheduleStatus = document.getElementById('admin-schedule-status'); if (scheduleStatus && runtimeAvailability) scheduleStatus.textContent = `${runtimeAvailability.active_teams}/${runtimeAvailability.max_active_teams} aktivních týmů · nejzazší start ${new Date(runtimeAvailability.latest_start_at).toLocaleTimeString('cs-CZ',{hour:'2-digit',minute:'2-digit'})}`;
+                    renderLobbyAvailability();
                     renderOnlineMapActions();
                     const scannerContainer = document.getElementById('scanner-container');
                     const scannerTab = document.querySelector('[onclick*="tab-scanner"]');
@@ -1945,6 +1986,13 @@
                         if (scannerTab) scannerTab.textContent = 'SKENER (Kamera)';
                     }
                     showNotification(onlineModeEnabled ? 'Online herní režim je aktivní.' : 'Fyzický QR režim je aktivní.', 'info');
+                }
+                else if (msg.type === 'operations.stopped') {
+                    document.getElementById('lobby-overlay').classList.remove('hidden');
+                    document.getElementById('lobby-modes').style.display = 'none';
+                    document.getElementById('lobby-team').classList.remove('visible');
+                    document.getElementById('lobby-status').textContent = msg.payload.message || 'Herní provoz byl ukončen správcem.';
+                    showNotification(msg.payload.message || 'Herní provoz byl ukončen.', 'error');
                 }
                 else if (msg.type === 'admin.error') {
                     document.getElementById('admin-status').textContent = msg.payload.message || 'Chyba administrace.';

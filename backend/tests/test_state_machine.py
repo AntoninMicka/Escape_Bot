@@ -2,6 +2,7 @@ import unittest
 from copy import deepcopy
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 from escape_bot.protocol import Message
 from escape_bot.line_game import completion_time_score
@@ -66,6 +67,24 @@ class StateMachineCheckpointTests(unittest.IsolatedAsyncioTestCase):
         for player_id in ("alice", "bob"):
             self.machine.state.triad_games["temporal_triad"]["players"][player_id]["status"] = "complete"
         self.assertTrue(self.machine._team_conditions_complete("temporal_triad", "triad"))
+
+    def test_operating_hours_reserve_enough_time_to_finish_before_closing(self) -> None:
+        from escape_bot.server import runtime_settings, start_availability
+        original = dict(runtime_settings)
+        try:
+            runtime_settings.update({"gameplay_enabled": True, "opening_time": "08:00", "closing_time": "20:00",
+                                     "game_duration_minutes": 120, "start_interval_minutes": 0,
+                                     "max_active_teams": 4, "timezone": "Europe/Prague"})
+            zone = ZoneInfo("Europe/Prague")
+            self.assertFalse(start_availability(datetime(2026, 8, 21, 7, 59, tzinfo=zone))["start_allowed"])
+            self.assertTrue(start_availability(datetime(2026, 8, 21, 17, 59, tzinfo=zone))["start_allowed"])
+            result = start_availability(datetime(2026, 8, 21, 18, 1, tzinfo=zone))
+            self.assertFalse(result["start_allowed"])
+            self.assertEqual(datetime.fromisoformat(result["latest_start_at"]).strftime("%H:%M"), "18:00")
+            runtime_settings["gameplay_enabled"] = False
+            self.assertFalse(start_availability(datetime(2026, 8, 21, 10, 0, tzinfo=zone))["start_allowed"])
+        finally:
+            runtime_settings.clear(); runtime_settings.update(original)
 
     async def scan(self, checkpoint_id: str):
         token = self.scenario.data["checkpoints"][checkpoint_id]["token"]

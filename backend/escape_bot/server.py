@@ -10,7 +10,8 @@ import hmac
 import uvicorn
 from io import BytesIO
 from contextlib import asynccontextmanager
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
+from zoneinfo import ZoneInfo
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.responses import RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
@@ -50,7 +51,88 @@ ADMIN_RESOLUTION_PRESETS = {
 }
 DEMO_MODE_ENABLED = os.getenv("ESCAPEBOT_DEMO_MODE", "").lower() in {"1", "true", "yes", "on"}
 ADMIN_TOKEN = os.getenv("ESCAPEBOT_ADMIN_TOKEN", "")
-runtime_settings = {"online_mode": False}
+runtime_settings = {"online_mode": False, "gameplay_enabled": True, "max_active_teams": 4,
+                    "start_interval_minutes": 15, "game_duration_minutes": 120,
+                    "opening_time": "08:00", "closing_time": "20:00", "timezone": "Europe/Prague"}
+
+def _local_now() -> datetime:
+    try: return datetime.now(ZoneInfo(str(runtime_settings.get("timezone", "Europe/Prague"))))
+    except Exception: return datetime.now(ZoneInfo("Europe/Prague"))
+
+def start_availability(now: datetime | None = None) -> dict[str, object]:
+    current = now or _local_now()
+    duration = max(1, int(runtime_settings.get("game_duration_minutes", 120)))
+    interval = max(0, int(runtime_settings.get("start_interval_minutes", 15)))
+    maximum = max(1, int(runtime_settings.get("max_active_teams", 4)))
+    def clock(value: object, fallback: str) -> datetime:
+        try:
+            hour, minute = map(int, str(value).split(":")); return current.replace(hour=hour, minute=minute, second=0, microsecond=0)
+        except Exception:
+            hour, minute = map(int, fallback.split(":")); return current.replace(hour=hour, minute=minute, second=0, microsecond=0)
+    opening = clock(runtime_settings.get("opening_time"), "08:00")
+    closing = clock(runtime_settings.get("closing_time"), "20:00")
+    latest_start = closing - timedelta(minutes=duration)
+    active = []
+    active_deadlines = []
+    starts = []
+    for session_id, machine in active_sessions.items():
+        lobby = lobby_registry.by_session.get(session_id)
+        started_at = machine.state.flags.get("operations_started_at")
+        parsed_start = None
+        if started_at:
+            try:
+                parsed_start = datetime.fromisoformat(str(started_at)).astimezone(current.tzinfo)
+                starts.append(parsed_start)
+            except ValueError: pass
+        within_expected_duration = parsed_start is not None and parsed_start + timedelta(minutes=duration) > current
+        if lobby and lobby.started and within_expected_duration and not machine.state.flags.get("game_completed") and not machine.state.flags.get("administratively_ended"):
+            active.append(session_id)
+            active_deadlines.append(parsed_start + timedelta(minutes=duration))
+    next_interval = max(starts) + timedelta(minutes=interval) if starts else current
+    next_start = max(current, opening, next_interval)
+    if len(active) >= maximum and active_deadlines:
+        next_start = max(next_start, min(active_deadlines))
+    reasons = []
+    if not runtime_settings.get("gameplay_enabled", True): reasons.append("Herní provoz je zastaven správcem.")
+    if current < opening: reasons.append("Provoz ještě nezačal.")
+    if current > latest_start: reasons.append("Dnešní nejzazší čas startu už uplynul.")
+    if len(active) >= maximum: reasons.append("Kapacita současně hrajících týmů je naplněna.")
+    if current < next_interval: reasons.append("Ještě neuplynul minimální rozestup mezi starty.")
+    allowed = not reasons
+    return {"start_allowed": allowed, "reason": " ".join(reasons), "server_time": current.isoformat(),
+            "next_start_at": (next_start.isoformat() if next_start <= latest_start else None),
+            "latest_start_at": latest_start.isoformat(), "opening_at": opening.isoformat(), "closing_at": closing.isoformat(),
+            "active_teams": len(active), "max_active_teams": maximum, "game_duration_minutes": duration,
+            "start_interval_minutes": interval, "gameplay_enabled": bool(runtime_settings.get("gameplay_enabled", True))}
+
+def runtime_payload() -> dict[str, object]:
+    return {**runtime_settings, "availability": start_availability(), "checkpoints": build_demo_checkpoint_catalog(scenario)}
+
+def require_start_available() -> None:
+    availability = start_availability()
+    if not availability["start_allowed"]:
+        next_start = availability.get("next_start_at")
+        suffix = f" Další možný start: {datetime.fromisoformat(str(next_start)).strftime('%H:%M')}." if next_start else ""
+        raise ValueError(str(availability.get("reason", "Start hry nyní není možný.")) + suffix)
+
+async def operations_monitor() -> None:
+    while True:
+        current = _local_now(); duration = int(runtime_settings.get("game_duration_minutes", 120))
+        closing_text = str(runtime_settings.get("closing_time", "20:00"))
+        try: closing_hour, closing_minute = map(int, closing_text.split(":"))
+        except ValueError: closing_hour, closing_minute = 20, 0
+        closing = current.replace(hour=closing_hour, minute=closing_minute, second=0, microsecond=0)
+        changed = False
+        for session_id, machine in active_sessions.items():
+            lobby = lobby_registry.by_session.get(session_id); started_at = machine.state.flags.get("operations_started_at")
+            if not lobby or not lobby.started or not started_at or machine.state.flags.get("game_completed") or machine.state.flags.get("administratively_ended"): continue
+            try: deadline = min(datetime.fromisoformat(str(started_at)).astimezone(current.tzinfo) + timedelta(minutes=duration), closing)
+            except ValueError: continue
+            if current >= deadline:
+                machine.state.flags["administratively_ended"] = True; machine.state.flags["administratively_ended_at"] = datetime.now(UTC).isoformat(); changed = True
+                await broadcast_session(session_id, [Message("operations.stopped", {"message": "Časový limit hry vypršel. Výsledek týmu je připraven k vyhodnocení."})])
+        if changed: save_sessions()
+        await asyncio.sleep(30)
 
 LEADERBOARD_FILE = os.path.join(BASE_DIR, "backend", "leaderboard.json")
 global_leaderboard = []
@@ -139,11 +221,13 @@ async def lifespan(app: FastAPI):
     load_runtime_settings()
     # 1. Načtení uložených stavů her z předchozího běhu
     load_sessions(scenario)
+    monitor_task = asyncio.create_task(operations_monitor())
     # Volitelný experiment; produkční hra ani start serveru LLM nevyžadují.
     if os.getenv("ESCAPEBOT_LLM_ENABLED", "").lower() in {"1", "true", "yes", "on"}:
         ai_checker = OllamaAdapter()
         asyncio.create_task(ai_checker.ensure_model())
     yield
+    monitor_task.cancel()
 
 # --- Inicializace FastAPI ---
 app = FastAPI(title="Escape Bot", lifespan=lifespan)
@@ -276,6 +360,7 @@ def admin_overview(watched_sessions: set[str] | None = None) -> list[dict[str, o
             try: inactive_seconds = max(0, int((datetime.now(UTC) - datetime.fromisoformat(last_activity)).total_seconds()))
             except ValueError: pass
         game_completed = bool(flags.get("game_completed"))
+        administratively_ended = bool(flags.get("administratively_ended"))
         activity_status = classify_activity(lobby.started, game_completed, inactive_seconds)
         teams.append({
             **lobby.public("", connected_client_ids(lobby.session_id)),
@@ -289,6 +374,8 @@ def admin_overview(watched_sessions: set[str] | None = None) -> list[dict[str, o
             "inactive_seconds": inactive_seconds,
             "activity_status": activity_status,
             "game_completed": game_completed,
+            "administratively_ended": administratively_ended,
+            "administratively_evaluated": bool(flags.get("administratively_evaluated")),
             "timeline": timeline,
             "hints_used": dict(state.get("hints_used", {})),
             "puzzle_attempts": dict(state.get("puzzle_attempts", {})),
@@ -366,6 +453,9 @@ async def sync_started_client(websocket: WebSocket, state_machine: EscapeBotStat
         state_machine._participant_ids = list(lobby.players)
         state_machine._team_mode = lobby.mode
         state_machine._participant_names = {player_id: str(player.get("name", "Hráč")) for player_id, player in lobby.players.items()}
+    if state_machine.state.flags.get("administratively_ended"):
+        await send_message(websocket, Message("operations.stopped", {"message": "Tato hra už byla ukončena a čeká na vyhodnocení."}))
+        return
     await send_message(websocket, Message("chat.history", {"messages": state_machine.state.chat_history}))
     await send_message(websocket, state_machine._state_message(player_id))
     await send_message(websocket, Message(
@@ -377,7 +467,7 @@ async def sync_started_client(websocket: WebSocket, state_machine: EscapeBotStat
             "enabled": True,
             "checkpoints": build_demo_checkpoint_catalog(scenario),
         }))
-    await send_message(websocket, Message("runtime.settings", {**runtime_settings, "checkpoints": build_demo_checkpoint_catalog(scenario)}))
+    await send_message(websocket, Message("runtime.settings", runtime_payload()))
 
 
 @app.get("/api/qr")
@@ -420,6 +510,7 @@ async def admin_page() -> RedirectResponse:
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
     await websocket.accept()
+    await send_message(websocket, Message("runtime.settings", runtime_payload()))
     logger.info("Nový klient připojen přes WebSockets, čekám na relaci...")
     session_id = None
     state_machine = None
@@ -437,13 +528,13 @@ async def websocket_endpoint(websocket: WebSocket):
                 data = json.loads(message_str)
                 msg = Message.from_json(data)
 
-                if msg.type in {"admin.list", "admin.penalty", "admin.delete", "admin.qr_set", "admin.online_mode", "admin.checkpoint", "admin.game_reset", "admin.game_player", "admin.player_recovery", "admin.leaderboard_delete", "admin.support_join", "admin.support_leave", "admin.support_message", "admin.spectate_start", "admin.spectate_stop"}:
+                if msg.type in {"admin.list", "admin.penalty", "admin.delete", "admin.qr_set", "admin.online_mode", "admin.operations", "admin.schedule_settings", "admin.evaluate_team", "admin.checkpoint", "admin.game_reset", "admin.game_player", "admin.player_recovery", "admin.leaderboard_delete", "admin.support_join", "admin.support_leave", "admin.support_message", "admin.spectate_start", "admin.spectate_stop"}:
                     try:
                         require_admin(msg.payload)
                         authenticated_admin_sockets.add(websocket)
                         if msg.type == "admin.list":
                             await send_admin_overview(websocket)
-                            await send_message(websocket, Message("runtime.settings", {**runtime_settings, "checkpoints": build_demo_checkpoint_catalog(scenario)}))
+                            await send_message(websocket, Message("runtime.settings", runtime_payload()))
                             continue
                         if msg.type == "admin.qr_set":
                             await send_message(websocket, Message("admin.qr_set", {"scenario": scenario.data.get("title", "Escape Bot"), "checkpoints": build_checkpoint_qr_set(scenario)}))
@@ -451,11 +542,46 @@ async def websocket_endpoint(websocket: WebSocket):
                         if msg.type == "admin.online_mode":
                             runtime_settings["online_mode"] = bool(msg.payload.get("enabled"))
                             save_runtime_settings()
-                            update = Message("runtime.settings", {**runtime_settings, "checkpoints": build_demo_checkpoint_catalog(scenario)})
+                            update = Message("runtime.settings", runtime_payload())
                             for active_socket in list(app.state.active_websockets):
                                 try: await send_message(active_socket, update)
                                 except Exception: pass
                             continue
+                        if msg.type == "admin.schedule_settings":
+                            values = {"max_active_teams": int(msg.payload.get("max_active_teams", 4)),
+                                      "start_interval_minutes": int(msg.payload.get("start_interval_minutes", 15)),
+                                      "game_duration_minutes": int(msg.payload.get("game_duration_minutes", 120)),
+                                      "opening_time": str(msg.payload.get("opening_time", "08:00")),
+                                      "closing_time": str(msg.payload.get("closing_time", "20:00")),
+                                      "timezone": str(msg.payload.get("timezone", "Europe/Prague"))}
+                            if not 1 <= values["max_active_teams"] <= 100: raise ValueError("Kapacita musí být 1–100 týmů.")
+                            if not 0 <= values["start_interval_minutes"] <= 240: raise ValueError("Rozestup musí být 0–240 minut.")
+                            if not 15 <= values["game_duration_minutes"] <= 720: raise ValueError("Délka hry musí být 15–720 minut.")
+                            for key in ("opening_time", "closing_time"):
+                                datetime.strptime(values[key], "%H:%M")
+                            ZoneInfo(values["timezone"])
+                            runtime_settings.update(values); save_runtime_settings()
+                            update = Message("runtime.settings", runtime_payload())
+                            for active_socket in list(app.state.active_websockets):
+                                try: await send_message(active_socket, update)
+                                except Exception: pass
+                            await send_admin_overview(websocket); continue
+                        if msg.type == "admin.operations":
+                            enabled = bool(msg.payload.get("enabled")); runtime_settings["gameplay_enabled"] = enabled
+                            if not enabled:
+                                ended_at = datetime.now(UTC).isoformat()
+                                for session_id, machine in active_sessions.items():
+                                    lobby_item = lobby_registry.by_session.get(session_id)
+                                    if lobby_item and lobby_item.started and not machine.state.flags.get("game_completed"):
+                                        machine.state.flags["administratively_ended"] = True
+                                        machine.state.flags["administratively_ended_at"] = ended_at
+                                        await broadcast_session(session_id, [Message("operations.stopped", {"message": "Herní provoz byl ukončen Game Masterem. Výsledek týmu je připraven k vyhodnocení."})])
+                            save_runtime_settings(); save_sessions()
+                            update = Message("runtime.settings", runtime_payload())
+                            for active_socket in list(app.state.active_websockets):
+                                try: await send_message(active_socket, update)
+                                except Exception: pass
+                            await send_admin_overview(websocket); continue
                         if msg.type == "admin.leaderboard_delete":
                             entry_id = str(msg.payload.get("entry_id", "")).strip()
                             index = next((index for index, entry in enumerate(global_leaderboard) if str(entry.get("entry_id", "")) == entry_id), None)
@@ -483,7 +609,7 @@ async def websocket_endpoint(websocket: WebSocket):
                             await send_message(websocket, Message("chat.history", {"messages": machine.state.chat_history}))
                             await send_message(websocket, machine._state_message())
                             await send_message(websocket, Message("scenario.progress", build_scenario_progress(scenario, machine.state.snapshot())))
-                            await send_message(websocket, Message("runtime.settings", {**runtime_settings, "checkpoints": build_demo_checkpoint_catalog(scenario)}))
+                            await send_message(websocket, Message("runtime.settings", runtime_payload()))
                             continue
                         if msg.type == "admin.spectate_stop":
                             admin_spectator_sessions.pop(websocket, None)
@@ -541,6 +667,22 @@ async def websocket_endpoint(websocket: WebSocket):
                                 "expires_in_seconds": 600,
                             }))
                             continue
+
+                        if msg.type == "admin.evaluate_team":
+                            machine = ensure_state_machine(target_session)
+                            if not machine.state.flags.get("administratively_ended") and not machine.state.flags.get("game_completed"):
+                                raise ValueError("Vyhodnotit lze pouze dokončenou nebo provozně ukončenou hru.")
+                            if not any(entry.get("session_id") == target_session for entry in global_leaderboard):
+                                global_leaderboard.append({"entry_id": secrets.token_hex(8), "session_id": target_session,
+                                    "name": lobby.team_name, "players": [str(player.get("name", "")) for player in lobby.players.values()],
+                                    "score": machine.state.score, "completed_at": datetime.now(UTC).isoformat(), "administrative": True})
+                                save_leaderboard()
+                            machine.state.flags["administratively_evaluated"] = True; save_sessions()
+                            update = Message("leaderboard.update", {"entries": leaderboard_entries()})
+                            for active_socket in list(app.state.active_websockets):
+                                try: await send_message(active_socket, update)
+                                except Exception: pass
+                            await send_admin_overview(websocket); continue
 
                         if msg.type == "admin.game_player":
                             machine = ensure_state_machine(target_session)
@@ -740,6 +882,7 @@ async def websocket_endpoint(websocket: WebSocket):
                                     await broadcast_session(session_id, score_messages)
                             continue
                         if msg.type == "lobby.solo":
+                            require_start_available()
                             lobby = lobby_registry.create(requested_client_id, "solo", name, team_name)
                         elif msg.type == "lobby.create":
                             lobby = lobby_registry.create(requested_client_id, "team", name, team_name)
@@ -754,6 +897,7 @@ async def websocket_endpoint(websocket: WebSocket):
                                 raise ValueError("Hru může spustit pouze zakladatel týmu.")
                             if not lobby.team_name or any(not str(player.get("name", "")).strip() for player in lobby.players.values()):
                                 raise ValueError("Před spuštěním musí mít tým i všichni hráči vyplněné jméno.")
+                            require_start_available()
                             lobby.started = True
 
                         session_id = lobby.session_id
@@ -761,6 +905,12 @@ async def websocket_endpoint(websocket: WebSocket):
                         demo_client = requested_demo
                         attach_to_lobby(websocket, lobby, client_id, demo_client)
                         state_machine = ensure_state_machine(session_id)
+                        if msg.type in {"lobby.solo", "lobby.start"}:
+                            state_machine.state.flags["operations_started_at"] = datetime.now(UTC).isoformat()
+                            availability_update = Message("runtime.settings", runtime_payload())
+                            for active_socket in list(app.state.active_websockets):
+                                try: await send_message(active_socket, availability_update)
+                                except Exception: pass
                         save_lobbies()
                         await broadcast_lobby(lobby)
 
@@ -784,7 +934,7 @@ async def websocket_endpoint(websocket: WebSocket):
                                 await sync_started_client(websocket, state_machine, demo_client)
                                 if score_messages:
                                     await broadcast_session(session_id, score_messages)
-                            await send_message(websocket, Message("runtime.settings", {**runtime_settings, "checkpoints": build_demo_checkpoint_catalog(scenario)}))
+                            await send_message(websocket, Message("runtime.settings", runtime_payload()))
                         continue
                     except ValueError as error:
                         await send_message(websocket, Message("lobby.error", {"message": str(error)}))
@@ -889,6 +1039,10 @@ async def websocket_endpoint(websocket: WebSocket):
                             for active_socket in list(app.state.active_websockets):
                                 try: await send_message(active_socket, leaderboard_update)
                                 except Exception: pass
+                        availability_update = Message("runtime.settings", runtime_payload())
+                        for active_socket in list(app.state.active_websockets):
+                            try: await send_message(active_socket, availability_update)
+                            except Exception: pass
                     if session_id:
                         await broadcast_session(session_id, responses)
                     else:
