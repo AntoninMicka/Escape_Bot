@@ -2,6 +2,8 @@
 
 Konkrétní realizační plán pro Google Cloud je v dokumentu [`gcp-compute-cloudsql-roadmap.md`](gcp-compute-cloudsql-roadmap.md).
 
+Realizovatelný Terraform modul a release runbook jsou v [`../infra/terraform/README.md`](../infra/terraform/README.md). Skripty pro vytvoření tajemství, sestavení release image, deploy a rollback jsou v `deploy/gcp/`.
+
 ## Připravená první produkční varianta
 
 Repozitář obsahuje `Dockerfile`, `compose.cloud.yml`, Caddy konfiguraci a ukázkové proměnné prostředí. Tato varianta je určena pro jeden cloudový server a právě jednu aplikační instanci. Caddy automaticky získá veřejný TLS certifikát, obslouží HTTPS/WSS a předá provoz FastAPI. Herní JSON data jsou uložena v pojmenovaném Docker volume `escape_bot_data` a aplikace je zapisuje atomickou výměnou souboru.

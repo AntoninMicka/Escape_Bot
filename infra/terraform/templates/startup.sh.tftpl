@@ -1,0 +1,132 @@
+#!/bin/bash
+set -euo pipefail
+
+exec > >(tee -a /var/log/escape-bot-startup.log | logger -t escape-bot-startup) 2>&1
+
+export DEBIAN_FRONTEND=noninteractive
+apt-get update
+apt-get install -y ca-certificates curl
+install -m 0755 -d /etc/apt/keyrings
+curl -fsSL https://download.docker.com/linux/debian/gpg -o /etc/apt/keyrings/docker.asc
+chmod a+r /etc/apt/keyrings/docker.asc
+architecture=$(dpkg --print-architecture)
+codename=$(. /etc/os-release && echo "$VERSION_CODENAME")
+cat > /etc/apt/sources.list.d/docker.sources <<EOF
+Types: deb
+URIs: https://download.docker.com/linux/debian
+Suites: $codename
+Components: stable
+Architectures: $architecture
+Signed-By: /etc/apt/keyrings/docker.asc
+EOF
+apt-get update
+apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+systemctl enable --now docker
+
+data_device=/dev/disk/by-id/google-escape-bot-data
+data_mount=/srv/escape-bot
+mkdir -p "$data_mount"
+if ! blkid "$data_device" >/dev/null 2>&1; then
+  mkfs.ext4 -F "$data_device"
+fi
+if ! grep -qF "$data_device $data_mount " /etc/fstab; then
+  echo "$data_device $data_mount ext4 defaults,nofail 0 2" >> /etc/fstab
+fi
+mountpoint -q "$data_mount" || mount "$data_mount"
+mkdir -p "$data_mount/data" "$data_mount/caddy-data" "$data_mount/caddy-config"
+
+install -d -m 0750 /opt/escape-bot
+
+cat > /opt/escape-bot/Caddyfile <<'CADDY'
+${domain} {
+    encode zstd gzip
+    reverse_proxy app:8080
+    header {
+        X-Content-Type-Options nosniff
+        X-Frame-Options DENY
+        Referrer-Policy same-origin
+        Strict-Transport-Security "max-age=31536000; includeSubDomains"
+        -Server
+    }
+    request_body {
+        max_size 10MB
+    }
+}
+CADDY
+
+cat > /opt/escape-bot/compose.yml <<'COMPOSE'
+services:
+  cloud-sql-proxy:
+    image: gcr.io/cloud-sql-connectors/cloud-sql-proxy:${cloud_sql_proxy_version}
+    restart: unless-stopped
+    command: ["--private-ip", "--address=0.0.0.0", "--port=5432", "${cloud_sql_connection}"]
+    networks: [web]
+
+  app:
+    image: $${ESCAPEBOT_IMAGE}
+    container_name: escape-bot-app
+    restart: unless-stopped
+    depends_on:
+      cloud-sql-proxy:
+        condition: service_started
+    env_file: .env
+    expose: ["8080"]
+    volumes:
+      - /srv/escape-bot/data:/data
+    networks: [web]
+
+  caddy:
+    image: caddy:2.10-alpine
+    restart: unless-stopped
+    depends_on:
+      app:
+        condition: service_healthy
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - /opt/escape-bot/Caddyfile:/etc/caddy/Caddyfile:ro
+      - /srv/escape-bot/caddy-data:/data
+      - /srv/escape-bot/caddy-config:/config
+    networks: [web]
+
+networks:
+  web:
+    name: escape-bot-web
+COMPOSE
+
+admin_token=""
+database_password=""
+for attempt in $(seq 1 180); do
+  admin_token=$(gcloud secrets versions access latest --secret='${admin_secret_id}' 2>/dev/null || true)
+  database_password=$(gcloud secrets versions access latest --secret='${database_secret_id}' 2>/dev/null || true)
+  if [ -n "$admin_token" ] && [ -n "$database_password" ]; then
+    break
+  fi
+  sleep 10
+done
+if [ -z "$admin_token" ] || [ -z "$database_password" ]; then
+  echo "Secret versions are not available; run configure-secrets.sh and restart the VM."
+  exit 1
+fi
+
+umask 077
+cat > /opt/escape-bot/.env <<EOF
+ESCAPEBOT_ENV=production
+ESCAPEBOT_STORAGE_BACKEND=postgres
+ESCAPEBOT_DATA_DIR=/data
+ESCAPEBOT_DATABASE_URL=postgresql://${database_user}:$database_password@cloud-sql-proxy:5432/${database_name}
+ESCAPEBOT_ADMIN_TOKEN=$admin_token
+ESCAPEBOT_ALLOWED_HOSTS=${domain}
+ESCAPEBOT_DEMO_MODE=0
+ESCAPEBOT_LLM_ENABLED=0
+ESCAPEBOT_IMAGE=${initial_image}
+EOF
+chmod 0600 /opt/escape-bot/.env
+
+gcloud auth configure-docker '${region}-docker.pkg.dev' --quiet
+docker compose --project-directory /opt/escape-bot -f /opt/escape-bot/compose.yml pull cloud-sql-proxy caddy
+docker compose --project-directory /opt/escape-bot -f /opt/escape-bot/compose.yml up -d cloud-sql-proxy
+
+echo "Escape Bot host bootstrap completed for ${environment}. Application deployment is intentionally separate."

@@ -1,0 +1,11 @@
+project_id = "my-gcp-project"
+region     = "europe-west3"
+zone       = "europe-west3-a"
+environment = "staging"
+domain      = "staging-hra.example.cz"
+
+machine_type                     = "e2-standard-2"
+database_tier                    = "db-custom-1-3840"
+database_availability_type       = "ZONAL"
+database_deletion_protection     = true
+initial_image                    = "europe-west3-docker.pkg.dev/my-gcp-project/escape-bot/bootstrap:initial"

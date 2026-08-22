@@ -87,6 +87,14 @@ class JsonStorageTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "Lobby bez odpovídající relace"):
             migrate_storage(self.storage)
 
+    def test_schema_only_rejects_json_target_before_opening_storage(self) -> None:
+        from escape_bot import storage_migration
+
+        with patch("sys.argv", ["storage_migration", "--schema-only", "--target", "json"]):
+            with self.assertRaises(SystemExit) as raised:
+                storage_migration.main()
+        self.assertEqual(raised.exception.code, 2)
+
 
 class OperationalEndpointTests(unittest.TestCase):
     def test_health_is_liveness_only(self) -> None:

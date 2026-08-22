@@ -221,6 +221,8 @@ Odhad: první 1–2 týdny provozu.
 
 Odhad zavedení: 2–4 dny. Poté jde o standardní proces každého releasu.
 
+První implementace této fáze je připravena v `infra/terraform/` a `deploy/gcp/`: infrastruktura, Artifact Registry, bootstrap VM, samostatná dopředná migrace schématu, deploy podle digestu, readiness kontrola a aplikační rollback.
+
 ### Release infrastruktura
 
 1. Ukládat produkční image do Artifact Registry, nikdy je nestavět přímo na produkční VM.

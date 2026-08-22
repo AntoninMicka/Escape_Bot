@@ -62,7 +62,20 @@ def main() -> None:
     parser.add_argument("--source-database-url", default=os.getenv("ESCAPEBOT_MIGRATION_SOURCE_DATABASE_URL", ""))
     parser.add_argument("--target-database-url", default=os.getenv("ESCAPEBOT_MIGRATION_TARGET_DATABASE_URL") or os.getenv("ESCAPEBOT_DATABASE_URL", ""))
     parser.add_argument("--apply", action="store_true", help="Provede zápis; bez této volby jde jen o validaci")
+    parser.add_argument("--schema-only", action="store_true", help="Provede pouze dopředné PostgreSQL migrace schématu")
     arguments = parser.parse_args()
+    if arguments.schema_only:
+        if arguments.target != "postgres":
+            parser.error("--schema-only vyžaduje --target postgres")
+        target = create_storage("postgres", database_url=arguments.target_database_url)
+        try:
+            if not isinstance(target, PostgresStorage):
+                raise RuntimeError("Cílové úložiště nepodporuje databázové migrace.")
+            target.migrate_schema()
+            print(json.dumps({"mode": "schema-only", "target": "postgres"}, ensure_ascii=False, indent=2))
+        finally:
+            target.close()
+        return
     source = create_storage(arguments.source, data_dir=arguments.source_data_dir, database_url=arguments.source_database_url)
     target = None
     try:
