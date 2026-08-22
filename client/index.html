@@ -585,7 +585,7 @@
             <span id="admin-status">Čekám na spojení…</span>
         </div>
         <nav class="admin-nav"><button class="active" onclick="openAdminTab('teams',this)">TÝMY</button><button onclick="openAdminTab('analytics',this)">ANALYTIKA</button><button id="admin-chats-tab-button" onclick="openAdminTab('chats',this)">CHATY <span id="admin-chat-unread" class="unread-badge"></span></button><button onclick="openAdminTab('leaderboard',this)">SÍŇ SLÁVY</button><button onclick="openAdminTab('tools',this)">NÁSTROJE</button></nav>
-        <section id="admin-tab-teams" class="admin-section"><div id="admin-summary" class="admin-summary"></div><div class="admin-filters"><input id="admin-team-search" type="search" placeholder="Hledat tým, hráče nebo kód…" oninput="applyAdminFilters()"><select id="admin-activity-filter" onchange="applyAdminFilters()"><option value="all">Všechny stavy</option><option value="active">Aktivní</option><option value="suspicious">Podezřelé</option><option value="abandoned">Opuštěné</option><option value="completed">Dokončené</option></select><select id="admin-online-filter" onchange="applyAdminFilters()"><option value="all">Online i offline</option><option value="online">Alespoň jeden online</option><option value="offline">Všichni offline</option></select></div><div id="admin-team-grid" class="admin-grid"></div></section>
+        <section id="admin-tab-teams" class="admin-section"><div id="admin-summary" class="admin-summary"></div><div class="admin-filters"><input id="admin-team-search" type="search" placeholder="Hledat tým, hráče nebo kód…" oninput="applyAdminFilters()"><select id="admin-activity-filter" onchange="applyAdminFilters()"><option value="ongoing" selected>Neukončené týmy</option><option value="all">Všechny stavy</option><option value="active">Aktivní</option><option value="suspicious">Podezřelé</option><option value="abandoned">Opuštěné</option><option value="completed">Dokončené</option><option value="ended">Ukončené bez dokončení</option></select><select id="admin-online-filter" onchange="applyAdminFilters()"><option value="all">Online i offline</option><option value="online">Alespoň jeden online</option><option value="offline">Všichni offline</option></select></div><div id="admin-team-grid" class="admin-grid"></div></section>
         <section id="admin-tab-analytics" class="admin-section admin-analytics hidden"><h2>[ TELEMETRIE OBTÍŽNOSTI ]</h2><div class="admin-toolbar"><label>OBDOBÍ <select id="analytics-period" onchange="renderAdminAnalytics()"><option value="all">Celá historie</option><option value="1">Posledních 24 hodin</option><option value="7">Posledních 7 dní</option><option value="30">Posledních 30 dní</option></select></label><button onclick="exportTelemetryCsv(true)">ANONYMIZOVANÉ CSV</button><button onclick="exportTelemetryCsv(false)">INTERNÍ CSV</button></div><div id="admin-analytics-summary" class="admin-summary"></div><div id="admin-analytics-content"></div></section>
         <section id="admin-tab-chats" class="admin-section hidden"><h2>[ PODPORA TÝMŮ ]</h2><div id="admin-chat-grid" class="admin-grid"></div></section>
         <section id="admin-tab-leaderboard" class="admin-section admin-leaderboard hidden"><h2>[ SPRÁVA SÍNĚ SLÁVY ]</h2><div id="admin-leaderboard"></div></section>
@@ -1253,16 +1253,17 @@
             Promise.all(images.map(img => img.complete ? Promise.resolve() : new Promise(resolve => { img.onload = resolve; img.onerror = resolve; }))).then(() => window.print());
         }
 
-        function applyAdminPenalty(sessionId) {
+        function applyAdminScoreAdjustment(sessionId, direction) {
             const amount = Number(document.getElementById(`admin-amount-${sessionId}`).value);
             const reason = document.getElementById(`admin-reason-${sessionId}`).value.trim();
             if (!Number.isInteger(amount) || amount < 1 || amount > 1000) {
-                showNotification('Malus musí být celé číslo od 1 do 1000.', 'error');
+                showNotification('Bodová úprava musí být celé číslo od 1 do 1000.', 'error');
                 return;
             }
-            if (!reason) { showNotification('Doplňte důvod malusu.', 'error'); return; }
-            if (!window.confirm(`Odečíst týmu ${amount} bodů?\nDůvod: ${reason}`)) return;
-            sendAdmin('admin.penalty', {session_id:sessionId, amount, reason});
+            if (!reason) { showNotification('Doplňte důvod bodové úpravy.', 'error'); return; }
+            const delta = direction * amount;
+            if (!window.confirm(`${delta > 0 ? 'Přičíst' : 'Odečíst'} týmu ${amount} bodů?\nDůvod: ${reason}`)) return;
+            sendAdmin('admin.score_adjustment', {session_id:sessionId, delta, reason});
         }
 
         function deleteAdminTeam(sessionId) {
@@ -1298,7 +1299,7 @@
             document.querySelectorAll('.admin-nav button').forEach(item => item.classList.remove('active'));
             if (button) button.classList.add('active');
             if (name === 'chats' && latestAdminPayload) {
-                (latestAdminPayload.teams || []).forEach(team => { adminChatSeen[team.session_id] = (team.support_chat || []).filter(item => item.role === 'player').length; });
+                (latestAdminPayload.teams || []).filter(isAdminChatActive).forEach(team => { adminChatSeen[team.session_id] = (team.support_chat || []).filter(item => item.role === 'player').length; });
                 sessionStorage.setItem('escapeBotAdminChatSeen', JSON.stringify(adminChatSeen));
                 updateAdminChatNotifications(latestAdminPayload.teams || [], false);
                 renderAdminChats(latestAdminPayload.teams || []);
@@ -1319,6 +1320,7 @@
         }
 
         function updateAdminChatNotifications(teams, notifyNew = true) {
+            teams = teams.filter(isAdminChatActive);
             let totalUnread = 0;
             teams.forEach(team => {
                 const count = (team.support_chat || []).filter(item => item.role === 'player').length;
@@ -1344,11 +1346,16 @@
 
         function renderAdminChats(teams) {
             const grid = document.getElementById('admin-chat-grid');
+            teams = teams.filter(isAdminChatActive);
             grid.innerHTML = teams.map(team => {
                 const messages = (team.support_chat || []).map(item => `<li><strong>${escapeHtml(item.sender || (item.role === 'player' ? 'Tým' : 'Game Master'))}:</strong> ${escapeHtml(item.text || '')} <small>${item.at ? new Date(item.at).toLocaleString('cs-CZ') : ''}</small></li>`).join('') || '<li>Zatím žádné zprávy podpory.</li>';
                 const unread = Math.max(0, (team.support_chat || []).filter(item => item.role === 'player').length - Number(adminChatSeen[team.session_id] || 0));
                 return `<article class="admin-team"><h2>${escapeHtml(team.team_name)} ${unread ? `<span class="unread-badge visible">${unread}</span>` : ''}</h2><ul class="admin-detail-list">${messages}</ul><div class="puzzle-answer"><input id="admin-support-input-${team.session_id}" maxlength="500" value="${escapeHtml(adminChatDrafts[team.session_id] || '')}" placeholder="Zpráva Game Mastera…" oninput="adminChatDrafts['${team.session_id}']=this.value" onkeypress="if(event.key === 'Enter') sendAdminSupport('${team.session_id}')"><button onclick="sendAdminSupport('${team.session_id}')">ODESLAT</button></div></article>`;
-            }).join('') || '<p>Nejsou evidované žádné týmy.</p>';
+            }).join('') || '<p>Právě neběží žádná hra.</p>';
+        }
+
+        function isAdminChatActive(team) {
+            return Boolean(team.started) && !team.game_completed && !team.administratively_ended;
         }
 
         function resetAdminGame(sessionId, puzzleId) {
@@ -1427,7 +1434,12 @@
             const onlineFilter = document.getElementById('admin-online-filter').value;
             const teams = allTeams.filter(team => {
                 const searchable = [team.team_name, team.join_code, ...(team.players || []).map(player => player.name)].join(' ').toLocaleLowerCase('cs-CZ');
-                const activityMatches = activityFilter === 'all' || (activityFilter === 'completed' ? team.game_completed : (!team.game_completed && team.activity_status === activityFilter));
+                const ended = Boolean(team.game_completed || team.administratively_ended);
+                const activityMatches = activityFilter === 'all'
+                    || (activityFilter === 'ongoing' && !ended)
+                    || (activityFilter === 'completed' && team.game_completed)
+                    || (activityFilter === 'ended' && team.administratively_ended && !team.game_completed)
+                    || (!ended && team.activity_status === activityFilter);
                 const isOnline = Number(team.online_count || 0) > 0;
                 const onlineMatches = onlineFilter === 'all' || (onlineFilter === 'online' ? isOnline : !isOnline);
                 return (!search || searchable.includes(search)) && activityMatches && onlineMatches;
@@ -1463,7 +1475,8 @@
                 const percent = total ? Math.round(complete * 100 / total) : 0;
                 const players = (team.players || []).map(player => `<span>${player.connected ? '●' : '○'} ${escapeHtml(player.name)} <button onclick="requestPlayerRecovery('${team.session_id}','${player.id}')">NÁVRATOVÝ QR</button></span>`).join('<br>');
                 const activeNodes = ((team.progress || {}).nodes || []).filter(node => node.status === 'active' || node.status === 'available').map(node => escapeHtml(node.label)).join(', ') || '—';
-                const penalties = (team.admin_penalties || []).map(item => `−${Number(item.amount)}: ${escapeHtml(item.reason)}`).join('<br>') || 'žádné';
+                const adjustments = (team.admin_score_adjustments || []).map(item => `${Number(item.delta) >= 0 ? '+' : ''}${Number(item.delta)}: ${escapeHtml(item.reason)}`).join('<br>');
+                const penalties = adjustments || (team.admin_penalties || []).map(item => `−${Number(item.amount)}: ${escapeHtml(item.reason)}`).join('<br>') || 'žádné';
                 const lastActivity = team.last_activity ? new Date(team.last_activity).toLocaleString('cs-CZ') : 'bez zaznamenané události';
                 const progressNodes = ((team.progress || {}).nodes || []).map(node => {
                     const isCheckpoint = node.kind === 'checkpoint';
@@ -1482,11 +1495,11 @@
                 const sokoban = ((team.game_metrics || {}).sokoban || []).map(game => `Sokoban ${escapeHtml(game.level)}: pozice ${escapeHtml((game.player || []).join(','))}, články na cíli ${(game.boxes || []).filter(box => (game.targets || []).some(target => target[0] === box[0] && target[1] === box[1])).length}/${(game.boxes || []).length}, ${game.moves} kroků, ${game.pushes} zatlačení, ${game.restarts} restartů`).join('<br>') || 'Sokoban dosud neaktivní';
                 const triad = ((team.game_metrics || {}).triad || []).map(game => `Tři v řadě · <strong>${escapeHtml(game.player_name)}</strong> [${game.excluded ? 'vyřazen' : escapeHtml(game.status)}]: ${game.placements} kamenů · směry ${(game.completed_orientations || []).map(escapeHtml).join(', ') || 'žádné'}${game.result ? ` · čas ${formatLineGameTime(game.result.elapsed_seconds)} · +${Number(game.result.score_delta)} b` : ''} <button onclick="manageAdminGamePlayer('${team.session_id}','${game.id}','${game.player_id}','reset')">RESTART HRÁČE</button> <button onclick="manageAdminGamePlayer('${team.session_id}','${game.id}','${game.player_id}','${game.excluded ? 'include' : 'exclude'}')">${game.excluded ? 'VRÁTIT' : 'VYŘADIT'}</button>`).join('<br>') || 'Tři v řadě dosud neaktivní';
                 const archive = ((team.game_metrics || {}).archive || []).map(game => `Jigsaw stroje času: ${game.assembled ? 'sestaven' : 'rozložen'} · ${game.moves} prohození · pořadí ${(game.order || []).map(escapeHtml).join(' → ')}`).join('<br>') || 'Archiv budoucnosti dosud neaktivní';
-                const eventLabels = {'checkpoint_solved':'checkpoint vyřešen', 'checkpoint_found':'checkpoint nalezen', 'admin_action':'zásah GM', 'admin_penalty':'malus GM', 'player.message':'zpráva hráče', 'qr.detected':'načten QR', 'arg.verify':'ověření stopy', 'room.unlock':'odemčení místnosti', 'cipher_tool.unlock':'odemčení pomůcky', 'puzzle.submit':'odpověď na hádanku', 'puzzle.hint':'vyžádána nápověda', 'line_game.move':'tah kalibrace', 'line_game.reset':'restart kalibrace', 'sokoban.command':'povel Sokobanu', 'sokoban.undo':'vrácení tahu Sokobanu', 'sokoban.reset':'restart Sokobanu', 'karel.command':'povel Karlovi', 'karel.reset':'restart Karla', 'triad.place':'tah Tři v řadě', 'triad.reset':'restart Tři v řadě', 'finale.activate':'aktivace finále', 'archive.arrange':'pohyb v archivu'};
+                const eventLabels = {'checkpoint_solved':'checkpoint vyřešen', 'checkpoint_found':'checkpoint nalezen', 'admin_action':'zásah GM', 'admin_penalty':'malus GM', 'admin_score_adjustment':'úprava skóre GM', 'player.message':'zpráva hráče', 'qr.detected':'načten QR', 'arg.verify':'ověření stopy', 'room.unlock':'odemčení místnosti', 'cipher_tool.unlock':'odemčení pomůcky', 'puzzle.submit':'odpověď na hádanku', 'puzzle.hint':'vyžádána nápověda', 'line_game.move':'tah kalibrace', 'line_game.reset':'restart kalibrace', 'sokoban.command':'povel Sokobanu', 'sokoban.undo':'vrácení tahu Sokobanu', 'sokoban.reset':'restart Sokobanu', 'karel.command':'povel Karlovi', 'karel.reset':'restart Karla', 'triad.place':'tah Tři v řadě', 'triad.reset':'restart Tři v řadě', 'finale.activate':'aktivace finále', 'archive.arrange':'pohyb v archivu'};
                 const timeline = (team.timeline || []).map(item => {
                     const details = Object.entries(item.details || {}).map(([key, value]) => `${key}: ${value}`).join(' · ');
                     const label = item.label || details || '—';
-                    const amount = item.type === 'admin_penalty' ? ` −${Number(item.amount)} bodů` : '';
+                    const amount = item.type === 'admin_penalty' ? ` −${Number(item.amount)} bodů` : (item.type === 'admin_score_adjustment' ? ` ${Number(item.delta) >= 0 ? '+' : ''}${Number(item.delta)} bodů` : '');
                     return `<li><strong>${item.at ? new Date(item.at).toLocaleString('cs-CZ') : '—'}</strong> · ${escapeHtml(eventLabels[item.type] || item.type || 'událost')}${amount} · ${escapeHtml(label)}</li>`;
                 }).join('') || '<li>Žádné události</li>';
                 const recentMessages = (team.recent_messages || []).map(item => `<li><strong>${escapeHtml(item.channel || 'general')}</strong> · ${item.role === 'player' ? 'hráč' : 'systém'}: ${escapeHtml(String(item.text || '').slice(0, 180))}</li>`).join('') || '<li>Žádné zprávy</li>';
@@ -1502,16 +1515,17 @@
                     <div class="admin-progress"><span style="width:${percent}%"></span></div>
                     <p>Postup: ${complete}/${total} (${percent} %) · aktuální: ${activeNodes}</p>
                     <p>Poslední aktivita: <strong>${lastActivity}</strong></p>
-                    <details data-detail="${team.session_id}:penalties"><summary>Udělené malusy</summary><p>${penalties}</p></details>
+                    <details data-detail="${team.session_id}:penalties"><summary>Bodové úpravy</summary><p>${penalties}</p></details>
                     <details class="admin-detail" data-detail="${team.session_id}:progress"><summary>Detail postupu a her</summary><ul class="admin-detail-list">${progressNodes}</ul><p><strong>Inventář:</strong> ${inventory}</p><p><strong>Pomůcky:</strong> ${tools}</p><p><strong>Nápovědy:</strong> ${hints}</p><p><strong>Pokusy:</strong> ${attempts}</p><p>${lineGame}</p><p>${karel}</p><p>${triad}</p><p>${sokoban}</p><p>${archive}</p></details>
                     <details class="admin-detail" data-detail="${team.session_id}:timeline"><summary>Časová osa</summary><ul class="admin-detail-list">${timeline}</ul></details>
                     <details class="admin-detail" data-detail="${team.session_id}:messages"><summary>Poslední zprávy</summary><ul class="admin-detail-list">${recentMessages}</ul></details>
                     ${team.administratively_ended && !team.administratively_evaluated ? `<button onclick="evaluateAdminTeam('${team.session_id}')" style="width:100%;margin-top:10px">VYHODNOTIT A ZAPSAT VÝSLEDEK</button>` : ''}
                     <button onclick="startAdminSpectate('${team.session_id}')" style="width:100%;margin-top:10px">ZOBRAZIT HRU JAKO HRÁČ</button>
                     <div class="admin-actions">
-                        <input id="admin-amount-${team.session_id}" type="number" min="1" max="1000" value="30" aria-label="Výše malusu">
-                        <input id="admin-reason-${team.session_id}" maxlength="160" placeholder="Důvod: více hráčů, prozrazování…">
-                        <button onclick="applyAdminPenalty('${team.session_id}')">− BODY</button>
+                        <input id="admin-amount-${team.session_id}" type="number" min="1" max="1000" value="30" aria-label="Výše bodové úpravy">
+                        <input id="admin-reason-${team.session_id}" maxlength="160" placeholder="Důvod úpravy skóre…">
+                        <button onclick="applyAdminScoreAdjustment('${team.session_id}',-1)">− BODY</button>
+                        <button onclick="applyAdminScoreAdjustment('${team.session_id}',1)">+ BODY</button>
                     </div>
                     <button class="admin-delete" onclick="deleteAdminTeam('${team.session_id}')" style="width:100%; margin-top:10px">ODSTRANIT TÝM</button>
                 </article>`;

@@ -352,6 +352,7 @@ def admin_overview(watched_sessions: set[str] | None = None) -> list[dict[str, o
         nodes = list(progress.get("nodes", []))
         flags = state.get("flags", {})
         penalties = list(flags.get("admin_penalties", []))
+        score_adjustments = list(flags.get("admin_score_adjustments", []))
         checkpoint_states = dict(state.get("checkpoint_states", {}))
         timeline: list[dict[str, object]] = []
         for checkpoint_id, checkpoint in checkpoint_states.items():
@@ -360,8 +361,12 @@ def admin_overview(watched_sessions: set[str] | None = None) -> list[dict[str, o
                 timeline.append({"at": found_at, "type": "checkpoint_found", "label": checkpoint_id})
             if checkpoint.get("solved_at"):
                 timeline.append({"at": checkpoint["solved_at"], "type": "checkpoint_solved", "label": checkpoint_id})
+        recorded_adjustments = {(item.get("at"), item.get("reason")) for item in score_adjustments}
+        for adjustment in score_adjustments:
+            timeline.append({"at": adjustment.get("at", ""), "type": "admin_score_adjustment", "label": adjustment.get("reason", ""), "delta": adjustment.get("delta", 0)})
         for penalty in penalties:
-            timeline.append({"at": penalty.get("at", ""), "type": "admin_penalty", "label": penalty.get("reason", ""), "amount": penalty.get("amount", 0)})
+            if (penalty.get("at"), penalty.get("reason")) not in recorded_adjustments:
+                timeline.append({"at": penalty.get("at", ""), "type": "admin_penalty", "label": penalty.get("reason", ""), "amount": penalty.get("amount", 0)})
         for action in flags.get("admin_actions", []):
             timeline.append({"at": action.get("at", ""), "type": "admin_action", "label": action.get("label", "")})
         timeline.extend(list(state.get("event_history", [])))
@@ -390,6 +395,7 @@ def admin_overview(watched_sessions: set[str] | None = None) -> list[dict[str, o
             "total_nodes": len(nodes),
             "progress": progress,
             "admin_penalties": penalties,
+            "admin_score_adjustments": score_adjustments,
             "last_activity": last_activity,
             "inactive_seconds": inactive_seconds,
             "activity_status": activity_status,
@@ -558,7 +564,7 @@ async def websocket_endpoint(websocket: WebSocket):
                 data = json.loads(message_str)
                 msg = Message.from_json(data)
 
-                if msg.type in {"admin.list", "admin.penalty", "admin.delete", "admin.qr_set", "admin.online_mode", "admin.operations", "admin.schedule_settings", "admin.evaluate_team", "admin.checkpoint", "admin.game_reset", "admin.game_player", "admin.player_recovery", "admin.leaderboard_delete", "admin.support_join", "admin.support_leave", "admin.support_message", "admin.spectate_start", "admin.spectate_stop"}:
+                if msg.type in {"admin.list", "admin.penalty", "admin.score_adjustment", "admin.delete", "admin.qr_set", "admin.online_mode", "admin.operations", "admin.schedule_settings", "admin.evaluate_team", "admin.checkpoint", "admin.game_reset", "admin.game_player", "admin.player_recovery", "admin.leaderboard_delete", "admin.support_join", "admin.support_leave", "admin.support_message", "admin.spectate_start", "admin.spectate_stop"}:
                     try:
                         require_admin(msg.payload)
                         authenticated_admin_sockets.add(websocket)
@@ -731,37 +737,54 @@ async def websocket_endpoint(websocket: WebSocket):
                             await send_admin_overview(websocket)
                             continue
 
-                        if msg.type == "admin.penalty":
-                            amount = int(msg.payload.get("amount", 0))
+                        if msg.type in {"admin.penalty", "admin.score_adjustment"}:
+                            delta = (-int(msg.payload.get("amount", 0)) if msg.type == "admin.penalty"
+                                     else int(msg.payload.get("delta", 0)))
                             reason = " ".join(str(msg.payload.get("reason", "")).strip().split())[:160]
-                            if amount < 1 or amount > 1000:
-                                raise ValueError("Malus musí být v rozsahu 1 až 1000 bodů.")
+                            if delta == 0 or abs(delta) > 1000:
+                                raise ValueError("Bodová úprava musí být nenulové celé číslo v rozsahu −1000 až +1000.")
                             if not reason:
-                                raise ValueError("U malusu je povinný důvod.")
+                                raise ValueError("U bodové úpravy je povinný důvod.")
                             machine = ensure_state_machine(target_session)
-                            machine.state.score -= amount
-                            machine.state.flags.setdefault("admin_penalties", []).append({
-                                "amount": amount,
+                            machine.state.score += delta
+                            adjustment = {
+                                "delta": delta,
+                                "amount": abs(delta),
                                 "reason": reason,
                                 "at": datetime.now(UTC).isoformat(),
-                            })
+                            }
+                            machine.state.flags.setdefault("admin_score_adjustments", []).append(adjustment)
+                            if delta < 0:
+                                machine.state.flags.setdefault("admin_penalties", []).append(adjustment)
+                            leaderboard_changed = False
+                            for entry in global_leaderboard:
+                                if str(entry.get("session_id", "")) == target_session:
+                                    entry["score"] = machine.state.score
+                                    leaderboard_changed = True
+                            if leaderboard_changed:
+                                save_leaderboard()
                             save_sessions()
                             await broadcast_session(target_session, [
                                 Message("score.update", {
                                     "score": machine.state.score,
-                                    "delta": -amount,
-                                    "bonus": 0,
-                                    "penalty": amount,
-                                    "reason": "admin_penalty",
+                                    "delta": delta,
+                                    "bonus": max(0, delta),
+                                    "penalty": max(0, -delta),
+                                    "reason": "admin_score_adjustment",
                                     "description": reason,
                                 }),
                                 Message("bot.message", {
-                                    "text": f"Administrátorský malus −{amount} bodů: {reason}",
-                                    "mood": "tense",
+                                    "text": f"Administrátorská úprava {delta:+d} bodů: {reason}",
+                                    "mood": "positive" if delta > 0 else "tense",
                                     "channel": "general",
                                 }),
                                 machine._state_message(),
                             ])
+                            if leaderboard_changed:
+                                update = Message("leaderboard.update", {"entries": leaderboard_entries()})
+                                for active_socket in list(app.state.active_websockets):
+                                    try: await send_message(active_socket, update)
+                                    except Exception: pass
                             await send_admin_overview(websocket)
                             continue
 
