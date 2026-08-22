@@ -374,8 +374,25 @@
         .braille-cell { font-size: 1.8rem; line-height: 1.2; }
         .caesar-strip { font-family: monospace; letter-spacing: .12em; overflow-wrap: anywhere; }
         .cipher-diagram { width: 100%; height: auto; margin: 10px 0 16px; border: 1px solid #166; background: #f4f0df; }
+        .cipher-notebook { display: grid; gap: 14px; }
+        .cipher-notebook-block { padding: 12px; border: 1px solid #166; background: #001719; }
+        .cipher-notebook-block label { display: block; margin-bottom: 7px; color: #8ff; font-size: .82rem; }
+        .cipher-notebook textarea, .cipher-notebook input, .cipher-notebook select { box-sizing: border-box; width: 100%; padding: 9px; border: 1px solid #077; background: #000b0d; color: #fff; font: inherit; }
+        .cipher-notebook textarea { min-height: 72px; resize: vertical; }
+        .cipher-notebook-actions, .cipher-notebook-params { display: flex; flex-wrap: wrap; gap: 9px; align-items: end; margin-top: 9px; }
+        .cipher-notebook-params label { flex: 1 1 150px; margin: 0; }
+        .cipher-unit-list { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; min-height: 35px; }
+        .cipher-unit { min-width: 36px; padding: 7px; border: 1px solid #077; background: #021d20; color: #bff; font-family: monospace; }
+        .cipher-unit.selected { border-color: #fff; background: #0cc; color: #001; box-shadow: 0 0 8px #0cc; }
+        .cipher-result { min-height: 54px; display: flex; align-items: center; justify-content: center; border: 1px dashed #0aa; background: #000; color: #fff; font-size: 1.7rem; text-align: center; }
+        .cipher-result.error { color: #ff8f8f; font-size: .9rem; }
+        .cipher-transcript { min-height: 52px !important; letter-spacing: .08em; }
         .semaphore-grid { grid-template-columns: repeat(auto-fit, minmax(105px, 1fr)); }
         .semaphore-figure { width: 86px; height: 86px; margin: 3px auto; }
+        .semaphore-pick { width: 100%; color: inherit; font: inherit; cursor: pointer; }
+        .semaphore-pick:hover, .semaphore-pick:focus-visible { border-color: #0ff; background: #003338; box-shadow: 0 0 8px #077; }
+        .semaphore-transcript { margin: 14px 0; padding: 12px; border: 1px solid #0aa; background: #001719; }
+        .semaphore-transcript textarea { box-sizing: border-box; width: 100%; min-height: 58px; padding: 9px; border: 1px solid #077; background: #000b0d; color: #fff; font: inherit; letter-spacing: .08em; resize: vertical; }
         .morse-grid { grid-template-columns: repeat(auto-fit, minmax(105px, 1fr)); }
         .morse-pulses { min-height: 28px; display: flex !important; align-items: center; justify-content: center; gap: 7px; }
         .morse-pulse { display: inline-block; height: 10px; background: #6ff; box-shadow: 0 0 7px #0cc; }
@@ -822,6 +839,9 @@
         let pendingLineAnimation = null;
         let pendingTriadEffect = null;
         let selectedCipherTool = null;
+        const cipherNotebook = {ciphertext: '', transcript: '', algorithm: '', unitIndex: 0, result: '', error: '', shift: 3, direction: 'backward', key: ''};
+        let semaphoreTranscript = '';
+        const cipherReferenceTranscripts = {};
         let onlineModeEnabled = false;
         let operationsEnabled = true;
         let runtimeAvailability = null;
@@ -870,8 +890,53 @@
             return `<table class="cipher-reference"><thead><tr><th>${escapeHtml(headers[0])}</th><th>${escapeHtml(headers[1])}</th></tr></thead><tbody>${rows}</tbody></table>`;
         }
 
-        function referenceCards(entries, valueClass = '') {
-            return `<div class="cipher-grid">${Object.entries(entries).map(([key, value]) => `<div class="cipher-card"><strong>${escapeHtml(key)}</strong><span class="${valueClass}">${escapeHtml(value)}</span></div>`).join('')}</div>`;
+        function referenceCards(entries, valueClass = '', transcriptId = '') {
+            return `<div class="cipher-grid">${Object.entries(entries).map(([key, value]) => transcriptId
+                ? `<button class="cipher-card semaphore-pick" onclick="appendCipherReference('${transcriptId}','${escapeHtml(key)}')" aria-label="Připsat znak ${escapeHtml(key)}"><strong>${escapeHtml(key)}</strong><span class="${valueClass}">${escapeHtml(value)}</span></button>`
+                : `<div class="cipher-card"><strong>${escapeHtml(key)}</strong><span class="${valueClass}">${escapeHtml(value)}</span></div>`).join('')}</div>`;
+        }
+
+        function cipherReferenceTranscript(id, hint = 'Kliknutím na znak jej přidáte do přepisu.') {
+            return `<div class="semaphore-transcript"><label for="cipher-transcript-${id}"><strong>RUČNÍ PŘEPIS</strong></label><p>${escapeHtml(hint)}</p><textarea id="cipher-transcript-${id}" oninput="cipherReferenceTranscripts['${id}']=this.value" placeholder="Klikněte na rozluštěné znaky…">${escapeHtml(cipherReferenceTranscripts[id] || '')}</textarea><div class="cipher-notebook-actions"><button onclick="appendCipherReference('${id}',' ')">MEZERA</button><button onclick="removeCipherReference('${id}')">⌫ POSLEDNÍ ZNAK</button><button onclick="clearCipherReference('${id}')">VYMAZAT</button><button onclick="copyCipherReference('${id}')">KOPÍROVAT</button></div></div>`;
+        }
+
+        function cipherAlphabetPad(id) {
+            return `<div class="cipher-grid">${Array.from({length: 26}, (_, index) => String.fromCharCode(65 + index)).map(letter => `<button class="cipher-card semaphore-pick" onclick="appendCipherReference('${id}','${letter}')"><strong>${letter}</strong></button>`).join('')}</div>`;
+        }
+
+        function cipherReferenceElement(id) { return document.getElementById(`cipher-transcript-${id}`); }
+        function updateCipherReference(id, value) {
+            cipherReferenceTranscripts[id] = value;
+            const transcript = cipherReferenceElement(id);
+            if (transcript) { transcript.value = value; transcript.focus(); transcript.setSelectionRange(value.length, value.length); }
+        }
+        function appendCipherReference(id, value) {
+            const transcript = cipherReferenceElement(id);
+            updateCipherReference(id, `${transcript ? transcript.value : cipherReferenceTranscripts[id] || ''}${value}`);
+        }
+        function removeCipherReference(id) {
+            const transcript = cipherReferenceElement(id);
+            updateCipherReference(id, Array.from(transcript ? transcript.value : cipherReferenceTranscripts[id] || '').slice(0, -1).join(''));
+        }
+        function clearCipherReference(id) {
+            const transcript = cipherReferenceElement(id);
+            const value = transcript ? transcript.value : cipherReferenceTranscripts[id] || '';
+            if (value && window.confirm('Vymazat celý ruční přepis?')) updateCipherReference(id, '');
+        }
+        async function copyCipherReference(id) {
+            const transcript = cipherReferenceElement(id);
+            const value = transcript ? transcript.value : cipherReferenceTranscripts[id] || '';
+            cipherReferenceTranscripts[id] = value;
+            if (!value) return;
+            try {
+                await navigator.clipboard.writeText(value);
+                showNotification('Ruční přepis byl zkopírován.', 'success');
+            } catch (error) {
+                transcript.focus(); transcript.select();
+                const copied = document.execCommand('copy');
+                transcript.setSelectionRange(transcript.value.length, transcript.value.length);
+                showNotification(copied ? 'Ruční přepis byl zkopírován.' : 'Kopírování se nezdařilo.', copied ? 'success' : 'error');
+            }
         }
 
         function pigpenReferenceDiagram() {
@@ -911,7 +976,7 @@
         }
 
         function pigpenReferenceCards() {
-            return `<div class="cipher-grid pigpen-grid">${Array.from({length:26}, (_, index) => String.fromCharCode(65 + index)).map(letter => `<div class="cipher-card"><strong>${letter}</strong>${pigpenGlyph(letter)}</div>`).join('')}</div>`;
+            return `<div class="cipher-grid pigpen-grid">${Array.from({length:26}, (_, index) => String.fromCharCode(65 + index)).map(letter => `<button class="cipher-card semaphore-pick" onclick="appendCipherReference('pigpen','${letter}')" aria-label="Připsat písmeno ${letter}"><strong>${letter}</strong>${pigpenGlyph(letter)}</button>`).join('')}</div>`;
         }
 
         function semaphoreFigure(position, letter) {
@@ -928,7 +993,56 @@
         }
 
         function semaphoreReference() {
-            return `<div class="cipher-grid semaphore-grid">${Object.entries(SEMAPHORE).map(([letter, position]) => `<div class="cipher-card"><strong>${letter}</strong>${semaphoreFigure(position, letter)}</div>`).join('')}</div>`;
+            const cards = Object.entries(SEMAPHORE).map(([letter, position]) => `<button class="cipher-card semaphore-pick" onclick="appendSemaphoreLetter('${letter}')" aria-label="Připsat písmeno ${letter}"><strong>${letter}</strong>${semaphoreFigure(position, letter)}</button>`).join('');
+            return `<div class="semaphore-transcript"><label for="semaphore-transcript"><strong>RUČNÍ PŘEPIS</strong></label><p>Kliknutím na obrázek přidáte odpovídající písmeno.</p><textarea id="semaphore-transcript" oninput="semaphoreTranscript=this.value" placeholder="Klikněte na praporové znaky…">${escapeHtml(semaphoreTranscript)}</textarea><div class="cipher-notebook-actions"><button onclick="appendSemaphoreLetter(' ')">MEZERA</button><button onclick="removeSemaphoreLetter()">⌫ POSLEDNÍ ZNAK</button><button onclick="clearSemaphoreTranscript()">VYMAZAT</button><button onclick="copySemaphoreTranscript()">KOPÍROVAT</button></div></div><div class="cipher-grid semaphore-grid">${cards}</div>`;
+        }
+
+        function semaphoreTranscriptElement() {
+            return document.getElementById('semaphore-transcript');
+        }
+
+        function updateSemaphoreTranscript(value) {
+            semaphoreTranscript = value;
+            const transcript = semaphoreTranscriptElement();
+            if (transcript) {
+                transcript.value = value;
+                transcript.focus();
+                transcript.setSelectionRange(value.length, value.length);
+            }
+        }
+
+        function appendSemaphoreLetter(letter) {
+            const transcript = semaphoreTranscriptElement();
+            updateSemaphoreTranscript(`${transcript ? transcript.value : semaphoreTranscript}${letter}`);
+        }
+
+        function removeSemaphoreLetter() {
+            const transcript = semaphoreTranscriptElement();
+            const value = transcript ? transcript.value : semaphoreTranscript;
+            updateSemaphoreTranscript(Array.from(value).slice(0, -1).join(''));
+        }
+
+        function clearSemaphoreTranscript() {
+            const transcript = semaphoreTranscriptElement();
+            const value = transcript ? transcript.value : semaphoreTranscript;
+            if (!value || !window.confirm('Vymazat celý přepis praporové abecedy?')) return;
+            updateSemaphoreTranscript('');
+        }
+
+        async function copySemaphoreTranscript() {
+            const transcript = semaphoreTranscriptElement();
+            semaphoreTranscript = transcript ? transcript.value : semaphoreTranscript;
+            if (!semaphoreTranscript) return;
+            try {
+                await navigator.clipboard.writeText(semaphoreTranscript);
+                showNotification('Přepis praporové abecedy byl zkopírován.', 'success');
+            } catch (error) {
+                transcript.focus();
+                transcript.select();
+                const copied = document.execCommand('copy');
+                transcript.setSelectionRange(transcript.value.length, transcript.value.length);
+                showNotification(copied ? 'Přepis praporové abecedy byl zkopírován.' : 'Kopírování se nezdařilo.', copied ? 'success' : 'error');
+            }
         }
 
         function morsePulses(code, label) {
@@ -937,7 +1051,7 @@
         }
 
         function morseReference() {
-            return `<div class="cipher-grid morse-grid">${Object.entries(MORSE).map(([character, code]) => `<div class="cipher-card"><strong>${character}</strong>${morsePulses(code, character)}</div>`).join('')}</div>`;
+            return `<div class="cipher-grid morse-grid">${Object.entries(MORSE).map(([character, code]) => `<button class="cipher-card semaphore-pick" onclick="appendCipherReference('morse','${character}')" aria-label="Připsat znak ${character}"><strong>${character}</strong>${morsePulses(code, character)}</button>`).join('')}</div>`;
         }
 
         function vigenereReference() {
@@ -949,11 +1063,11 @@
 
         function toolReference(toolId) {
             if (toolId === 'morse') {
-                return `<h3>Morseova abeceda</h3><p><strong>Princip:</strong> kruhový pulz je tečka, dlouhý světelný segment je čárka. Čti zleva doprava; větší mezera odděluje písmena a lomítko slova.</p><p class="cipher-note"><strong>Neutrální příklad:</strong> A ${morsePulses('.-', 'A')} · H ${morsePulses('....', 'H')}</p>${morseReference()}`;
+                return `<h3>Morseova abeceda</h3><p><strong>Princip:</strong> kruhový pulz je tečka, dlouhý světelný segment je čárka. Čti zleva doprava; větší mezera odděluje písmena a lomítko slova.</p><p class="cipher-note"><strong>Neutrální příklad:</strong> A ${morsePulses('.-', 'A')} · H ${morsePulses('....', 'H')}</p>${cipherReferenceTranscript('morse')}${morseReference()}`;
             }
             if (toolId === 'a1z26') {
                 const alphabet = Object.fromEntries(Array.from({length: 26}, (_, i) => [String.fromCharCode(65 + i), i + 1]));
-                return `<h3>A1Z26</h3><p><strong>Princip:</strong> A=1, B=2 … Z=26. Čísla čti v pořadí zápisu; oddělovače značí hranice písmen.</p><p class="cipher-note"><strong>Příklad:</strong> <code>13-1-16-1</code> = MAPA.</p>${referenceTable(alphabet)}<h3>Římské číslice</h3><p>Menší znak před větším se odečítá, jinak se hodnoty sčítají. <strong>Příklad:</strong> XIV = 10 + (5 − 1) = 14.</p>${referenceTable({I:1,V:5,X:10,L:50,C:100,D:500,M:1000}, ['ZNAK','HODNOTA'])}`;
+                return `<h3>A1Z26</h3><p><strong>Princip:</strong> A=1, B=2 … Z=26. Čísla čti v pořadí zápisu; oddělovače značí hranice písmen.</p><p class="cipher-note"><strong>Příklad:</strong> <code>13-1-16-1</code> = MAPA.</p>${cipherReferenceTranscript('a1z26')}${cipherAlphabetPad('a1z26')}${referenceTable(alphabet)}<h3>Římské číslice</h3><p>Menší znak před větším se odečítá, jinak se hodnoty sčítají. <strong>Příklad:</strong> XIV = 10 + (5 − 1) = 14.</p>${referenceTable({I:1,V:5,X:10,L:50,C:100,D:500,M:1000}, ['ZNAK','HODNOTA'])}`;
             }
             if (toolId === 'binary_ascii') {
                 const rows = Array.from({length: 26}, (_, i) => {
@@ -961,29 +1075,181 @@
                     const sevenBit = (65 + i).toString(2).padStart(7, '0');
                     return `<tr><td>${letter}</td><td>${65 + i}</td><td>${sevenBit}</td><td>0${sevenBit}</td></tr>`;
                 }).join('');
-                return `<h3>Binární kód a ASCII</h3><p><strong>Směr:</strong> nejvyšší řád je vlevo. Pro 7 bitů mají pozice hodnoty <code>64 32 16 8 4 2 1</code>; sečti hodnoty nad jedničkami.</p><p class="cipher-note"><strong>Příklad:</strong> <code>1000001</code> = 64 + 1 = 65 = A. Osmibitový zápis je <code>01000001</code>.</p><table class="cipher-reference"><thead><tr><th>PÍSMENO</th><th>DEC</th><th>7BIT ASCII</th><th>8BIT ASCII</th></tr></thead><tbody>${rows}</tbody></table>`;
+                return `<h3>Binární kód a ASCII</h3><p><strong>Směr:</strong> nejvyšší řád je vlevo. Pro 7 bitů mají pozice hodnoty <code>64 32 16 8 4 2 1</code>; sečti hodnoty nad jedničkami.</p><p class="cipher-note"><strong>Příklad:</strong> <code>1000001</code> = 64 + 1 = 65 = A. Osmibitový zápis je <code>01000001</code>.</p>${cipherReferenceTranscript('binary_ascii')}${cipherAlphabetPad('binary_ascii')}<table class="cipher-reference"><thead><tr><th>PÍSMENO</th><th>DEC</th><th>7BIT ASCII</th><th>8BIT ASCII</th></tr></thead><tbody>${rows}</tbody></table>`;
             }
             if (toolId === 'pigpen') {
-                return `<h3>Malý polský kříž</h3><p>Písmeno nahraď čarami, které ho obklopují v příslušné mřížce nebo kříži. Druhá mřížka a druhý kříž používají uvnitř znaku tečku.</p>${pigpenReferenceDiagram()}<p class="cipher-note">Tabulku čti jako čtyři samostatné klíče: A–I, J–R, S–V a W–Z. Orientaci výsledného tvaru zachovej.</p><h3>Grafický přehled znaků</h3>${pigpenReferenceCards()}
+                return `<h3>Malý polský kříž</h3><p>Písmeno nahraď čarami, které ho obklopují v příslušné mřížce nebo kříži. Druhá mřížka a druhý kříž používají uvnitř znaku tečku.</p>${pigpenReferenceDiagram()}<p class="cipher-note">Tabulku čti jako čtyři samostatné klíče: A–I, J–R, S–V a W–Z. Orientaci výsledného tvaru zachovej.</p>${cipherReferenceTranscript('pigpen')}<h3>Grafický přehled znaků</h3>${pigpenReferenceCards()}
                     <h3>Velký polský kříž</h3><p>Všechna písmena leží v jedné velké křížové tabulce. Obrys určuje rameno/pole kříže a <strong>poloha tečky uvnitř obrysu</strong> vybírá konkrétní písmeno z dané trojice. Nezaměňuj polohu tečky za počet teček.</p><p class="cipher-note">Rozložení velkého kříže není mezi sadami jednotné. Vždy použij tabulku přiloženou ke konkrétní šifře; referenční princip sám neurčuje pořadí písmen.</p>`;
             }
             if (toolId === 'semaphore') {
                 return `<h3>Praporová / semaforová abeceda</h3><p>Každé písmeno určuje dvojice paží. Modrá je levá a červená pravá paže signalisty; obrázky jsou z pohledu pozorovatele stojícího proti němu.</p>${semaphoreReference()}`;
             }
             if (toolId === 'braille') {
-                return `<h3>Braillovo písmo</h3><p>Každý znak je buňka 2×3 bodů. Body se číslují shora dolů: levý sloupec 1–2–3, pravý 4–5–6. Buňky čti zleva doprava.</p><p class="cipher-note"><strong>Příklad:</strong> ⠍ ⠁ ⠏ ⠁ = MAPA. Českou diakritiku v jednoduchých šifrách obvykle nahraď základním písmenem, pokud zadání neurčí jinak.</p>${referenceCards(BRAILLE, 'braille-cell')}`;
+                return `<h3>Braillovo písmo</h3><p>Každý znak je buňka 2×3 bodů. Body se číslují shora dolů: levý sloupec 1–2–3, pravý 4–5–6. Buňky čti zleva doprava.</p><p class="cipher-note"><strong>Příklad:</strong> ⠍ ⠁ ⠏ ⠁ = MAPA. Českou diakritiku v jednoduchých šifrách obvykle nahraď základním písmenem, pokud zadání neurčí jinak.</p>${cipherReferenceTranscript('braille')}${referenceCards(BRAILLE, 'braille-cell', 'braille')}`;
             }
             if (toolId === 'signal_flags') {
-                return `<h3>Námořní vlajková abeceda</h3><p>Každé písmeno má vlastní mezinárodní signální vlajku. Vlajky na laně čti <strong>shora dolů</strong>. Jde o jiný systém než semafor, kde se mění poloha dvou praporků v rukou.</p><p class="cipher-note"><strong>Příklad principu:</strong> čtyři vlajky M–A–P–A tvoří slovo MAPA. Popisy barev slouží jako nouzová textová alternativa k obrazové sadě.</p>${referenceCards(SIGNAL_FLAGS)}`;
+                return `<h3>Námořní vlajková abeceda</h3><p>Každé písmeno má vlastní mezinárodní signální vlajku. Vlajky na laně čti <strong>shora dolů</strong>. Jde o jiný systém než semafor, kde se mění poloha dvou praporků v rukou.</p><p class="cipher-note"><strong>Příklad principu:</strong> čtyři vlajky M–A–P–A tvoří slovo MAPA. Popisy barev slouží jako nouzová textová alternativa k obrazové sadě.</p>${cipherReferenceTranscript('signal_flags')}${referenceCards(SIGNAL_FLAGS, '', 'signal_flags')}`;
             }
             if (toolId === 'classical') {
                 const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
                 const shifts = Array.from({length: 26}, (_, shift) => `<tr><td>${shift}</td><td class="caesar-strip">${alphabet.slice(shift)}${alphabet.slice(0, shift)}</td></tr>`).join('');
-                return `<h3>Caesarův posun</h3><p>Každé písmeno nahraď písmenem o stejný počet míst dál. Při dešifrování postupuj opačným směrem. Klíč musí určit směr i velikost posunu.</p><p class="cipher-note"><strong>Příklad:</strong> při posunu +1 platí A→B, B→C; MAPA→NBQB.</p><table class="cipher-reference"><thead><tr><th>POSUN</th><th>POSUNUTÁ ABECEDA POD A–Z</th></tr></thead><tbody>${shifts}</tbody></table>
+                return `<h3>Caesarův posun</h3><p>Každé písmeno nahraď písmenem o stejný počet míst dál. Při dešifrování postupuj opačným směrem. Klíč musí určit směr i velikost posunu.</p><p class="cipher-note"><strong>Příklad:</strong> při posunu +1 platí A→B, B→C; MAPA→NBQB.</p>${cipherReferenceTranscript('classical', 'Kliknutím na písmeno v abecedě jej přidáte do společného přepisu klasických šifer.')}${cipherAlphabetPad('classical')}<table class="cipher-reference"><thead><tr><th>POSUN</th><th>POSUNUTÁ ABECEDA POD A–Z</th></tr></thead><tbody>${shifts}</tbody></table>
                     <h3>Vigenèrova tabulka</h3><p>Klíč opakuj nad šifrovým textem. Při dešifrování vyber řádek písmene klíče, najdi v něm šifrové písmeno a z horního záhlaví přečti původní písmeno.</p>${vigenereReference()}
                     <h3>Šifrovací čtverec 5×5</h3><p>Písmeno určuje dvojice souřadnic: nejprve řádek, potom sloupec. I/J sdílejí pole, pokud zadání neurčí jinak.</p><table class="cipher-reference"><tbody><tr><th></th><th>1</th><th>2</th><th>3</th><th>4</th><th>5</th></tr><tr><th>1</th><td>A</td><td>B</td><td>C</td><td>D</td><td>E</td></tr><tr><th>2</th><td>F</td><td>G</td><td>H</td><td>I/J</td><td>K</td></tr><tr><th>3</th><td>L</td><td>M</td><td>N</td><td>O</td><td>P</td></tr><tr><th>4</th><td>Q</td><td>R</td><td>S</td><td>T</td><td>U</td></tr><tr><th>5</th><td>V</td><td>W</td><td>X</td><td>Y</td><td>Z</td></tr></tbody></table><p class="cipher-note"><strong>Příklad:</strong> 32 = M, 11 = A, 35 = P, 11 = A.</p>`;
             }
             return '<p>Pro tuto pomůcku zatím není dostupný referenční list.</p>';
+        }
+
+        function cipherNotebookAlgorithms() {
+            const unlocked = id => cipherToolsState.some(tool => tool.id === id && tool.status === 'unlocked');
+            const algorithms = [];
+            if (unlocked('morse')) algorithms.push(['morse', 'Morseova abeceda']);
+            if (unlocked('a1z26')) algorithms.push(['a1z26', 'A1Z26']);
+            if (unlocked('binary_ascii')) algorithms.push(['binary', 'Binární ASCII']);
+            if (unlocked('braille')) algorithms.push(['braille', 'Braillovo písmo']);
+            if (unlocked('classical')) algorithms.push(['caesar', 'Caesarův posun'], ['vigenere', 'Vigenèrova šifra'], ['polybius', 'Čtverec 5×5']);
+            return algorithms;
+        }
+
+        function cipherNotebookUnits() {
+            const text = cipherNotebook.ciphertext.trim();
+            if (!text) return [];
+            if (['caesar', 'vigenere', 'braille'].includes(cipherNotebook.algorithm)) return Array.from(text).filter(char => !/\s/.test(char));
+            return text.split(/[\s,;|/]+/).filter(Boolean);
+        }
+
+        function cipherNotebookParamsHtml() {
+            if (cipherNotebook.algorithm === 'caesar') {
+                return `<label>POSUN<input type="number" min="0" max="25" value="${cipherNotebook.shift}" onchange="setCipherNotebookParam('shift', this.value)"></label><label>SMĚR<select onchange="setCipherNotebookParam('direction', this.value)"><option value="backward" ${cipherNotebook.direction === 'backward' ? 'selected' : ''}>zpět (běžné dešifrování)</option><option value="forward" ${cipherNotebook.direction === 'forward' ? 'selected' : ''}>vpřed</option></select></label>`;
+            }
+            if (cipherNotebook.algorithm === 'vigenere') {
+                return `<label>KLÍČ<input value="${escapeHtml(cipherNotebook.key)}" maxlength="40" autocomplete="off" oninput="cipherNotebook.key=this.value; clearCipherNotebookResult()" placeholder="např. ELARA"></label>`;
+            }
+            return '<span class="cipher-note">Tento algoritmus nepotřebuje další parametr.</span>';
+        }
+
+        function cipherNotebookHtml() {
+            const algorithms = cipherNotebookAlgorithms();
+            if (!algorithms.length) return '<h3>Dešifrovací zápisník</h3><p>Nejprve je potřeba odemknout alespoň jednu šifrovací pomůcku.</p>';
+            if (!algorithms.some(([id]) => id === cipherNotebook.algorithm)) cipherNotebook.algorithm = algorithms[0][0];
+            const units = cipherNotebookUnits();
+            cipherNotebook.unitIndex = Math.min(cipherNotebook.unitIndex, Math.max(0, units.length - 1));
+            const unitButtons = units.map((unit, index) => `<button class="cipher-unit ${index === cipherNotebook.unitIndex ? 'selected' : ''}" onclick="selectCipherNotebookUnit(${index})" aria-label="Jednotka ${index + 1}: ${escapeHtml(unit)}">${escapeHtml(unit)}</button>`).join('');
+            const options = algorithms.map(([id, label]) => `<option value="${id}" ${id === cipherNotebook.algorithm ? 'selected' : ''}>${label}</option>`).join('');
+            const resultClass = cipherNotebook.error ? ' error' : '';
+            const result = cipherNotebook.error || cipherNotebook.result || '—';
+            return `<div class="cipher-notebook"><div><h3>Dešifrovací zápisník</h3><p>Pomůcka zpracuje vždy jen jednu vybranou jednotku. Rozluštěný znak si ručně opište do posledního pole.</p></div>
+                <div class="cipher-notebook-block"><label for="cipher-notebook-source">1. ŠIFROVÝ TEXT</label><textarea id="cipher-notebook-source" placeholder="Vložte celou šifru…">${escapeHtml(cipherNotebook.ciphertext)}</textarea><div class="cipher-notebook-actions"><button onclick="loadCipherNotebookText()">ROZLOŽIT NA JEDNOTKY</button><span>${units.length ? `${units.length} jednotek` : 'Zatím bez jednotek'}</span></div><div class="cipher-unit-list">${unitButtons}</div></div>
+                <div class="cipher-notebook-block"><label for="cipher-notebook-algorithm">2. ALGORITMUS</label><select id="cipher-notebook-algorithm" onchange="changeCipherNotebookAlgorithm(this.value)">${options}</select><div class="cipher-notebook-params">${cipherNotebookParamsHtml()}</div></div>
+                <div class="cipher-notebook-block"><label>3. VYBRANÁ JEDNOTKA</label><p><strong>${units.length ? escapeHtml(units[cipherNotebook.unitIndex]) : '—'}</strong> · ${units.length ? `${cipherNotebook.unitIndex + 1} / ${units.length}` : '0 / 0'}</p><div class="cipher-notebook-actions"><button onclick="moveCipherNotebookUnit(-1)" ${cipherNotebook.unitIndex <= 0 ? 'disabled' : ''}>← PŘEDCHOZÍ</button><button onclick="decryptCipherNotebookUnit()" ${units.length ? '' : 'disabled'}>DEŠIFROVAT JEDNOTKU</button><button onclick="moveCipherNotebookUnit(1)" ${cipherNotebook.unitIndex >= units.length - 1 ? 'disabled' : ''}>DALŠÍ →</button></div></div>
+                <div class="cipher-notebook-block"><label>4. VÝSLEDEK JEDNÉ JEDNOTKY</label><div id="cipher-notebook-result" class="cipher-result${resultClass}" aria-live="polite">${escapeHtml(result)}</div></div>
+                <div class="cipher-notebook-block"><label for="cipher-notebook-transcript">5. MŮJ RUČNÍ PŘEPIS</label><textarea id="cipher-notebook-transcript" class="cipher-transcript" oninput="cipherNotebook.transcript=this.value" placeholder="Výsledek si zapisujte sem…">${escapeHtml(cipherNotebook.transcript)}</textarea><div class="cipher-notebook-actions"><button onclick="appendCipherNotebookResult()" ${cipherNotebook.result && !cipherNotebook.error ? '' : 'disabled'}>PŘIPSAT VÝSLEDEK</button><button onclick="clearCipherNotebookTranscript()">VYMAZAT PŘEPIS</button><button onclick="copyCipherNotebookTranscript()">KOPÍROVAT</button></div><p class="cipher-note">Výsledek se připíše pouze po stisknutí tlačítka. Přepis můžete kdykoli ručně upravit.</p></div></div>`;
+        }
+
+        function loadCipherNotebookText() {
+            cipherNotebook.ciphertext = document.getElementById('cipher-notebook-source').value;
+            cipherNotebook.unitIndex = 0;
+            cipherNotebook.result = '';
+            cipherNotebook.error = '';
+            renderCipherTools();
+        }
+
+        function changeCipherNotebookAlgorithm(value) {
+            cipherNotebook.algorithm = value;
+            cipherNotebook.unitIndex = 0;
+            cipherNotebook.result = '';
+            cipherNotebook.error = '';
+            renderCipherTools();
+        }
+
+        function setCipherNotebookParam(name, value) {
+            cipherNotebook[name] = name === 'shift' ? Math.max(0, Math.min(25, Number(value) || 0)) : value;
+            clearCipherNotebookResult();
+        }
+
+        function clearCipherNotebookResult() {
+            cipherNotebook.result = '';
+            cipherNotebook.error = '';
+            const result = document.getElementById('cipher-notebook-result');
+            if (result) { result.textContent = '—'; result.classList.remove('error'); }
+        }
+
+        function selectCipherNotebookUnit(index) { cipherNotebook.unitIndex = index; clearCipherNotebookResult(); renderCipherTools(); }
+        function moveCipherNotebookUnit(offset) { selectCipherNotebookUnit(cipherNotebook.unitIndex + offset); }
+
+        function appendCipherNotebookResult() {
+            if (!cipherNotebook.result || cipherNotebook.error) return;
+            const transcript = document.getElementById('cipher-notebook-transcript');
+            cipherNotebook.transcript = `${transcript.value}${cipherNotebook.result}`;
+            renderCipherTools();
+        }
+
+        function clearCipherNotebookTranscript() {
+            if (!cipherNotebook.transcript || !window.confirm('Vymazat celý ruční přepis?')) return;
+            cipherNotebook.transcript = '';
+            renderCipherTools();
+        }
+
+        async function copyCipherNotebookTranscript() {
+            const transcript = document.getElementById('cipher-notebook-transcript');
+            cipherNotebook.transcript = transcript.value;
+            if (!cipherNotebook.transcript) return;
+            try {
+                await navigator.clipboard.writeText(cipherNotebook.transcript);
+                showNotification('Ruční přepis byl zkopírován do schránky.', 'success');
+            } catch (error) {
+                transcript.focus();
+                transcript.select();
+                const copied = document.execCommand('copy');
+                transcript.setSelectionRange(transcript.value.length, transcript.value.length);
+                showNotification(copied ? 'Ruční přepis byl zkopírován do schránky.' : 'Kopírování se nezdařilo.', copied ? 'success' : 'error');
+            }
+        }
+
+        function decryptCipherNotebookUnit() {
+            const units = cipherNotebookUnits();
+            const raw = units[cipherNotebook.unitIndex] || '';
+            let result = '';
+            let error = '';
+            const normalized = raw.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase();
+            if (cipherNotebook.algorithm === 'morse') {
+                result = Object.keys(MORSE).find(key => MORSE[key] === raw) || '';
+                if (!result) error = 'Tato kombinace teček a čárek není v tabulce.';
+            } else if (cipherNotebook.algorithm === 'a1z26') {
+                const number = Number(raw);
+                if (Number.isInteger(number) && number >= 1 && number <= 26) result = String.fromCharCode(64 + number);
+                else error = 'A1Z26 očekává celé číslo od 1 do 26.';
+            } else if (cipherNotebook.algorithm === 'binary') {
+                if (!/^[01]{7,8}$/.test(raw)) error = 'ASCII jednotka musí mít 7 nebo 8 bitů.';
+                else result = String.fromCharCode(parseInt(raw, 2));
+            } else if (cipherNotebook.algorithm === 'braille') {
+                result = Object.keys(BRAILLE).find(key => BRAILLE[key] === raw) || '';
+                if (!result) error = 'Vybraná jednotka není podporovaná Braillova buňka.';
+            } else if (cipherNotebook.algorithm === 'caesar') {
+                if (!/^[A-Z]$/.test(normalized)) error = 'Caesarova šifra očekává jedno písmeno.';
+                else {
+                    const direction = cipherNotebook.direction === 'forward' ? 1 : -1;
+                    result = String.fromCharCode(65 + (normalized.charCodeAt(0) - 65 + direction * cipherNotebook.shift + 260) % 26);
+                }
+            } else if (cipherNotebook.algorithm === 'vigenere') {
+                const key = cipherNotebook.key.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase().replace(/[^A-Z]/g, '');
+                if (!key) error = 'Zadejte klíč obsahující alespoň jedno písmeno.';
+                else if (!/^[A-Z]$/.test(normalized)) error = 'Vigenèrova šifra očekává jedno písmeno.';
+                else {
+                    const keyChar = key[cipherNotebook.unitIndex % key.length];
+                    result = String.fromCharCode(65 + (normalized.charCodeAt(0) - keyChar.charCodeAt(0) + 26) % 26);
+                }
+            } else if (cipherNotebook.algorithm === 'polybius') {
+                if (!/^[1-5]{2}$/.test(raw)) error = 'Souřadnice musí mít dvě číslice od 1 do 5.';
+                else {
+                    const alphabet = 'ABCDEFGHIKLMNOPQRSTUVWXYZ';
+                    result = alphabet[(Number(raw[0]) - 1) * 5 + Number(raw[1]) - 1];
+                    if (result === 'I') result = 'I/J';
+                }
+            }
+            cipherNotebook.result = result;
+            cipherNotebook.error = error;
+            renderCipherTools();
         }
 
         function toggleCipherPanel(force) {
@@ -1000,10 +1266,15 @@
                 list.innerHTML = '<p>Čekám na stav terminálu…</p>';
                 return;
             }
-            if (!selectedCipherTool || !cipherToolsState.some(tool => tool.id === selectedCipherTool)) {
-                selectedCipherTool = (cipherToolsState.find(tool => tool.status === 'unlocked') || cipherToolsState[0]).id;
+            if (!selectedCipherTool || (selectedCipherTool !== 'notebook' && !cipherToolsState.some(tool => tool.id === selectedCipherTool))) {
+                selectedCipherTool = 'notebook';
             }
             list.innerHTML = '';
+            const notebookButton = document.createElement('button');
+            notebookButton.className = `cipher-tool-button ${selectedCipherTool === 'notebook' ? 'active' : ''}`;
+            notebookButton.textContent = '✎ Dešifrovací zápisník';
+            notebookButton.onclick = () => { selectedCipherTool = 'notebook'; renderCipherTools(); };
+            list.appendChild(notebookButton);
             cipherToolsState.forEach(tool => {
                 const button = document.createElement('button');
                 button.className = `cipher-tool-button ${tool.id === selectedCipherTool ? 'active' : ''} ${tool.status !== 'unlocked' ? 'locked' : ''}`;
@@ -1012,8 +1283,12 @@
                 list.appendChild(button);
             });
 
-            const selected = cipherToolsState.find(tool => tool.id === selectedCipherTool);
             const content = document.getElementById('cipher-tool-content');
+            if (selectedCipherTool === 'notebook') {
+                content.innerHTML = cipherNotebookHtml();
+                return;
+            }
+            const selected = cipherToolsState.find(tool => tool.id === selectedCipherTool);
             if (selected.status === 'unlocked') {
                 content.innerHTML = toolReference(selected.id);
             } else {
