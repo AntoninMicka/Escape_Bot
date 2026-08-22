@@ -1271,7 +1271,11 @@
             const seconds = next ? Math.max(0, Math.ceil((next - new Date()) / 1000)) : 0;
             const countdown = seconds > 0 ? ` · další start za ${Math.floor(seconds/60)}:${String(seconds%60).padStart(2,'0')}` : '';
             box.innerHTML = `<strong>${runtimeAvailability.start_allowed ? 'START JE DOSTUPNÝ' : 'START NYNÍ NENÍ MOŽNÝ'}</strong><br>${escapeHtml(runtimeAvailability.reason || `Aktivní týmy: ${runtimeAvailability.active_teams}/${runtimeAvailability.max_active_teams}`)}${countdown}<br>Provoz ${new Date(runtimeAvailability.opening_at).toLocaleTimeString('cs-CZ',{hour:'2-digit',minute:'2-digit'})}–${new Date(runtimeAvailability.closing_at).toLocaleTimeString('cs-CZ',{hour:'2-digit',minute:'2-digit'})} · hra ${runtimeAvailability.game_duration_minutes} min · nejzazší start ${new Date(runtimeAvailability.latest_start_at).toLocaleTimeString('cs-CZ',{hour:'2-digit',minute:'2-digit'})}`;
-            document.querySelectorAll('#lobby-modes button').forEach((button,index) => { if (index === 0) button.disabled = !runtimeAvailability.start_allowed; });
+            const solo = document.querySelector('#lobby-modes button');
+            if (solo) {
+                solo.classList.toggle('danger', !runtimeAvailability.start_allowed);
+                solo.title = runtimeAvailability.start_allowed ? 'Spustit sólo hru' : (runtimeAvailability.reason || 'Server nyní start nepovoluje. Kliknutím ověříte aktuální stav.');
+            }
             const start = document.getElementById('lobby-start-button'); if (start) start.disabled = !runtimeAvailability.start_allowed;
         }
         setInterval(renderLobbyAvailability, 1000);

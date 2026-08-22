@@ -4,7 +4,8 @@
   "max_active_teams": 1,
   "start_interval_minutes": 15,
   "game_duration_minutes": 165,
+  "deadline_penalty": 100,
   "opening_time": "08:00",
-  "closing_time": "20:00",
+  "closing_time": "23:00",
   "timezone": "Europe/Prague"
 }

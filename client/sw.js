@@ -1,4 +1,4 @@
-const CACHE_NAME = 'escape-bot-v59';
+const CACHE_NAME = 'escape-bot-v60';
 const ASSETS_TO_CACHE = [
     './',
     './index.html',
@@ -35,6 +35,21 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('fetch', (event) => {
     // Vyhneme se cachování WebSocket spojení a backendových API (pokud nějaké budou)
     if (event.request.url.includes('/ws') || event.request.method !== 'GET') return;
+
+    // HTML musí být po nasazení kompatibilní s aktuálním backendem. Při
+    // navigaci proto preferujeme síť a cache používáme pouze při výpadku.
+    if (event.request.mode === 'navigate' || new URL(event.request.url).pathname.endsWith('/index.html')) {
+        event.respondWith(
+            fetch(event.request)
+                .then((response) => {
+                    const copy = response.clone();
+                    caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy));
+                    return response;
+                })
+                .catch(() => caches.match(event.request).then((response) => response || caches.match('./index.html')))
+        );
+        return;
+    }
 
     event.respondWith(
         caches.match(event.request)
