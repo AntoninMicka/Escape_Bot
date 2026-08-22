@@ -18,6 +18,13 @@
 - [ ] Před ostrým během uzavřít obsahový freeze; po něm přijímat pouze opravy chyb, bezpečnosti, nejasností a provozních blokátorů.
 - [ ] Po prvním ostrém běhu udělat retrospektivu a teprve poté seřadit oddíly 14–17 podle skutečné obchodní a hráčské hodnoty.
 
+### Odložená produktová roadmapa po stabilizaci Kraskova
+
+- [ ] Přidat validátor připravenosti scénáře: chybějící návaznost na další stanoviště, nedostupná média, checkpoint bez pokračování, chybějící řešení a nedosažitelné větve či finále.
+- [ ] Zobrazovat verzi klienta v hráčském rozhraní i administraci, evidovat verze připojených zařízení a po vydání nabídnout řízené načtení nové PWA cache.
+- [ ] Doplnit volitelné týmové role a sdílené poznámky; zobrazit, kdo právě zadává odpověď nebo ovládá společnou minihru, bez pevného zamykání zařízení.
+- [ ] Přidat provozní diagnostiku relace ke stažení, předherní kontrolu QR a médií a auditovaný nouzový skip rozbité fáze.
+
 ## 1. Návrh komunikačního protokolu (Frontend <-> Backend)
 - [x] Definice formátu zpráv (JSON přes WebSockets).
 - [x] Správa stavu hry a relací (State Machine v Pythonu).

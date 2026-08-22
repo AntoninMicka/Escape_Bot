@@ -64,7 +64,7 @@ DEMO_MODE_ENABLED = os.getenv("ESCAPEBOT_DEMO_MODE", "").lower() in {"1", "true"
 ADMIN_TOKEN = os.getenv("ESCAPEBOT_ADMIN_TOKEN", "")
 runtime_settings = {"online_mode": False, "gameplay_enabled": True, "max_active_teams": 4,
                     "start_interval_minutes": 15, "game_duration_minutes": 165,
-                    "deadline_penalty": 100,
+                    "deadline_penalty": 100, "abandonment_penalty": 100, "completion_bonus": 100,
                     "opening_time": "08:00", "closing_time": "20:00", "timezone": "Europe/Prague"}
 
 def _local_now() -> datetime:
@@ -137,13 +137,38 @@ async def operations_monitor() -> None:
         changed = False
         for session_id, machine in active_sessions.items():
             lobby = lobby_registry.by_session.get(session_id); started_at = machine.state.flags.get("operations_started_at")
-            if not lobby or not lobby.started or not started_at or machine.state.flags.get("game_completed") or machine.state.flags.get("administratively_ended"): continue
-            try: deadline = min(datetime.fromisoformat(str(started_at)).astimezone(current.tzinfo) + timedelta(minutes=duration), closing)
+            if not lobby or not lobby.started or not started_at: continue
+            if machine.state.flags.get("game_completed"):
+                update = apply_outcome_score(machine, "completed", int(runtime_settings.get("completion_bonus", 100)))
+                if update:
+                    changed = True
+                    for entry in global_leaderboard:
+                        if str(entry.get("session_id", "")) == session_id:
+                            entry["score"] = machine.state.score
+                            save_leaderboard()
+                    await broadcast_session(session_id, [update, machine._state_message()])
+                continue
+            if machine.state.flags.get("administratively_ended"): continue
+            extension = max(0, int(machine.state.flags.get("deadline_extension_minutes", 0)))
+            try: deadline = min(datetime.fromisoformat(str(started_at)).astimezone(current.tzinfo) + timedelta(minutes=duration + extension), closing)
             except ValueError: continue
             if current >= deadline:
                 ended_at = datetime.now(UTC).isoformat()
                 penalty = max(0, min(1000, int(runtime_settings.get("deadline_penalty", 100))))
                 updates = apply_deadline_end(machine, ended_at, penalty)
+                changed = True
+                await broadcast_session(session_id, updates)
+                continue
+            last_activity = machine.state.last_activity_at or str(started_at)
+            try: inactive_seconds = (datetime.now(UTC) - datetime.fromisoformat(str(last_activity)).astimezone(UTC)).total_seconds()
+            except ValueError: inactive_seconds = 0
+            # Otevřené připojení znamená, že tým může stále řešit fyzickou část bez
+            # zpráv do backendu. Za opuštěnou proto považujeme jen dlouho neaktivní
+            # relaci, u níž už není online žádné hráčské zařízení.
+            if inactive_seconds >= 3600 and not connected_client_ids(session_id):
+                ended_at = datetime.now(UTC).isoformat()
+                penalty = max(0, min(1000, int(runtime_settings.get("abandonment_penalty", 100))))
+                updates = apply_operational_end(machine, ended_at, "abandoned", penalty, "Hra byla automaticky ukončena po hodině bez aktivity.")
                 changed = True
                 await broadcast_session(session_id, updates)
         if changed: save_sessions()
@@ -159,11 +184,15 @@ def apply_deadline_end(machine: EscapeBotStateMachine, ended_at: str, penalty: i
     applied_penalty = 0
     if penalty and not machine.state.flags.get("deadline_penalty_applied"):
         applied_penalty = penalty
+        score_before = machine.state.score
         adjustment = {
             "delta": -penalty,
             "amount": penalty,
             "reason": "Nedokončení hry v časovém limitu",
             "at": ended_at,
+            "score_before": score_before,
+            "score_after": score_before - penalty,
+            "automatic": True,
         }
         machine.state.score -= penalty
         machine.state.flags["deadline_penalty_applied"] = True
@@ -183,6 +212,40 @@ def apply_deadline_end(machine: EscapeBotStateMachine, ended_at: str, penalty: i
             "message": f"Časový limit hry vypršel.{suffix} Výsledek týmu je připraven k vyhodnocení."}),
         machine._state_message(),
     ])
+    return updates
+
+
+def apply_outcome_score(machine: EscapeBotStateMachine, outcome: str, amount: int) -> Message | None:
+    """Apply a configured outcome adjustment once, including restored historical sessions."""
+    key = f"outcome_score_applied_{outcome}"
+    if machine.state.flags.get(key) or amount <= 0:
+        return None
+    delta = amount if outcome == "completed" else -amount
+    reason = "Bonus za úspěšné dokončení hry" if outcome == "completed" else "Postih za opuštění hry"
+    at = datetime.now(UTC).isoformat()
+    score_before = machine.state.score
+    machine.state.score += delta
+    machine.state.flags[key] = True
+    adjustment = {"delta": delta, "amount": amount, "reason": reason, "at": at,
+                  "score_before": score_before, "score_after": machine.state.score, "automatic": True}
+    machine.state.flags.setdefault("admin_score_adjustments", []).append(adjustment)
+    if delta < 0:
+        machine.state.flags.setdefault("admin_penalties", []).append(adjustment)
+    return Message("score.update", {"score": machine.state.score, "delta": delta,
+        "bonus": max(0, delta), "penalty": max(0, -delta), "reason": f"outcome_{outcome}", "description": reason})
+
+
+def apply_operational_end(machine: EscapeBotStateMachine, ended_at: str, reason: str, penalty: int, message: str) -> list[Message]:
+    """End one unfinished session and audit the reason and optional one-time penalty."""
+    machine.state.flags["administratively_ended"] = True
+    machine.state.flags["administratively_ended_at"] = ended_at
+    machine.state.flags["administratively_ended_reason"] = reason
+    updates: list[Message] = []
+    if reason == "abandoned":
+        update = apply_outcome_score(machine, "abandoned", penalty)
+        if update: updates.append(update)
+    machine.state.flags.setdefault("admin_actions", []).append({"action": "session_end", "label": message, "reason": reason, "at": ended_at})
+    updates.extend([Message("operations.stopped", {"reason": reason, "penalty": penalty, "message": message}), machine._state_message()])
     return updates
 
 global_leaderboard = []
@@ -445,6 +508,9 @@ def admin_overview(watched_sessions: set[str] | None = None) -> list[dict[str, o
             "activity_status": activity_status,
             "game_completed": game_completed,
             "administratively_ended": administratively_ended,
+            "end_reason": str(flags.get("administratively_ended_reason", "completed" if game_completed else "")),
+            "ended_at": str(flags.get("administratively_ended_at", flags.get("completed_at", ""))),
+            "deadline_extension_minutes": int(flags.get("deadline_extension_minutes", 0)),
             "administratively_evaluated": bool(flags.get("administratively_evaluated")),
             "timeline": timeline,
             "hints_used": dict(state.get("hints_used", {})),
@@ -608,7 +674,7 @@ async def websocket_endpoint(websocket: WebSocket):
                 data = json.loads(message_str)
                 msg = Message.from_json(data)
 
-                if msg.type in {"admin.list", "admin.penalty", "admin.score_adjustment", "admin.delete", "admin.qr_set", "admin.online_mode", "admin.operations", "admin.schedule_settings", "admin.evaluate_team", "admin.checkpoint", "admin.game_reset", "admin.game_player", "admin.player_recovery", "admin.leaderboard_delete", "admin.support_join", "admin.support_leave", "admin.support_message", "admin.spectate_start", "admin.spectate_stop"}:
+                if msg.type in {"admin.list", "admin.penalty", "admin.score_adjustment", "admin.delete", "admin.qr_set", "admin.online_mode", "admin.operations", "admin.schedule_settings", "admin.evaluate_team", "admin.session_extend", "admin.session_end", "admin.checkpoint", "admin.game_reset", "admin.game_player", "admin.player_recovery", "admin.leaderboard_delete", "admin.support_join", "admin.support_leave", "admin.support_message", "admin.spectate_start", "admin.spectate_stop"}:
                     try:
                         require_admin(msg.payload)
                         authenticated_admin_sockets.add(websocket)
@@ -632,6 +698,8 @@ async def websocket_endpoint(websocket: WebSocket):
                                       "start_interval_minutes": int(msg.payload.get("start_interval_minutes", 15)),
                                       "game_duration_minutes": int(msg.payload.get("game_duration_minutes", 165)),
                                       "deadline_penalty": int(msg.payload.get("deadline_penalty", 100)),
+                                      "abandonment_penalty": int(msg.payload.get("abandonment_penalty", 100)),
+                                      "completion_bonus": int(msg.payload.get("completion_bonus", 100)),
                                       "opening_time": str(msg.payload.get("opening_time", "08:00")),
                                       "closing_time": str(msg.payload.get("closing_time", "20:00")),
                                       "timezone": str(msg.payload.get("timezone", "Europe/Prague"))}
@@ -639,6 +707,8 @@ async def websocket_endpoint(websocket: WebSocket):
                             if not 0 <= values["start_interval_minutes"] <= 240: raise ValueError("Rozestup musí být 0–240 minut.")
                             if not 15 <= values["game_duration_minutes"] <= 720: raise ValueError("Délka hry musí být 15–720 minut.")
                             if not 0 <= values["deadline_penalty"] <= 1000: raise ValueError("Postih za nedokončení musí být 0–1000 bodů.")
+                            if not 0 <= values["abandonment_penalty"] <= 1000: raise ValueError("Postih za opuštění musí být 0–1000 bodů.")
+                            if not 0 <= values["completion_bonus"] <= 1000: raise ValueError("Bonus za dokončení musí být 0–1000 bodů.")
                             for key in ("opening_time", "closing_time"):
                                 datetime.strptime(values[key], "%H:%M")
                             ZoneInfo(values["timezone"])
@@ -657,6 +727,7 @@ async def websocket_endpoint(websocket: WebSocket):
                                     if lobby_item and lobby_item.started and not machine.state.flags.get("game_completed"):
                                         machine.state.flags["administratively_ended"] = True
                                         machine.state.flags["administratively_ended_at"] = ended_at
+                                        machine.state.flags["administratively_ended_reason"] = "manual"
                                         await broadcast_session(session_id, [Message("operations.stopped", {"message": "Herní provoz byl ukončen Game Masterem. Výsledek týmu je připraven k vyhodnocení."})])
                             save_runtime_settings(); save_sessions()
                             update = Message("runtime.settings", runtime_payload())
@@ -750,6 +821,33 @@ async def websocket_endpoint(websocket: WebSocket):
                             }))
                             continue
 
+                        if msg.type == "admin.session_extend":
+                            machine = ensure_state_machine(target_session)
+                            if machine.state.flags.get("game_completed") or machine.state.flags.get("administratively_ended"):
+                                raise ValueError("Ukončenou hru už nelze prodloužit.")
+                            minutes = int(msg.payload.get("minutes", 15))
+                            if minutes not in {5, 10, 15, 30, 45, 60}:
+                                raise ValueError("Nepovolená délka prodloužení.")
+                            total = int(machine.state.flags.get("deadline_extension_minutes", 0)) + minutes
+                            machine.state.flags["deadline_extension_minutes"] = total
+                            machine.state.flags.setdefault("admin_actions", []).append({"action": "session_extend", "label": f"Prodloužení hry o {minutes} minut", "minutes": minutes, "at": datetime.now(UTC).isoformat()})
+                            save_sessions()
+                            await broadcast_session(target_session, [Message("bot.message", {"text": f"Game Master prodloužil čas hry o {minutes} minut.", "mood": "positive", "channel": "general"}), machine._state_message()])
+                            await send_admin_overview(websocket); continue
+
+                        if msg.type == "admin.session_end":
+                            machine = ensure_state_machine(target_session)
+                            if machine.state.flags.get("game_completed") or machine.state.flags.get("administratively_ended"):
+                                raise ValueError("Hra už je ukončena.")
+                            reason = str(msg.payload.get("reason", "manual")).strip()
+                            allowed = {"abandoned": "Opuštěná hra", "technical": "Ukončeno kvůli technické závadě", "manual": "Ručně ukončeno Game Masterem"}
+                            if reason not in allowed: raise ValueError("Neplatný důvod ukončení.")
+                            penalty = int(runtime_settings.get("abandonment_penalty", 100)) if reason == "abandoned" else 0
+                            updates = apply_operational_end(machine, datetime.now(UTC).isoformat(), reason, penalty, allowed[reason])
+                            save_sessions()
+                            await broadcast_session(target_session, updates)
+                            await send_admin_overview(websocket); continue
+
                         if msg.type == "admin.evaluate_team":
                             machine = ensure_state_machine(target_session)
                             if not machine.state.flags.get("administratively_ended") and not machine.state.flags.get("game_completed"):
@@ -792,12 +890,15 @@ async def websocket_endpoint(websocket: WebSocket):
                             if not reason:
                                 raise ValueError("U bodové úpravy je povinný důvod.")
                             machine = ensure_state_machine(target_session)
+                            score_before = machine.state.score
                             machine.state.score += delta
                             adjustment = {
                                 "delta": delta,
                                 "amount": abs(delta),
                                 "reason": reason,
                                 "at": datetime.now(UTC).isoformat(),
+                                "score_before": score_before,
+                                "score_after": machine.state.score,
                             }
                             machine.state.flags.setdefault("admin_score_adjustments", []).append(adjustment)
                             if delta < 0:
@@ -1123,6 +1224,11 @@ async def websocket_endpoint(websocket: WebSocket):
                         })], exclude=websocket)
                     save_sessions()
                     if session_id and any(response.type == "game.complete" for response in responses):
+                        completion_update = apply_outcome_score(state_machine, "completed", int(runtime_settings.get("completion_bonus", 100)))
+                        if completion_update:
+                            responses.insert(0, completion_update)
+                            responses.append(state_machine._state_message())
+                            save_sessions()
                         completed_lobby = lobby_registry.by_session.get(str(session_id))
                         if completed_lobby and not any(entry.get("session_id") == session_id for entry in global_leaderboard):
                             global_leaderboard.append({

@@ -69,6 +69,10 @@ Nová zpráva týmu nebo Game Mastera vyvolá samostatný serverový push `admin
 
 Ruční dokončení checkpointu přes `admin.checkpoint` přijímá `penalty_preset`. Povolené předvolby definuje server a posílá je v `admin.overview`; zahrnují technický skip bez postihu, drobnou pomoc, přeskočení minihry a šifru vyřešenou Game Masterem.
 
+Životní cyklus konkrétní relace lze řídit zprávami `admin.session_extend` a `admin.session_end`. Prodloužení přijímá `session_id` a `minutes`; ukončení přijímá `session_id` a důvod `abandoned`, `technical` nebo `manual`. Opuštěná hra dostane nastavený postih, technické a běžné ruční ukončení jsou bez automatického postihu. Backend zároveň automaticky ukončuje nedokončené hry po provozním limitu a dlouho neaktivní offline hry. Úpravy výsledku jsou idempotentní a v auditu uchovávají skóre před změnou a po ní.
+
+Provozní nastavení obsahuje vedle `deadline_penalty` také `abandonment_penalty` a `completion_bonus`. Bonus za řádné dokončení i oba automatické postihy se na relaci aplikují nejvýše jednou, včetně relací obnovených ze staršího uloženého stavu.
+
 ### `camera.frame`
 
 Sends an extracted still frame reference or base64 blob.
