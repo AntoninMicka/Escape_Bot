@@ -1412,6 +1412,29 @@
             sendAdmin('admin.player_recovery', {session_id:sessionId, player_id:playerId});
         }
 
+        async function copyAdminSolution(elementId) {
+            const element = document.getElementById(elementId);
+            const text = element?.textContent?.trim() || '';
+            if (!text) { showNotification('Řešení není dostupné.', 'error'); return; }
+            try {
+                if (navigator.clipboard?.writeText) {
+                    await navigator.clipboard.writeText(text);
+                } else {
+                    const input = document.createElement('textarea');
+                    input.value = text;
+                    input.style.position = 'fixed';
+                    input.style.opacity = '0';
+                    document.body.appendChild(input);
+                    input.select();
+                    if (!document.execCommand('copy')) throw new Error('Kopírování není podporováno.');
+                    input.remove();
+                }
+                showNotification('Správné řešení bylo zkopírováno.', 'success');
+            } catch (_) {
+                showNotification('Řešení se nepodařilo zkopírovat.', 'error');
+            }
+        }
+
         function renderPlayerRecovery(payload) {
             const url = new URL(window.location.pathname || '/', window.location.origin);
             url.searchParams.set('recover', payload.token);
@@ -1486,7 +1509,8 @@
                     const restartable = node.status === 'active' && ['line_game', 'mine_karel', 'triad', 'sokoban'].includes(node.puzzle_type);
                     const presetOptions = Object.entries(resolutionPresets).map(([id, preset]) => `<option value="${escapeHtml(id)}">${escapeHtml(preset.label)} (${Number(preset.penalty) ? `−${Number(preset.penalty)} b` : '0 b'})</option>`).join('');
                     const actions = !isCheckpoint ? '' : `<div class="admin-node-actions">${canFind ? `<button onclick="setAdminCheckpoint('${team.session_id}','${node.id}','found')">POTVRDIT NÁLEZ</button>` : ''}${restartable ? `<button onclick="resetAdminGame('${team.session_id}','${node.puzzle_id}')">RESTART MINIHRY</button>` : ''}${canSolve ? `<select id="admin-resolution-${team.session_id}-${node.id}">${presetOptions}</select><button class="danger" onclick="resolveAdminCheckpoint('${team.session_id}','${node.id}')">DOKONČIT PODLE VOLBY</button>` : ''}</div>`;
-                    const solution = node.solution ? `<div><strong>SPRÁVNÉ ŘEŠENÍ:</strong> ${escapeHtml(node.solution)}</div>` : '';
+                    const solutionId = `admin-solution-${team.session_id}-${node.id}`;
+                    const solution = node.solution ? `<div><strong>SPRÁVNÉ ŘEŠENÍ:</strong> <span id="${solutionId}">${escapeHtml(node.solution)}</span> <button type="button" onclick="copyAdminSolution('${solutionId}')">KOPÍROVAT</button></div>` : '';
                     return `<li>${node.status === 'complete' ? '✓' : (node.status === 'active' ? '▶' : (node.status === 'available' ? '○' : '·'))} ${escapeHtml(node.label)} <small>[${escapeHtml(node.status)}]</small>${solution}</li>${actions}`;
                 }).join('');
                 const hints = Object.entries(team.hints_used || {}).map(([id, count]) => `${escapeHtml(id)}: ${Number(count)}`).join(', ') || 'žádné';
