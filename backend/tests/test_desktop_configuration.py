@@ -80,6 +80,8 @@ class DesktopConfigurationTests(unittest.TestCase):
         dependencies = (root / "deploy" / "gcp" / "operator-dependencies.sh").read_text(encoding="utf-8")
         self.assertIn("required=(gcloud terraform docker)", dependencies)
         self.assertIn("exec pkexec", dependencies)
+        self.assertNotIn("ID_LIKE", dependencies)
+        self.assertIn("nikoli jejich forky", dependencies)
         self.assertIn("apt.releases.hashicorp.com", dependencies)
         self.assertIn("/etc/apt/keyrings/hashicorp.asc", dependencies)
         self.assertIn("/etc/apt/sources.list.d/hashicorp.sources", dependencies)

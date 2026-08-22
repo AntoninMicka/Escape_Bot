@@ -64,9 +64,8 @@ if [ ! -r /etc/os-release ]; then
     exit 1
 fi
 . /etc/os-release
-if [ "${ID:-}" != "ubuntu" ] && [ "${ID:-}" != "debian" ] && \
-   [[ " ${ID_LIKE:-} " != *" debian "* ]]; then
-    echo "Automatická instalace podporuje pouze Debian a Ubuntu (nalezeno: ${ID:-neznámé})." >&2
+if [ "${ID:-}" != "ubuntu" ] && [ "${ID:-}" != "debian" ]; then
+    echo "Automatická instalace podporuje pouze přímo Debian a Ubuntu, nikoli jejich forky (nalezeno: ${ID:-neznámé})." >&2
     exit 1
 fi
 
