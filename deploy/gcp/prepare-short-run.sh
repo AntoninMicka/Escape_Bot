@@ -31,14 +31,28 @@ prefix="escape-bot-$environment"
 "$script_dir/operator-dependencies.sh" --check
 
 "$script_dir/bootstrap-state-bucket.sh" "$project" "$region" "$state_bucket"
+lifecycle_active=1
+record_prepare_failure() {
+    status=$?
+    trap - ERR
+    if [ "$lifecycle_active" -eq 1 ]; then
+        "$script_dir/lifecycle-state.sh" update "$project" "$state_bucket" "$environment" prepare_failed >/dev/null 2>&1 || true
+    fi
+    exit "$status"
+}
+trap record_prepare_failure ERR
+"$script_dir/lifecycle-state.sh" update "$project" "$state_bucket" "$environment" preparing >/dev/null
 "$script_dir/provision-short-run.sh" \
     --terraform-dir="$terraform_dir" --var-file="$var_file" --workspace="$environment" \
     --state-bucket="$state_bucket"
+"$script_dir/lifecycle-state.sh" update "$project" "$state_bucket" "$environment" infrastructure_ready >/dev/null
 "$script_dir/configure-admin-secret.sh" "$project" "$prefix-admin-token"
 if [ -z "$image" ]; then
+    "$script_dir/lifecycle-state.sh" update "$project" "$state_bucket" "$environment" building_image >/dev/null
     echo "Sestavuji první aplikační image..."
     image=$("$script_dir/build-short-run-image.sh" "$project" "$region")
 fi
+"$script_dir/lifecycle-state.sh" update "$project" "$state_bucket" "$environment" image_ready >/dev/null
 effective_domain=$(terraform -chdir="$terraform_dir" output -raw domain)
 sed -i -E "s|^initial_image[[:space:]]*=.*$|initial_image = \"$image\"|" "$var_file"
 sed -i -E "s|^domain[[:space:]]*=.*$|domain = \"$effective_domain\"|" "$var_file"
@@ -61,6 +75,9 @@ if [ "$ready" -ne 1 ]; then
     exit 1
 fi
 
+"$script_dir/lifecycle-state.sh" update "$project" "$state_bucket" "$environment" deploying >/dev/null
 "$script_dir/deploy.sh" --project="$project" --zone="$zone" --vm="$vm" --image="$image"
 "$script_dir/lifecycle-state.sh" update "$project" "$state_bucket" "$environment" prepared_test >/dev/null
+lifecycle_active=0
+trap - ERR
 echo "Krátkodobé prostředí je připraveno. Hru spusťte v admin dashboardu."

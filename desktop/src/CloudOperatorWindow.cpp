@@ -230,13 +230,27 @@ CloudOperatorWindow::CloudOperatorWindow(QWidget *parent) : QMainWindow(parent)
             [this](int exitCode, QProcess::ExitStatus status) {
         if (status != QProcess::NormalExit || exitCode != 0) {
             m_lifecycleState->setText(tr("Fáze: nelze načíst"));
+            m_lifecyclePhase = QStringLiteral("unknown");
+            updateActionAvailability();
             return;
         }
-        const QJsonObject state = QJsonDocument::fromJson(m_lifecycleProcess->readAllStandardOutput()).object();
+        QJsonParseError parseError;
+        const QJsonDocument document = QJsonDocument::fromJson(
+            m_lifecycleProcess->readAllStandardOutput(), &parseError);
+        if (parseError.error != QJsonParseError::NoError || !document.isObject()) {
+            m_lifecycleState->setText(tr("Fáze: neplatný vzdálený stav"));
+            m_lifecyclePhase = QStringLiteral("unknown");
+            updateActionAvailability();
+            return;
+        }
+        const QJsonObject state = document.object();
         const QMap<QString, QString> phases{
             {"unknown", tr("stav zatím nebyl evidován")}, {"infrastructure_ready", tr("infrastruktura připravena")},
+            {"preparing", tr("zahajuji přípravu")}, {"building_image", tr("sestavuji aplikační image")},
+            {"image_ready", tr("aplikační image připraven")}, {"deploying", tr("nasazuji aplikaci")},
             {"testing", tr("testování")}, {"ready_for_live", tr("připraveno k ostrému běhu")},
-            {"paused", tr("pozastaveno")}, {"destroyed", tr("odstraněno")}
+            {"paused", tr("pozastaveno")}, {"destroyed", tr("odstraněno")},
+            {"failed", tr("příprava selhala")}
         };
         const QString phase = state.value("phase").toString("unknown");
         m_lifecyclePhase = phase;
@@ -248,6 +262,7 @@ CloudOperatorWindow::CloudOperatorWindow(QWidget *parent) : QMainWindow(parent)
         updateActionAvailability();
     });
     refreshGoogleIdentity();
+    refreshLifecycleState();
     setWindowTitle(tr("Escape Bot Cloud Operator"));
     resize(1500, 900);
 }
@@ -764,10 +779,15 @@ void CloudOperatorWindow::updateActionAvailability()
     const bool liveReady = m_lifecyclePhase == QStringLiteral("ready_for_live");
     const bool paused = m_lifecyclePhase == QStringLiteral("paused");
     const bool destroyed = m_lifecyclePhase == QStringLiteral("destroyed");
+    const bool failed = m_lifecyclePhase == QStringLiteral("failed");
+    const bool intermediate = m_lifecyclePhase == QStringLiteral("preparing") ||
+        m_lifecyclePhase == QStringLiteral("building_image") ||
+        m_lifecyclePhase == QStringLiteral("image_ready") ||
+        m_lifecyclePhase == QStringLiteral("deploying");
     const bool runningEnvironment = testing || liveReady;
 
-    m_prepareButton->setEnabled(!m_operationBusy && (unknown || destroyed));
-    m_deployFixButton->setEnabled(!m_operationBusy && (infrastructure || runningEnvironment));
+    m_prepareButton->setEnabled(!m_operationBusy && (unknown || destroyed || failed || intermediate));
+    m_deployFixButton->setEnabled(!m_operationBusy && (infrastructure || runningEnvironment || failed));
     m_prepareLiveButton->setEnabled(!m_operationBusy && runningEnvironment);
     m_pauseButton->setEnabled(!m_operationBusy && (infrastructure || runningEnvironment));
     m_resumeButton->setEnabled(!m_operationBusy && paused);
@@ -775,7 +795,7 @@ void CloudOperatorWindow::updateActionAvailability()
     m_adminLoginButton->setEnabled(!m_operationBusy && runningEnvironment);
 
     const QString refreshHint = tr("Pokud stav neodpovídá skutečnosti, nejprve použijte Obnovit stav životního cyklu.");
-    m_prepareButton->setToolTip((unknown || destroyed) ? QString() : tr("Prostředí již existuje. Použijte deploy opravy.") + " " + refreshHint);
+    m_prepareButton->setToolTip((unknown || destroyed || failed || intermediate) ? QString() : tr("Prostředí již existuje. Použijte deploy opravy.") + " " + refreshHint);
     m_resumeButton->setToolTip(paused ? QString() : tr("Obnovení je relevantní pouze pro pozastavené prostředí."));
     m_prepareLiveButton->setToolTip(runningEnvironment ? tr("Lze použít opakovaně; každá úspěšná příprava založí další ostrý běh.")
                                                        : tr("Nejprve připravte a otestujte prostředí."));

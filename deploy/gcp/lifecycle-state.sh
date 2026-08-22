@@ -8,10 +8,17 @@ fi
 action="$1"; project="$2"; bucket="$3"; environment="$4"; event="${5:-}"
 object="gs://$bucket/escape-bot/operator-state/$environment.json"
 temporary=$(mktemp)
-trap 'rm -f "$temporary"' EXIT
+error_output=$(mktemp)
+trap 'rm -f "$temporary" "$error_output"' EXIT
 
-if ! gcloud storage cat "$object" --project="$project" >"$temporary" 2>/dev/null; then
-    printf '{"phase":"unknown","deploy_count":0,"live_run_count":0,"archive_count":0,"history":[]}' >"$temporary"
+if ! gcloud storage cat "$object" --project="$project" >"$temporary" 2>"$error_output"; then
+    if grep -Eqi 'not found|does not exist|no urls matched|status.?[=: ]+404|\b404\b' "$error_output"; then
+        printf '{"phase":"unknown","deploy_count":0,"live_run_count":0,"archive_count":0,"history":[]}' >"$temporary"
+    else
+        echo "Chyba: stav životního cyklu nelze načíst z $object." >&2
+        cat "$error_output" >&2
+        exit 1
+    fi
 fi
 if [ "$action" = "get" ]; then
     cat "$temporary"
@@ -35,8 +42,16 @@ state.setdefault("live_run_count", 0)
 state.setdefault("archive_count", 0)
 state.setdefault("history", [])
 phase = state.get("phase", "unknown")
-if event == "infrastructure_ready":
+if event == "preparing":
+    phase = "preparing"
+elif event == "infrastructure_ready":
     phase = "infrastructure_ready"
+elif event == "building_image":
+    phase = "building_image"
+elif event == "image_ready":
+    phase = "image_ready"
+elif event == "deploying":
+    phase = "deploying"
 elif event == "prepared_test":
     phase = "testing"
     state["deploy_count"] += 1
@@ -56,6 +71,9 @@ elif event == "archived":
 elif event == "destroyed":
     phase = "destroyed"
     state["archive_count"] += 1
+elif event == "prepare_failed":
+    state["failed_after"] = phase
+    phase = "failed"
 else:
     raise SystemExit(f"Neznámá lifecycle událost: {event}")
 state["phase"] = phase
