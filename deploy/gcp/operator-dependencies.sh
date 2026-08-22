@@ -73,7 +73,7 @@ fi
 export DEBIAN_FRONTEND=noninteractive
 apt-get update
 apt-get install -y ca-certificates curl gnupg
-install -m 0755 -d /usr/share/keyrings
+install -m 0755 -d /etc/apt/keyrings /usr/share/keyrings
 
 contains_missing() {
     local wanted="$1"
@@ -83,14 +83,21 @@ contains_missing() {
 }
 
 if contains_missing terraform; then
-    temporary_key=$(mktemp)
-    curl -fsSL https://apt.releases.hashicorp.com/gpg -o "$temporary_key"
-    gpg --batch --yes --dearmor -o /usr/share/keyrings/hashicorp-archive-keyring.gpg "$temporary_key"
-    rm -f "$temporary_key"
     codename="${UBUNTU_CODENAME:-${VERSION_CODENAME:-}}"
     if [ -z "$codename" ]; then echo "Nelze určit kódové jméno distribuce." >&2; exit 1; fi
-    echo "deb [signed-by=/usr/share/keyrings/hashicorp-archive-keyring.gpg] https://apt.releases.hashicorp.com $codename main" \
-        > /etc/apt/sources.list.d/hashicorp.list
+    architecture=$(dpkg --print-architecture)
+    curl -fsSL https://apt.releases.hashicorp.com/gpg \
+        -o /etc/apt/keyrings/hashicorp.asc
+    chmod 0644 /etc/apt/keyrings/hashicorp.asc
+    cat > /etc/apt/sources.list.d/hashicorp.sources <<EOF
+Types: deb
+URIs: https://apt.releases.hashicorp.com
+Suites: $codename
+Components: main
+Architectures: $architecture
+Signed-By: /etc/apt/keyrings/hashicorp.asc
+EOF
+    rm -f /etc/apt/sources.list.d/hashicorp.list
 fi
 
 if contains_missing gcloud; then

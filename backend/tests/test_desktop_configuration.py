@@ -81,6 +81,10 @@ class DesktopConfigurationTests(unittest.TestCase):
         self.assertIn("required=(gcloud terraform docker)", dependencies)
         self.assertIn("exec pkexec", dependencies)
         self.assertIn("apt.releases.hashicorp.com", dependencies)
+        self.assertIn("/etc/apt/keyrings/hashicorp.asc", dependencies)
+        self.assertIn("/etc/apt/sources.list.d/hashicorp.sources", dependencies)
+        self.assertIn("Types: deb", dependencies)
+        self.assertNotIn("hashicorp-archive-keyring.gpg", dependencies)
         self.assertIn("packages.cloud.google.com", dependencies)
         self.assertIn('operator-dependencies.sh" --check',
                       (root / "deploy" / "gcp" / "prepare-short-run.sh").read_text(encoding="utf-8"))
