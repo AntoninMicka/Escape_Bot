@@ -15,6 +15,16 @@ for command_name in "${required[@]}"; do
     fi
 done
 
+host_architecture=$(uname -m)
+if [ "$host_architecture" != "x86_64" ] && [ "$host_architecture" != "amd64" ]; then
+    if ! { [ -r /proc/sys/fs/binfmt_misc/qemu-x86_64 ] && \
+           grep -q '^enabled$' /proc/sys/fs/binfmt_misc/qemu-x86_64; } && \
+       ! { command -v update-binfmts >/dev/null 2>&1 && \
+           update-binfmts --display qemu-x86_64 2>/dev/null | grep -q '^ *status = enabled$'; }; then
+        missing+=(amd64-emulation)
+    fi
+fi
+
 if [ "$mode" = "--check" ]; then
     if [ "${#missing[@]}" -ne 0 ]; then
         echo "Chybějící závislosti: ${missing[*]}" >&2
@@ -94,10 +104,29 @@ fi
 
 apt-get update
 packages=()
+emulation_package=""
 contains_missing terraform && packages+=(terraform)
 contains_missing gcloud && packages+=(google-cloud-cli)
 contains_missing docker && packages+=(docker.io)
+if contains_missing amd64-emulation; then
+    if apt-cache show qemu-user-binfmt >/dev/null 2>&1; then
+        emulation_package="qemu-user-binfmt"
+        packages+=(qemu-user-binfmt binfmt-support)
+    elif apt-cache show qemu-user-static >/dev/null 2>&1; then
+        emulation_package="qemu-user-static"
+        packages+=(qemu-user-static binfmt-support)
+    else
+        echo "Chyba: distribuce nenabízí qemu-user-binfmt ani qemu-user-static." >&2
+        exit 1
+    fi
+fi
 apt-get install -y "${packages[@]}"
+
+if [ "$emulation_package" = "qemu-user-binfmt" ]; then
+    systemctl restart systemd-binfmt
+elif [ "$emulation_package" = "qemu-user-static" ]; then
+    update-binfmts --enable qemu-x86_64
+fi
 
 if contains_missing docker; then
     systemctl enable --now docker

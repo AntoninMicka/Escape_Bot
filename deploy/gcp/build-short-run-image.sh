@@ -12,7 +12,7 @@ timestamp=$(date -u +%Y%m%d%H%M%S)
 image="$repository:short-$revision-$timestamp"
 
 gcloud auth configure-docker "$region-docker.pkg.dev" --quiet >&2
-docker build --pull --label "org.opencontainers.image.revision=$revision" -t "$image" . >&2
+docker build --platform=linux/amd64 --pull --label "org.opencontainers.image.revision=$revision" -t "$image" . >&2
 docker push "$image" >&2
 digest=$(docker inspect --format='{{index .RepoDigests 0}}' "$image")
 if [[ ! "$digest" =~ @sha256:[a-f0-9]{64}$ ]]; then

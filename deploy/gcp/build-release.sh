@@ -31,7 +31,7 @@ repository="$region-docker.pkg.dev/$project/escape-bot/app"
 sha_image="$repository:git-$short_sha"
 
 gcloud auth configure-docker "$region-docker.pkg.dev" --quiet
-docker build --pull --label "org.opencontainers.image.revision=$git_sha" -t "$sha_image" .
+docker build --platform=linux/amd64 --pull --label "org.opencontainers.image.revision=$git_sha" -t "$sha_image" .
 docker push "$sha_image"
 if [ -n "$version" ]; then
     if [[ ! "$version" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
