@@ -1,4 +1,4 @@
-const CACHE_NAME = 'escape-bot-v65';
+const CACHE_NAME = 'escape-bot-v66';
 const ASSETS_TO_CACHE = [
     './',
     './index.html',

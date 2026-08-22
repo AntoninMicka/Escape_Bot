@@ -900,10 +900,6 @@
             return `<div class="semaphore-transcript"><label for="cipher-transcript-${id}"><strong>RUČNÍ PŘEPIS</strong></label><p>${escapeHtml(hint)}</p><textarea id="cipher-transcript-${id}" oninput="cipherReferenceTranscripts['${id}']=this.value" placeholder="Klikněte na rozluštěné znaky…">${escapeHtml(cipherReferenceTranscripts[id] || '')}</textarea><div class="cipher-notebook-actions"><button onclick="appendCipherReference('${id}',' ')">MEZERA</button><button onclick="removeCipherReference('${id}')">⌫ POSLEDNÍ ZNAK</button><button onclick="clearCipherReference('${id}')">VYMAZAT</button><button onclick="copyCipherReference('${id}')">KOPÍROVAT</button></div></div>`;
         }
 
-        function cipherAlphabetPad(id) {
-            return `<div class="cipher-grid">${Array.from({length: 26}, (_, index) => String.fromCharCode(65 + index)).map(letter => `<button class="cipher-card semaphore-pick" onclick="appendCipherReference('${id}','${letter}')"><strong>${letter}</strong></button>`).join('')}</div>`;
-        }
-
         function cipherReferenceElement(id) { return document.getElementById(`cipher-transcript-${id}`); }
         function updateCipherReference(id, value) {
             cipherReferenceTranscripts[id] = value;
@@ -1067,7 +1063,7 @@
             }
             if (toolId === 'a1z26') {
                 const alphabet = Object.fromEntries(Array.from({length: 26}, (_, i) => [String.fromCharCode(65 + i), i + 1]));
-                return `<h3>A1Z26</h3><p><strong>Princip:</strong> A=1, B=2 … Z=26. Čísla čti v pořadí zápisu; oddělovače značí hranice písmen.</p><p class="cipher-note"><strong>Příklad:</strong> <code>13-1-16-1</code> = MAPA.</p>${cipherReferenceTranscript('a1z26')}${cipherAlphabetPad('a1z26')}${referenceTable(alphabet)}<h3>Římské číslice</h3><p>Menší znak před větším se odečítá, jinak se hodnoty sčítají. <strong>Příklad:</strong> XIV = 10 + (5 − 1) = 14.</p>${referenceTable({I:1,V:5,X:10,L:50,C:100,D:500,M:1000}, ['ZNAK','HODNOTA'])}`;
+                return `<h3>A1Z26</h3><p><strong>Princip:</strong> A=1, B=2 … Z=26. Čísla čti v pořadí zápisu; oddělovače značí hranice písmen.</p><p class="cipher-note"><strong>Příklad:</strong> <code>13-1-16-1</code> = MAPA.</p>${referenceTable(alphabet)}<h3>Římské číslice</h3><p>Menší znak před větším se odečítá, jinak se hodnoty sčítají. <strong>Příklad:</strong> XIV = 10 + (5 − 1) = 14.</p>${referenceTable({I:1,V:5,X:10,L:50,C:100,D:500,M:1000}, ['ZNAK','HODNOTA'])}`;
             }
             if (toolId === 'binary_ascii') {
                 const rows = Array.from({length: 26}, (_, i) => {
@@ -1075,7 +1071,7 @@
                     const sevenBit = (65 + i).toString(2).padStart(7, '0');
                     return `<tr><td>${letter}</td><td>${65 + i}</td><td>${sevenBit}</td><td>0${sevenBit}</td></tr>`;
                 }).join('');
-                return `<h3>Binární kód a ASCII</h3><p><strong>Směr:</strong> nejvyšší řád je vlevo. Pro 7 bitů mají pozice hodnoty <code>64 32 16 8 4 2 1</code>; sečti hodnoty nad jedničkami.</p><p class="cipher-note"><strong>Příklad:</strong> <code>1000001</code> = 64 + 1 = 65 = A. Osmibitový zápis je <code>01000001</code>.</p>${cipherReferenceTranscript('binary_ascii')}${cipherAlphabetPad('binary_ascii')}<table class="cipher-reference"><thead><tr><th>PÍSMENO</th><th>DEC</th><th>7BIT ASCII</th><th>8BIT ASCII</th></tr></thead><tbody>${rows}</tbody></table>`;
+                return `<h3>Binární kód a ASCII</h3><p><strong>Směr:</strong> nejvyšší řád je vlevo. Pro 7 bitů mají pozice hodnoty <code>64 32 16 8 4 2 1</code>; sečti hodnoty nad jedničkami.</p><p class="cipher-note"><strong>Příklad:</strong> <code>1000001</code> = 64 + 1 = 65 = A. Osmibitový zápis je <code>01000001</code>.</p><table class="cipher-reference"><thead><tr><th>PÍSMENO</th><th>DEC</th><th>7BIT ASCII</th><th>8BIT ASCII</th></tr></thead><tbody>${rows}</tbody></table>`;
             }
             if (toolId === 'pigpen') {
                 return `<h3>Malý polský kříž</h3><p>Písmeno nahraď čarami, které ho obklopují v příslušné mřížce nebo kříži. Druhá mřížka a druhý kříž používají uvnitř znaku tečku.</p>${pigpenReferenceDiagram()}<p class="cipher-note">Tabulku čti jako čtyři samostatné klíče: A–I, J–R, S–V a W–Z. Orientaci výsledného tvaru zachovej.</p>${cipherReferenceTranscript('pigpen')}<h3>Grafický přehled znaků</h3>${pigpenReferenceCards()}
@@ -1093,7 +1089,7 @@
             if (toolId === 'classical') {
                 const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
                 const shifts = Array.from({length: 26}, (_, shift) => `<tr><td>${shift}</td><td class="caesar-strip">${alphabet.slice(shift)}${alphabet.slice(0, shift)}</td></tr>`).join('');
-                return `<h3>Caesarův posun</h3><p>Každé písmeno nahraď písmenem o stejný počet míst dál. Při dešifrování postupuj opačným směrem. Klíč musí určit směr i velikost posunu.</p><p class="cipher-note"><strong>Příklad:</strong> při posunu +1 platí A→B, B→C; MAPA→NBQB.</p>${cipherReferenceTranscript('classical', 'Kliknutím na písmeno v abecedě jej přidáte do společného přepisu klasických šifer.')}${cipherAlphabetPad('classical')}<table class="cipher-reference"><thead><tr><th>POSUN</th><th>POSUNUTÁ ABECEDA POD A–Z</th></tr></thead><tbody>${shifts}</tbody></table>
+                return `<h3>Caesarův posun</h3><p>Každé písmeno nahraď písmenem o stejný počet míst dál. Při dešifrování postupuj opačným směrem. Klíč musí určit směr i velikost posunu.</p><p class="cipher-note"><strong>Příklad:</strong> při posunu +1 platí A→B, B→C; MAPA→NBQB.</p><table class="cipher-reference"><thead><tr><th>POSUN</th><th>POSUNUTÁ ABECEDA POD A–Z</th></tr></thead><tbody>${shifts}</tbody></table>
                     <h3>Vigenèrova tabulka</h3><p>Klíč opakuj nad šifrovým textem. Při dešifrování vyber řádek písmene klíče, najdi v něm šifrové písmeno a z horního záhlaví přečti původní písmeno.</p>${vigenereReference()}
                     <h3>Šifrovací čtverec 5×5</h3><p>Písmeno určuje dvojice souřadnic: nejprve řádek, potom sloupec. I/J sdílejí pole, pokud zadání neurčí jinak.</p><table class="cipher-reference"><tbody><tr><th></th><th>1</th><th>2</th><th>3</th><th>4</th><th>5</th></tr><tr><th>1</th><td>A</td><td>B</td><td>C</td><td>D</td><td>E</td></tr><tr><th>2</th><td>F</td><td>G</td><td>H</td><td>I/J</td><td>K</td></tr><tr><th>3</th><td>L</td><td>M</td><td>N</td><td>O</td><td>P</td></tr><tr><th>4</th><td>Q</td><td>R</td><td>S</td><td>T</td><td>U</td></tr><tr><th>5</th><td>V</td><td>W</td><td>X</td><td>Y</td><td>Z</td></tr></tbody></table><p class="cipher-note"><strong>Příklad:</strong> 32 = M, 11 = A, 35 = P, 11 = A.</p>`;
             }
@@ -1104,7 +1100,7 @@
             const unlocked = id => cipherToolsState.some(tool => tool.id === id && tool.status === 'unlocked');
             const algorithms = [];
             if (unlocked('morse')) algorithms.push(['morse', 'Morseova abeceda']);
-            if (unlocked('a1z26')) algorithms.push(['a1z26', 'A1Z26']);
+            if (unlocked('a1z26')) algorithms.push(['a1z26', 'A1Z26'], ['roman', 'Římské číslice → A1Z26']);
             if (unlocked('binary_ascii')) algorithms.push(['binary', 'Binární ASCII']);
             if (unlocked('braille')) algorithms.push(['braille', 'Braillovo písmo']);
             if (unlocked('classical')) algorithms.push(['caesar', 'Caesarův posun'], ['vigenere', 'Vigenèrova šifra'], ['polybius', 'Čtverec 5×5']);
@@ -1219,6 +1215,16 @@
                 const number = Number(raw);
                 if (Number.isInteger(number) && number >= 1 && number <= 26) result = String.fromCharCode(64 + number);
                 else error = 'A1Z26 očekává celé číslo od 1 do 26.';
+            } else if (cipherNotebook.algorithm === 'roman') {
+                const roman = normalized;
+                const values = {I: 1, V: 5, X: 10, L: 50, C: 100, D: 500, M: 1000};
+                if (!/^(?=[MDCLXVI])M{0,3}(CM|CD|D?C{0,3})(XC|XL|L?X{0,3})(IX|IV|V?I{0,3})$/.test(roman)) {
+                    error = 'Jednotka není platné římské číslo.';
+                } else {
+                    const number = Array.from(roman).reduce((sum, character, index) => sum + (values[character] < (values[roman[index + 1]] || 0) ? -values[character] : values[character]), 0);
+                    if (number >= 1 && number <= 26) result = String.fromCharCode(64 + number);
+                    else error = `Římské číslo má hodnotu ${number}; pro převod na písmeno je potřeba 1–26.`;
+                }
             } else if (cipherNotebook.algorithm === 'binary') {
                 if (!/^[01]{7,8}$/.test(raw)) error = 'ASCII jednotka musí mít 7 nebo 8 bitů.';
                 else result = String.fromCharCode(parseInt(raw, 2));
