@@ -7,6 +7,7 @@
 #include <QDateTime>
 #include <QDir>
 #include <QFileDialog>
+#include <QFile>
 #include <QFileInfo>
 #include <QFormLayout>
 #include <QGroupBox>
@@ -55,9 +56,14 @@ CloudOperatorWindow::CloudOperatorWindow(QWidget *parent) : QMainWindow(parent)
         m_status->setText(success ? tr("Dokončeno: %1").arg(name) : tr("Chyba: %1").arg(name));
         m_log->append(success ? tr("✓ Operace dokončena.") : tr("✗ Operace selhala."));
         if (name == tr("Přihlášení Google účtu")) refreshGoogleIdentity();
-        if (success && (name == tr("Kompletní příprava prostředí") ||
-                        name == tr("Příprava ostrého provozu")))
+        if (success && name == tr("Kompletní příprava prostředí")) {
+            m_loginAfterConfigLoad = true;
+            loadRemoteConfiguration();
+        } else if (success && name == tr("Sestavení a nasazení opravy")) {
+            loadRemoteConfiguration();
+        } else if (success && name == tr("Příprava ostrého provozu")) {
             loginAdminDashboard();
+        }
         if (success) refreshLifecycleState();
     });
     connect(m_identityProcess, qOverload<int, QProcess::ExitStatus>(&QProcess::finished), this,
@@ -188,9 +194,22 @@ CloudOperatorWindow::CloudOperatorWindow(QWidget *parent) : QMainWindow(parent)
         m_vm->setText(value("vm_name"));
         m_domain->setText(value("domain"));
         m_image->setText(value("initial_image"));
+        QFile sharedConfig(m_varFile->text().trimmed());
+        if (sharedConfig.open(QIODevice::ReadOnly | QIODevice::Text)) {
+            const QString config = QString::fromUtf8(sharedConfig.readAll());
+            const auto configuredDomain = QRegularExpression("(?m)^domain\\s*=\\s*\"([^\"]*)\"").match(config);
+            const auto configuredImage = QRegularExpression("(?m)^initial_image\\s*=\\s*\"([^\"]+)\"").match(config);
+            if (configuredDomain.hasMatch() && !configuredDomain.captured(1).isEmpty())
+                m_domain->setText(configuredDomain.captured(1));
+            if (configuredImage.hasMatch()) m_image->setText(configuredImage.captured(1));
+        }
         saveSettings();
         m_status->setText(tr("Existující prostředí načteno ze vzdáleného state"));
         refreshLifecycleState();
+        if (m_loginAfterConfigLoad) {
+            m_loginAfterConfigLoad = false;
+            loginAdminDashboard();
+        }
     });
     connect(m_web, &QWebEngineView::loadFinished, this, [this](bool success) {
         if (!success || !m_adminLoginPending) return;
@@ -280,7 +299,7 @@ void CloudOperatorWindow::buildUi()
     connect(googleLogin, &QPushButton::clicked, this, &CloudOperatorWindow::loginGoogle);
     connect(refreshState, &QPushButton::clicked, this, &CloudOperatorWindow::refreshLifecycleState);
     connect(m_prepareButton, &QPushButton::clicked, this, [this] {
-        if (!validateCommon(true)) return;
+        if (!validateCommon(false)) return;
         if (!writeShortRunVarFile()) return;
         if (QMessageBox::question(this, tr("Připravit prostředí"),
             tr("V projektu %1 budou vytvořeny placené prostředky a automatická tajemství. Pokračovat?")
@@ -293,15 +312,11 @@ void CloudOperatorWindow::buildUi()
                     "--image=" + m_image->text()});
     });
     connect(m_deployFixButton, &QPushButton::clicked, this, [this] {
-        if (!validateCommon(true) || !writeShortRunVarFile()) return;
-        const QString deployScript = QDir(m_controller->projectRoot()).filePath("deploy/gcp/deploy.sh");
-        m_controller->runOperation(tr("Nasazení opravy"), {
-            {"bash", QStringList{deployScript} + targetArguments() + QStringList{"--image=" + m_image->text()}},
-            {"gcloud", {"storage", "cp", m_varFile->text(),
-                        QStringLiteral("gs://%1/escape-bot/operator-config/%2.tfvars")
-                            .arg(m_stateBucket->text(), m_environment->text())}},
-            lifecycleUpdateCommand("deployed_fix")
-        });
+        if (!validateCommon(false) || !writeShortRunVarFile()) return;
+        const QString root = m_controller->projectRoot();
+        runScript(tr("Sestavení a nasazení opravy"), "deploy/gcp/deploy-short-run-fix.sh",
+                  {m_project->text(), m_region->text(), m_zone->text(), m_vm->text(),
+                   m_stateBucket->text(), m_environment->text(), m_varFile->text(), m_image->text(), root});
     });
     connect(m_prepareLiveButton, &QPushButton::clicked, this, [this] {
         if (!validateCommon() || !confirmPhrase(tr("Příprava ostrého provozu"),
@@ -354,8 +369,10 @@ void CloudOperatorWindow::buildUi()
     addField(tr("Region"), m_region);
     addField(tr("Zóna"), m_zone);
     addField(tr("VM"), m_vm);
-    addField(tr("Doména"), m_domain);
-    addField(tr("Image digest"), m_image);
+    addField(tr("Doména (volitelná)"), m_domain);
+    addField(tr("Image digest (volitelný)"), m_image);
+    m_domain->setPlaceholderText(tr("Prázdné = automatická IP doména sslip.io"));
+    m_image->setPlaceholderText(tr("Prázdné = automaticky sestavit a publikovat"));
     addField(tr("Terraform adresář"), m_terraformDir);
     addField(tr("Terraform var-file"), m_varFile);
     addField(tr("Lokální archivy"), m_archiveDir);
@@ -555,9 +572,6 @@ bool CloudOperatorWindow::validateCommon(bool requireImage)
     if (requireImage && !QRegularExpression("@sha256:[a-f0-9]{64}$").match(m_image->text()).hasMatch()) {
         QMessageBox::warning(this, tr("Neplatný image"), tr("Deploy vyžaduje image zakončený neměnným SHA-256 digestem.")); return false;
     }
-    if (requireImage && m_domain->text().trimmed().isEmpty()) {
-        QMessageBox::warning(this, tr("Chybí doména"), tr("Pro přípravu prostředí vyplňte veřejnou doménu.")); return false;
-    }
     saveSettings();
     return true;
 }
@@ -646,11 +660,7 @@ void CloudOperatorWindow::applySuggestedValues(const QString &projectId)
     if (m_varFile->text().trimmed().isEmpty()) m_varFile->setText(QDir(root).filePath("infra/terraform/short-run.tfvars"));
     if (m_archiveDir->text().trimmed().isEmpty()) m_archiveDir->setText(QDir(root).filePath("archives"));
     saveSettings();
-    QStringList missing;
-    if (m_domain->text().trimmed().isEmpty()) missing << tr("veřejná doména");
-    if (!QRegularExpression("@sha256:[a-f0-9]{64}$").match(m_image->text()).hasMatch()) missing << tr("image digest");
-    m_status->setText(missing.isEmpty() ? tr("Povinné hodnoty jsou připravené")
-                                       : tr("Doplňte ještě: %1").arg(missing.join(", ")));
+    m_status->setText(tr("Povinné hodnoty jsou připravené; doména a image se mohou vytvořit automaticky"));
 }
 
 void CloudOperatorWindow::loadRemoteConfiguration()
@@ -752,12 +762,13 @@ bool CloudOperatorWindow::writeShortRunVarFile()
     const QString zone = m_zone->text().trimmed();
     const QString domain = m_domain->text().trimmed();
     const QString image = m_image->text().trimmed();
+    const bool domainSafe = domain.isEmpty() || QRegularExpression("^[a-z0-9.-]+$").match(domain).hasMatch();
+    const bool imageSafe = image.isEmpty() || QRegularExpression("^[a-z0-9./_:@-]+@sha256:[a-f0-9]{64}$").match(image).hasMatch();
     const bool safe = QRegularExpression("^[a-z][a-z0-9-]{4,28}[a-z0-9]$").match(project).hasMatch()
         && QRegularExpression("^event-[a-z0-9-]{1,12}$").match(environment).hasMatch()
         && QRegularExpression("^[a-z]+-[a-z]+[0-9]+$").match(region).hasMatch()
         && QRegularExpression("^[a-z]+-[a-z]+[0-9]+-[a-z]$").match(zone).hasMatch()
-        && QRegularExpression("^[a-z0-9.-]+$").match(domain).hasMatch()
-        && QRegularExpression("^[a-z0-9./_:@-]+@sha256:[a-f0-9]{64}$").match(image).hasMatch();
+        && domainSafe && imageSafe;
     if (!safe) {
         QMessageBox::warning(this, tr("Neplatná konfigurace"),
                              tr("Projekt, prostředí, region, zóna, doména nebo image obsahují neplatnou hodnotu."));
@@ -776,7 +787,8 @@ bool CloudOperatorWindow::writeShortRunVarFile()
         "enable_cloud_sql = false\ndata_snapshot_retention_days = 7\n"
         "keep_snapshots_after_disk_delete = false\ninitial_image = \"%6\"\n"
         "labels = { lifecycle = \"short-run\", event = \"%4\" }\n")
-        .arg(project, region, zone, environment, domain, image);
+        .arg(project, region, zone, environment, domain,
+             image.isEmpty() ? QStringLiteral("us-docker.pkg.dev/cloudrun/container/hello:latest") : image);
     file.write(content.toUtf8());
     if (!file.commit()) {
         QMessageBox::warning(this, tr("Terraform konfigurace"), tr("Zápis konfigurace se nepodařilo dokončit."));

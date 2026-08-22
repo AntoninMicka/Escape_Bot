@@ -15,6 +15,8 @@ locals {
     "servicenetworking.googleapis.com",
     "sqladmin.googleapis.com",
   ] : []))
+
+  effective_domain = trimspace(var.domain) != "" ? var.domain : "${replace(google_compute_address.app.address, ".", "-")}.sslip.io"
 }
 
 resource "google_project_service" "required" {
@@ -287,7 +289,7 @@ resource "google_compute_instance" "app" {
   }
 
   metadata_startup_script = templatefile("${path.module}/templates/startup.sh.tftpl", {
-    domain                  = var.domain
+    domain                  = local.effective_domain
     environment             = var.environment
     initial_image           = var.initial_image
     region                  = var.region

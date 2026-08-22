@@ -27,8 +27,9 @@ variable "environment" {
 }
 
 variable "domain" {
-  description = "Public DNS name which will point to the reserved VM IP."
+  description = "Optional public DNS name. Empty uses the reserved IPv4 address through sslip.io for short-lived environments."
   type        = string
+  default     = ""
 }
 
 variable "machine_type" {

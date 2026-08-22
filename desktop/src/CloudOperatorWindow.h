@@ -73,6 +73,7 @@ private:
     QString m_configProcessMode;
     QString m_discoveryProject;
     bool m_adminLoginPending = false;
+    bool m_loginAfterConfigLoad = false;
     bool m_operationBusy = false;
     QString m_lifecyclePhase = QStringLiteral("unknown");
 };

@@ -2,7 +2,7 @@
 set -euo pipefail
 
 usage() {
-    echo "Použití: $0 --project=ID --region=REGION --zone=ZONE --vm=NAME --environment=NAME --state-bucket=BUCKET --terraform-dir=DIR --var-file=FILE --image=IMAGE@sha256:..."
+    echo "Použití: $0 --project=ID --region=REGION --zone=ZONE --vm=NAME --environment=NAME --state-bucket=BUCKET --terraform-dir=DIR --var-file=FILE [--image=IMAGE@sha256:...]"
 }
 
 project=""; region=""; zone=""; vm=""; environment=""; state_bucket=""; terraform_dir=""; var_file=""; image=""
@@ -21,7 +21,7 @@ for argument in "$@"; do
     esac
 done
 if [ -z "$project" ] || [ -z "$region" ] || [ -z "$zone" ] || [ -z "$vm" ] || \
-   [ -z "$environment" ] || [ -z "$state_bucket" ] || [ -z "$terraform_dir" ] || [ -z "$var_file" ] || [ -z "$image" ]; then
+   [ -z "$environment" ] || [ -z "$state_bucket" ] || [ -z "$terraform_dir" ] || [ -z "$var_file" ]; then
     usage; exit 2
 fi
 
@@ -33,6 +33,14 @@ prefix="escape-bot-$environment"
     --terraform-dir="$terraform_dir" --var-file="$var_file" --workspace="$environment" \
     --state-bucket="$state_bucket"
 "$script_dir/configure-admin-secret.sh" "$project" "$prefix-admin-token"
+if [ -z "$image" ]; then
+    echo "Sestavuji první aplikační image..."
+    image=$("$script_dir/build-short-run-image.sh" "$project" "$region")
+fi
+effective_domain=$(terraform -chdir="$terraform_dir" output -raw domain)
+sed -i -E "s|^initial_image[[:space:]]*=.*$|initial_image = \"$image\"|" "$var_file"
+sed -i -E "s|^domain[[:space:]]*=.*$|domain = \"$effective_domain\"|" "$var_file"
+gcloud storage cp "$var_file" "gs://$state_bucket/escape-bot/operator-config/$environment.tfvars" >/dev/null
 
 gcloud compute instances reset "$vm" --project="$project" --zone="$zone"
 echo "Čekám na načtení tajemství a dokončení bootstrapu VM..."

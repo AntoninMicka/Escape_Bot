@@ -4,7 +4,8 @@ project_id  = "my-gcp-project"
 region      = "europe-west3"
 zone        = "europe-west3-a"
 environment = "event-2026"
-domain      = "event-hra.example.cz"
+# Prázdné = automatická A-B-C-D.sslip.io adresa podle rezervované IPv4.
+domain = ""
 
 # Kapacita postačující pro omezený počet současných týmů; nejde o HA profil.
 machine_type     = "e2-medium"

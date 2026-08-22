@@ -10,6 +10,8 @@ Rozhraní má samostatné záložky **Ovládání životního cyklu** a **Admin 
 
 Tlačítko **Přihlásit Google účet** spustí jediný webový `gcloud auth login --update-adc`, který připraví zároveň Google Cloud CLI i Application Default Credentials pro Terraform. **Připravit testovací prostředí** automaticky vytvoří infrastrukturu, náhodný admin token v Secret Manageru, restartuje VM, počká na konfiguraci a nasadí image. Short-run používá atomické JSON soubory na samostatném perzistentním disku, takže nevytváří Cloud SQL, databázové heslo ani proxy. Hodnota admin tokenu se nezapisuje do logu ani do nastavení aplikace.
 
+Doména i image jsou pro short-run volitelné. Bez domény Terraform odvodí z rezervované IPv4 adresu ve tvaru `A-B-C-D.sslip.io`; Caddy pro ni získá standardní ACME certifikát. Jde o externí bezplatnou DNS službu bez SLA, vhodnou pro krátké testování. Vlastní doména zůstává podporovaným override. Bez image digestu operátor nejprve vytvoří Artifact Registry, sestaví aktuální pracovní strom, publikuje image, uloží jeho neměnný digest do sdíleného `tfvars` a provede deploy. Stejný automatický build používá opakované **Nasadit opravu**.
+
 V pravé části je vzdálený `/admin` dashboard. Operátor načte admin token ze Secret Manageru do paměti a vloží jej pouze do `sessionStorage` HTTPS dashboardu. Token nevkládá do URL, logu ani `QSettings`; nedůvěryhodný TLS certifikát nepovolí.
 
 Vyžaduje příkazy `bash`, `gcloud`, `terraform` a `docker` a aktivní přihlášení do Google Cloud. Je určen pro Linux/macOS administrátorskou stanici. Konfiguraci prostředí ukládá přes Qt `QSettings`, nikoli cloudová hesla nebo tokeny.

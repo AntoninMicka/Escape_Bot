@@ -23,7 +23,7 @@ output "public_ip" {
 }
 
 output "domain" {
-  value = var.domain
+  value = local.effective_domain
 }
 
 output "initial_image" {

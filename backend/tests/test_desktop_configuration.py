@@ -37,6 +37,7 @@ class DesktopConfigurationTests(unittest.TestCase):
         self.assertIn('configure-admin-secret.sh', script)
         self.assertIn('instances reset', script)
         self.assertIn('deploy.sh', script)
+        self.assertIn('build-short-run-image.sh', script)
         self.assertNotIn('echo "$admin_token"', script)
         self.assertNotIn('echo "$database_password"', script)
 
@@ -79,6 +80,8 @@ class DesktopConfigurationTests(unittest.TestCase):
         self.assertIn("updateActionAvailability", operator)
         self.assertIn("m_resumeButton->setEnabled(!m_operationBusy && paused)", operator)
         self.assertIn("m_prepareLiveButton->setEnabled(!m_operationBusy && runningEnvironment)", operator)
+        self.assertIn("Doména (volitelná)", operator)
+        self.assertIn("Image digest (volitelný)", operator)
         self.assertIn('tabs->addTab(controlPage, tr("Ovládání životního cyklu"))', operator)
         self.assertIn('tabs->addTab(dashboardPage, tr("Admin dashboard"))', operator)
         self.assertIn("controlPage->addWidget(operationsPanel)", operator)
