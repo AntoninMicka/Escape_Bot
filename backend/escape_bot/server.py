@@ -64,6 +64,7 @@ DEMO_MODE_ENABLED = os.getenv("ESCAPEBOT_DEMO_MODE", "").lower() in {"1", "true"
 ADMIN_TOKEN = os.getenv("ESCAPEBOT_ADMIN_TOKEN", "")
 runtime_settings = {"online_mode": False, "gameplay_enabled": True, "max_active_teams": 4,
                     "start_interval_minutes": 15, "game_duration_minutes": 120,
+                    "deadline_penalty": 100,
                     "opening_time": "08:00", "closing_time": "20:00", "timezone": "Europe/Prague"}
 
 def _local_now() -> datetime:
@@ -140,10 +141,49 @@ async def operations_monitor() -> None:
             try: deadline = min(datetime.fromisoformat(str(started_at)).astimezone(current.tzinfo) + timedelta(minutes=duration), closing)
             except ValueError: continue
             if current >= deadline:
-                machine.state.flags["administratively_ended"] = True; machine.state.flags["administratively_ended_at"] = datetime.now(UTC).isoformat(); changed = True
-                await broadcast_session(session_id, [Message("operations.stopped", {"message": "Časový limit hry vypršel. Výsledek týmu je připraven k vyhodnocení."})])
+                ended_at = datetime.now(UTC).isoformat()
+                penalty = max(0, min(1000, int(runtime_settings.get("deadline_penalty", 100))))
+                updates = apply_deadline_end(machine, ended_at, penalty)
+                changed = True
+                await broadcast_session(session_id, updates)
         if changed: save_sessions()
         await asyncio.sleep(30)
+
+
+def apply_deadline_end(machine: EscapeBotStateMachine, ended_at: str, penalty: int) -> list[Message]:
+    """Close an unfinished game at its deadline and apply the penalty exactly once."""
+    machine.state.flags["administratively_ended"] = True
+    machine.state.flags["administratively_ended_at"] = ended_at
+    machine.state.flags["administratively_ended_reason"] = "deadline"
+    updates: list[Message] = []
+    applied_penalty = 0
+    if penalty and not machine.state.flags.get("deadline_penalty_applied"):
+        applied_penalty = penalty
+        adjustment = {
+            "delta": -penalty,
+            "amount": penalty,
+            "reason": "Nedokončení hry v časovém limitu",
+            "at": ended_at,
+        }
+        machine.state.score -= penalty
+        machine.state.flags["deadline_penalty_applied"] = True
+        machine.state.flags.setdefault("admin_score_adjustments", []).append(adjustment)
+        machine.state.flags.setdefault("admin_penalties", []).append(adjustment)
+        updates.append(Message("score.update", {
+            "score": machine.state.score,
+            "delta": -penalty,
+            "bonus": 0,
+            "penalty": penalty,
+            "reason": "deadline_penalty",
+            "description": adjustment["reason"],
+        }))
+    suffix = f" Byl odečten postih {applied_penalty} bodů." if applied_penalty else ""
+    updates.extend([
+        Message("operations.stopped", {"reason": "deadline", "penalty": applied_penalty,
+            "message": f"Časový limit hry vypršel.{suffix} Výsledek týmu je připraven k vyhodnocení."}),
+        machine._state_message(),
+    ])
+    return updates
 
 global_leaderboard = []
 
@@ -587,12 +627,14 @@ async def websocket_endpoint(websocket: WebSocket):
                             values = {"max_active_teams": int(msg.payload.get("max_active_teams", 4)),
                                       "start_interval_minutes": int(msg.payload.get("start_interval_minutes", 15)),
                                       "game_duration_minutes": int(msg.payload.get("game_duration_minutes", 120)),
+                                      "deadline_penalty": int(msg.payload.get("deadline_penalty", 100)),
                                       "opening_time": str(msg.payload.get("opening_time", "08:00")),
                                       "closing_time": str(msg.payload.get("closing_time", "20:00")),
                                       "timezone": str(msg.payload.get("timezone", "Europe/Prague"))}
                             if not 1 <= values["max_active_teams"] <= 100: raise ValueError("Kapacita musí být 1–100 týmů.")
                             if not 0 <= values["start_interval_minutes"] <= 240: raise ValueError("Rozestup musí být 0–240 minut.")
                             if not 15 <= values["game_duration_minutes"] <= 720: raise ValueError("Délka hry musí být 15–720 minut.")
+                            if not 0 <= values["deadline_penalty"] <= 1000: raise ValueError("Postih za nedokončení musí být 0–1000 bodů.")
                             for key in ("opening_time", "closing_time"):
                                 datetime.strptime(values[key], "%H:%M")
                             ZoneInfo(values["timezone"])

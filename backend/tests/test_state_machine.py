@@ -86,6 +86,24 @@ class StateMachineCheckpointTests(unittest.IsolatedAsyncioTestCase):
         finally:
             runtime_settings.clear(); runtime_settings.update(original)
 
+    def test_deadline_closes_game_and_applies_penalty_only_once(self) -> None:
+        from escape_bot.server import apply_deadline_end
+        ended_at = datetime.now(UTC).isoformat()
+        initial_score = self.machine.state.score
+
+        updates = apply_deadline_end(self.machine, ended_at, 100)
+
+        self.assertTrue(self.machine.state.flags["administratively_ended"])
+        self.assertEqual(self.machine.state.flags["administratively_ended_reason"], "deadline")
+        self.assertEqual(self.machine.state.score, initial_score - 100)
+        self.assertEqual(len(self.machine.state.flags["admin_score_adjustments"]), 1)
+        self.assertEqual(updates[0].type, "score.update")
+        self.assertEqual(updates[0].payload["reason"], "deadline_penalty")
+
+        apply_deadline_end(self.machine, ended_at, 100)
+        self.assertEqual(self.machine.state.score, initial_score - 100)
+        self.assertEqual(len(self.machine.state.flags["admin_score_adjustments"]), 1)
+
     async def scan(self, checkpoint_id: str):
         token = self.scenario.data["checkpoints"][checkpoint_id]["token"]
         return await self.machine.handle(
