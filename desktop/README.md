@@ -12,6 +12,14 @@ V pravé části je vzdálený `/admin` dashboard. Operátor načte admin token 
 
 Vyžaduje příkazy `bash`, `gcloud`, `terraform` a `docker` a aktivní přihlášení do Google Cloud. Je určen pro Linux/macOS administrátorskou stanici. Konfiguraci prostředí ukládá přes Qt `QSettings`, nikoli cloudová hesla nebo tokeny.
 
+### Převzetí na jiném počítači
+
+Terraform state je v GCS bucketu navrženém jako `<project-id>-escape-bot-tfstate`; bucket má jednotná oprávnění, zákaz veřejného přístupu a verzování. Operátor do něj vedle state ukládá netajný `short-run.tfvars`. Případný starší lokální state se při prvním provisioningu migruje do GCS.
+
+Na novém počítači naklonujte stejnou verzi repozitáře, přihlaste Google účet a vyplňte projekt, prostředí a state bucket. Tlačítko **Načíst existující prostředí** stáhne sdílený `tfvars`, vybere vzdálený workspace a doplní hodnoty z Terraform outputs. Poté lze provádět deploy, pauzu, archivaci, reset i finální destroy. Účet musí mít stejná projektová, Secret Manager, IAP/OS Login a GCS oprávnění.
+
+Tlačítko **Navrhnout povinné hodnoty** načte aktivní GCP projekt a odvodí bezpečné výchozí názvy prostředí, VM, state bucketu, regionu, zóny a lokálních cest. Doménu a neměnný image digest musí uživatel dodat; před provisioningem z nich operátor atomicky vytvoří netajný `short-run.tfvars`.
+
 ```bash
 cmake -S desktop -B desktop/build
 cmake --build desktop/build --target EscapeBotCloudOperator

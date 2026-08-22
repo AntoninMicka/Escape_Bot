@@ -2,7 +2,7 @@
 set -euo pipefail
 
 usage() {
-    echo "Použití: $0 --terraform-dir=DIR --var-file=FILE --archive-dir=DIR [--workspace=NAME] --confirm-destroy=DESTROY-SHORT-RUN"
+    echo "Použití: $0 --terraform-dir=DIR --var-file=FILE --archive-dir=DIR --state-bucket=BUCKET [--workspace=NAME] --confirm-destroy=DESTROY-SHORT-RUN"
 }
 
 terraform_dir=""
@@ -10,17 +10,19 @@ var_file=""
 archive_dir=""
 confirmation=""
 workspace=""
+state_bucket=""
 for argument in "$@"; do
     case "$argument" in
         --terraform-dir=*) terraform_dir="${argument#--terraform-dir=}" ;;
         --var-file=*) var_file="${argument#--var-file=}" ;;
         --archive-dir=*) archive_dir="${argument#--archive-dir=}" ;;
         --workspace=*) workspace="${argument#--workspace=}" ;;
+        --state-bucket=*) state_bucket="${argument#--state-bucket=}" ;;
         --confirm-destroy=*) confirmation="${argument#--confirm-destroy=}" ;;
         *) usage; exit 2 ;;
     esac
 done
-if [ -z "$terraform_dir" ] || [ -z "$var_file" ] || [ -z "$archive_dir" ] || [ "$confirmation" != "DESTROY-SHORT-RUN" ]; then
+if [ -z "$terraform_dir" ] || [ -z "$var_file" ] || [ -z "$archive_dir" ] || [ -z "$state_bucket" ] || [ "$confirmation" != "DESTROY-SHORT-RUN" ]; then
     usage
     exit 2
 fi
@@ -37,6 +39,8 @@ if ! find "$archive_dir" -type f -name archive-report.json -print -quit | grep -
 fi
 
 plan_file="$terraform_dir/short-run-destroy.tfplan"
+terraform -chdir="$terraform_dir" init -reconfigure \
+    -backend-config="bucket=$state_bucket" -backend-config="prefix=escape-bot/short-run"
 if [ -n "$workspace" ]; then
     terraform -chdir="$terraform_dir" workspace select "$workspace"
 fi

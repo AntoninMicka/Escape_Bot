@@ -1,6 +1,3 @@
-terraform {
-  backend "gcs" {
-    bucket = "REPLACE_WITH_TERRAFORM_STATE_BUCKET"
-    prefix = "escape-bot/staging"
-  }
-}
+# GCS backend je deklarován ve versions.tf. Bucket a prefix předávají
+# lifecycle skripty přes terraform init -backend-config, aby byl stejný
+# state dostupný z libovolné administrátorské stanice.

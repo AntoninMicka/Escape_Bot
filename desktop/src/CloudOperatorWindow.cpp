@@ -3,6 +3,7 @@
 #include "CloudLifecycleController.h"
 
 #include <QCoreApplication>
+#include <QDate>
 #include <QDateTime>
 #include <QDir>
 #include <QFileDialog>
@@ -11,6 +12,8 @@
 #include <QGroupBox>
 #include <QHBoxLayout>
 #include <QInputDialog>
+#include <QJsonDocument>
+#include <QJsonObject>
 #include <QLabel>
 #include <QLineEdit>
 #include <QMessageBox>
@@ -19,6 +22,7 @@
 #include <QRegularExpression>
 #include <QScrollArea>
 #include <QSettings>
+#include <QSaveFile>
 #include <QSplitter>
 #include <QStandardPaths>
 #include <QTextEdit>
@@ -34,6 +38,7 @@ CloudOperatorWindow::CloudOperatorWindow(QWidget *parent) : QMainWindow(parent)
     loadSettings();
     m_identityProcess = new QProcess(this);
     m_adminTokenProcess = new QProcess(this);
+    m_configProcess = new QProcess(this);
     connect(m_controller, &CloudLifecycleController::outputReady, m_log, &QTextEdit::insertPlainText);
     connect(m_controller, &CloudLifecycleController::busyChanged, this, [this](bool busy) {
         m_cancel->setEnabled(busy);
@@ -74,6 +79,38 @@ CloudOperatorWindow::CloudOperatorWindow(QWidget *parent) : QMainWindow(parent)
         m_web->setProperty("pendingAdminToken", token);
         token.fill(QChar(0));
         m_web->setUrl(url);
+    });
+    connect(m_configProcess, qOverload<int, QProcess::ExitStatus>(&QProcess::finished), this,
+            [this](int exitCode, QProcess::ExitStatus status) {
+        const QByteArray output = m_configProcess->readAllStandardOutput();
+        const QString mode = m_configProcessMode;
+        m_configProcessMode.clear();
+        if (status != QProcess::NormalExit || exitCode != 0) {
+            QMessageBox::warning(this, tr("Cloud konfigurace"),
+                tr("Operace se nezdařila:\n%1").arg(QString::fromUtf8(m_configProcess->readAllStandardError())));
+            return;
+        }
+        if (mode == QStringLiteral("suggest")) {
+            applySuggestedValues(QString::fromUtf8(output).trimmed());
+            return;
+        }
+        QJsonParseError error;
+        const QJsonDocument document = QJsonDocument::fromJson(output, &error);
+        if (error.error != QJsonParseError::NoError || !document.isObject()) {
+            QMessageBox::warning(this, tr("Cloud konfigurace"), tr("Terraform outputs nemají očekávaný JSON formát."));
+            return;
+        }
+        const QJsonObject values = document.object();
+        auto value = [&values](const QString &name) { return values.value(name).toObject().value("value").toString(); };
+        m_project->setText(value("project_id"));
+        m_environment->setText(value("environment"));
+        m_region->setText(value("region"));
+        m_zone->setText(value("vm_zone"));
+        m_vm->setText(value("vm_name"));
+        m_domain->setText(value("domain"));
+        m_image->setText(value("initial_image"));
+        saveSettings();
+        m_status->setText(tr("Existující prostředí načteno ze vzdáleného state"));
     });
     connect(m_web, &QWebEngineView::loadFinished, this, [this](bool success) {
         if (!success || !m_adminLoginPending) return;
@@ -135,19 +172,26 @@ void CloudOperatorWindow::buildUi()
     connect(googleLogin, &QPushButton::clicked, this, &CloudOperatorWindow::loginGoogle);
     connect(prepare, &QPushButton::clicked, this, [this] {
         if (!validateCommon(true)) return;
+        if (!writeShortRunVarFile()) return;
         if (QMessageBox::question(this, tr("Připravit prostředí"),
             tr("V projektu %1 budou vytvořeny placené prostředky a automatická tajemství. Pokračovat?")
                 .arg(m_project->text())) != QMessageBox::Yes) return;
         runScript(tr("Kompletní příprava prostředí"), "deploy/gcp/prepare-short-run.sh",
                   targetArguments() + QStringList{
-                    "--environment=" + m_environment->text(),
+                    "--region=" + m_region->text(), "--environment=" + m_environment->text(),
+                    "--state-bucket=" + m_stateBucket->text(),
                     "--terraform-dir=" + m_terraformDir->text(), "--var-file=" + m_varFile->text(),
                     "--image=" + m_image->text()});
     });
     connect(deployFix, &QPushButton::clicked, this, [this] {
-        if (!validateCommon(true)) return;
-        runScript(tr("Nasazení opravy"), "deploy/gcp/deploy.sh",
-                  targetArguments() + QStringList{"--image=" + m_image->text()});
+        if (!validateCommon(true) || !writeShortRunVarFile()) return;
+        const QString deployScript = QDir(m_controller->projectRoot()).filePath("deploy/gcp/deploy.sh");
+        m_controller->runOperation(tr("Nasazení opravy"), {
+            {"bash", QStringList{deployScript} + targetArguments() + QStringList{"--image=" + m_image->text()}},
+            {"gcloud", {"storage", "cp", m_varFile->text(),
+                        QStringLiteral("gs://%1/escape-bot/operator-config/%2.tfvars")
+                            .arg(m_stateBucket->text(), m_environment->text())}}
+        });
     });
     connect(prepareLive, &QPushButton::clicked, this, [this] {
         if (!validateCommon() || !confirmPhrase(tr("Příprava ostrého provozu"),
@@ -178,7 +222,8 @@ void CloudOperatorWindow::buildUi()
             {"bash", {collectScript, m_project->text(), m_zone->text(), m_vm->text(), m_archiveDir->text()}},
             {"bash", {destroyScript, "--terraform-dir=" + m_terraformDir->text(),
                       "--var-file=" + m_varFile->text(), "--archive-dir=" + m_archiveDir->text(),
-                      "--workspace=" + m_environment->text(), "--confirm-destroy=DESTROY-SHORT-RUN"}}
+                      "--workspace=" + m_environment->text(), "--state-bucket=" + m_stateBucket->text(),
+                      "--confirm-destroy=DESTROY-SHORT-RUN"}}
         });
     });
     auto *configBox = new QGroupBox(tr("Cloud konfigurace"), left);
@@ -189,6 +234,7 @@ void CloudOperatorWindow::buildUi()
     };
     addField(tr("GCP projekt"), m_project);
     addField(tr("Prostředí / workspace"), m_environment);
+    addField(tr("GCS bucket pro state"), m_stateBucket);
     addField(tr("Region"), m_region);
     addField(tr("Zóna"), m_zone);
     addField(tr("VM"), m_vm);
@@ -200,16 +246,15 @@ void CloudOperatorWindow::buildUi()
     addField(tr("Označení archivu"), m_archiveLabel);
 
     auto *configButtons = new QHBoxLayout;
-    auto *defaults = new QPushButton(tr("Doplnit názvy"));
+    auto *defaults = new QPushButton(tr("Navrhnout povinné hodnoty"));
+    auto *loadExisting = new QPushButton(tr("Načíst existující prostředí"));
     auto *save = new QPushButton(tr("Uložit konfiguraci"));
     configButtons->addWidget(defaults);
+    configButtons->addWidget(loadExisting);
     configButtons->addWidget(save);
     form->addRow(configButtons);
-    connect(defaults, &QPushButton::clicked, this, [this] {
-        const QString env = m_environment->text().trimmed();
-        if (env.isEmpty()) return;
-        m_vm->setText(QStringLiteral("escape-bot-%1-vm").arg(env));
-    });
+    connect(defaults, &QPushButton::clicked, this, &CloudOperatorWindow::suggestRequiredValues);
+    connect(loadExisting, &QPushButton::clicked, this, &CloudOperatorWindow::loadRemoteConfiguration);
     connect(save, &QPushButton::clicked, this, &CloudOperatorWindow::saveSettings);
 
     auto *lifeBox = new QGroupBox(tr("Pokročilé jednotlivé operace"), left);
@@ -239,12 +284,17 @@ void CloudOperatorWindow::buildUi()
         });
     });
     connect(provision, &QPushButton::clicked, this, [this] {
-        if (!validateCommon()) return;
+        if (!validateCommon(true) || !writeShortRunVarFile()) return;
         if (QMessageBox::question(this, tr("Vytvořit infrastrukturu"),
                 tr("Terraform může vytvořit placené prostředky v projektu %1. Pokračovat?").arg(m_project->text())) != QMessageBox::Yes) return;
-        runScript(tr("Provisioning"), "deploy/gcp/provision-short-run.sh",
-                  {"--terraform-dir=" + m_terraformDir->text(), "--var-file=" + m_varFile->text(),
-                   "--workspace=" + m_environment->text()});
+        const QString root = m_controller->projectRoot();
+        m_controller->runOperation(tr("Provisioning"), {
+            {"bash", {QDir(root).filePath("deploy/gcp/bootstrap-state-bucket.sh"),
+                      m_project->text(), m_region->text(), m_stateBucket->text()}},
+            {"bash", {QDir(root).filePath("deploy/gcp/provision-short-run.sh"),
+                      "--terraform-dir=" + m_terraformDir->text(), "--var-file=" + m_varFile->text(),
+                      "--workspace=" + m_environment->text(), "--state-bucket=" + m_stateBucket->text()}}
+        });
     });
     connect(secrets, &QPushButton::clicked, this, [this] {
         if (!validateCommon()) return;
@@ -253,8 +303,14 @@ void CloudOperatorWindow::buildUi()
                   {m_project->text(), prefix + "-admin-token"});
     });
     connect(deploy, &QPushButton::clicked, this, [this] {
-        if (!validateCommon(true)) return;
-        runScript(tr("Deploy"), "deploy/gcp/deploy.sh", targetArguments() + QStringList{"--image=" + m_image->text()});
+        if (!validateCommon(true) || !writeShortRunVarFile()) return;
+        const QString script = QDir(m_controller->projectRoot()).filePath("deploy/gcp/deploy.sh");
+        m_controller->runOperation(tr("Deploy"), {
+            {"bash", QStringList{script} + targetArguments() + QStringList{"--image=" + m_image->text()}},
+            {"gcloud", {"storage", "cp", m_varFile->text(),
+                        QStringLiteral("gs://%1/escape-bot/operator-config/%2.tfvars")
+                            .arg(m_stateBucket->text(), m_environment->text())}}
+        });
     });
     connect(pause, &QPushButton::clicked, this, [this] {
         if (!validateCommon()) return;
@@ -287,6 +343,7 @@ void CloudOperatorWindow::buildUi()
         runScript(tr("Odstranění infrastruktury"), "deploy/gcp/destroy-short-run.sh",
                   {"--terraform-dir=" + m_terraformDir->text(), "--var-file=" + m_varFile->text(),
                    "--archive-dir=" + m_archiveDir->text(), "--workspace=" + m_environment->text(),
+                   "--state-bucket=" + m_stateBucket->text(),
                    "--confirm-destroy=DESTROY-SHORT-RUN"});
     });
     connect(m_cancel, &QPushButton::clicked, m_controller, &CloudLifecycleController::cancel);
@@ -326,6 +383,7 @@ void CloudOperatorWindow::loadSettings()
     const QString root = m_controller->projectRoot();
     m_project->setText(s.value("cloud/project").toString());
     m_environment->setText(s.value("cloud/environment", "event-2026").toString());
+    m_stateBucket->setText(s.value("cloud/stateBucket").toString());
     m_region->setText(s.value("cloud/region", "europe-west3").toString());
     m_zone->setText(s.value("cloud/zone", "europe-west3-a").toString());
     m_vm->setText(s.value("cloud/vm", "escape-bot-event-2026-vm").toString());
@@ -342,6 +400,7 @@ void CloudOperatorWindow::saveSettings()
     QSettings s;
     s.setValue("cloud/project", m_project->text().trimmed());
     s.setValue("cloud/environment", m_environment->text().trimmed());
+    s.setValue("cloud/stateBucket", m_stateBucket->text().trimmed());
     s.setValue("cloud/region", m_region->text().trimmed());
     s.setValue("cloud/zone", m_zone->text().trimmed());
     s.setValue("cloud/vm", m_vm->text().trimmed());
@@ -355,13 +414,16 @@ void CloudOperatorWindow::saveSettings()
 
 bool CloudOperatorWindow::validateCommon(bool requireImage)
 {
-    const QList<QLineEdit *> required{m_project, m_environment, m_zone, m_vm};
+    const QList<QLineEdit *> required{m_project, m_environment, m_stateBucket, m_region, m_zone, m_vm};
     for (QLineEdit *field : required) if (field->text().trimmed().isEmpty()) {
-        QMessageBox::warning(this, tr("Neúplná konfigurace"), tr("Vyplňte projekt, prostředí, zónu a VM.")); return false;
+        QMessageBox::warning(this, tr("Neúplná konfigurace"), tr("Vyplňte projekt, prostředí, state bucket, region, zónu a VM.")); return false;
     }
     if (m_controller->isBusy()) { QMessageBox::information(this, tr("Operace probíhá"), tr("Nejprve dokončete nebo zrušte aktuální operaci.")); return false; }
     if (requireImage && !QRegularExpression("@sha256:[a-f0-9]{64}$").match(m_image->text()).hasMatch()) {
         QMessageBox::warning(this, tr("Neplatný image"), tr("Deploy vyžaduje image zakončený neměnným SHA-256 digestem.")); return false;
+    }
+    if (requireImage && m_domain->text().trimmed().isEmpty()) {
+        QMessageBox::warning(this, tr("Chybí doména"), tr("Pro přípravu prostředí vyplňte veřejnou doménu.")); return false;
     }
     saveSettings();
     return true;
@@ -417,6 +479,104 @@ void CloudOperatorWindow::loginAdminDashboard()
     m_adminTokenProcess->start(QStringLiteral("gcloud"),
         {"secrets", "versions", "access", "latest", "--secret=" + secret,
          "--project=" + m_project->text().trimmed()});
+}
+
+void CloudOperatorWindow::suggestRequiredValues()
+{
+    if (m_configProcess->state() != QProcess::NotRunning) return;
+    const QString project = m_project->text().trimmed();
+    if (!project.isEmpty()) {
+        applySuggestedValues(project);
+        return;
+    }
+    m_configProcessMode = QStringLiteral("suggest");
+    m_configProcess->start(QStringLiteral("gcloud"), {"config", "get-value", "project"});
+}
+
+void CloudOperatorWindow::applySuggestedValues(const QString &projectId)
+{
+    if (projectId.isEmpty() || projectId == QStringLiteral("(unset)")) {
+        QMessageBox::warning(this, tr("Návrh konfigurace"),
+                             tr("Google Cloud nemá nastavený aktivní projekt. Vyplňte jeho ID ručně."));
+        return;
+    }
+    m_project->setText(projectId);
+    if (m_environment->text().trimmed().isEmpty())
+        m_environment->setText(QStringLiteral("event-%1").arg(QDate::currentDate().year()));
+    if (m_region->text().trimmed().isEmpty()) m_region->setText(QStringLiteral("europe-west3"));
+    if (m_zone->text().trimmed().isEmpty()) m_zone->setText(m_region->text() + QStringLiteral("-a"));
+    const QString environment = m_environment->text().trimmed();
+    m_vm->setText(QStringLiteral("escape-bot-%1-vm").arg(environment));
+    m_stateBucket->setText(QStringLiteral("%1-escape-bot-tfstate").arg(projectId));
+    const QString root = m_controller->projectRoot();
+    if (m_terraformDir->text().trimmed().isEmpty()) m_terraformDir->setText(QDir(root).filePath("infra/terraform"));
+    if (m_varFile->text().trimmed().isEmpty()) m_varFile->setText(QDir(root).filePath("infra/terraform/short-run.tfvars"));
+    if (m_archiveDir->text().trimmed().isEmpty()) m_archiveDir->setText(QDir(root).filePath("archives"));
+    saveSettings();
+    QStringList missing;
+    if (m_domain->text().trimmed().isEmpty()) missing << tr("veřejná doména");
+    if (!QRegularExpression("@sha256:[a-f0-9]{64}$").match(m_image->text()).hasMatch()) missing << tr("image digest");
+    m_status->setText(missing.isEmpty() ? tr("Povinné hodnoty jsou připravené")
+                                       : tr("Doplňte ještě: %1").arg(missing.join(", ")));
+}
+
+void CloudOperatorWindow::loadRemoteConfiguration()
+{
+    if (m_configProcess->state() != QProcess::NotRunning || m_controller->isBusy()) return;
+    if (m_project->text().trimmed().isEmpty() || m_environment->text().trimmed().isEmpty() ||
+        m_stateBucket->text().trimmed().isEmpty()) {
+        QMessageBox::warning(this, tr("Načtení prostředí"),
+                             tr("Vyplňte projekt, prostředí a state bucket; ostatní hodnoty se načtou z GCS state."));
+        return;
+    }
+    const QString script = QDir(m_controller->projectRoot()).filePath("deploy/gcp/load-short-run-config.sh");
+    m_configProcessMode = QStringLiteral("load");
+    m_configProcess->setWorkingDirectory(m_controller->projectRoot());
+    m_configProcess->start(QStringLiteral("bash"), {script,
+        "--project=" + m_project->text().trimmed(), "--state-bucket=" + m_stateBucket->text().trimmed(),
+        "--workspace=" + m_environment->text().trimmed(), "--terraform-dir=" + m_terraformDir->text().trimmed(),
+        "--var-file=" + m_varFile->text().trimmed()});
+}
+
+bool CloudOperatorWindow::writeShortRunVarFile()
+{
+    const QString project = m_project->text().trimmed();
+    const QString environment = m_environment->text().trimmed();
+    const QString region = m_region->text().trimmed();
+    const QString zone = m_zone->text().trimmed();
+    const QString domain = m_domain->text().trimmed();
+    const QString image = m_image->text().trimmed();
+    const bool safe = QRegularExpression("^[a-z][a-z0-9-]{4,28}[a-z0-9]$").match(project).hasMatch()
+        && QRegularExpression("^event-[a-z0-9-]{1,12}$").match(environment).hasMatch()
+        && QRegularExpression("^[a-z]+-[a-z]+[0-9]+$").match(region).hasMatch()
+        && QRegularExpression("^[a-z]+-[a-z]+[0-9]+-[a-z]$").match(zone).hasMatch()
+        && QRegularExpression("^[a-z0-9.-]+$").match(domain).hasMatch()
+        && QRegularExpression("^[a-z0-9./_:@-]+@sha256:[a-f0-9]{64}$").match(image).hasMatch();
+    if (!safe) {
+        QMessageBox::warning(this, tr("Neplatná konfigurace"),
+                             tr("Projekt, prostředí, region, zóna, doména nebo image obsahují neplatnou hodnotu."));
+        return false;
+    }
+    QSaveFile file(m_varFile->text().trimmed());
+    if (!file.open(QIODevice::WriteOnly | QIODevice::Text)) {
+        QMessageBox::warning(this, tr("Terraform konfigurace"), tr("Nelze zapsat %1.").arg(file.fileName()));
+        return false;
+    }
+    const QString content = QStringLiteral(
+        "# Automaticky vytvořeno Escape Bot Cloud Operatorem; neobsahuje tajemství.\n"
+        "project_id = \"%1\"\nregion = \"%2\"\nzone = \"%3\"\n"
+        "environment = \"%4\"\ndomain = \"%5\"\n"
+        "machine_type = \"e2-medium\"\nboot_disk_size_gb = 20\ndata_disk_size_gb = 10\n"
+        "enable_cloud_sql = false\ndata_snapshot_retention_days = 7\n"
+        "keep_snapshots_after_disk_delete = false\ninitial_image = \"%6\"\n"
+        "labels = { lifecycle = \"short-run\", event = \"%4\" }\n")
+        .arg(project, region, zone, environment, domain, image);
+    file.write(content.toUtf8());
+    if (!file.commit()) {
+        QMessageBox::warning(this, tr("Terraform konfigurace"), tr("Zápis konfigurace se nepodařilo dokončit."));
+        return false;
+    }
+    return true;
 }
 
 bool CloudOperatorWindow::confirmPhrase(const QString &title, const QString &message, const QString &phrase)

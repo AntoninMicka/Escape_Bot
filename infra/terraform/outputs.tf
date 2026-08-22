@@ -6,6 +6,14 @@ output "project_id" {
   value = var.project_id
 }
 
+output "environment" {
+  value = var.environment
+}
+
+output "region" {
+  value = var.region
+}
+
 output "vm_zone" {
   value = var.zone
 }
@@ -16,6 +24,14 @@ output "public_ip" {
 
 output "domain" {
   value = var.domain
+}
+
+output "initial_image" {
+  value = var.initial_image
+}
+
+output "storage_backend" {
+  value = var.enable_cloud_sql ? "postgres" : "json"
 }
 
 output "cloud_sql_instance" {

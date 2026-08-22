@@ -10,7 +10,7 @@ Terraform vytváří samostatnou VPC, privátní připojení ke Cloud SQL for Po
 - DNS zóna, ve které lze vytvořit A záznam,
 - pro SSH přes IAP musí nasazující identita mít `roles/iap.tunnelResourceAccessor` a odpovídající OS Login roli.
 
-Pro sdílené nebo produkční prostředí nejprve vytvořte samostatný, verzovaný GCS bucket pro Terraform state a zkopírujte `backend.tf.example` na `backend.tf`. Bucket samotný tento modul z důvodu bootstrapu nespravuje.
+Terraform má deklarovaný GCS backend. Pro short-run vytvoří a zabezpečí verzovaný state bucket automaticky `bootstrap-state-bucket.sh`; jeho název je standardně `<project-id>-escape-bot-tfstate`. Bucket se záměrně nemaže společně s aplikační infrastrukturou, aby zůstal dostupný state, historie verzí a netajná konfigurace pro převzetí z jiného počítače.
 
 ## 1. Infrastruktura
 
@@ -18,7 +18,9 @@ Pro sdílené nebo produkční prostředí nejprve vytvořte samostatný, verzov
 cd infra/terraform
 cp terraform.tfvars.example terraform.tfvars
 # upravte projekt, region, zónu a doménu
-terraform init
+terraform init \
+  -backend-config="bucket=PROJECT_ID-escape-bot-tfstate" \
+  -backend-config="prefix=escape-bot/permanent"
 terraform fmt -check
 terraform validate
 terraform plan -out=staging.tfplan
@@ -82,15 +84,20 @@ Celý cyklus lze řídit také druhou Qt aplikací `EscapeBotCloudOperator`, pop
 ./deploy/gcp/provision-short-run.sh \
   --terraform-dir=infra/terraform \
   --var-file=infra/terraform/short-run.tfvars \
-  --workspace=event-2026
+  --workspace=event-2026 \
+  --state-bucket=PROJECT_ID-escape-bot-tfstate
 ```
 
 Pro 200 hráčů během pěti dnů odpovídá přibližně 40 hráčům denně. Při průměrně třech hráčích v týmu jde asi o 14 týmů denně. Výchozí limit čtyř současných týmů, dvouhodinová hra a patnáctiminutové odstupy poskytují za dvanáctihodinový den rezervu přibližně 24 týmových startů. Pokud by výrazně převládali sólo hráči, je nutné rezervace rozložit nebo upravit limit a ověřit zátěžovým testem.
 
-Vytvoření používá vlastní state/workspace oddělený od trvalého nasazení:
+Vytvoření používá vlastní vzdálený state/workspace oddělený od trvalého nasazení. Následující ruční varianta odpovídá lifecycle skriptu:
 
 ```bash
 cp infra/terraform/short-run.tfvars.example infra/terraform/short-run.tfvars
+./deploy/gcp/bootstrap-state-bucket.sh PROJECT_ID europe-west3 PROJECT_ID-escape-bot-tfstate
+terraform -chdir=infra/terraform init -reconfigure \
+  -backend-config="bucket=PROJECT_ID-escape-bot-tfstate" \
+  -backend-config="prefix=escape-bot/short-run"
 terraform -chdir=infra/terraform workspace new event-2026
 terraform -chdir=infra/terraform plan -var-file=short-run.tfvars -out=short-run.tfplan
 terraform -chdir=infra/terraform apply short-run.tfplan
@@ -126,6 +133,7 @@ Po ověření staženého archivu:
   --var-file=infra/terraform/short-run.tfvars \
   --archive-dir=backups/event-2026 \
   --workspace=event-2026 \
+  --state-bucket=PROJECT_ID-escape-bot-tfstate \
   --confirm-destroy=DESTROY-SHORT-RUN
 ```
 

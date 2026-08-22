@@ -2,32 +2,36 @@
 set -euo pipefail
 
 usage() {
-    echo "Použití: $0 --project=ID --zone=ZONE --vm=NAME --environment=NAME --terraform-dir=DIR --var-file=FILE --image=IMAGE@sha256:..."
+    echo "Použití: $0 --project=ID --region=REGION --zone=ZONE --vm=NAME --environment=NAME --state-bucket=BUCKET --terraform-dir=DIR --var-file=FILE --image=IMAGE@sha256:..."
 }
 
-project=""; zone=""; vm=""; environment=""; terraform_dir=""; var_file=""; image=""
+project=""; region=""; zone=""; vm=""; environment=""; state_bucket=""; terraform_dir=""; var_file=""; image=""
 for argument in "$@"; do
     case "$argument" in
         --project=*) project="${argument#--project=}" ;;
+        --region=*) region="${argument#--region=}" ;;
         --zone=*) zone="${argument#--zone=}" ;;
         --vm=*) vm="${argument#--vm=}" ;;
         --environment=*) environment="${argument#--environment=}" ;;
+        --state-bucket=*) state_bucket="${argument#--state-bucket=}" ;;
         --terraform-dir=*) terraform_dir="${argument#--terraform-dir=}" ;;
         --var-file=*) var_file="${argument#--var-file=}" ;;
         --image=*) image="${argument#--image=}" ;;
         *) usage; exit 2 ;;
     esac
 done
-if [ -z "$project" ] || [ -z "$zone" ] || [ -z "$vm" ] || \
-   [ -z "$environment" ] || [ -z "$terraform_dir" ] || [ -z "$var_file" ] || [ -z "$image" ]; then
+if [ -z "$project" ] || [ -z "$region" ] || [ -z "$zone" ] || [ -z "$vm" ] || \
+   [ -z "$environment" ] || [ -z "$state_bucket" ] || [ -z "$terraform_dir" ] || [ -z "$var_file" ] || [ -z "$image" ]; then
     usage; exit 2
 fi
 
 script_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd)
 prefix="escape-bot-$environment"
 
+"$script_dir/bootstrap-state-bucket.sh" "$project" "$region" "$state_bucket"
 "$script_dir/provision-short-run.sh" \
-    --terraform-dir="$terraform_dir" --var-file="$var_file" --workspace="$environment"
+    --terraform-dir="$terraform_dir" --var-file="$var_file" --workspace="$environment" \
+    --state-bucket="$state_bucket"
 "$script_dir/configure-admin-secret.sh" "$project" "$prefix-admin-token"
 
 gcloud compute instances reset "$vm" --project="$project" --zone="$zone"

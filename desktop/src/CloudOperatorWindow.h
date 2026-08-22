@@ -28,11 +28,16 @@ private:
     void loginGoogle();
     void refreshGoogleIdentity();
     void loginAdminDashboard();
+    void suggestRequiredValues();
+    void applySuggestedValues(const QString &projectId);
+    void loadRemoteConfiguration();
+    bool writeShortRunVarFile();
     bool confirmPhrase(const QString &title, const QString &message, const QString &phrase);
 
     CloudLifecycleController *m_controller = nullptr;
     QLineEdit *m_project = nullptr;
     QLineEdit *m_environment = nullptr;
+    QLineEdit *m_stateBucket = nullptr;
     QLineEdit *m_region = nullptr;
     QLineEdit *m_zone = nullptr;
     QLineEdit *m_vm = nullptr;
@@ -49,5 +54,7 @@ private:
     QWebEngineView *m_web = nullptr;
     QProcess *m_identityProcess = nullptr;
     QProcess *m_adminTokenProcess = nullptr;
+    QProcess *m_configProcess = nullptr;
+    QString m_configProcessMode;
     bool m_adminLoginPending = false;
 };

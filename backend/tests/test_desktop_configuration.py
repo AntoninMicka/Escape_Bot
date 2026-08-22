@@ -52,3 +52,19 @@ class DesktopConfigurationTests(unittest.TestCase):
         self.assertIn("-v /srv/escape-bot/data:/data", lifecycle)
         self.assertNotIn("--backend postgres", lifecycle)
         self.assertIn('if [ "$storage_backend" = "postgres" ]', deploy)
+
+    def test_short_run_state_and_configuration_are_portable(self) -> None:
+        root = Path(__file__).resolve().parents[2]
+        versions = (root / "infra" / "terraform" / "versions.tf").read_text(encoding="utf-8")
+        provision = (root / "deploy" / "gcp" / "provision-short-run.sh").read_text(encoding="utf-8")
+        loader = (root / "deploy" / "gcp" / "load-short-run-config.sh").read_text(encoding="utf-8")
+        operator = (root / "desktop" / "src" / "CloudOperatorWindow.cpp").read_text(encoding="utf-8")
+
+        self.assertIn('backend "gcs" {}', versions)
+        self.assertIn('-backend-config="bucket=$state_bucket"', provision)
+        self.assertIn("operator-config/$workspace.tfvars", provision)
+        self.assertIn("terraform.tfstate.d", provision)
+        self.assertIn("output -json", loader)
+        self.assertIn("Navrhnout povinné hodnoty", operator)
+        self.assertIn("Načíst existující prostředí", operator)
+        self.assertNotIn("ESCAPEBOT_ADMIN_TOKEN", loader)
