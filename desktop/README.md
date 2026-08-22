@@ -22,6 +22,8 @@ Terraform state je v GCS bucketu navrženém jako `<project-id>-escape-bot-tfsta
 
 Na novém počítači naklonujte stejnou verzi repozitáře a přihlaste Google účet. Tlačítko **Vyhledat a převzít projekt** zobrazí aktivní projekty dostupné účtu, v projektu vyhledá state buckety Escape Botu a nabídne nalezená short-run prostředí. Po výběru stáhne sdílený `tfvars`, vybere vzdálený workspace a doplní hodnoty z Terraform outputs. Poté lze provádět deploy, pauzu, archivaci, reset i finální destroy. Účet musí mít odpovídající projektová, Secret Manager, IAP/OS Login a GCS oprávnění.
 
+Pokud projekt ještě neexistuje, tlačítko **Vytvořit nový GCP projekt** otevře oficiální formulář Google Cloud Console v systémovém prohlížeči. Po vytvoření projektu se vraťte do operátoru a použijte **Vyhledat a převzít projekt**.
+
 Pro ruční převzetí lze nadále vyplnit projekt, prostředí a state bucket a použít **Načíst existující prostředí**. Projekt bez existujícího state bucketu průvodce převede do režimu nového nasazení a navrhne mu výchozí hodnoty.
 
 Tlačítko **Navrhnout povinné hodnoty** načte aktivní GCP projekt a odvodí bezpečné výchozí názvy prostředí, VM, state bucketu, regionu, zóny a lokálních cest. Doménu a neměnný image digest musí uživatel dodat; před provisioningem z nich operátor atomicky vytvoří netajný `short-run.tfvars`.

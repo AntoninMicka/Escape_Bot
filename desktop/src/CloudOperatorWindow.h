@@ -31,6 +31,7 @@ private:
     void suggestRequiredValues();
     void applySuggestedValues(const QString &projectId);
     void loadRemoteConfiguration();
+    void openProjectCreationPage();
     void discoverCloudProjects();
     void discoverStateBuckets(const QString &projectId);
     void discoverEnvironments(const QString &bucket);

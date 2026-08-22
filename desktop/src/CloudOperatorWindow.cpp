@@ -5,6 +5,7 @@
 #include <QCoreApplication>
 #include <QDate>
 #include <QDateTime>
+#include <QDesktopServices>
 #include <QDir>
 #include <QFileDialog>
 #include <QFile>
@@ -380,15 +381,18 @@ void CloudOperatorWindow::buildUi()
 
     auto *configButtons = new QHBoxLayout;
     auto *defaults = new QPushButton(tr("Navrhnout povinné hodnoty"));
+    auto *createProject = new QPushButton(tr("Vytvořit nový GCP projekt"));
     auto *discover = new QPushButton(tr("Vyhledat a převzít projekt"));
     auto *loadExisting = new QPushButton(tr("Načíst existující prostředí"));
     auto *save = new QPushButton(tr("Uložit konfiguraci"));
     configButtons->addWidget(defaults);
+    configButtons->addWidget(createProject);
     configButtons->addWidget(discover);
     configButtons->addWidget(loadExisting);
     configButtons->addWidget(save);
     form->addRow(configButtons);
     connect(defaults, &QPushButton::clicked, this, &CloudOperatorWindow::suggestRequiredValues);
+    connect(createProject, &QPushButton::clicked, this, &CloudOperatorWindow::openProjectCreationPage);
     connect(discover, &QPushButton::clicked, this, &CloudOperatorWindow::discoverCloudProjects);
     connect(loadExisting, &QPushButton::clicked, this, &CloudOperatorWindow::loadRemoteConfiguration);
     connect(save, &QPushButton::clicked, this, &CloudOperatorWindow::saveSettings);
@@ -679,6 +683,18 @@ void CloudOperatorWindow::loadRemoteConfiguration()
         "--project=" + m_project->text().trimmed(), "--state-bucket=" + m_stateBucket->text().trimmed(),
         "--workspace=" + m_environment->text().trimmed(), "--terraform-dir=" + m_terraformDir->text().trimmed(),
         "--var-file=" + m_varFile->text().trimmed()});
+}
+
+void CloudOperatorWindow::openProjectCreationPage()
+{
+    const QUrl url(QStringLiteral("https://console.cloud.google.com/projectcreate"));
+    if (!QDesktopServices::openUrl(url)) {
+        QMessageBox::warning(this, tr("Vytvoření GCP projektu"),
+                             tr("Stránku Google Cloud Console se nepodařilo otevřít:\n%1")
+                                 .arg(url.toString()));
+        return;
+    }
+    m_status->setText(tr("Po vytvoření projektu použijte Vyhledat a převzít projekt"));
 }
 
 void CloudOperatorWindow::discoverCloudProjects()
