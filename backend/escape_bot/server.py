@@ -63,7 +63,7 @@ ADMIN_RESOLUTION_PRESETS = {
 DEMO_MODE_ENABLED = os.getenv("ESCAPEBOT_DEMO_MODE", "").lower() in {"1", "true", "yes", "on"}
 ADMIN_TOKEN = os.getenv("ESCAPEBOT_ADMIN_TOKEN", "")
 runtime_settings = {"online_mode": False, "gameplay_enabled": True, "max_active_teams": 4,
-                    "start_interval_minutes": 15, "game_duration_minutes": 120,
+                    "start_interval_minutes": 15, "game_duration_minutes": 165,
                     "deadline_penalty": 100,
                     "opening_time": "08:00", "closing_time": "20:00", "timezone": "Europe/Prague"}
 
@@ -73,7 +73,7 @@ def _local_now() -> datetime:
 
 def start_availability(now: datetime | None = None) -> dict[str, object]:
     current = now or _local_now()
-    duration = max(1, int(runtime_settings.get("game_duration_minutes", 120)))
+    duration = max(1, int(runtime_settings.get("game_duration_minutes", 165)))
     interval = max(0, int(runtime_settings.get("start_interval_minutes", 15)))
     maximum = max(1, int(runtime_settings.get("max_active_teams", 4)))
     def clock(value: object, fallback: str) -> datetime:
@@ -129,7 +129,7 @@ def require_start_available() -> None:
 
 async def operations_monitor() -> None:
     while True:
-        current = _local_now(); duration = int(runtime_settings.get("game_duration_minutes", 120))
+        current = _local_now(); duration = int(runtime_settings.get("game_duration_minutes", 165))
         closing_text = str(runtime_settings.get("closing_time", "20:00"))
         try: closing_hour, closing_minute = map(int, closing_text.split(":"))
         except ValueError: closing_hour, closing_minute = 20, 0
@@ -626,7 +626,7 @@ async def websocket_endpoint(websocket: WebSocket):
                         if msg.type == "admin.schedule_settings":
                             values = {"max_active_teams": int(msg.payload.get("max_active_teams", 4)),
                                       "start_interval_minutes": int(msg.payload.get("start_interval_minutes", 15)),
-                                      "game_duration_minutes": int(msg.payload.get("game_duration_minutes", 120)),
+                                      "game_duration_minutes": int(msg.payload.get("game_duration_minutes", 165)),
                                       "deadline_penalty": int(msg.payload.get("deadline_penalty", 100)),
                                       "opening_time": str(msg.payload.get("opening_time", "08:00")),
                                       "closing_time": str(msg.payload.get("closing_time", "20:00")),

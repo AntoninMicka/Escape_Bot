@@ -3,7 +3,7 @@
   "gameplay_enabled": true,
   "max_active_teams": 1,
   "start_interval_minutes": 15,
-  "game_duration_minutes": 120,
+  "game_duration_minutes": 165,
   "opening_time": "08:00",
   "closing_time": "20:00",
   "timezone": "Europe/Prague"
