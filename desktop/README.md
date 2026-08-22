@@ -16,6 +16,8 @@ V pravé části je vzdálený `/admin` dashboard. Operátor načte admin token 
 
 Vyžaduje příkazy `bash`, `gcloud`, `terraform` a `docker` a aktivní přihlášení do Google Cloud. Je určen pro Linux/macOS administrátorskou stanici. Konfiguraci prostředí ukládá přes Qt `QSettings`, nikoli cloudová hesla nebo tokeny.
 
+Akce **Zkontrolovat / nainstalovat závislosti** ověří nástroje, běh Dockeru a aktivní Google účet. Na Debianu a Ubuntu může po výslovném potvrzení chybějící nástroje nainstalovat z distribučního nebo oficiálního repozitáře; zvýšení oprávnění proběhne přes systémový dialog `pkexec`. Po prvním přidání uživatele do skupiny `docker` je nutné se odhlásit a znovu přihlásit. Kompletní příprava provádí stejnou kontrolu ještě před vytvořením cloudových prostředků.
+
 ### Převzetí na jiném počítači
 
 Terraform state je v GCS bucketu navrženém jako `<project-id>-escape-bot-tfstate`; bucket má jednotná oprávnění, zákaz veřejného přístupu a verzování. Operátor do něj vedle state ukládá netajný `short-run.tfvars`. Případný starší lokální state se při prvním provisioningu migruje do GCS.

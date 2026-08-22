@@ -28,6 +28,8 @@ fi
 script_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd)
 prefix="escape-bot-$environment"
 
+"$script_dir/operator-dependencies.sh" --check
+
 "$script_dir/bootstrap-state-bucket.sh" "$project" "$region" "$state_bucket"
 "$script_dir/provision-short-run.sh" \
     --terraform-dir="$terraform_dir" --var-file="$var_file" --workspace="$environment" \

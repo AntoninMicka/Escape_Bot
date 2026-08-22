@@ -70,11 +70,20 @@ class DesktopConfigurationTests(unittest.TestCase):
         self.assertIn("Načíst existující prostředí", operator)
         self.assertIn("Vyhledat a převzít projekt", operator)
         self.assertIn("Vytvořit nový GCP projekt", operator)
+        self.assertIn("Zkontrolovat / nainstalovat závislosti", operator)
         self.assertIn("https://console.cloud.google.com/projectcreate", operator)
         self.assertIn("QDesktopServices::openUrl", operator)
         self.assertIn('"projects", "list"', operator)
         self.assertIn('"storage", "buckets", "list"', operator)
         self.assertNotIn("ESCAPEBOT_ADMIN_TOKEN", loader)
+
+        dependencies = (root / "deploy" / "gcp" / "operator-dependencies.sh").read_text(encoding="utf-8")
+        self.assertIn("required=(gcloud terraform docker)", dependencies)
+        self.assertIn("exec pkexec", dependencies)
+        self.assertIn("apt.releases.hashicorp.com", dependencies)
+        self.assertIn("packages.cloud.google.com", dependencies)
+        self.assertIn('operator-dependencies.sh" --check',
+                      (root / "deploy" / "gcp" / "prepare-short-run.sh").read_text(encoding="utf-8"))
 
         lifecycle = (root / "deploy" / "gcp" / "lifecycle-state.sh").read_text(encoding="utf-8")
         self.assertIn('state["deploy_count"] += 1', lifecycle)

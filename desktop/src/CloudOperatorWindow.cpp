@@ -279,6 +279,7 @@ void CloudOperatorWindow::buildUi()
     auto *quick = new QVBoxLayout(quickBox);
     m_googleIdentity = new QLabel(tr("Kontroluji Google účet…"));
     auto *googleLogin = new QPushButton(tr("Přihlásit Google účet"));
+    auto *dependencies = new QPushButton(tr("Zkontrolovat / nainstalovat závislosti"));
     m_lifecycleState = new QLabel(tr("Fáze: zatím nenačtena"));
     auto *refreshState = new QPushButton(tr("Obnovit stav životního cyklu"));
     m_prepareButton = new QPushButton(tr("Připravit testovací prostředí"));
@@ -289,6 +290,7 @@ void CloudOperatorWindow::buildUi()
     m_finishButton = new QPushButton(tr("Stáhnout výsledky a odstranit prostředí"));
     quick->addWidget(m_googleIdentity);
     quick->addWidget(googleLogin);
+    quick->addWidget(dependencies);
     quick->addWidget(m_lifecycleState);
     quick->addWidget(refreshState);
     quick->addWidget(m_prepareButton);
@@ -298,6 +300,15 @@ void CloudOperatorWindow::buildUi()
     quick->addWidget(m_resumeButton);
     quick->addWidget(m_finishButton);
     connect(googleLogin, &QPushButton::clicked, this, &CloudOperatorWindow::loginGoogle);
+    connect(dependencies, &QPushButton::clicked, this, [this] {
+        const bool install = QMessageBox::question(
+            this, tr("Závislosti Cloud Operatoru"),
+            tr("Chcete chybějící závislosti automaticky nainstalovat?\n\n"
+               "Volba Ne provede pouze bezpečnou kontrolu. Automatická instalace je podporována na Debianu a Ubuntu."),
+            QMessageBox::Yes | QMessageBox::No, QMessageBox::No) == QMessageBox::Yes;
+        runScript(install ? tr("Instalace závislostí") : tr("Kontrola závislostí"),
+                  "deploy/gcp/operator-dependencies.sh", {install ? "--install" : "--check"});
+    });
     connect(refreshState, &QPushButton::clicked, this, &CloudOperatorWindow::refreshLifecycleState);
     connect(m_prepareButton, &QPushButton::clicked, this, [this] {
         if (!validateCommon(false)) return;
