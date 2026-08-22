@@ -2,18 +2,20 @@
 set -euo pipefail
 
 usage() {
-    echo "Použití: $0 --terraform-dir=DIR --var-file=FILE --archive-dir=DIR --confirm-destroy=DESTROY-SHORT-RUN"
+    echo "Použití: $0 --terraform-dir=DIR --var-file=FILE --archive-dir=DIR [--workspace=NAME] --confirm-destroy=DESTROY-SHORT-RUN"
 }
 
 terraform_dir=""
 var_file=""
 archive_dir=""
 confirmation=""
+workspace=""
 for argument in "$@"; do
     case "$argument" in
         --terraform-dir=*) terraform_dir="${argument#--terraform-dir=}" ;;
         --var-file=*) var_file="${argument#--var-file=}" ;;
         --archive-dir=*) archive_dir="${argument#--archive-dir=}" ;;
+        --workspace=*) workspace="${argument#--workspace=}" ;;
         --confirm-destroy=*) confirmation="${argument#--confirm-destroy=}" ;;
         *) usage; exit 2 ;;
     esac
@@ -35,6 +37,9 @@ if ! find "$archive_dir" -type f -name archive-report.json -print -quit | grep -
 fi
 
 plan_file="$terraform_dir/short-run-destroy.tfplan"
+if [ -n "$workspace" ]; then
+    terraform -chdir="$terraform_dir" workspace select "$workspace"
+fi
 terraform -chdir="$terraform_dir" plan -destroy -var-file="$var_file" -out="$plan_file"
 terraform -chdir="$terraform_dir" apply "$plan_file"
 echo "Short-run infrastruktura byla odstraněna. Lokální archivy zůstaly v $archive_dir."

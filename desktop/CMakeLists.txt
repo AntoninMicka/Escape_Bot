@@ -20,6 +20,16 @@ qt_add_executable(EscapeBotDesktop
     src/LocalAdminPage.h
 )
 
+qt_add_executable(EscapeBotCloudOperator
+    src/cloud_main.cpp
+    src/CloudOperatorWindow.cpp
+    src/CloudOperatorWindow.h
+    src/CloudLifecycleController.cpp
+    src/CloudLifecycleController.h
+    src/CloudAdminPage.cpp
+    src/CloudAdminPage.h
+)
+
 target_link_libraries(EscapeBotDesktop
     PRIVATE
         Qt6::Core
@@ -28,7 +38,15 @@ target_link_libraries(EscapeBotDesktop
         Qt6::WebEngineWidgets
 )
 
-install(TARGETS EscapeBotDesktop
+target_link_libraries(EscapeBotCloudOperator
+    PRIVATE
+        Qt6::Core
+        Qt6::Network
+        Qt6::Widgets
+        Qt6::WebEngineWidgets
+)
+
+install(TARGETS EscapeBotDesktop EscapeBotCloudOperator
     BUNDLE DESTINATION .
     RUNTIME DESTINATION bin
 )

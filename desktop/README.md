@@ -1,5 +1,21 @@
 # Escape Bot Desktop
 
+Repozitář sestavuje dvě oddělené Qt aplikace. `EscapeBotDesktop` je lokální, výhradně souborová varianta. `EscapeBotCloudOperator` žádný lokální backend nespouští a slouží k řízení krátkodobého nasazení na Google Cloud.
+
+## Cloud Operator
+
+Cloud Operator spojuje konfiguraci prostředí, Terraform provisioning, vytvoření tajemství, deploy image podle digestu, pauzu/obnovení, archivaci, reset, stažení archivů a finální odstranění infrastruktury. V pravé části obsahuje vzdálený `/admin` dashboard. Nedůvěryhodný TLS certifikát nepovolí a admin token neukládá; přihlášení probíhá přímo ve webovém dashboardu.
+
+Vyžaduje příkazy `bash`, `gcloud`, `terraform` a `docker` a aktivní přihlášení do Google Cloud. Je určen pro Linux/macOS administrátorskou stanici. Konfiguraci prostředí ukládá přes Qt `QSettings`, nikoli cloudová hesla nebo tokeny.
+
+```bash
+cmake -S desktop -B desktop/build
+cmake --build desktop/build --target EscapeBotCloudOperator
+./desktop/build/EscapeBotCloudOperator
+```
+
+Před destrukcí vyžaduje lokálně stažený archiv s `archive-report.json`; reset a odstranění infrastruktury navíc vyžadují opsání potvrzovací fráze.
+
 Desktop wrapper automaticky spustí backend Escape Botu, přihlásí lokální webovou administraci v nativním Qt okně a umí na podporovaném počítači vytvořit lokální Wi-Fi AP.
 
 ## Podpora

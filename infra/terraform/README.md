@@ -76,6 +76,15 @@ Před produkčním použitím ověřte obnovu Cloud SQL PITR, obnovu snapshotu d
 
 Soubor `short-run.tfvars.example` je oddělený od trvalého profilu. Používá `e2-medium`, zonální `db-g1-small`, menší disky, sedmidenní retenci a vypnutou ochranu Cloud SQL proti smazání. Shared-core databáze nemá SLA; tento profil je proto určen pouze pro testování a časově omezenou akci.
 
+Celý cyklus lze řídit také druhou Qt aplikací `EscapeBotCloudOperator`, popsanou v `desktop/README.md`. Ekvivalentní provisioning z příkazové řádky provede inicializaci i výběr nebo vytvoření odděleného workspace:
+
+```bash
+./deploy/gcp/provision-short-run.sh \
+  --terraform-dir=infra/terraform \
+  --var-file=infra/terraform/short-run.tfvars \
+  --workspace=event-2026
+```
+
 Pro 200 hráčů během pěti dnů odpovídá přibližně 40 hráčům denně. Při průměrně třech hráčích v týmu jde asi o 14 týmů denně. Výchozí limit čtyř současných týmů, dvouhodinová hra a patnáctiminutové odstupy poskytují za dvanáctihodinový den rezervu přibližně 24 týmových startů. Pokud by výrazně převládali sólo hráči, je nutné rezervace rozložit nebo upravit limit a ověřit zátěžovým testem.
 
 Vytvoření používá vlastní state/workspace oddělený od trvalého nasazení:
@@ -116,6 +125,7 @@ Po ověření staženého archivu:
   --terraform-dir=infra/terraform \
   --var-file=infra/terraform/short-run.tfvars \
   --archive-dir=backups/event-2026 \
+  --workspace=event-2026 \
   --confirm-destroy=DESTROY-SHORT-RUN
 ```
 
