@@ -323,7 +323,7 @@
           }
         ]
       },
-      "success_message": {"text": "Všechny tři servisní sektory jsou stabilní. Síť se rozběhla a archiv vydal obě části šifrovací tabulky.", "mood": "success", "channel": "lost"},
+      "success_message": {"text": "Všechny tři servisní sektory jsou stabilní. Síť se rozběhla a archiv vydal obě části šifrovací tabulky. Pokračujte ke sportovní šifrovací kotvě, kde lze obnovený otisk prozkoumat.", "mood": "success", "channel": "lost"},
       "failure_message": {"text": "Článek se v této poloze nepohne. Potřebuji se k němu dostat z jiné strany.", "mood": "error", "channel": "lost"}
     },
     "sports_pigpen": {
@@ -482,7 +482,7 @@
       "next_checkpoint": "future_archive",
       "navigation_message": {"text": "Máme všechny tři součásti. Chronomapa zpřístupnila Archiv budoucnosti; otevřete jeho kotvu a obnovte návratový vektor.", "mood": "relieved", "channel": "lost"},
       "rewards": {"inventory": ["KRYSTAL ČASOVÉ KOTVY"], "flags": ["anchor_crystal_recovered", "future_archive_unlocked"]},
-      "message": {"text": "Obě části šifrovací tabulky reagují. Složte je a převeďte symboly polského kříže.", "mood": "focused", "channel": "captain"}
+      "message": {"text": "Obě části archivního otisku reagují. Spojte obnovená data a určete, jaké slovo ukrývají.", "mood": "focused", "channel": "captain"}
     },
     "future_archive": {
       "label": "Archiv budoucnosti",

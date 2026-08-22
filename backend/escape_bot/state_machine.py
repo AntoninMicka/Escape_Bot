@@ -1149,6 +1149,7 @@ class EscapeBotStateMachine:
                 "text": "Počkejte! Teď na mě mluví někdo jiný než před chvílí. V téhle tmě se podle překřikujících hlasů opravdu orientovat nedá — domluvte si jednoho navigátora!",
                 "mood": "tense",
                 "channel": "lost",
+                "suppress_unread": True,
             }, message))
         if result["blocked"]:
             text = f"Provedla jsem {result['executed']} z {result['requested']} kroků. Další pohyb blokuje stěna nebo energetický článek."
@@ -1156,7 +1157,7 @@ class EscapeBotStateMachine:
             text = f"Sekvence potvrzena: {result['executed']} kroků, přesunuté články: {result['pushes']}."
         if result["level_complete"] and not result["game_complete"]:
             text += " Úroveň je stabilní; přepínám na další servisní sektor."
-        responses.append(reply("bot.message", {"text": text, "mood": "focused", "channel": "lost"}, message))
+        responses.append(reply("bot.message", {"text": text, "mood": "focused", "channel": "lost", "suppress_unread": True}, message))
         score_delta = int(result.get("score_delta", 0))
         if score_delta:
             self.state.score += score_delta

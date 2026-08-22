@@ -636,8 +636,13 @@ class StateMachineCheckpointTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(self.machine.state.checkpoint_states["sports_archive"]["status"], "solved")
         self.assertNotIn("KRYSTAL ČASOVÉ KOTVY", self.machine.state.inventory)
         self.assertIn("pigpen", self.machine.state.unlocked_cipher_tools)
+        bot_messages = [item.payload for item in responses if item.type == "bot.message"]
+        self.assertTrue(any(item.get("suppress_unread") for item in bot_messages))
+        self.assertIn("sportovní šifrovací kotvě", " ".join(str(item.get("text", "")) for item in bot_messages).casefold())
         next_checkpoint = await self.scan("sports_cipher")
         self.assertTrue(self.response(next_checkpoint, "qr.result").payload["accepted"])
+        captain_message = self.scenario.data["checkpoints"]["sports_cipher"]["message"]["text"].casefold()
+        self.assertNotIn("polského kříže", captain_message)
 
     async def test_sokoban_blocked_sequence_undo_and_restore(self) -> None:
         await self.unlock_sokoban()

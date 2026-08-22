@@ -2067,7 +2067,7 @@
                     const channel = msg.payload.channel || 'general';
                     playSound(channel === 'captain' ? 'captain' : (channel === 'lost' ? 'lost' : 'system'));
                     const chatBox = document.getElementById('chat-' + channel);
-                    if (!isChannelVisible(channel)) markChannelUnread(channel);
+                    if (!isChannelVisible(channel) && !msg.payload.suppress_unread) markChannelUnread(channel);
                     
                     let sender = "Systém";
                     if (channel === 'captain') sender = "Kapitánka";
