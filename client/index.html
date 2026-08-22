@@ -479,6 +479,13 @@
         @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; scroll-behavior: auto !important; transition-duration: .01ms !important; } }
         .sokoban-controls { display: grid; grid-template-columns: repeat(3, 64px); justify-content: center; gap: 6px; margin: 12px 0; }
         .sokoban-controls button { padding: 12px 5px; }
+        .solo-navigation-board { display: grid; grid-template-columns: 48px minmax(0, 500px) 48px; grid-template-rows: 48px auto 48px; grid-template-areas: ". up ." "left board right" ". down ."; justify-content: center; align-items: center; gap: 6px; margin: 12px auto; }
+        .solo-navigation-board .sokoban-board { grid-area: board; width: 100%; margin: 0; }
+        .solo-navigation-board button { width: 48px; height: 48px; padding: 0; font-size: 1.55rem; touch-action: manipulation; }
+        .solo-navigation-board .nav-up { grid-area: up; }
+        .solo-navigation-board .nav-left { grid-area: left; }
+        .solo-navigation-board .nav-right { grid-area: right; }
+        .solo-navigation-board .nav-down { grid-area: down; }
         .team-sokoban-intercom { display: none; border: 1px solid #0aa; background: #001c20; padding: 10px; margin: 0 0 10px; text-align: center; }
         .team-sokoban-intercom.visible { display: block; }
         .admin-overlay { position: fixed; inset: 0; z-index: 1200; overflow: auto; padding: 24px; background: #020707; }
@@ -2725,11 +2732,24 @@
             }
             const playerRow = Number(game.player[0]) + 1, playerColumn = Number(game.player[1]) + 1;
             const playerField = Number(game.player[0]) * game.columns + Number(game.player[1]) + 1;
-            const soloControls = demoModeRequested && currentLobby?.mode !== 'team' ? `<div class="sokoban-controls"><span></span><button onclick="sendKarelCommand('${escapeHtml(puzzle.id)}','up')">↑</button><span></span><button onclick="sendKarelCommand('${escapeHtml(puzzle.id)}','left')">←</button><button onclick="sendKarelCommand('${escapeHtml(puzzle.id)}','down')">↓</button><button onclick="sendKarelCommand('${escapeHtml(puzzle.id)}','right')">→</button></div>` : '';
+            const board = `<div class="sokoban-board" style="grid-template-columns:repeat(${game.columns},1fr)">${cells}</div>`;
+            const navigationBoard = (solved || game.status === 'complete') ? board : renderSoloNavigationBoard(board, puzzle.id, 'sendKarelCommand');
             const levels = (game.active_level_ids || []).map((id, index) => `<div class="line-game-objective ${index < game.completed_levels.length ? 'complete' : (index === game.level_index ? 'active' : '')}"><strong>POLE ${index + 1}</strong><br>${index < game.completed_levels.length ? `+${game.points_per_level} bodů` : (index === game.level_index ? 'AKTIVNÍ' : 'ČEKÁ')}</div>`).join('');
             const playback = pendingKarelAnimation?.puzzleId === puzzle.id ? `<div class="puzzle-actions"><button onclick="startKarelAnimation()">▶ PŘEHRÁT</button><button onclick="pauseKarelAnimation()">Ⅱ POZASTAVIT</button><button onclick="stepKarelAnimation()">KROK</button><button onclick="cancelKarelAnimation()">ZRUŠIT PŘEHRÁVÁNÍ</button></div>` : '';
             const textGrid = (game.text_grid || []).map(line => escapeHtml(line)).join('\n');
-            return `<div class="sokoban-game"><div class="line-game-progress">${levels}</div><div class="sokoban-meta"><strong>${escapeHtml(game.level_label)} · ${game.level_index + 1}/${game.total_levels}</strong><span>KROKY: ${game.moves}</span><span>ZÁSAHY: ${game.strikes}</span><span>RESTARTY: ${game.restarts}</span><strong class="sokoban-timer" data-deadline="${escapeHtml(game.deadline_at)}">ČAS ${formatLineGameTime(game.remaining_seconds)}</strong></div><div class="mine-position-readout" role="status" aria-live="polite">ELARA: R${playerRow} C${playerColumn} · POLE ${playerField}${game.animation_clue !== undefined && game.animation_clue !== null ? ` · SONDA ${game.animation_clue}` : ''}</div><div class="sokoban-board" style="grid-template-columns:repeat(${game.columns},1fr)">${cells}</div>${playback}<details><summary>TEXTOVÉ ZOBRAZENÍ MŘÍŽKY</summary><pre aria-label="Textová mapa minového pole">${textGrid}</pre><p>E = Elara, S = start, X = cíl, ! = aktivovaná anomálie, ? = neprozkoumané pole.</p></details><p>Malé číslo v rohu je pořadové číslo pole. Číslo uprostřed udává počet min v osmi sousedních polích. Každé dokončené pole přidá <strong>+${game.points_per_level} bodů</strong>.</p>${soloControls}<button onclick="resetKarel('${escapeHtml(puzzle.id)}')">RESET AKTUÁLNÍHO POLE</button></div>`;
+            return `<div class="sokoban-game"><div class="line-game-progress">${levels}</div><div class="sokoban-meta"><strong>${escapeHtml(game.level_label)} · ${game.level_index + 1}/${game.total_levels}</strong><span>KROKY: ${game.moves}</span><span>ZÁSAHY: ${game.strikes}</span><span>RESTARTY: ${game.restarts}</span><strong class="sokoban-timer" data-deadline="${escapeHtml(game.deadline_at)}">ČAS ${formatLineGameTime(game.remaining_seconds)}</strong></div><div class="mine-position-readout" role="status" aria-live="polite">ELARA: R${playerRow} C${playerColumn} · POLE ${playerField}${game.animation_clue !== undefined && game.animation_clue !== null ? ` · SONDA ${game.animation_clue}` : ''}</div>${navigationBoard}${playback}<details><summary>TEXTOVÉ ZOBRAZENÍ MŘÍŽKY</summary><pre aria-label="Textová mapa minového pole">${textGrid}</pre><p>E = Elara, S = start, X = cíl, ! = aktivovaná anomálie, ? = neprozkoumané pole.</p></details><p>Malé číslo v rohu je pořadové číslo pole. Číslo uprostřed udává počet min v osmi sousedních polích. Každé dokončené pole přidá <strong>+${game.points_per_level} bodů</strong>.</p><button onclick="resetKarel('${escapeHtml(puzzle.id)}')">RESET AKTUÁLNÍHO POLE</button></div>`;
+        }
+
+        function renderSoloNavigationBoard(board, puzzleId, sendFunction) {
+            if (currentLobby?.mode !== 'solo') return board;
+            const id = escapeHtml(puzzleId);
+            return `<div class="solo-navigation-board">
+                <button class="nav-up" onclick="${sendFunction}('${id}','up')" aria-label="Posunout nahoru">↑</button>
+                <button class="nav-left" onclick="${sendFunction}('${id}','left')" aria-label="Posunout vlevo">←</button>
+                ${board}
+                <button class="nav-right" onclick="${sendFunction}('${id}','right')" aria-label="Posunout vpravo">→</button>
+                <button class="nav-down" onclick="${sendFunction}('${id}','down')" aria-label="Posunout dolů">↓</button>
+            </div>`;
         }
 
         function renderTriad(puzzle, solved) {
@@ -2948,10 +2968,8 @@
             if (solved || game.status === 'complete') {
                 return `<div class="sokoban-game"><div class="sokoban-board" style="grid-template-columns:repeat(${game.columns},1fr)">${cells}</div><p class="puzzle-status solved">SERVISNÍ SÍŤ OBNOVENA · CHECKPOINT POTVRZEN</p></div>`;
             }
-            const demoControls = demoModeRequested && currentLobby?.mode !== 'team' ? `<div class="sokoban-controls">
-                <span></span><button onclick="sendSokobanCommand('${escapeHtml(puzzle.id)}','up')">↑</button><span></span>
-                <button onclick="sendSokobanCommand('${escapeHtml(puzzle.id)}','left')">←</button><button onclick="sendSokobanCommand('${escapeHtml(puzzle.id)}','down')">↓</button><button onclick="sendSokobanCommand('${escapeHtml(puzzle.id)}','right')">→</button>
-            </div>` : '';
+            const board = `<div class="sokoban-board" style="grid-template-columns:repeat(${game.columns},1fr)">${cells}</div>`;
+            const navigationBoard = renderSoloNavigationBoard(board, puzzle.id, 'sendSokobanCommand');
             const animationStatus = game.animation_command
                 ? `<div class="sokoban-command ${game.animation_blocked ? 'blocked' : ''}">PROVÁDÍM: <strong>${sokobanCommandLabel(game.animation_command)}</strong>${game.animation_push ? ' · TLAČÍM ČLÁNEK' : ''}</div>`
                 : '';
@@ -2962,9 +2980,8 @@
                 <div class="line-game-progress">${game.active_level_ids.map((levelId, index) => `<div class="line-game-objective ${index < game.completed_levels.length ? 'complete' : (index === game.level_index ? 'active' : '')}"><strong>SEKTOR ${index + 1}</strong><br>${index < game.completed_levels.length ? `+${game.points_per_level} bodů` : (index === game.level_index ? 'AKTIVNÍ' : 'ČEKÁ')}</div>`).join('')}</div>
                 <div class="sokoban-meta"><strong>${escapeHtml(game.level_label)} · ${game.level_index + 1}/${game.total_levels}</strong><span>KROKY: ${game.moves}</span><span>ZATLAČENÍ: ${game.pushes}</span><span>RESTARTY: ${game.restarts}</span><strong class="sokoban-timer" data-deadline="${escapeHtml(game.deadline_at)}">ČAS ${formatLineGameTime(game.remaining_seconds)}</strong></div>
                 ${animationStatus}
-                <div class="sokoban-board" style="grid-template-columns:repeat(${game.columns},1fr)">${cells}</div>
-                <p>Pokyny posílejte Elaře v kanálu <strong># ztracená_sig</strong>. Dokončení sektoru přidá <strong>+${game.points_per_level} bodů</strong>.${demoModeRequested && currentLobby?.mode !== 'team' ? ' V sólo demo režimu lze použít také tlačítka.' : ''}</p>
-                ${demoControls}
+                ${navigationBoard}
+                <p>${currentLobby?.mode === 'solo' ? 'Elaru ovládejte šipkami kolem hracího pole.' : 'Pokyny posílejte Elaře v kanálu <strong># ztracená_sig</strong>.'} Dokončení sektoru přidá <strong>+${game.points_per_level} bodů</strong>.</p>
                 <div class="puzzle-actions">${animationControl}<button onclick="undoSokoban('${escapeHtml(puzzle.id)}')" ${pendingSokobanAnimation ? 'disabled' : ''}>ZPĚT</button><button onclick="resetSokoban('${escapeHtml(puzzle.id)}')" ${pendingSokobanAnimation ? 'disabled' : ''}>RESET</button></div>
             </div>`;
         }
