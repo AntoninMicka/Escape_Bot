@@ -90,7 +90,7 @@
         "voice_id": "elara_signal_failure"
       },
       "error_message": {
-        "text": "SYSTEM ERROR: CHRONOSIGNÁL ZTRACEN\n\nRozhraní interkomu neodpovídá.\nEnergetická smyčka byla přerušena.\nSynchronizace časových vrstev selhala.\nTerminál čeká na obnovovací příkaz.\nAktivní kanál nelze znovu naladit.\nRežim CHRONOMAPY zůstává uzamčen.\nTransmise byla pozastavena.\n\nZadejte jednoslovný obnovovací příkaz.",
+        "text": "SYSTEM ERROR: CHRONOSIGNÁL ZTRACEN\n\nRozhraní interkomu neodpovídá.\nEnergetická smyčka byla přerušena.\nSynchronizace časových vrstev selhala.\nTerminál čeká na obnovovací příkaz.\nAktivní kanál nelze znovu naladit.\nRežim CHRONOMAPY zůstává uzamčen.\nTransmise byla pozastavena.\n\nZadejte do textového pole interkomu jediné slovo — obnovovací příkaz ukrytý v diagnostickém výpisu — a odešlete ho jako běžnou zprávu.",
         "mood": "error",
         "channel": "general"
       }
@@ -104,12 +104,12 @@
          "voice_id": "elara_temporal_reveal"
       },
       "hints": [
-        {"text": "Diagnostika má sedm řádků a hledaný příkaz má sedm písmen.", "penalty": 10},
+        {"text": "Hledané slovo je ukryté v sedmi řádcích diagnostiky a má sedm písmen. Napište ho do interkomu jako samostatnou zprávu.", "penalty": 10},
         {"text": "Přečti první písmena diagnostických řádků shora dolů.", "penalty": 20},
         {"text": "Obnovovací příkaz je RESTART.", "penalty": 40}
       ],
       "fail_message": {
-         "text": "SYSTEM ERROR: Neznámý obnovovací příkaz. Diagnostický výpis obsahuje sedm řádků; terminál dál čeká.",
+         "text": "SYSTEM ERROR: Tato zpráva není platný obnovovací příkaz. Hledané jednoslovné řešení je ukryté v sedmi řádcích diagnostiky. Napište ho do interkomu jako samostatnou zprávu.",
          "mood": "error",
          "channel": "general"
       }
