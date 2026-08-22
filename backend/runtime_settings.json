@@ -1,5 +1,5 @@
 {
-  "online_mode": false,
+  "online_mode": true,
   "gameplay_enabled": true,
   "max_active_teams": 1,
   "start_interval_minutes": 15,
