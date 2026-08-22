@@ -140,7 +140,7 @@ void CloudOperatorWindow::buildUi()
                 .arg(m_project->text())) != QMessageBox::Yes) return;
         runScript(tr("Kompletní příprava prostředí"), "deploy/gcp/prepare-short-run.sh",
                   targetArguments() + QStringList{
-                    "--instance=" + m_sql->text(), "--environment=" + m_environment->text(),
+                    "--environment=" + m_environment->text(),
                     "--terraform-dir=" + m_terraformDir->text(), "--var-file=" + m_varFile->text(),
                     "--image=" + m_image->text()});
     });
@@ -158,12 +158,12 @@ void CloudOperatorWindow::buildUi()
     connect(quickPause, &QPushButton::clicked, this, [this] {
         if (!validateCommon()) return;
         runScript(tr("Pozastavení"), "deploy/gcp/pause-short-run.sh",
-                  {m_project->text(), m_zone->text(), m_vm->text(), m_sql->text()});
+                  {m_project->text(), m_zone->text(), m_vm->text()});
     });
     connect(quickResume, &QPushButton::clicked, this, [this] {
         if (!validateCommon()) return;
         runScript(tr("Obnovení"), "deploy/gcp/resume-short-run.sh",
-                  {m_project->text(), m_zone->text(), m_vm->text(), m_sql->text()});
+                  {m_project->text(), m_zone->text(), m_vm->text()});
     });
     connect(finish, &QPushButton::clicked, this, [this] {
         if (!validateCommon() || !confirmPhrase(tr("Ukončení krátkodobého provozu"),
@@ -192,7 +192,6 @@ void CloudOperatorWindow::buildUi()
     addField(tr("Region"), m_region);
     addField(tr("Zóna"), m_zone);
     addField(tr("VM"), m_vm);
-    addField(tr("Cloud SQL instance"), m_sql);
     addField(tr("Doména"), m_domain);
     addField(tr("Image digest"), m_image);
     addField(tr("Terraform adresář"), m_terraformDir);
@@ -210,7 +209,6 @@ void CloudOperatorWindow::buildUi()
         const QString env = m_environment->text().trimmed();
         if (env.isEmpty()) return;
         m_vm->setText(QStringLiteral("escape-bot-%1-vm").arg(env));
-        m_sql->setText(QStringLiteral("escape-bot-%1-postgres").arg(env));
     });
     connect(save, &QPushButton::clicked, this, &CloudOperatorWindow::saveSettings);
 
@@ -251,10 +249,8 @@ void CloudOperatorWindow::buildUi()
     connect(secrets, &QPushButton::clicked, this, [this] {
         if (!validateCommon()) return;
         const QString prefix = QStringLiteral("escape-bot-%1").arg(m_environment->text());
-        runScript(tr("Cloudová tajemství"), "deploy/gcp/configure-secrets.sh",
-                  {"--project=" + m_project->text(), "--instance=" + m_sql->text(),
-                   "--admin-secret=" + prefix + "-admin-token",
-                   "--database-secret=" + prefix + "-database-password"});
+        runScript(tr("Admin tajemství"), "deploy/gcp/configure-admin-secret.sh",
+                  {m_project->text(), prefix + "-admin-token"});
     });
     connect(deploy, &QPushButton::clicked, this, [this] {
         if (!validateCommon(true)) return;
@@ -263,12 +259,12 @@ void CloudOperatorWindow::buildUi()
     connect(pause, &QPushButton::clicked, this, [this] {
         if (!validateCommon()) return;
         runScript(tr("Pozastavení"), "deploy/gcp/pause-short-run.sh",
-                  {m_project->text(), m_zone->text(), m_vm->text(), m_sql->text()});
+                  {m_project->text(), m_zone->text(), m_vm->text()});
     });
     connect(resume, &QPushButton::clicked, this, [this] {
         if (!validateCommon()) return;
         runScript(tr("Obnovení"), "deploy/gcp/resume-short-run.sh",
-                  {m_project->text(), m_zone->text(), m_vm->text(), m_sql->text()});
+                  {m_project->text(), m_zone->text(), m_vm->text()});
     });
     connect(archive, &QPushButton::clicked, this, [this] {
         if (!validateCommon()) return;
@@ -333,7 +329,6 @@ void CloudOperatorWindow::loadSettings()
     m_region->setText(s.value("cloud/region", "europe-west3").toString());
     m_zone->setText(s.value("cloud/zone", "europe-west3-a").toString());
     m_vm->setText(s.value("cloud/vm", "escape-bot-event-2026-vm").toString());
-    m_sql->setText(s.value("cloud/sql", "escape-bot-event-2026-postgres").toString());
     m_domain->setText(s.value("cloud/domain").toString());
     m_image->setText(s.value("cloud/image").toString());
     m_terraformDir->setText(s.value("cloud/terraformDir", QDir(root).filePath("infra/terraform")).toString());
@@ -350,7 +345,6 @@ void CloudOperatorWindow::saveSettings()
     s.setValue("cloud/region", m_region->text().trimmed());
     s.setValue("cloud/zone", m_zone->text().trimmed());
     s.setValue("cloud/vm", m_vm->text().trimmed());
-    s.setValue("cloud/sql", m_sql->text().trimmed());
     s.setValue("cloud/domain", m_domain->text().trimmed());
     s.setValue("cloud/image", m_image->text().trimmed());
     s.setValue("cloud/terraformDir", m_terraformDir->text().trimmed());
@@ -361,9 +355,9 @@ void CloudOperatorWindow::saveSettings()
 
 bool CloudOperatorWindow::validateCommon(bool requireImage)
 {
-    const QList<QLineEdit *> required{m_project, m_environment, m_zone, m_vm, m_sql};
+    const QList<QLineEdit *> required{m_project, m_environment, m_zone, m_vm};
     for (QLineEdit *field : required) if (field->text().trimmed().isEmpty()) {
-        QMessageBox::warning(this, tr("Neúplná konfigurace"), tr("Vyplňte projekt, prostředí, zónu, VM a Cloud SQL.")); return false;
+        QMessageBox::warning(this, tr("Neúplná konfigurace"), tr("Vyplňte projekt, prostředí, zónu a VM.")); return false;
     }
     if (m_controller->isBusy()) { QMessageBox::information(this, tr("Operace probíhá"), tr("Nejprve dokončete nebo zrušte aktuální operaci.")); return false; }
     if (requireImage && !QRegularExpression("@sha256:[a-f0-9]{64}$").match(m_image->text()).hasMatch()) {

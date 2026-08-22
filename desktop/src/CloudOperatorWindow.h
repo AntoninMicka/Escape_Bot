@@ -36,7 +36,6 @@ private:
     QLineEdit *m_region = nullptr;
     QLineEdit *m_zone = nullptr;
     QLineEdit *m_vm = nullptr;
-    QLineEdit *m_sql = nullptr;
     QLineEdit *m_domain = nullptr;
     QLineEdit *m_image = nullptr;
     QLineEdit *m_terraformDir = nullptr;

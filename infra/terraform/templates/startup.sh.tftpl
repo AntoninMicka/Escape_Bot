@@ -57,19 +57,23 @@ CADDY
 
 cat > /opt/escape-bot/compose.yml <<'COMPOSE'
 services:
+%{ if storage_backend == "postgres" ~}
   cloud-sql-proxy:
     image: gcr.io/cloud-sql-connectors/cloud-sql-proxy:${cloud_sql_proxy_version}
     restart: unless-stopped
     command: ["--private-ip", "--address=0.0.0.0", "--port=5432", "${cloud_sql_connection}"]
     networks: [web]
+%{ endif ~}
 
   app:
     image: $${ESCAPEBOT_IMAGE}
     container_name: escape-bot-app
     restart: unless-stopped
+%{ if storage_backend == "postgres" ~}
     depends_on:
       cloud-sql-proxy:
         condition: service_started
+%{ endif ~}
     env_file: .env
     expose: ["8080"]
     volumes:
@@ -98,16 +102,26 @@ networks:
 COMPOSE
 
 admin_token=""
+%{ if storage_backend == "postgres" ~}
 database_password=""
+%{ endif ~}
 for attempt in $(seq 1 180); do
   admin_token=$(gcloud secrets versions access latest --secret='${admin_secret_id}' 2>/dev/null || true)
+%{ if storage_backend == "postgres" ~}
   database_password=$(gcloud secrets versions access latest --secret='${database_secret_id}' 2>/dev/null || true)
   if [ -n "$admin_token" ] && [ -n "$database_password" ]; then
+%{ else ~}
+  if [ -n "$admin_token" ]; then
+%{ endif ~}
     break
   fi
   sleep 10
 done
+%{ if storage_backend == "postgres" ~}
 if [ -z "$admin_token" ] || [ -z "$database_password" ]; then
+%{ else ~}
+if [ -z "$admin_token" ]; then
+%{ endif ~}
   echo "Secret versions are not available; run configure-secrets.sh and restart the VM."
   exit 1
 fi
@@ -115,9 +129,11 @@ fi
 umask 077
 cat > /opt/escape-bot/.env <<EOF
 ESCAPEBOT_ENV=production
-ESCAPEBOT_STORAGE_BACKEND=postgres
+ESCAPEBOT_STORAGE_BACKEND=${storage_backend}
 ESCAPEBOT_DATA_DIR=/data
+%{ if storage_backend == "postgres" ~}
 ESCAPEBOT_DATABASE_URL=postgresql://${database_user}:$database_password@cloud-sql-proxy:5432/${database_name}
+%{ endif ~}
 ESCAPEBOT_ADMIN_TOKEN=$admin_token
 ESCAPEBOT_ALLOWED_HOSTS=${domain}
 ESCAPEBOT_DEMO_MODE=0
@@ -127,7 +143,11 @@ EOF
 chmod 0600 /opt/escape-bot/.env
 
 gcloud auth configure-docker '${region}-docker.pkg.dev' --quiet
+%{ if storage_backend == "postgres" ~}
 docker compose --project-directory /opt/escape-bot -f /opt/escape-bot/compose.yml pull cloud-sql-proxy caddy
 docker compose --project-directory /opt/escape-bot -f /opt/escape-bot/compose.yml up -d cloud-sql-proxy
+%{ else ~}
+docker compose --project-directory /opt/escape-bot -f /opt/escape-bot/compose.yml pull caddy
+%{ endif ~}
 
 echo "Escape Bot host bootstrap completed for ${environment}. Application deployment is intentionally separate."

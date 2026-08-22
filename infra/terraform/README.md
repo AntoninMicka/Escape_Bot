@@ -74,7 +74,7 @@ Před produkčním použitím ověřte obnovu Cloud SQL PITR, obnovu snapshotu d
 
 ## Krátkodobý profil pro akci
 
-Soubor `short-run.tfvars.example` je oddělený od trvalého profilu. Používá `e2-medium`, zonální `db-g1-small`, menší disky, sedmidenní retenci a vypnutou ochranu Cloud SQL proti smazání. Shared-core databáze nemá SLA; tento profil je proto určen pouze pro testování a časově omezenou akci.
+Soubor `short-run.tfvars.example` je oddělený od trvalého profilu. Používá `e2-medium`, menší disky a sedmidenní retenci snapshotů. Nastavením `enable_cloud_sql = false` nevytváří Cloud SQL, databázové heslo, privátní service networking ani Cloud SQL Auth Proxy. Jediná instance aplikace ukládá atomické JSON soubory na samostatný perzistentní disk. Tento režim není určen pro horizontální škálování; trvalý profil nadále používá PostgreSQL.
 
 Celý cyklus lze řídit také druhou Qt aplikací `EscapeBotCloudOperator`, popsanou v `desktop/README.md`. Ekvivalentní provisioning z příkazové řádky provede inicializaci i výběr nebo vytvoření odděleného workspace:
 

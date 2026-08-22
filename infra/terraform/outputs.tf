@@ -19,11 +19,11 @@ output "domain" {
 }
 
 output "cloud_sql_instance" {
-  value = google_sql_database_instance.main.name
+  value = var.enable_cloud_sql ? google_sql_database_instance.main[0].name : null
 }
 
 output "cloud_sql_connection_name" {
-  value = google_sql_database_instance.main.connection_name
+  value = var.enable_cloud_sql ? google_sql_database_instance.main[0].connection_name : null
 }
 
 output "artifact_registry_repository" {
@@ -35,7 +35,7 @@ output "admin_token_secret" {
 }
 
 output "database_password_secret" {
-  value = google_secret_manager_secret.database_password.secret_id
+  value = var.enable_cloud_sql ? google_secret_manager_secret.database_password[0].secret_id : null
 }
 
 output "service_account" {

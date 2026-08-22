@@ -11,15 +11,9 @@ machine_type     = "e2-medium"
 boot_disk_size_gb = 20
 data_disk_size_gb = 10
 
-# Shared-core Cloud SQL nemá SLA. Je zvolen záměrně pouze pro krátkou akci.
-database_tier                        = "db-g1-small"
-database_disk_size_gb                = 10
-database_availability_type           = "ZONAL"
-database_deletion_protection         = false
-database_activation_policy           = "ALWAYS"
-database_pitr_enabled                = true
-database_backup_retention_count      = 7
-database_transaction_log_retention_days = 3
+# Jedna VM používá atomické JSON soubory na samostatném perzistentním disku.
+# Cloud SQL, databázové heslo a Cloud SQL Auth Proxy se nevytvářejí.
+enable_cloud_sql = false
 
 data_snapshot_retention_days       = 7
 keep_snapshots_after_disk_delete   = false

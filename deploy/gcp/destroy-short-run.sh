@@ -40,6 +40,6 @@ plan_file="$terraform_dir/short-run-destroy.tfplan"
 if [ -n "$workspace" ]; then
     terraform -chdir="$terraform_dir" workspace select "$workspace"
 fi
-terraform -chdir="$terraform_dir" plan -destroy -var-file="$var_file" -out="$plan_file"
+terraform -chdir="$terraform_dir" plan -destroy -var-file="$var_file" -var=enable_cloud_sql=false -out="$plan_file"
 terraform -chdir="$terraform_dir" apply "$plan_file"
 echo "Short-run infrastruktura byla odstraněna. Lokální archivy zůstaly v $archive_dir."

@@ -46,6 +46,12 @@ variable "data_disk_size_gb" {
   default = 30
 }
 
+variable "enable_cloud_sql" {
+  description = "Provision PostgreSQL and its password secret. Disable for a single-VM short-run using JSON files on the persistent data disk."
+  type        = bool
+  default     = true
+}
+
 variable "database_tier" {
   type    = string
   default = "db-custom-1-3840"

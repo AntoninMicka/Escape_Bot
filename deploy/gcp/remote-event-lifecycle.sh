@@ -34,8 +34,7 @@ trap restart_after_failure ERR
 
 arguments=(
     python -m escape_bot.event_lifecycle
-    --backend postgres
-    --archive-root /exports/event-archives
+    --archive-root /data/event-archives
     --label "$label"
 )
 if [ "$action" = "reset" ]; then
@@ -45,7 +44,7 @@ fi
 docker run --rm \
     --network escape-bot-web \
     --env-file "$environment_file" \
-    -v /srv/escape-bot/data:/exports \
+    -v /srv/escape-bot/data:/data \
     "$image" "${arguments[@]}"
 
 docker compose --project-directory "$deployment_dir" -f "$compose_file" up -d app

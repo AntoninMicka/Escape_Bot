@@ -29,13 +29,18 @@ restore_previous() {
 trap restore_previous ERR
 
 docker pull "$image"
-docker compose --project-directory "$deployment_dir" -f "$compose_file" up -d cloud-sql-proxy
-
-docker run --rm \
-    --network escape-bot-web \
-    --env-file "$environment_file" \
-    "$image" \
-    python -m escape_bot.storage_migration --target postgres --schema-only
+storage_backend=$(sed -n 's/^ESCAPEBOT_STORAGE_BACKEND=//p' "$environment_file")
+if [ "$storage_backend" = "postgres" ]; then
+    docker compose --project-directory "$deployment_dir" -f "$compose_file" up -d cloud-sql-proxy
+    docker run --rm \
+        --network escape-bot-web \
+        --env-file "$environment_file" \
+        "$image" \
+        python -m escape_bot.storage_migration --target postgres --schema-only
+elif [ "$storage_backend" != "json" ]; then
+    echo "Chyba: neznámý storage backend v konfiguraci VM." >&2
+    exit 1
+fi
 
 awk -v image="$image" '
     BEGIN { replaced = 0 }

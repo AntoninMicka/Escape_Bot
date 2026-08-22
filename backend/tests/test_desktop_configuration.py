@@ -34,8 +34,21 @@ class DesktopConfigurationTests(unittest.TestCase):
             / "prepare-short-run.sh"
         ).read_text(encoding="utf-8")
 
-        self.assertIn('configure-secrets.sh', script)
+        self.assertIn('configure-admin-secret.sh', script)
         self.assertIn('instances reset', script)
         self.assertIn('deploy.sh', script)
         self.assertNotIn('echo "$admin_token"', script)
         self.assertNotIn('echo "$database_password"', script)
+
+    def test_short_run_uses_json_without_cloud_sql(self) -> None:
+        root = Path(__file__).resolve().parents[2]
+        profile = (root / "infra" / "terraform" / "short-run.tfvars.example").read_text(encoding="utf-8")
+        provision = (root / "deploy" / "gcp" / "provision-short-run.sh").read_text(encoding="utf-8")
+        lifecycle = (root / "deploy" / "gcp" / "remote-event-lifecycle.sh").read_text(encoding="utf-8")
+        deploy = (root / "deploy" / "gcp" / "remote-deploy.sh").read_text(encoding="utf-8")
+
+        self.assertIn("enable_cloud_sql = false", profile)
+        self.assertIn("-var=enable_cloud_sql=false", provision)
+        self.assertIn("-v /srv/escape-bot/data:/data", lifecycle)
+        self.assertNotIn("--backend postgres", lifecycle)
+        self.assertIn('if [ "$storage_backend" = "postgres" ]', deploy)

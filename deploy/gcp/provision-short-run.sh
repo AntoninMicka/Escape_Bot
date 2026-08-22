@@ -27,5 +27,5 @@ if ! terraform -chdir="$terraform_dir" workspace select "$workspace"; then
     terraform -chdir="$terraform_dir" workspace new "$workspace"
 fi
 plan_file="$terraform_dir/short-run-apply.tfplan"
-terraform -chdir="$terraform_dir" plan -var-file="$var_file" -out="$plan_file"
+terraform -chdir="$terraform_dir" plan -var-file="$var_file" -var=enable_cloud_sql=false -out="$plan_file"
 terraform -chdir="$terraform_dir" apply "$plan_file"

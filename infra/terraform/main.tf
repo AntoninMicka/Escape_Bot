@@ -6,14 +6,15 @@ locals {
     managed_by  = "terraform"
   }, var.labels)
 
-  required_apis = toset([
+  required_apis = toset(concat([
     "artifactregistry.googleapis.com",
     "compute.googleapis.com",
     "iam.googleapis.com",
     "secretmanager.googleapis.com",
+  ], var.enable_cloud_sql ? [
     "servicenetworking.googleapis.com",
     "sqladmin.googleapis.com",
-  ])
+  ] : []))
 }
 
 resource "google_project_service" "required" {
@@ -37,6 +38,7 @@ resource "google_compute_subnetwork" "app" {
 }
 
 resource "google_compute_global_address" "private_services" {
+  count         = var.enable_cloud_sql ? 1 : 0
   name          = "${local.prefix}-private-services"
   purpose       = "VPC_PEERING"
   address_type  = "INTERNAL"
@@ -45,9 +47,10 @@ resource "google_compute_global_address" "private_services" {
 }
 
 resource "google_service_networking_connection" "private_services" {
+  count                   = var.enable_cloud_sql ? 1 : 0
   network                 = google_compute_network.main.id
   service                 = "servicenetworking.googleapis.com"
-  reserved_peering_ranges = [google_compute_global_address.private_services.name]
+  reserved_peering_ranges = [google_compute_global_address.private_services[0].name]
   depends_on              = [google_project_service.required]
 }
 
@@ -95,6 +98,7 @@ resource "google_service_account" "app" {
 }
 
 resource "google_project_iam_member" "cloud_sql_client" {
+  count   = var.enable_cloud_sql ? 1 : 0
   project = var.project_id
   role    = "roles/cloudsql.client"
   member  = "serviceAccount:${google_service_account.app.email}"
@@ -133,6 +137,7 @@ resource "google_secret_manager_secret" "admin_token" {
 }
 
 resource "google_secret_manager_secret" "database_password" {
+  count     = var.enable_cloud_sql ? 1 : 0
   secret_id = "${local.prefix}-database-password"
   labels    = local.labels
 
@@ -150,12 +155,14 @@ resource "google_secret_manager_secret_iam_member" "admin_token_accessor" {
 }
 
 resource "google_secret_manager_secret_iam_member" "database_password_accessor" {
-  secret_id = google_secret_manager_secret.database_password.id
+  count     = var.enable_cloud_sql ? 1 : 0
+  secret_id = google_secret_manager_secret.database_password[0].id
   role      = "roles/secretmanager.secretAccessor"
   member    = "serviceAccount:${google_service_account.app.email}"
 }
 
 resource "google_sql_database_instance" "main" {
+  count               = var.enable_cloud_sql ? 1 : 0
   name                = "${local.prefix}-postgres"
   region              = var.region
   database_version    = "POSTGRES_16"
@@ -199,8 +206,9 @@ resource "google_sql_database_instance" "main" {
 }
 
 resource "google_sql_database" "app" {
+  count    = var.enable_cloud_sql ? 1 : 0
   name     = "escape_bot"
-  instance = google_sql_database_instance.main.name
+  instance = google_sql_database_instance.main[0].name
 }
 
 resource "google_compute_disk" "data" {
@@ -283,11 +291,12 @@ resource "google_compute_instance" "app" {
     environment             = var.environment
     initial_image           = var.initial_image
     region                  = var.region
-    cloud_sql_connection    = google_sql_database_instance.main.connection_name
+    storage_backend         = var.enable_cloud_sql ? "postgres" : "json"
+    cloud_sql_connection    = var.enable_cloud_sql ? google_sql_database_instance.main[0].connection_name : ""
     admin_secret_id         = google_secret_manager_secret.admin_token.secret_id
-    database_secret_id      = google_secret_manager_secret.database_password.secret_id
+    database_secret_id      = var.enable_cloud_sql ? google_secret_manager_secret.database_password[0].secret_id : ""
     database_user           = "escape_bot"
-    database_name           = google_sql_database.app.name
+    database_name           = var.enable_cloud_sql ? google_sql_database.app[0].name : ""
     cloud_sql_proxy_version = "2.25.2"
   })
 
