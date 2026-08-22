@@ -67,4 +67,7 @@ class DesktopConfigurationTests(unittest.TestCase):
         self.assertIn("output -json", loader)
         self.assertIn("Navrhnout povinné hodnoty", operator)
         self.assertIn("Načíst existující prostředí", operator)
+        self.assertIn("Vyhledat a převzít projekt", operator)
+        self.assertIn('"projects", "list"', operator)
+        self.assertIn('"storage", "buckets", "list"', operator)
         self.assertNotIn("ESCAPEBOT_ADMIN_TOKEN", loader)

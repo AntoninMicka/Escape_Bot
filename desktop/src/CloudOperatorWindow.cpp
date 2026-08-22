@@ -13,10 +13,12 @@
 #include <QHBoxLayout>
 #include <QInputDialog>
 #include <QJsonDocument>
+#include <QJsonArray>
 #include <QJsonObject>
 #include <QLabel>
 #include <QLineEdit>
 #include <QMessageBox>
+#include <QMap>
 #include <QPushButton>
 #include <QProcess>
 #include <QRegularExpression>
@@ -86,12 +88,84 @@ CloudOperatorWindow::CloudOperatorWindow(QWidget *parent) : QMainWindow(parent)
         const QString mode = m_configProcessMode;
         m_configProcessMode.clear();
         if (status != QProcess::NormalExit || exitCode != 0) {
+            if (mode == QStringLiteral("buckets") || mode == QStringLiteral("environments")) {
+                applySuggestedValues(m_discoveryProject);
+                QMessageBox::information(this, tr("Převzetí prostředí"),
+                    tr("V projektu nebylo nalezeno přenosné short-run prostředí. Hodnoty jsou připravené pro nové nasazení."));
+                return;
+            }
             QMessageBox::warning(this, tr("Cloud konfigurace"),
                 tr("Operace se nezdařila:\n%1").arg(QString::fromUtf8(m_configProcess->readAllStandardError())));
             return;
         }
         if (mode == QStringLiteral("suggest")) {
             applySuggestedValues(QString::fromUtf8(output).trimmed());
+            return;
+        }
+        if (mode == QStringLiteral("projects")) {
+            const QJsonDocument projects = QJsonDocument::fromJson(output);
+            QStringList choices;
+            QMap<QString, QString> ids;
+            for (const QJsonValue &entry : projects.array()) {
+                const QJsonObject project = entry.toObject();
+                const QString id = project.value("projectId").toString();
+                const QString name = project.value("name").toString();
+                if (id.isEmpty()) continue;
+                const QString display = name.isEmpty() || name == id ? id : QStringLiteral("%1 — %2").arg(name, id);
+                choices << display;
+                ids.insert(display, id);
+            }
+            if (choices.isEmpty()) {
+                QMessageBox::information(this, tr("Google Cloud projekty"), tr("Účet nemá dostupný žádný aktivní projekt."));
+                return;
+            }
+            bool ok = false;
+            const QString selected = QInputDialog::getItem(this, tr("Převzít projekt"),
+                tr("Vyberte Google Cloud projekt:"), choices, 0, false, &ok);
+            if (ok) discoverStateBuckets(ids.value(selected));
+            return;
+        }
+        if (mode == QStringLiteral("buckets")) {
+            const QJsonDocument buckets = QJsonDocument::fromJson(output);
+            QStringList choices;
+            for (const QJsonValue &entry : buckets.array()) {
+                const QString name = entry.toObject().value("name").toString();
+                if (name.contains(QStringLiteral("escape-bot"))) choices << name;
+            }
+            const QString preferred = QStringLiteral("%1-escape-bot-tfstate").arg(m_discoveryProject);
+            if (choices.contains(preferred)) choices.move(choices.indexOf(preferred), 0);
+            if (choices.isEmpty()) {
+                applySuggestedValues(m_discoveryProject);
+                QMessageBox::information(this, tr("Převzetí prostředí"),
+                    tr("Projekt nemá state bucket Escape Botu. Konfigurace je připravena pro nové prostředí."));
+                return;
+            }
+            bool ok = false;
+            const QString bucket = QInputDialog::getItem(this, tr("State bucket"),
+                tr("Vyberte bucket s Terraform state:"), choices, 0, false, &ok);
+            if (ok) discoverEnvironments(bucket);
+            return;
+        }
+        if (mode == QStringLiteral("environments")) {
+            QStringList environments;
+            for (const QString &line : QString::fromUtf8(output).split('\n', Qt::SkipEmptyParts)) {
+                const QRegularExpressionMatch match = QRegularExpression("/([^/]+)\\.tfvars$").match(line.trimmed());
+                if (match.hasMatch()) environments << match.captured(1);
+            }
+            environments.removeDuplicates();
+            if (environments.isEmpty()) {
+                applySuggestedValues(m_discoveryProject);
+                QMessageBox::information(this, tr("Převzetí prostředí"), tr("Bucket neobsahuje žádné short-run prostředí."));
+                return;
+            }
+            bool ok = false;
+            const QString environment = QInputDialog::getItem(this, tr("Short-run prostředí"),
+                tr("Vyberte prostředí k převzetí:"), environments, 0, false, &ok);
+            if (ok) {
+                m_project->setText(m_discoveryProject);
+                m_environment->setText(environment);
+                loadRemoteConfiguration();
+            }
             return;
         }
         QJsonParseError error;
@@ -247,13 +321,16 @@ void CloudOperatorWindow::buildUi()
 
     auto *configButtons = new QHBoxLayout;
     auto *defaults = new QPushButton(tr("Navrhnout povinné hodnoty"));
+    auto *discover = new QPushButton(tr("Vyhledat a převzít projekt"));
     auto *loadExisting = new QPushButton(tr("Načíst existující prostředí"));
     auto *save = new QPushButton(tr("Uložit konfiguraci"));
     configButtons->addWidget(defaults);
+    configButtons->addWidget(discover);
     configButtons->addWidget(loadExisting);
     configButtons->addWidget(save);
     form->addRow(configButtons);
     connect(defaults, &QPushButton::clicked, this, &CloudOperatorWindow::suggestRequiredValues);
+    connect(discover, &QPushButton::clicked, this, &CloudOperatorWindow::discoverCloudProjects);
     connect(loadExisting, &QPushButton::clicked, this, &CloudOperatorWindow::loadRemoteConfiguration);
     connect(save, &QPushButton::clicked, this, &CloudOperatorWindow::saveSettings);
 
@@ -536,6 +613,33 @@ void CloudOperatorWindow::loadRemoteConfiguration()
         "--project=" + m_project->text().trimmed(), "--state-bucket=" + m_stateBucket->text().trimmed(),
         "--workspace=" + m_environment->text().trimmed(), "--terraform-dir=" + m_terraformDir->text().trimmed(),
         "--var-file=" + m_varFile->text().trimmed()});
+}
+
+void CloudOperatorWindow::discoverCloudProjects()
+{
+    if (m_configProcess->state() != QProcess::NotRunning || m_controller->isBusy()) return;
+    m_configProcessMode = QStringLiteral("projects");
+    m_configProcess->start(QStringLiteral("gcloud"),
+        {"projects", "list", "--filter=lifecycleState:ACTIVE", "--format=json(projectId,name)"});
+}
+
+void CloudOperatorWindow::discoverStateBuckets(const QString &projectId)
+{
+    if (projectId.isEmpty() || m_configProcess->state() != QProcess::NotRunning) return;
+    m_discoveryProject = projectId;
+    m_configProcessMode = QStringLiteral("buckets");
+    m_configProcess->start(QStringLiteral("gcloud"),
+        {"storage", "buckets", "list", "--project=" + projectId, "--format=json(name)"});
+}
+
+void CloudOperatorWindow::discoverEnvironments(const QString &bucket)
+{
+    if (bucket.isEmpty() || m_configProcess->state() != QProcess::NotRunning) return;
+    m_project->setText(m_discoveryProject);
+    m_stateBucket->setText(bucket);
+    m_configProcessMode = QStringLiteral("environments");
+    m_configProcess->start(QStringLiteral("gcloud"),
+        {"storage", "ls", QStringLiteral("gs://%1/escape-bot/operator-config/*.tfvars").arg(bucket)});
 }
 
 bool CloudOperatorWindow::writeShortRunVarFile()

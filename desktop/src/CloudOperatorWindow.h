@@ -31,6 +31,9 @@ private:
     void suggestRequiredValues();
     void applySuggestedValues(const QString &projectId);
     void loadRemoteConfiguration();
+    void discoverCloudProjects();
+    void discoverStateBuckets(const QString &projectId);
+    void discoverEnvironments(const QString &bucket);
     bool writeShortRunVarFile();
     bool confirmPhrase(const QString &title, const QString &message, const QString &phrase);
 
@@ -56,5 +59,6 @@ private:
     QProcess *m_adminTokenProcess = nullptr;
     QProcess *m_configProcess = nullptr;
     QString m_configProcessMode;
+    QString m_discoveryProject;
     bool m_adminLoginPending = false;
 };
