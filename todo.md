@@ -870,3 +870,57 @@
 - [ ] Vytvořit druhou malou virtuální realizaci stejného příběhu, ve které jsou fyzické role nahrazené 2D/3D místnostmi a digitálními checkpointy.
 - [ ] Vytvořit papírový návrh realizace pro druhé město a ověřit, zda lze všechny obecné role obsadit bez změny společné dějové logiky.
 - [ ] Teprve po těchto třech variantách zmrazit první verzi schématu a začít stavět editor realizací.
+
+## 18. Lokační varianta hry s GPS a mapou (odloženo po Kraskovu)
+
+**Cíl:** umožnit venkovní nebo městskou variantu, v níž se úkol zpřístupní až po skutečném příchodu týmu do určené oblasti. Hráčská mapa má podporovat orientaci a zobrazovat postup, ale nesmí předčasně odhalit celou trasu ani řešení. Tato varianta je samostatná vůči sdílenému 3D světu z oddílu 15 a může využít obecné realizace z oddílu 17.
+
+### 18.1 Datový model lokačních checkpointů
+
+- [ ] Doplnit ke checkpointu souřadnice, poloměr geofence, tolerovanou přesnost GPS, hráčský název, navigační text a volitelný mapový symbol.
+- [ ] Rozlišit stav `hidden`, `revealed`, `approaching`, `available`, `completed` a `unavailable`; poloha smí odemknout pouze uzel, jehož příběhové podmínky už byly splněny.
+- [ ] Podporovat bod, kruhovou oblast i volitelný polygon pro rozsáhlejší stanoviště.
+- [ ] U každého lokačního uzlu definovat QR nebo administrátorský fallback pro zařízení bez GPS, slabý signál či dočasně nepřístupné místo.
+- [ ] Uložit okamžik prvního příchodu, použitou přesnost, způsob ověření a případný zásah Game Mastera do auditní časové osy.
+
+### 18.2 Hráčská mapa založená na OpenStreetMap
+
+- [ ] Přidat mapový panel s podklady OpenStreetMap prostřednictvím zvoleného poskytovatele dlaždic nebo vlastního tile serveru; před produkcí ověřit licenci, atribuci, limity a možnost offline použití.
+- [ ] Zobrazit aktuální polohu hráče, kruh přesnosti a stav dostupnosti lokalizační služby.
+- [ ] Zobrazovat pouze checkpointy, které má hráč podle scénáře znát; budoucí skrytá stanoviště neposílat klientovi ani je pouze neschovávat pomocí CSS.
+- [ ] Vizuálně rozlišit aktivní checkpoint, dostupné vedlejší úkoly, splněná stanoviště a dočasně nedostupné body.
+- [ ] Po výběru aktivního bodu zobrazit vzdálenost, směr a bezpečný textový navigační pokyn; nepoužívat automaticky přímou trasu přes nepřístupný terén.
+- [ ] Umožnit mapu vystředit na hráče, na aktivní úkol nebo na dosud odhalenou trasu a zachovat čitelnost na telefonu i na přímém slunci.
+
+### 18.3 Ověření polohy a odemykání úkolů
+
+- [ ] Sledovat polohu pouze během aktivní hry a pouze po výslovném udělení oprávnění prohlížeči.
+- [ ] Odemknout checkpoint až po získání měření s přijatelnou přesností uvnitř geofence; jediné nepřesné měření nesmí samo potvrdit příchod.
+- [ ] Zavést krátkou stabilizační podmínku, například dvě až tři vyhovující měření nebo setrvání v oblasti po stanovenou dobu.
+- [ ] Provádět autoritativní kontrolu odemčení na backendu a neposílat klientovi tajná řešení ani skryté souřadnice před jejich odhalením.
+- [ ] Zpracovat návrat do aplikace, uspání telefonu, změnu oprávnění, ztrátu signálu a přechod mezi Wi-Fi a mobilními daty bez dvojího odemčení.
+- [ ] Neodemykat další úkol pouhým ručním posunem značky v mapě; případnou ochranu proti falešné poloze kombinovat s QR, časovou posloupností nebo fyzickou indicií podle rizika hry.
+
+### 18.4 Soukromí, bezpečnost a offline provoz
+
+- [ ] Neukládat průběžnou GPS stopu, pokud ji hra nepotřebuje; standardně uchovat pouze auditované příchody k checkpointům a nezbytnou diagnostiku přesnosti.
+- [ ] Informovat hráče, kdy a proč se poloha používá, jak dlouho se data uchovávají a jak lze pokračovat bez udělení trvalého přístupu.
+- [ ] Připravit nouzovou mapu a základní navigační data pro slabý mobilní signál; před startem ověřit dostupnost potřebných mapových podkladů a assetů.
+- [ ] Zakázat vedení trasy přes silnice bez přechodu, soukromé pozemky, uzavřené areály a další nebezpečné nebo časově omezené oblasti.
+- [ ] U každé venkovní realizace evidovat datum fyzické kontroly trasy, rizika, otevírací dobu a náhradní variantu pro počasí či uzavírku.
+
+### 18.5 Administrace a testování
+
+- [ ] V administraci zobrazit mapu týmů, jejich poslední známý stav polohy, aktivní checkpoint a důvod, proč se další úkol neodemkl; přesnou polohu zobrazovat pouze po dobu aktivní relace.
+- [ ] Umožnit Game Masterovi auditovaně potvrdit příchod, změnit aktivní checkpoint nebo přepnout tým na nelokační fallback.
+- [ ] Přidat simulátor polohy do demo režimu, aby šel celý scénář testovat bez fyzického obcházení trasy.
+- [ ] Otestovat přesnost v zástavbě, pod stromy, uvnitř budov, na různých telefonech a při vypnutém přesném určování polohy.
+- [ ] Otestovat překrývající se geofence, příchod ke stanovištím v nesprávném pořadí, více zařízení jednoho týmu a souběžný příchod více týmů.
+
+### 18.6 Doporučený první vertikální řez
+
+- [ ] Vytvořit malou trasu se třemi checkpointy: start, jeden povinný mezikrok a cíl.
+- [ ] Zobrazit na mapě pouze aktuálně známý bod, hráčovu polohu, přesnost a vzdálenost.
+- [ ] Odemknout každý krok kombinací geofence a QR fallbacku a propsat výsledek do společného scénářového postupu.
+- [ ] Projít trasu alespoň na třech fyzických telefonech a teprve podle naměřené přesnosti stanovit výchozí poloměry geofence.
+- [ ] Po ověření vertikálního řezu rozhodnout, zda přidat navigační trasu, offline dlaždice, bonusové body a paralelní větve checkpointů.
