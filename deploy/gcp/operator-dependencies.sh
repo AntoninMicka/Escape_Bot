@@ -70,11 +70,6 @@ if [ "${ID:-}" != "ubuntu" ] && [ "${ID:-}" != "debian" ] && \
     exit 1
 fi
 
-export DEBIAN_FRONTEND=noninteractive
-apt-get update
-apt-get install -y ca-certificates curl gnupg
-install -m 0755 -d /etc/apt/keyrings /usr/share/keyrings
-
 contains_missing() {
     local wanted="$1"
     local item
@@ -82,9 +77,25 @@ contains_missing() {
     return 1
 }
 
+export DEBIAN_FRONTEND=noninteractive
+# Vadný zdroj z předchozího pokusu nesmí zablokovat apt-get update dříve,
+# než jej instalátor stihne znovu vytvořit.
+if contains_missing terraform; then
+    rm -f /etc/apt/sources.list.d/hashicorp.list \
+        /etc/apt/sources.list.d/hashicorp.sources
+fi
+apt-get update
+apt-get install -y ca-certificates curl gnupg
+install -m 0755 -d /etc/apt/keyrings /usr/share/keyrings
+
 if contains_missing terraform; then
     codename="${UBUNTU_CODENAME:-${VERSION_CODENAME:-}}"
     if [ -z "$codename" ]; then echo "Nelze určit kódové jméno distribuce." >&2; exit 1; fi
+    release_url="https://apt.releases.hashicorp.com/dists/$codename/Release"
+    if ! curl -fsSL "$release_url" -o /dev/null; then
+        echo "HashiCorp APT repozitář nepodporuje distribuci '$codename' ($release_url)." >&2
+        exit 1
+    fi
     architecture=$(dpkg --print-architecture)
     curl -fsSL https://apt.releases.hashicorp.com/gpg \
         -o /etc/apt/keyrings/hashicorp.asc
@@ -97,7 +108,6 @@ Components: main
 Architectures: $architecture
 Signed-By: /etc/apt/keyrings/hashicorp.asc
 EOF
-    rm -f /etc/apt/sources.list.d/hashicorp.list
 fi
 
 if contains_missing gcloud; then
