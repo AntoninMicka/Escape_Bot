@@ -10,5 +10,5 @@ data_disk_size_gb = 10
 enable_cloud_sql = false
 data_snapshot_retention_days = 7
 keep_snapshots_after_disk_delete = false
-initial_image = "us-docker.pkg.dev/cloudrun/container/hello:latest"
+initial_image = "europe-west3-docker.pkg.dev/ztracena/escape-bot/app@sha256:cea84c3ad240799d5a31afca713df9fa24c15adcdea5407c553c03a6cc5c865c"
 labels = { lifecycle = "short-run", event = "event-2026" }

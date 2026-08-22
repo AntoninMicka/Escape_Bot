@@ -236,6 +236,9 @@ async def lifespan(app: FastAPI):
 # --- Inicializace FastAPI ---
 app = FastAPI(title="Escape Bot", lifespan=lifespan)
 allowed_hosts = [item.strip() for item in os.getenv("ESCAPEBOT_ALLOWED_HOSTS", "*").split(",") if item.strip()]
+for local_host in ("127.0.0.1", "localhost"):
+    if local_host not in allowed_hosts:
+        allowed_hosts.append(local_host)
 app.add_middleware(TrustedHostMiddleware, allowed_hosts=allowed_hosts or ["*"])
 
 @app.middleware("http")
