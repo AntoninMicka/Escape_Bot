@@ -26,6 +26,8 @@ Tlačítko **Navrhnout povinné hodnoty** načte aktivní GCP projekt a odvodí 
 
 Aktuální projekt zobrazuje sdílenou fázi prostředí, počet úspěšných deployů, počet připravených ostrých běhů a archivů. Stav a posledních 50 událostí se ukládají do `operator-state/<environment>.json` ve state bucketu, takže jsou stejné na všech počítačích. Opakovaný deploy opravy pouze zvýší revizi a zachová fázi; každé úspěšné **Připravit ostrý provoz** zvýší číslo ostrého běhu. Pozastavení si pamatuje předchozí fázi a po obnovení se do ní vrátí.
 
+Hlavní tlačítka se aktivují podle načtené fáze. Nové nebo odstraněné prostředí nabízí přípravu, testovací a připravené prostředí nabízí opakované opravy i ostré běhy a pozastavené prostředí pouze obnovení. Po dobu operace jsou další mutační akce zamčené. Pokročilá sekce zůstává dostupná jako vědomá nouzová cesta; zakázaná tlačítka mají vysvětlující tooltip.
+
 ```bash
 cmake -S desktop -B desktop/build
 cmake --build desktop/build --target EscapeBotCloudOperator

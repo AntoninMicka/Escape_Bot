@@ -36,6 +36,7 @@ private:
     void discoverEnvironments(const QString &bucket);
     void refreshLifecycleState();
     CloudLifecycleController::Command lifecycleUpdateCommand(const QString &event) const;
+    void updateActionAvailability();
     bool writeShortRunVarFile();
     bool confirmPhrase(const QString &title, const QString &message, const QString &phrase);
 
@@ -56,6 +57,13 @@ private:
     QLabel *m_googleIdentity = nullptr;
     QLabel *m_lifecycleState = nullptr;
     QPushButton *m_cancel = nullptr;
+    QPushButton *m_prepareButton = nullptr;
+    QPushButton *m_deployFixButton = nullptr;
+    QPushButton *m_prepareLiveButton = nullptr;
+    QPushButton *m_pauseButton = nullptr;
+    QPushButton *m_resumeButton = nullptr;
+    QPushButton *m_finishButton = nullptr;
+    QPushButton *m_adminLoginButton = nullptr;
     QTextEdit *m_log = nullptr;
     QWebEngineView *m_web = nullptr;
     QProcess *m_identityProcess = nullptr;
@@ -65,4 +73,6 @@ private:
     QString m_configProcessMode;
     QString m_discoveryProject;
     bool m_adminLoginPending = false;
+    bool m_operationBusy = false;
+    QString m_lifecyclePhase = QStringLiteral("unknown");
 };

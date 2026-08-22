@@ -44,8 +44,10 @@ CloudOperatorWindow::CloudOperatorWindow(QWidget *parent) : QMainWindow(parent)
     m_lifecycleProcess = new QProcess(this);
     connect(m_controller, &CloudLifecycleController::outputReady, m_log, &QTextEdit::insertPlainText);
     connect(m_controller, &CloudLifecycleController::busyChanged, this, [this](bool busy) {
+        m_operationBusy = busy;
         m_cancel->setEnabled(busy);
         m_status->setText(busy ? tr("Probíhá operace…") : tr("Připraveno"));
+        updateActionAvailability();
     });
     connect(m_controller, &CloudLifecycleController::operationFinished, this,
             [this](const QString &name, bool success) {
@@ -216,11 +218,13 @@ CloudOperatorWindow::CloudOperatorWindow(QWidget *parent) : QMainWindow(parent)
             {"paused", tr("pozastaveno")}, {"destroyed", tr("odstraněno")}
         };
         const QString phase = state.value("phase").toString("unknown");
+        m_lifecyclePhase = phase;
         m_lifecycleState->setText(tr("Fáze: %1 · deploye: %2 · ostré běhy: %3 · archivy: %4")
             .arg(phases.value(phase, phase))
             .arg(state.value("deploy_count").toInt())
             .arg(state.value("live_run_count").toInt())
             .arg(state.value("archive_count").toInt()));
+        updateActionAvailability();
     });
     refreshGoogleIdentity();
     setWindowTitle(tr("Escape Bot Cloud Operator"));
@@ -253,25 +257,25 @@ void CloudOperatorWindow::buildUi()
     auto *googleLogin = new QPushButton(tr("Přihlásit Google účet"));
     m_lifecycleState = new QLabel(tr("Fáze: zatím nenačtena"));
     auto *refreshState = new QPushButton(tr("Obnovit stav životního cyklu"));
-    auto *prepare = new QPushButton(tr("Připravit testovací prostředí"));
-    auto *deployFix = new QPushButton(tr("Nasadit opravu"));
-    auto *prepareLive = new QPushButton(tr("Připravit ostrý provoz"));
-    auto *quickPause = new QPushButton(tr("Pozastavit / ušetřit náklady"));
-    auto *quickResume = new QPushButton(tr("Obnovit prostředí"));
-    auto *finish = new QPushButton(tr("Stáhnout výsledky a odstranit prostředí"));
+    m_prepareButton = new QPushButton(tr("Připravit testovací prostředí"));
+    m_deployFixButton = new QPushButton(tr("Nasadit opravu"));
+    m_prepareLiveButton = new QPushButton(tr("Připravit ostrý provoz"));
+    m_pauseButton = new QPushButton(tr("Pozastavit / ušetřit náklady"));
+    m_resumeButton = new QPushButton(tr("Obnovit prostředí"));
+    m_finishButton = new QPushButton(tr("Stáhnout výsledky a odstranit prostředí"));
     quick->addWidget(m_googleIdentity);
     quick->addWidget(googleLogin);
     quick->addWidget(m_lifecycleState);
     quick->addWidget(refreshState);
-    quick->addWidget(prepare);
-    quick->addWidget(deployFix);
-    quick->addWidget(prepareLive);
-    quick->addWidget(quickPause);
-    quick->addWidget(quickResume);
-    quick->addWidget(finish);
+    quick->addWidget(m_prepareButton);
+    quick->addWidget(m_deployFixButton);
+    quick->addWidget(m_prepareLiveButton);
+    quick->addWidget(m_pauseButton);
+    quick->addWidget(m_resumeButton);
+    quick->addWidget(m_finishButton);
     connect(googleLogin, &QPushButton::clicked, this, &CloudOperatorWindow::loginGoogle);
     connect(refreshState, &QPushButton::clicked, this, &CloudOperatorWindow::refreshLifecycleState);
-    connect(prepare, &QPushButton::clicked, this, [this] {
+    connect(m_prepareButton, &QPushButton::clicked, this, [this] {
         if (!validateCommon(true)) return;
         if (!writeShortRunVarFile()) return;
         if (QMessageBox::question(this, tr("Připravit prostředí"),
@@ -284,7 +288,7 @@ void CloudOperatorWindow::buildUi()
                     "--terraform-dir=" + m_terraformDir->text(), "--var-file=" + m_varFile->text(),
                     "--image=" + m_image->text()});
     });
-    connect(deployFix, &QPushButton::clicked, this, [this] {
+    connect(m_deployFixButton, &QPushButton::clicked, this, [this] {
         if (!validateCommon(true) || !writeShortRunVarFile()) return;
         const QString deployScript = QDir(m_controller->projectRoot()).filePath("deploy/gcp/deploy.sh");
         m_controller->runOperation(tr("Nasazení opravy"), {
@@ -295,7 +299,7 @@ void CloudOperatorWindow::buildUi()
             lifecycleUpdateCommand("deployed_fix")
         });
     });
-    connect(prepareLive, &QPushButton::clicked, this, [this] {
+    connect(m_prepareLiveButton, &QPushButton::clicked, this, [this] {
         if (!validateCommon() || !confirmPhrase(tr("Příprava ostrého provozu"),
             tr("Testovací data budou archivována a herní stav resetován."), "OSTRY-START")) return;
         const QString script = QDir(m_controller->projectRoot()).filePath("deploy/gcp/event-lifecycle.sh");
@@ -304,19 +308,19 @@ void CloudOperatorWindow::buildUi()
             lifecycleUpdateCommand("live_prepared")
         });
     });
-    connect(quickPause, &QPushButton::clicked, this, [this] {
+    connect(m_pauseButton, &QPushButton::clicked, this, [this] {
         if (!validateCommon()) return;
         const QString script = QDir(m_controller->projectRoot()).filePath("deploy/gcp/pause-short-run.sh");
         m_controller->runOperation(tr("Pozastavení"), {
             {"bash", {script, m_project->text(), m_zone->text(), m_vm->text()}}, lifecycleUpdateCommand("paused")});
     });
-    connect(quickResume, &QPushButton::clicked, this, [this] {
+    connect(m_resumeButton, &QPushButton::clicked, this, [this] {
         if (!validateCommon()) return;
         const QString script = QDir(m_controller->projectRoot()).filePath("deploy/gcp/resume-short-run.sh");
         m_controller->runOperation(tr("Obnovení"), {
             {"bash", {script, m_project->text(), m_zone->text(), m_vm->text()}}, lifecycleUpdateCommand("resumed")});
     });
-    connect(finish, &QPushButton::clicked, this, [this] {
+    connect(m_finishButton, &QPushButton::clicked, this, [this] {
         if (!validateCommon() || !confirmPhrase(tr("Ukončení krátkodobého provozu"),
             tr("Výsledky budou archivovány a po stažení bude infrastruktura nevratně odstraněna."),
             "UKONCIT-A-SMAZAT")) return;
@@ -480,22 +484,23 @@ void CloudOperatorWindow::buildUi()
     auto *right = new QWidget(root);
     auto *rightLayout = new QVBoxLayout(right);
     auto *webButtons = new QHBoxLayout;
-    auto *load = new QPushButton(tr("Automaticky přihlásit admin dashboard"));
+    m_adminLoginButton = new QPushButton(tr("Automaticky přihlásit admin dashboard"));
     auto *reload = new QPushButton(tr("Obnovit"));
-    webButtons->addWidget(load);
+    webButtons->addWidget(m_adminLoginButton);
     webButtons->addWidget(reload);
     webButtons->addStretch();
     m_web = new QWebEngineView(right);
     m_web->setPage(new CloudAdminPage(m_web));
     rightLayout->addLayout(webButtons);
     rightLayout->addWidget(m_web, 1);
-    connect(load, &QPushButton::clicked, this, &CloudOperatorWindow::loginAdminDashboard);
+    connect(m_adminLoginButton, &QPushButton::clicked, this, &CloudOperatorWindow::loginAdminDashboard);
     connect(reload, &QPushButton::clicked, m_web, &QWebEngineView::reload);
     root->addWidget(left);
     root->addWidget(right);
     root->setStretchFactor(0, 0);
     root->setStretchFactor(1, 1);
     setCentralWidget(root);
+    updateActionAvailability();
 }
 
 void CloudOperatorWindow::loadSettings()
@@ -704,6 +709,32 @@ CloudLifecycleController::Command CloudOperatorWindow::lifecycleUpdateCommand(co
         QStringLiteral("update"), m_project->text().trimmed(), m_stateBucket->text().trimmed(),
         m_environment->text().trimmed(), event
     }};
+}
+
+void CloudOperatorWindow::updateActionAvailability()
+{
+    if (!m_prepareButton) return;
+    const bool unknown = m_lifecyclePhase == QStringLiteral("unknown");
+    const bool infrastructure = m_lifecyclePhase == QStringLiteral("infrastructure_ready");
+    const bool testing = m_lifecyclePhase == QStringLiteral("testing");
+    const bool liveReady = m_lifecyclePhase == QStringLiteral("ready_for_live");
+    const bool paused = m_lifecyclePhase == QStringLiteral("paused");
+    const bool destroyed = m_lifecyclePhase == QStringLiteral("destroyed");
+    const bool runningEnvironment = testing || liveReady;
+
+    m_prepareButton->setEnabled(!m_operationBusy && (unknown || destroyed));
+    m_deployFixButton->setEnabled(!m_operationBusy && (infrastructure || runningEnvironment));
+    m_prepareLiveButton->setEnabled(!m_operationBusy && runningEnvironment);
+    m_pauseButton->setEnabled(!m_operationBusy && (infrastructure || runningEnvironment));
+    m_resumeButton->setEnabled(!m_operationBusy && paused);
+    m_finishButton->setEnabled(!m_operationBusy && runningEnvironment);
+    m_adminLoginButton->setEnabled(!m_operationBusy && runningEnvironment);
+
+    const QString refreshHint = tr("Pokud stav neodpovídá skutečnosti, nejprve použijte Obnovit stav životního cyklu.");
+    m_prepareButton->setToolTip((unknown || destroyed) ? QString() : tr("Prostředí již existuje. Použijte deploy opravy.") + " " + refreshHint);
+    m_resumeButton->setToolTip(paused ? QString() : tr("Obnovení je relevantní pouze pro pozastavené prostředí."));
+    m_prepareLiveButton->setToolTip(runningEnvironment ? tr("Lze použít opakovaně; každá úspěšná příprava založí další ostrý běh.")
+                                                       : tr("Nejprve připravte a otestujte prostředí."));
 }
 
 bool CloudOperatorWindow::writeShortRunVarFile()

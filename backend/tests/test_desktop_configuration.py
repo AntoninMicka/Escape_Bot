@@ -76,3 +76,6 @@ class DesktopConfigurationTests(unittest.TestCase):
         self.assertIn('state["deploy_count"] += 1', lifecycle)
         self.assertIn('state["live_run_count"] += 1', lifecycle)
         self.assertIn('state["history"]', lifecycle)
+        self.assertIn("updateActionAvailability", operator)
+        self.assertIn("m_resumeButton->setEnabled(!m_operationBusy && paused)", operator)
+        self.assertIn("m_prepareLiveButton->setEnabled(!m_operationBusy && runningEnvironment)", operator)
