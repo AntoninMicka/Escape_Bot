@@ -15,6 +15,7 @@
 #include <QLineEdit>
 #include <QMessageBox>
 #include <QPushButton>
+#include <QProcess>
 #include <QRegularExpression>
 #include <QScrollArea>
 #include <QSettings>
@@ -24,12 +25,15 @@
 #include <QUrl>
 #include <QVBoxLayout>
 #include <QWebEngineView>
+#include <QWebEnginePage>
 
 CloudOperatorWindow::CloudOperatorWindow(QWidget *parent) : QMainWindow(parent)
 {
     m_controller = new CloudLifecycleController(findProjectRoot(), this);
     buildUi();
     loadSettings();
+    m_identityProcess = new QProcess(this);
+    m_adminTokenProcess = new QProcess(this);
     connect(m_controller, &CloudLifecycleController::outputReady, m_log, &QTextEdit::insertPlainText);
     connect(m_controller, &CloudLifecycleController::busyChanged, this, [this](bool busy) {
         m_cancel->setEnabled(busy);
@@ -39,7 +43,53 @@ CloudOperatorWindow::CloudOperatorWindow(QWidget *parent) : QMainWindow(parent)
             [this](const QString &name, bool success) {
         m_status->setText(success ? tr("Dokončeno: %1").arg(name) : tr("Chyba: %1").arg(name));
         m_log->append(success ? tr("✓ Operace dokončena.") : tr("✗ Operace selhala."));
+        if (name == tr("Přihlášení Google účtu")) refreshGoogleIdentity();
+        if (success && (name == tr("Kompletní příprava prostředí") ||
+                        name == tr("Příprava ostrého provozu")))
+            loginAdminDashboard();
     });
+    connect(m_identityProcess, qOverload<int, QProcess::ExitStatus>(&QProcess::finished), this,
+            [this](int exitCode, QProcess::ExitStatus status) {
+        const QString account = QString::fromUtf8(m_identityProcess->readAllStandardOutput()).trimmed();
+        if (status == QProcess::NormalExit && exitCode == 0 && !account.isEmpty())
+            m_googleIdentity->setText(tr("Přihlášen: %1").arg(account));
+        else
+            m_googleIdentity->setText(tr("Google účet není přihlášen"));
+    });
+    connect(m_adminTokenProcess, qOverload<int, QProcess::ExitStatus>(&QProcess::finished), this,
+            [this](int exitCode, QProcess::ExitStatus status) {
+        QString token = QString::fromUtf8(m_adminTokenProcess->readAllStandardOutput()).trimmed();
+        if (status != QProcess::NormalExit || exitCode != 0 || token.isEmpty() ||
+            !QRegularExpression("^[a-f0-9]{64}$").match(token).hasMatch()) {
+            token.clear();
+            QMessageBox::warning(this, tr("Admin přihlášení"),
+                                 tr("Admin token se nepodařilo bezpečně načíst ze Secret Manageru."));
+            return;
+        }
+        QString domain = m_domain->text().trimmed();
+        if (!domain.startsWith("https://")) domain.prepend("https://");
+        QUrl url(domain);
+        url.setPath("/admin");
+        m_adminLoginPending = true;
+        m_web->setProperty("pendingAdminToken", token);
+        token.fill(QChar(0));
+        m_web->setUrl(url);
+    });
+    connect(m_web, &QWebEngineView::loadFinished, this, [this](bool success) {
+        if (!success || !m_adminLoginPending) return;
+        m_adminLoginPending = false;
+        QString token = m_web->property("pendingAdminToken").toString();
+        m_web->setProperty("pendingAdminToken", QVariant());
+        const QString expectedHost = QUrl(m_web->url()).host();
+        if (expectedHost.isEmpty() || m_web->url().scheme() != QStringLiteral("https")) return;
+        const QString script = QStringLiteral(
+            "if (location.protocol === 'https:' && location.hostname === '%1') {"
+            "sessionStorage.setItem('escapeBotAdminToken', '%2'); location.reload(); }")
+            .arg(expectedHost, token);
+        token.fill(QChar(0));
+        m_web->page()->runJavaScript(script);
+    });
+    refreshGoogleIdentity();
     setWindowTitle(tr("Escape Bot Cloud Operator"));
     resize(1500, 900);
 }
@@ -64,6 +114,73 @@ void CloudOperatorWindow::buildUi()
     auto *root = new QSplitter(this);
     auto *left = new QWidget(root);
     auto *leftLayout = new QVBoxLayout(left);
+    auto *quickBox = new QGroupBox(tr("Rychlé ovládání krátkodobého provozu"), left);
+    auto *quick = new QVBoxLayout(quickBox);
+    m_googleIdentity = new QLabel(tr("Kontroluji Google účet…"));
+    auto *googleLogin = new QPushButton(tr("Přihlásit Google účet"));
+    auto *prepare = new QPushButton(tr("Připravit testovací prostředí"));
+    auto *deployFix = new QPushButton(tr("Nasadit opravu"));
+    auto *prepareLive = new QPushButton(tr("Připravit ostrý provoz"));
+    auto *quickPause = new QPushButton(tr("Pozastavit / ušetřit náklady"));
+    auto *quickResume = new QPushButton(tr("Obnovit prostředí"));
+    auto *finish = new QPushButton(tr("Stáhnout výsledky a odstranit prostředí"));
+    quick->addWidget(m_googleIdentity);
+    quick->addWidget(googleLogin);
+    quick->addWidget(prepare);
+    quick->addWidget(deployFix);
+    quick->addWidget(prepareLive);
+    quick->addWidget(quickPause);
+    quick->addWidget(quickResume);
+    quick->addWidget(finish);
+    connect(googleLogin, &QPushButton::clicked, this, &CloudOperatorWindow::loginGoogle);
+    connect(prepare, &QPushButton::clicked, this, [this] {
+        if (!validateCommon(true)) return;
+        if (QMessageBox::question(this, tr("Připravit prostředí"),
+            tr("V projektu %1 budou vytvořeny placené prostředky a automatická tajemství. Pokračovat?")
+                .arg(m_project->text())) != QMessageBox::Yes) return;
+        runScript(tr("Kompletní příprava prostředí"), "deploy/gcp/prepare-short-run.sh",
+                  targetArguments() + QStringList{
+                    "--instance=" + m_sql->text(), "--environment=" + m_environment->text(),
+                    "--terraform-dir=" + m_terraformDir->text(), "--var-file=" + m_varFile->text(),
+                    "--image=" + m_image->text()});
+    });
+    connect(deployFix, &QPushButton::clicked, this, [this] {
+        if (!validateCommon(true)) return;
+        runScript(tr("Nasazení opravy"), "deploy/gcp/deploy.sh",
+                  targetArguments() + QStringList{"--image=" + m_image->text()});
+    });
+    connect(prepareLive, &QPushButton::clicked, this, [this] {
+        if (!validateCommon() || !confirmPhrase(tr("Příprava ostrého provozu"),
+            tr("Testovací data budou archivována a herní stav resetován."), "OSTRY-START")) return;
+        runScript(tr("Příprava ostrého provozu"), "deploy/gcp/event-lifecycle.sh",
+                  targetArguments() + QStringList{"--action=reset", "--label=pre-event"});
+    });
+    connect(quickPause, &QPushButton::clicked, this, [this] {
+        if (!validateCommon()) return;
+        runScript(tr("Pozastavení"), "deploy/gcp/pause-short-run.sh",
+                  {m_project->text(), m_zone->text(), m_vm->text(), m_sql->text()});
+    });
+    connect(quickResume, &QPushButton::clicked, this, [this] {
+        if (!validateCommon()) return;
+        runScript(tr("Obnovení"), "deploy/gcp/resume-short-run.sh",
+                  {m_project->text(), m_zone->text(), m_vm->text(), m_sql->text()});
+    });
+    connect(finish, &QPushButton::clicked, this, [this] {
+        if (!validateCommon() || !confirmPhrase(tr("Ukončení krátkodobého provozu"),
+            tr("Výsledky budou archivovány a po stažení bude infrastruktura nevratně odstraněna."),
+            "UKONCIT-A-SMAZAT")) return;
+        QDir().mkpath(m_archiveDir->text());
+        const QString archiveScript = QDir(m_controller->projectRoot()).filePath("deploy/gcp/event-lifecycle.sh");
+        const QString collectScript = QDir(m_controller->projectRoot()).filePath("deploy/gcp/collect-event-archives.sh");
+        const QString destroyScript = QDir(m_controller->projectRoot()).filePath("deploy/gcp/destroy-short-run.sh");
+        m_controller->runOperation(tr("Archivace, stažení a odstranění"), {
+            {"bash", QStringList{archiveScript} + targetArguments() + QStringList{"--action=archive", "--label=final"}},
+            {"bash", {collectScript, m_project->text(), m_zone->text(), m_vm->text(), m_archiveDir->text()}},
+            {"bash", {destroyScript, "--terraform-dir=" + m_terraformDir->text(),
+                      "--var-file=" + m_varFile->text(), "--archive-dir=" + m_archiveDir->text(),
+                      "--workspace=" + m_environment->text(), "--confirm-destroy=DESTROY-SHORT-RUN"}}
+        });
+    });
     auto *configBox = new QGroupBox(tr("Cloud konfigurace"), left);
     auto *form = new QFormLayout(configBox);
     auto addField = [form](const QString &label, QLineEdit *&field) {
@@ -97,7 +214,9 @@ void CloudOperatorWindow::buildUi()
     });
     connect(save, &QPushButton::clicked, this, &CloudOperatorWindow::saveSettings);
 
-    auto *lifeBox = new QGroupBox(tr("Životní cyklus"), left);
+    auto *lifeBox = new QGroupBox(tr("Pokročilé jednotlivé operace"), left);
+    lifeBox->setCheckable(true);
+    lifeBox->setChecked(false);
     auto *life = new QVBoxLayout(lifeBox);
     auto addAction = [life](const QString &text) { auto *b = new QPushButton(text); life->addWidget(b); return b; };
     auto *prereq = addAction(tr("1. Ověřit nástroje a přihlášení"));
@@ -179,6 +298,7 @@ void CloudOperatorWindow::buildUi()
     m_log = new QTextEdit(left);
     m_log->setReadOnly(true);
     m_log->setPlaceholderText(tr("Výstup operací…"));
+    leftLayout->addWidget(quickBox);
     leftLayout->addWidget(configBox);
     leftLayout->addWidget(lifeBox);
     leftLayout->addWidget(m_log, 1);
@@ -186,7 +306,7 @@ void CloudOperatorWindow::buildUi()
     auto *right = new QWidget(root);
     auto *rightLayout = new QVBoxLayout(right);
     auto *webButtons = new QHBoxLayout;
-    auto *load = new QPushButton(tr("Načíst admin dashboard"));
+    auto *load = new QPushButton(tr("Automaticky přihlásit admin dashboard"));
     auto *reload = new QPushButton(tr("Obnovit"));
     webButtons->addWidget(load);
     webButtons->addWidget(reload);
@@ -195,7 +315,7 @@ void CloudOperatorWindow::buildUi()
     m_web->setPage(new CloudAdminPage(m_web));
     rightLayout->addLayout(webButtons);
     rightLayout->addWidget(m_web, 1);
-    connect(load, &QPushButton::clicked, this, &CloudOperatorWindow::loadAdmin);
+    connect(load, &QPushButton::clicked, this, &CloudOperatorWindow::loginAdminDashboard);
     connect(reload, &QPushButton::clicked, m_web, &QWebEngineView::reload);
     root->addWidget(left);
     root->addWidget(right);
@@ -271,6 +391,38 @@ void CloudOperatorWindow::loadAdmin()
     QUrl url(domain);
     url.setPath("/admin");
     m_web->setUrl(url);
+}
+
+void CloudOperatorWindow::loginGoogle()
+{
+    if (m_controller->isBusy()) return;
+    m_controller->runOperation(tr("Přihlášení Google účtu"), {
+        {"gcloud", {"auth", "login", "--update-adc"}}
+    });
+}
+
+void CloudOperatorWindow::refreshGoogleIdentity()
+{
+    if (!m_identityProcess || m_identityProcess->state() != QProcess::NotRunning) return;
+    m_googleIdentity->setText(tr("Kontroluji Google účet…"));
+    m_identityProcess->start(QStringLiteral("gcloud"),
+                             {"auth", "list", "--filter=status:ACTIVE", "--format=value(account)"});
+}
+
+void CloudOperatorWindow::loginAdminDashboard()
+{
+    if (m_domain->text().trimmed().isEmpty() || m_project->text().trimmed().isEmpty() ||
+        m_environment->text().trimmed().isEmpty()) {
+        QMessageBox::warning(this, tr("Neúplná konfigurace"),
+                             tr("Pro admin dashboard vyplňte projekt, prostředí a doménu."));
+        return;
+    }
+    if (m_adminTokenProcess->state() != QProcess::NotRunning) return;
+    const QString secret = QStringLiteral("escape-bot-%1-admin-token").arg(m_environment->text().trimmed());
+    m_adminTokenProcess->setProcessChannelMode(QProcess::SeparateChannels);
+    m_adminTokenProcess->start(QStringLiteral("gcloud"),
+        {"secrets", "versions", "access", "latest", "--secret=" + secret,
+         "--project=" + m_project->text().trimmed()});
 }
 
 bool CloudOperatorWindow::confirmPhrase(const QString &title, const QString &message, const QString &phrase)
