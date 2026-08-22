@@ -164,18 +164,19 @@ resource "google_sql_database_instance" "main" {
   settings {
     tier              = var.database_tier
     availability_type = var.database_availability_type
+    activation_policy = var.database_activation_policy
     disk_type         = "PD_SSD"
     disk_size         = var.database_disk_size_gb
     disk_autoresize   = true
 
     backup_configuration {
       enabled                        = true
-      point_in_time_recovery_enabled = true
+      point_in_time_recovery_enabled = var.database_pitr_enabled
       start_time                     = "02:00"
-      transaction_log_retention_days = 7
+      transaction_log_retention_days = var.database_transaction_log_retention_days
 
       backup_retention_settings {
-        retained_backups = 14
+        retained_backups = var.database_backup_retention_count
         retention_unit   = "COUNT"
       }
     }
@@ -223,8 +224,8 @@ resource "google_compute_resource_policy" "daily_data_snapshot" {
     }
 
     retention_policy {
-      max_retention_days    = 14
-      on_source_disk_delete = "KEEP_AUTO_SNAPSHOTS"
+      max_retention_days    = var.data_snapshot_retention_days
+      on_source_disk_delete = var.keep_snapshots_after_disk_delete ? "KEEP_AUTO_SNAPSHOTS" : "APPLY_RETENTION_POLICY"
     }
 
     snapshot_properties {

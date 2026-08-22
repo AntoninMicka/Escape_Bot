@@ -34,6 +34,7 @@ if ! grep -qF "$data_device $data_mount " /etc/fstab; then
 fi
 mountpoint -q "$data_mount" || mount "$data_mount"
 mkdir -p "$data_mount/data" "$data_mount/caddy-data" "$data_mount/caddy-config"
+chown -R 10001:10001 "$data_mount/data"
 
 install -d -m 0750 /opt/escape-bot
 

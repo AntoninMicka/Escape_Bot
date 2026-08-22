@@ -1,0 +1,33 @@
+# Krátkodobý profil pro testování a akci 24.–28. září 2026.
+# Zkopírujte na short-run.tfvars a doplňte projekt, doménu a platný image.
+project_id  = "my-gcp-project"
+region      = "europe-west3"
+zone        = "europe-west3-a"
+environment = "event-2026"
+domain      = "event-hra.example.cz"
+
+# Kapacita postačující pro omezený počet současných týmů; nejde o HA profil.
+machine_type     = "e2-medium"
+boot_disk_size_gb = 20
+data_disk_size_gb = 10
+
+# Shared-core Cloud SQL nemá SLA. Je zvolen záměrně pouze pro krátkou akci.
+database_tier                        = "db-g1-small"
+database_disk_size_gb                = 10
+database_availability_type           = "ZONAL"
+database_deletion_protection         = false
+database_activation_policy           = "ALWAYS"
+database_pitr_enabled                = true
+database_backup_retention_count      = 7
+database_transaction_log_retention_days = 3
+
+data_snapshot_retention_days       = 7
+keep_snapshots_after_disk_delete   = false
+
+initial_image = "europe-west3-docker.pkg.dev/my-gcp-project/escape-bot/app:bootstrap"
+
+labels = {
+  lifecycle = "short-run"
+  event      = "september-2026"
+  expires    = "2026-09-30"
+}

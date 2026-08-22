@@ -7,6 +7,7 @@ from unittest.mock import patch
 
 from escape_bot.storage import JsonStorage, create_storage
 from escape_bot.storage_migration import migrate_storage
+from escape_bot.event_lifecycle import RESET_CONFIRMATION, archive_event, reset_event
 
 
 class JsonStorageTests(unittest.TestCase):
@@ -94,6 +95,28 @@ class JsonStorageTests(unittest.TestCase):
             with self.assertRaises(SystemExit) as raised:
                 storage_migration.main()
         self.assertEqual(raised.exception.code, 2)
+
+    def test_event_reset_archives_first_and_preserves_schedule(self) -> None:
+        self.storage.save_sessions({"session-1": {"score": 900}})
+        self.storage.save_lobbies([{"session_id": "session-1", "players": {}}])
+        self.storage.save_leaderboard([{"team_name": "Test", "score": 900}])
+        self.storage.save_runtime_settings({"opening_time": "08:00", "gameplay_enabled": True})
+
+        archive_path, report = archive_event(self.storage, self.data_dir / "archives", "test-run")
+        reset_event(self.storage, RESET_CONFIRMATION)
+
+        archive = JsonStorage(archive_path)
+        self.assertEqual(report["sessions"], 1)
+        self.assertEqual(archive.load_sessions(), {"session-1": {"score": 900}})
+        self.assertEqual(self.storage.load_sessions(), {})
+        self.assertEqual(self.storage.load_lobbies(), [])
+        self.assertEqual(self.storage.load_leaderboard(), [])
+        self.assertEqual(self.storage.load_runtime_settings()["opening_time"], "08:00")
+        self.assertFalse(self.storage.load_runtime_settings()["gameplay_enabled"])
+
+    def test_event_reset_requires_explicit_confirmation(self) -> None:
+        with self.assertRaisesRegex(ValueError, RESET_CONFIRMATION):
+            reset_event(self.storage, "wrong")
 
 
 class OperationalEndpointTests(unittest.TestCase):

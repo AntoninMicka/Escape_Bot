@@ -71,3 +71,52 @@ curl "https://$(terraform -chdir=infra/terraform output -raw domain)/api/ready"
 ```
 
 Před produkčním použitím ověřte obnovu Cloud SQL PITR, obnovu snapshotu datového disku, restart VM, reconnect telefonů a celý sólo i týmový scénář.
+
+## Krátkodobý profil pro akci
+
+Soubor `short-run.tfvars.example` je oddělený od trvalého profilu. Používá `e2-medium`, zonální `db-g1-small`, menší disky, sedmidenní retenci a vypnutou ochranu Cloud SQL proti smazání. Shared-core databáze nemá SLA; tento profil je proto určen pouze pro testování a časově omezenou akci.
+
+Pro 200 hráčů během pěti dnů odpovídá přibližně 40 hráčům denně. Při průměrně třech hráčích v týmu jde asi o 14 týmů denně. Výchozí limit čtyř současných týmů, dvouhodinová hra a patnáctiminutové odstupy poskytují za dvanáctihodinový den rezervu přibližně 24 týmových startů. Pokud by výrazně převládali sólo hráči, je nutné rezervace rozložit nebo upravit limit a ověřit zátěžovým testem.
+
+Vytvoření používá vlastní state/workspace oddělený od trvalého nasazení:
+
+```bash
+cp infra/terraform/short-run.tfvars.example infra/terraform/short-run.tfvars
+terraform -chdir=infra/terraform workspace new event-2026
+terraform -chdir=infra/terraform plan -var-file=short-run.tfvars -out=short-run.tfplan
+terraform -chdir=infra/terraform apply short-run.tfplan
+```
+
+### Doporučený cyklus
+
+1. Nasadit ověřovací image a projít scénář.
+2. Mezi testovacími obdobími prostředí pozastavit pomocí `pause-short-run.sh`; při pokračování použít `resume-short-run.sh`.
+3. Po opravách nasadit nový image digest standardním `deploy.sh`.
+4. Před ostrým startem spustit `event-lifecycle.sh --action=reset --label=pre-event`. Aplikace se zastaví, data se archivují, herní relace/lobby/leaderboard se vyčistí a nové starty zůstanou globálně vypnuté. Časová konfigurace zůstane zachována.
+5. V adminu ověřit plán a ručně spustit herní provoz.
+6. Po akci nejprve spustit `--action=archive --label=final`, potom archivy stáhnout.
+7. Teprve po kontrole lokálního `archive-report.json` spustit destrukční cleanup.
+
+Příklad resetu a závěrečné archivace:
+
+```bash
+./deploy/gcp/event-lifecycle.sh --project=PROJECT --zone=ZONE --vm=VM \
+  --action=reset --label=pre-event
+
+./deploy/gcp/event-lifecycle.sh --project=PROJECT --zone=ZONE --vm=VM \
+  --action=archive --label=final
+
+./deploy/gcp/collect-event-archives.sh PROJECT ZONE VM ./backups/event-2026
+```
+
+Po ověření staženého archivu:
+
+```bash
+./deploy/gcp/destroy-short-run.sh \
+  --terraform-dir=infra/terraform \
+  --var-file=infra/terraform/short-run.tfvars \
+  --archive-dir=backups/event-2026 \
+  --confirm-destroy=DESTROY-SHORT-RUN
+```
+
+Cleanup skript převede zadané cesty na absolutní, takže jej lze bezpečně spustit z kořene repozitáře podle příkladu výše.

@@ -21,8 +21,8 @@ variable "environment" {
   default     = "staging"
 
   validation {
-    condition     = contains(["staging", "production"], var.environment)
-    error_message = "Environment must be staging or production."
+    condition     = can(regex("^(staging|production|event-[a-z0-9-]{1,12})$", var.environment))
+    error_message = "Environment must be staging, production or a short event-* identifier."
   }
 }
 
@@ -68,6 +68,42 @@ variable "database_availability_type" {
 }
 
 variable "database_deletion_protection" {
+  type    = bool
+  default = true
+}
+
+variable "database_activation_policy" {
+  description = "ALWAYS normally; short-run environments may be paused out of band with gcloud."
+  type        = string
+  default     = "ALWAYS"
+
+  validation {
+    condition     = contains(["ALWAYS", "NEVER"], var.database_activation_policy)
+    error_message = "Database activation policy must be ALWAYS or NEVER."
+  }
+}
+
+variable "database_pitr_enabled" {
+  type    = bool
+  default = true
+}
+
+variable "database_backup_retention_count" {
+  type    = number
+  default = 14
+}
+
+variable "database_transaction_log_retention_days" {
+  type    = number
+  default = 7
+}
+
+variable "data_snapshot_retention_days" {
+  type    = number
+  default = 14
+}
+
+variable "keep_snapshots_after_disk_delete" {
   type    = bool
   default = true
 }
