@@ -41,8 +41,6 @@ class CompleteScenarioJourneyTest(unittest.IsolatedAsyncioTestCase):
         await self.send("client.hello")
         await self.send("player.message", text="Příjem")
         await self.send("player.message", text="734")
-        await self.send("player.message", text="Slyšíme tě")
-        await self.send("player.message", text="restart")
         self.assertEqual(self.machine.state.phase, GamePhase.NAVIGATING)
 
         await self.scan("reception_archive")

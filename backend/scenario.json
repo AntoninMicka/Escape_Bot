@@ -31,9 +31,7 @@
   "scenario_flow": [
     {"id": "comms_offline", "label": "Navázání spojení", "kind": "phase", "requires": [], "solution": "Odeslat libovolnou zprávu"},
     {"id": "searching_lost", "label": "Nouzová nosná frekvence", "kind": "phase", "requires": ["comms_offline"], "solution": "734"},
-    {"id": "lost_connected", "label": "První kontakt s Elarou", "kind": "phase", "requires": ["searching_lost"], "solution": "Odeslat libovolnou zprávu"},
-    {"id": "connection_lost", "label": "Výpadek chronosignálu", "kind": "phase", "requires": ["lost_connected"], "solution": "restart"},
-    {"id": "navigating", "label": "CHRONOMAPA aktivní", "kind": "phase", "requires": ["connection_lost"], "solution": "Aktivovat recepční QR"},
+    {"id": "navigating", "label": "CHRONOMAPA aktivní", "kind": "phase", "requires": ["searching_lost"], "solution": "Aktivovat recepční QR"},
     {"id": "reception_archive", "label": "Recepční archiv", "kind": "checkpoint", "requires": ["navigating"]},
     {"id": "staircase_signal", "label": "Signál na schodišti", "kind": "checkpoint", "requires": ["reception_archive"]},
     {"id": "courtyard_minefield", "label": "Nestabilní nádvoří", "kind": "checkpoint", "requires": ["staircase_signal"]},
@@ -69,7 +67,8 @@
       "success_keyword": "734",
       "success_messages": [
         {"text": "Frekvence 734 přijata! Zachytila jsem chronální ozvěnu. Přepojuji... *píp*", "mood": "relieved", "channel": "captain"},
-        {"text": "Haló? Tady doktorka Elara. Jsem pořád v Kraskově, ale hotel vypadá, jako by tu nikdo nebyl celá desetiletí. Stroj se rozpadl při přenosu. Slyšíte mě?", "mood": "tense", "channel": "lost", "voice_id": "elara_first_contact"}
+        {"text": "Haló? Tady doktorka Elara. Jsem pořád v Kraskově, ale hotel vypadá, jako by tu nikdo nebyl celá desetiletí. Stroj se rozpadl při přenosu. Slyšíte mě?", "mood": "tense", "channel": "lost", "voice_id": "elara_first_contact"},
+        {"text": "Jsme ve stejném Kraskově, ale já jsem uvázla v jeho budoucí časové vrstvě. Interkom přenese jen hlas a data; ven mě dostane až stabilní koridor. Havárie vymrštila tři součásti stroje do vašeho času. CHRONOMAPA je online — najděte její první stabilní bod u recepčního archivu.", "mood": "alert", "channel": "lost", "voice_id": "elara_temporal_reveal"}
       ],
       "hints": [
         {"text": "Každá skupina pulzů představuje právě jednu číslici. Pořadí skupin neměň.", "penalty": 10},
@@ -80,38 +79,6 @@
         "text": "*šum* Frekvence '{text}' je hluchá. Zkus to znovu, musíme ji najít!",
         "mood": "tense",
         "channel": "captain"
-      }
-    },
-    "lost_connected": {
-      "glitch_message": {
-        "text": "Snažím se postupovat podle tvých instrukcí '{text}', ale... *GLITCH* něco mě tu ruší... *šum*",
-        "mood": "glitchy",
-        "channel": "lost",
-        "voice_id": "elara_signal_failure"
-      },
-      "error_message": {
-        "text": "SYSTEM ERROR: CHRONOSIGNÁL ZTRACEN\n\nRozhraní interkomu neodpovídá.\nEnergetická smyčka byla přerušena.\nSynchronizace časových vrstev selhala.\nTerminál čeká na obnovovací příkaz.\nAktivní kanál nelze znovu naladit.\nRežim CHRONOMAPY zůstává uzamčen.\nTransmise byla pozastavena.\n\nZadejte do textového pole interkomu jediné slovo — obnovovací příkaz ukrytý v diagnostickém výpisu — a odešlete ho jako běžnou zprávu.",
-        "mood": "error",
-        "channel": "general"
-      }
-    },
-    "connection_lost": {
-      "success_keyword": "restart",
-      "success_message": {
-         "text": "Uf, jsem zpět! Už tomu rozumím: jsme ve stejném Kraskově, ale já jsem uvázla v jeho budoucí časové vrstvě. Interkom přenese jen hlas a data; ven mě dostane až stabilní koridor. Havárie vymrštila tři součásti stroje do vašeho času. CHRONOMAPA je znovu online — najděte její první stabilní bod u recepčního archivu.",
-         "mood": "alert",
-         "channel": "lost",
-         "voice_id": "elara_temporal_reveal"
-      },
-      "hints": [
-        {"text": "Hledané slovo je ukryté v sedmi řádcích diagnostiky a má sedm písmen. Napište ho do interkomu jako samostatnou zprávu.", "penalty": 10},
-        {"text": "Přečti první písmena diagnostických řádků shora dolů.", "penalty": 20},
-        {"text": "Obnovovací příkaz je RESTART.", "penalty": 40}
-      ],
-      "fail_message": {
-         "text": "SYSTEM ERROR: Tato zpráva není platný obnovovací příkaz. Hledané jednoslovné řešení je ukryté v sedmi řádcích diagnostiky. Napište ho do interkomu jako samostatnou zprávu.",
-         "mood": "error",
-         "channel": "general"
       }
     },
     "navigating": {

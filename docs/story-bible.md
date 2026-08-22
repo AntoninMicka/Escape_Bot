@@ -17,7 +17,7 @@ Tento dokument je závazný pro dialogy, hádanky i budoucí produkční materi�
 - **T−30 dní až T−1 den:** Elara připravuje projekt CHRONOS a v hotelu rozmísťuje diagnostické body budoucích kotev.
 - **T0 – havárie:** Při plné aktivaci selže fázový stabilizátor. Elara je odtržena do budoucí vrstvy a tři části stroje jsou vymrštěny do přítomnosti.
 - **T0 + několik minut:** Kapitánka obnoví interkom. Tým rozluští nosnou frekvenci `734` a naváže první kontakt s Elarou.
-- **První kontakt:** Nestabilní signál se zhroutí. Tým z diagnostiky odvodí příkaz `RESTART`, obnoví spojení a spustí CHRONOMAPU.
+- **První kontakt:** Po naladění frekvence Elara vysvětlí časový posun a aktivuje CHRONOMAPU s prvním stabilním bodem u recepčního archivu.
 - **Průběh mise:** Tým aktivuje kotvy od recepce přes hotel a venkovní areál. Elara se pohybuje po stejných místech ve své budoucí vrstvě.
 - **Sestavení stroje:** Tým získá Temporální motor, Fázový stabilizátor a Krystal časové kotvy a vloží je do finální konzole.
 - **Návrat:** Aktivní kotvy vytvoří jediný stabilní koridor. Elara se vrátí do přítomnosti a koridor se bezpečně uzavře.

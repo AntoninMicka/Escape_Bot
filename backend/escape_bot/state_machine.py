@@ -96,6 +96,9 @@ class GameState:
         state.unlocked_discoveries = set(data.get("unlocked_discoveries", []))
         state.inventory = list(data.get("inventory", []))
         state.flags = dict(data.get("flags", {}))
+        if state.phase in {GamePhase.LOST_CONNECTED, GamePhase.CONNECTION_LOST}:
+            state.phase = GamePhase.NAVIGATING
+            state.flags["chronomap_unlocked"] = True
         state.chat_history = list(data.get("chat_history", []))
         state.score = int(data.get("score", 1000))
         state.hints_used = dict(data.get("hints_used", {}))
@@ -459,7 +462,8 @@ class EscapeBotStateMachine:
         if self.state.phase == GamePhase.SEARCHING_LOST:
             p_data = self.scenario.get_phase_data("searching_lost")
             if p_data.get("success_keyword", "734") in text:
-                self.state.phase = GamePhase.LOST_CONNECTED
+                self.state.phase = GamePhase.NAVIGATING
+                self.state.flags["chronomap_unlocked"] = True
                 responses = [reply("bot.message", m, message) for m in p_data.get("success_messages", [])]
                 responses.append(self._state_message())
                 return responses
@@ -467,33 +471,6 @@ class EscapeBotStateMachine:
                 fail_msg = p_data.get("fail_message", {}).copy()
                 fail_msg["text"] = fail_msg.get("text", "").replace("{text}", text)
                 return [reply("bot.message", fail_msg, message), self._state_message()]
-
-        if self.state.phase == GamePhase.LOST_CONNECTED:
-            self.state.phase = GamePhase.CONNECTION_LOST
-            p_data = self.scenario.get_phase_data("lost_connected")
-            glitch_msg = p_data.get("glitch_message", {}).copy()
-            glitch_msg["text"] = glitch_msg.get("text", "").replace("{text}", text)
-            return [
-                reply("bot.message", glitch_msg, message),
-                Message("effect.trigger", {"effect": "glitch", "intensity": 0.8, "duration_ms": 2000}),
-                reply("bot.message", p_data.get("error_message", {}), message),
-                self._state_message(),
-            ]
-
-        if self.state.phase == GamePhase.CONNECTION_LOST:
-            p_data = self.scenario.get_phase_data("connection_lost")
-            if p_data.get("success_keyword", "restart") in text.lower():
-                self.state.phase = GamePhase.NAVIGATING
-                self.state.flags["chronomap_unlocked"] = True
-                return [
-                    reply("bot.message", p_data.get("success_message", {}), message),
-                    self._state_message(),
-                ]
-            else:
-                return [
-                    reply("bot.message", p_data.get("fail_message", {}), message),
-                    self._state_message(),
-                ]
 
         # Výchozí odpověď pro fázi NAVIGATING
         if str(message.payload.get("channel", "general")) == "lost":

@@ -299,22 +299,25 @@ class StateMachineCheckpointTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(metric["hints"], 2)
         self.assertEqual(metric["actions"], 2)
 
-    async def test_restart_unlocks_chronomap(self) -> None:
-        self.machine.state.phase = GamePhase.CONNECTION_LOST
-        await self.machine.handle(Message("player.message", {"text": "restart"}))
-
+    async def test_frequency_connects_elara_and_unlocks_chronomap(self) -> None:
+        self.machine.state.phase = GamePhase.SEARCHING_LOST
+        responses = await self.machine.handle(Message("player.message", {"text": "734"}))
         self.assertEqual(self.machine.state.phase, GamePhase.NAVIGATING)
         self.assertTrue(self.machine.state.flags["chronomap_unlocked"])
+        messages = " ".join(item.payload.get("text", "") for item in responses if item.type == "bot.message")
+        self.assertIn("recepčního archivu", messages)
+        self.assertNotIn("CHRONOSIGNÁL ZTRACEN", messages)
 
-    async def test_connection_failure_contains_restart_riddle_without_answer(self) -> None:
-        self.machine.state.phase = GamePhase.LOST_CONNECTED
-        responses = await self.machine.handle(Message("player.message", {"text": "Slyšíme."}))
-        diagnostic = self.response(responses, "error") if any(item.type == "error" for item in responses) else next(item for item in responses if item.payload.get("mood") == "error")
-        text = diagnostic.payload["text"]
-        lines = [line for line in text.splitlines() if line and not line.startswith("SYSTEM") and not line.startswith("Zadejte")]
-
-        self.assertEqual("".join(line[0] for line in lines), "RESTART")
-        self.assertNotIn("restart", text.casefold())
+    def test_legacy_connection_failure_session_migrates_to_navigation(self) -> None:
+        for legacy_phase in (GamePhase.LOST_CONNECTED, GamePhase.CONNECTION_LOST):
+            with self.subTest(legacy_phase=legacy_phase):
+                snapshot = self.machine.state.snapshot()
+                snapshot["phase"] = legacy_phase.value
+                snapshot["flags"] = {}
+                restored = EscapeBotStateMachine(self.scenario)
+                restored.restore_state(snapshot)
+                self.assertEqual(restored.state.phase, GamePhase.NAVIGATING)
+                self.assertTrue(restored.state.flags["chronomap_unlocked"])
 
     def test_story_bible_data_defines_timeline_and_time_travel_rules(self) -> None:
         self.assertGreaterEqual(len(self.scenario.data["time_travel_rules"]), 7)
