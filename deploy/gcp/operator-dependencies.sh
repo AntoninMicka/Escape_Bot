@@ -90,10 +90,30 @@ install -m 0755 -d /etc/apt/keyrings /usr/share/keyrings
 if contains_missing terraform; then
     codename="${UBUNTU_CODENAME:-${VERSION_CODENAME:-}}"
     if [ -z "$codename" ]; then echo "Nelze určit kódové jméno distribuce." >&2; exit 1; fi
-    release_url="https://apt.releases.hashicorp.com/dists/$codename/Release"
-    if ! curl -fsSL "$release_url" -o /dev/null; then
-        echo "HashiCorp APT repozitář nepodporuje distribuci '$codename' ($release_url)." >&2
-        exit 1
+    repository_suite="$codename"
+    release_url="https://apt.releases.hashicorp.com/dists/$repository_suite/Release"
+    if ! curl -fsSL "$release_url" -o /dev/null 2>/dev/null; then
+        if [ "$ID" != "debian" ]; then
+            echo "HashiCorp APT repozitář nepodporuje distribuci '$codename' ($release_url)." >&2
+            exit 1
+        fi
+
+        # HashiCorp nemusí publikovat suite pro Debian testing/unstable hned.
+        # Jeho samostatné Go binárky proto bereme z aktuálního Debian stable,
+        # nikoli ze suite jiné distribuce nebo z neověřeného cizího codename.
+        debian_stable_release=$(curl -fsSL \
+            https://deb.debian.org/debian/dists/stable/Release)
+        repository_suite=$(sed -n 's/^Codename: //p' <<<"$debian_stable_release" | head -n 1)
+        if [[ ! "$repository_suite" =~ ^[a-z0-9][a-z0-9-]*$ ]]; then
+            echo "Nelze bezpečně určit kódové jméno aktuálního Debian stable." >&2
+            exit 1
+        fi
+        release_url="https://apt.releases.hashicorp.com/dists/$repository_suite/Release"
+        if ! curl -fsSL "$release_url" -o /dev/null; then
+            echo "HashiCorp APT repozitář nepodporuje Debian '$codename' ani aktuální stable '$repository_suite'." >&2
+            exit 1
+        fi
+        echo "HashiCorp zatím nepodporuje Debian '$codename'; pro jeho balíky použiji kompatibilní suite '$repository_suite'." >&2
     fi
     architecture=$(dpkg --print-architecture)
     curl -fsSL https://apt.releases.hashicorp.com/gpg \
@@ -102,7 +122,7 @@ if contains_missing terraform; then
     cat > /etc/apt/sources.list.d/hashicorp.sources <<EOF
 Types: deb
 URIs: https://apt.releases.hashicorp.com
-Suites: $codename
+Suites: $repository_suite
 Components: main
 Architectures: $architecture
 Signed-By: /etc/apt/keyrings/hashicorp.asc
