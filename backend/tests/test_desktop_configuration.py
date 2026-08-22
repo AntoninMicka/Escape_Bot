@@ -71,3 +71,8 @@ class DesktopConfigurationTests(unittest.TestCase):
         self.assertIn('"projects", "list"', operator)
         self.assertIn('"storage", "buckets", "list"', operator)
         self.assertNotIn("ESCAPEBOT_ADMIN_TOKEN", loader)
+
+        lifecycle = (root / "deploy" / "gcp" / "lifecycle-state.sh").read_text(encoding="utf-8")
+        self.assertIn('state["deploy_count"] += 1', lifecycle)
+        self.assertIn('state["live_run_count"] += 1', lifecycle)
+        self.assertIn('state["history"]', lifecycle)

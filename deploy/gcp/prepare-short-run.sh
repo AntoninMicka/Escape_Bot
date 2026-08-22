@@ -52,4 +52,5 @@ if [ "$ready" -ne 1 ]; then
 fi
 
 "$script_dir/deploy.sh" --project="$project" --zone="$zone" --vm="$vm" --image="$image"
+"$script_dir/lifecycle-state.sh" update "$project" "$state_bucket" "$environment" prepared_test >/dev/null
 echo "Krátkodobé prostředí je připraveno. Hru spusťte v admin dashboardu."

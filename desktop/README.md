@@ -22,6 +22,10 @@ Pro ruční převzetí lze nadále vyplnit projekt, prostředí a state bucket a
 
 Tlačítko **Navrhnout povinné hodnoty** načte aktivní GCP projekt a odvodí bezpečné výchozí názvy prostředí, VM, state bucketu, regionu, zóny a lokálních cest. Doménu a neměnný image digest musí uživatel dodat; před provisioningem z nich operátor atomicky vytvoří netajný `short-run.tfvars`.
 
+### Fáze životního cyklu
+
+Aktuální projekt zobrazuje sdílenou fázi prostředí, počet úspěšných deployů, počet připravených ostrých běhů a archivů. Stav a posledních 50 událostí se ukládají do `operator-state/<environment>.json` ve state bucketu, takže jsou stejné na všech počítačích. Opakovaný deploy opravy pouze zvýší revizi a zachová fázi; každé úspěšné **Připravit ostrý provoz** zvýší číslo ostrého běhu. Pozastavení si pamatuje předchozí fázi a po obnovení se do ní vrátí.
+
 ```bash
 cmake -S desktop -B desktop/build
 cmake --build desktop/build --target EscapeBotCloudOperator

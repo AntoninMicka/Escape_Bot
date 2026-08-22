@@ -41,6 +41,7 @@ CloudOperatorWindow::CloudOperatorWindow(QWidget *parent) : QMainWindow(parent)
     m_identityProcess = new QProcess(this);
     m_adminTokenProcess = new QProcess(this);
     m_configProcess = new QProcess(this);
+    m_lifecycleProcess = new QProcess(this);
     connect(m_controller, &CloudLifecycleController::outputReady, m_log, &QTextEdit::insertPlainText);
     connect(m_controller, &CloudLifecycleController::busyChanged, this, [this](bool busy) {
         m_cancel->setEnabled(busy);
@@ -54,6 +55,7 @@ CloudOperatorWindow::CloudOperatorWindow(QWidget *parent) : QMainWindow(parent)
         if (success && (name == tr("Kompletní příprava prostředí") ||
                         name == tr("Příprava ostrého provozu")))
             loginAdminDashboard();
+        if (success) refreshLifecycleState();
     });
     connect(m_identityProcess, qOverload<int, QProcess::ExitStatus>(&QProcess::finished), this,
             [this](int exitCode, QProcess::ExitStatus status) {
@@ -185,6 +187,7 @@ CloudOperatorWindow::CloudOperatorWindow(QWidget *parent) : QMainWindow(parent)
         m_image->setText(value("initial_image"));
         saveSettings();
         m_status->setText(tr("Existující prostředí načteno ze vzdáleného state"));
+        refreshLifecycleState();
     });
     connect(m_web, &QWebEngineView::loadFinished, this, [this](bool success) {
         if (!success || !m_adminLoginPending) return;
@@ -199,6 +202,25 @@ CloudOperatorWindow::CloudOperatorWindow(QWidget *parent) : QMainWindow(parent)
             .arg(expectedHost, token);
         token.fill(QChar(0));
         m_web->page()->runJavaScript(script);
+    });
+    connect(m_lifecycleProcess, qOverload<int, QProcess::ExitStatus>(&QProcess::finished), this,
+            [this](int exitCode, QProcess::ExitStatus status) {
+        if (status != QProcess::NormalExit || exitCode != 0) {
+            m_lifecycleState->setText(tr("Fáze: nelze načíst"));
+            return;
+        }
+        const QJsonObject state = QJsonDocument::fromJson(m_lifecycleProcess->readAllStandardOutput()).object();
+        const QMap<QString, QString> phases{
+            {"unknown", tr("stav zatím nebyl evidován")}, {"infrastructure_ready", tr("infrastruktura připravena")},
+            {"testing", tr("testování")}, {"ready_for_live", tr("připraveno k ostrému běhu")},
+            {"paused", tr("pozastaveno")}, {"destroyed", tr("odstraněno")}
+        };
+        const QString phase = state.value("phase").toString("unknown");
+        m_lifecycleState->setText(tr("Fáze: %1 · deploye: %2 · ostré běhy: %3 · archivy: %4")
+            .arg(phases.value(phase, phase))
+            .arg(state.value("deploy_count").toInt())
+            .arg(state.value("live_run_count").toInt())
+            .arg(state.value("archive_count").toInt()));
     });
     refreshGoogleIdentity();
     setWindowTitle(tr("Escape Bot Cloud Operator"));
@@ -229,6 +251,8 @@ void CloudOperatorWindow::buildUi()
     auto *quick = new QVBoxLayout(quickBox);
     m_googleIdentity = new QLabel(tr("Kontroluji Google účet…"));
     auto *googleLogin = new QPushButton(tr("Přihlásit Google účet"));
+    m_lifecycleState = new QLabel(tr("Fáze: zatím nenačtena"));
+    auto *refreshState = new QPushButton(tr("Obnovit stav životního cyklu"));
     auto *prepare = new QPushButton(tr("Připravit testovací prostředí"));
     auto *deployFix = new QPushButton(tr("Nasadit opravu"));
     auto *prepareLive = new QPushButton(tr("Připravit ostrý provoz"));
@@ -237,6 +261,8 @@ void CloudOperatorWindow::buildUi()
     auto *finish = new QPushButton(tr("Stáhnout výsledky a odstranit prostředí"));
     quick->addWidget(m_googleIdentity);
     quick->addWidget(googleLogin);
+    quick->addWidget(m_lifecycleState);
+    quick->addWidget(refreshState);
     quick->addWidget(prepare);
     quick->addWidget(deployFix);
     quick->addWidget(prepareLive);
@@ -244,6 +270,7 @@ void CloudOperatorWindow::buildUi()
     quick->addWidget(quickResume);
     quick->addWidget(finish);
     connect(googleLogin, &QPushButton::clicked, this, &CloudOperatorWindow::loginGoogle);
+    connect(refreshState, &QPushButton::clicked, this, &CloudOperatorWindow::refreshLifecycleState);
     connect(prepare, &QPushButton::clicked, this, [this] {
         if (!validateCommon(true)) return;
         if (!writeShortRunVarFile()) return;
@@ -264,24 +291,30 @@ void CloudOperatorWindow::buildUi()
             {"bash", QStringList{deployScript} + targetArguments() + QStringList{"--image=" + m_image->text()}},
             {"gcloud", {"storage", "cp", m_varFile->text(),
                         QStringLiteral("gs://%1/escape-bot/operator-config/%2.tfvars")
-                            .arg(m_stateBucket->text(), m_environment->text())}}
+                            .arg(m_stateBucket->text(), m_environment->text())}},
+            lifecycleUpdateCommand("deployed_fix")
         });
     });
     connect(prepareLive, &QPushButton::clicked, this, [this] {
         if (!validateCommon() || !confirmPhrase(tr("Příprava ostrého provozu"),
             tr("Testovací data budou archivována a herní stav resetován."), "OSTRY-START")) return;
-        runScript(tr("Příprava ostrého provozu"), "deploy/gcp/event-lifecycle.sh",
-                  targetArguments() + QStringList{"--action=reset", "--label=pre-event"});
+        const QString script = QDir(m_controller->projectRoot()).filePath("deploy/gcp/event-lifecycle.sh");
+        m_controller->runOperation(tr("Příprava ostrého provozu"), {
+            {"bash", QStringList{script} + targetArguments() + QStringList{"--action=reset", "--label=pre-event"}},
+            lifecycleUpdateCommand("live_prepared")
+        });
     });
     connect(quickPause, &QPushButton::clicked, this, [this] {
         if (!validateCommon()) return;
-        runScript(tr("Pozastavení"), "deploy/gcp/pause-short-run.sh",
-                  {m_project->text(), m_zone->text(), m_vm->text()});
+        const QString script = QDir(m_controller->projectRoot()).filePath("deploy/gcp/pause-short-run.sh");
+        m_controller->runOperation(tr("Pozastavení"), {
+            {"bash", {script, m_project->text(), m_zone->text(), m_vm->text()}}, lifecycleUpdateCommand("paused")});
     });
     connect(quickResume, &QPushButton::clicked, this, [this] {
         if (!validateCommon()) return;
-        runScript(tr("Obnovení"), "deploy/gcp/resume-short-run.sh",
-                  {m_project->text(), m_zone->text(), m_vm->text()});
+        const QString script = QDir(m_controller->projectRoot()).filePath("deploy/gcp/resume-short-run.sh");
+        m_controller->runOperation(tr("Obnovení"), {
+            {"bash", {script, m_project->text(), m_zone->text(), m_vm->text()}}, lifecycleUpdateCommand("resumed")});
     });
     connect(finish, &QPushButton::clicked, this, [this] {
         if (!validateCommon() || !confirmPhrase(tr("Ukončení krátkodobého provozu"),
@@ -297,7 +330,8 @@ void CloudOperatorWindow::buildUi()
             {"bash", {destroyScript, "--terraform-dir=" + m_terraformDir->text(),
                       "--var-file=" + m_varFile->text(), "--archive-dir=" + m_archiveDir->text(),
                       "--workspace=" + m_environment->text(), "--state-bucket=" + m_stateBucket->text(),
-                      "--confirm-destroy=DESTROY-SHORT-RUN"}}
+                      "--confirm-destroy=DESTROY-SHORT-RUN"}},
+            lifecycleUpdateCommand("destroyed")
         });
     });
     auto *configBox = new QGroupBox(tr("Cloud konfigurace"), left);
@@ -370,7 +404,8 @@ void CloudOperatorWindow::buildUi()
                       m_project->text(), m_region->text(), m_stateBucket->text()}},
             {"bash", {QDir(root).filePath("deploy/gcp/provision-short-run.sh"),
                       "--terraform-dir=" + m_terraformDir->text(), "--var-file=" + m_varFile->text(),
-                      "--workspace=" + m_environment->text(), "--state-bucket=" + m_stateBucket->text()}}
+                      "--workspace=" + m_environment->text(), "--state-bucket=" + m_stateBucket->text()}},
+            lifecycleUpdateCommand("infrastructure_ready")
         });
     });
     connect(secrets, &QPushButton::clicked, this, [this] {
@@ -386,27 +421,35 @@ void CloudOperatorWindow::buildUi()
             {"bash", QStringList{script} + targetArguments() + QStringList{"--image=" + m_image->text()}},
             {"gcloud", {"storage", "cp", m_varFile->text(),
                         QStringLiteral("gs://%1/escape-bot/operator-config/%2.tfvars")
-                            .arg(m_stateBucket->text(), m_environment->text())}}
+                            .arg(m_stateBucket->text(), m_environment->text())}},
+            lifecycleUpdateCommand("deployed_fix")
         });
     });
     connect(pause, &QPushButton::clicked, this, [this] {
         if (!validateCommon()) return;
-        runScript(tr("Pozastavení"), "deploy/gcp/pause-short-run.sh",
-                  {m_project->text(), m_zone->text(), m_vm->text()});
+        const QString script = QDir(m_controller->projectRoot()).filePath("deploy/gcp/pause-short-run.sh");
+        m_controller->runOperation(tr("Pozastavení"), {
+            {"bash", {script, m_project->text(), m_zone->text(), m_vm->text()}}, lifecycleUpdateCommand("paused")});
     });
     connect(resume, &QPushButton::clicked, this, [this] {
         if (!validateCommon()) return;
-        runScript(tr("Obnovení"), "deploy/gcp/resume-short-run.sh",
-                  {m_project->text(), m_zone->text(), m_vm->text()});
+        const QString script = QDir(m_controller->projectRoot()).filePath("deploy/gcp/resume-short-run.sh");
+        m_controller->runOperation(tr("Obnovení"), {
+            {"bash", {script, m_project->text(), m_zone->text(), m_vm->text()}}, lifecycleUpdateCommand("resumed")});
     });
     connect(archive, &QPushButton::clicked, this, [this] {
         if (!validateCommon()) return;
-        runScript(tr("Archivace"), "deploy/gcp/event-lifecycle.sh", targetArguments() +
-                  QStringList{"--action=archive", "--label=" + m_archiveLabel->text()});
+        const QString script = QDir(m_controller->projectRoot()).filePath("deploy/gcp/event-lifecycle.sh");
+        m_controller->runOperation(tr("Archivace"), {
+            {"bash", QStringList{script} + targetArguments() + QStringList{"--action=archive", "--label=" + m_archiveLabel->text()}},
+            lifecycleUpdateCommand("archived")});
     });
     connect(reset, &QPushButton::clicked, this, [this] {
         if (!validateCommon() || !confirmPhrase(tr("Reset dat"), tr("Reset odstraní aktuální herní data."), "RESET")) return;
-        runScript(tr("Reset hry"), "deploy/gcp/event-lifecycle.sh", targetArguments() + QStringList{"--action=reset"});
+        const QString script = QDir(m_controller->projectRoot()).filePath("deploy/gcp/event-lifecycle.sh");
+        m_controller->runOperation(tr("Reset hry"), {
+            {"bash", QStringList{script} + targetArguments() + QStringList{"--action=reset"}},
+            lifecycleUpdateCommand("live_prepared")});
     });
     connect(collect, &QPushButton::clicked, this, [this] {
         if (!validateCommon()) return;
@@ -417,11 +460,12 @@ void CloudOperatorWindow::buildUi()
     connect(destroy, &QPushButton::clicked, this, [this] {
         if (!validateCommon() || !confirmPhrase(tr("Odstranění infrastruktury"),
             tr("Tento krok nevratně odstraní krátkodobou cloudovou infrastrukturu."), "DESTROY-SHORT-RUN")) return;
-        runScript(tr("Odstranění infrastruktury"), "deploy/gcp/destroy-short-run.sh",
-                  {"--terraform-dir=" + m_terraformDir->text(), "--var-file=" + m_varFile->text(),
-                   "--archive-dir=" + m_archiveDir->text(), "--workspace=" + m_environment->text(),
-                   "--state-bucket=" + m_stateBucket->text(),
-                   "--confirm-destroy=DESTROY-SHORT-RUN"});
+        const QString script = QDir(m_controller->projectRoot()).filePath("deploy/gcp/destroy-short-run.sh");
+        m_controller->runOperation(tr("Odstranění infrastruktury"), {
+            {"bash", {script, "--terraform-dir=" + m_terraformDir->text(), "--var-file=" + m_varFile->text(),
+                      "--archive-dir=" + m_archiveDir->text(), "--workspace=" + m_environment->text(),
+                      "--state-bucket=" + m_stateBucket->text(), "--confirm-destroy=DESTROY-SHORT-RUN"}},
+            lifecycleUpdateCommand("destroyed")});
     });
     connect(m_cancel, &QPushButton::clicked, m_controller, &CloudLifecycleController::cancel);
 
@@ -640,6 +684,26 @@ void CloudOperatorWindow::discoverEnvironments(const QString &bucket)
     m_configProcessMode = QStringLiteral("environments");
     m_configProcess->start(QStringLiteral("gcloud"),
         {"storage", "ls", QStringLiteral("gs://%1/escape-bot/operator-config/*.tfvars").arg(bucket)});
+}
+
+void CloudOperatorWindow::refreshLifecycleState()
+{
+    if (!m_lifecycleProcess || m_lifecycleProcess->state() != QProcess::NotRunning ||
+        m_project->text().trimmed().isEmpty() || m_stateBucket->text().trimmed().isEmpty() ||
+        m_environment->text().trimmed().isEmpty()) return;
+    m_lifecycleState->setText(tr("Fáze: načítám…"));
+    const QString script = QDir(m_controller->projectRoot()).filePath("deploy/gcp/lifecycle-state.sh");
+    m_lifecycleProcess->start(QStringLiteral("bash"), {script, "get", m_project->text().trimmed(),
+        m_stateBucket->text().trimmed(), m_environment->text().trimmed()});
+}
+
+CloudLifecycleController::Command CloudOperatorWindow::lifecycleUpdateCommand(const QString &event) const
+{
+    return {QStringLiteral("bash"), {
+        QDir(m_controller->projectRoot()).filePath("deploy/gcp/lifecycle-state.sh"),
+        QStringLiteral("update"), m_project->text().trimmed(), m_stateBucket->text().trimmed(),
+        m_environment->text().trimmed(), event
+    }};
 }
 
 bool CloudOperatorWindow::writeShortRunVarFile()

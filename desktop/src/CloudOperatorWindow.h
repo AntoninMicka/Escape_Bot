@@ -1,8 +1,8 @@
 #pragma once
 
+#include "CloudLifecycleController.h"
 #include <QMainWindow>
 
-class CloudLifecycleController;
 class QLineEdit;
 class QLabel;
 class QPushButton;
@@ -34,6 +34,8 @@ private:
     void discoverCloudProjects();
     void discoverStateBuckets(const QString &projectId);
     void discoverEnvironments(const QString &bucket);
+    void refreshLifecycleState();
+    CloudLifecycleController::Command lifecycleUpdateCommand(const QString &event) const;
     bool writeShortRunVarFile();
     bool confirmPhrase(const QString &title, const QString &message, const QString &phrase);
 
@@ -52,12 +54,14 @@ private:
     QLineEdit *m_archiveLabel = nullptr;
     QLabel *m_status = nullptr;
     QLabel *m_googleIdentity = nullptr;
+    QLabel *m_lifecycleState = nullptr;
     QPushButton *m_cancel = nullptr;
     QTextEdit *m_log = nullptr;
     QWebEngineView *m_web = nullptr;
     QProcess *m_identityProcess = nullptr;
     QProcess *m_adminTokenProcess = nullptr;
     QProcess *m_configProcess = nullptr;
+    QProcess *m_lifecycleProcess = nullptr;
     QString m_configProcessMode;
     QString m_discoveryProject;
     bool m_adminLoginPending = false;
