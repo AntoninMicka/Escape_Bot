@@ -84,10 +84,23 @@ void BackendController::start()
     m_outputBuffer.clear();
     QProcessEnvironment environment = QProcessEnvironment::systemEnvironment();
     environment.insert(QStringLiteral("ESCAPEBOT_ADMIN_TOKEN"), m_adminToken);
+    // Desktop is deliberately offline-first. Do not inherit a cloud/database
+    // backend from the operator's shell; all durable state stays in files next
+    // to the bundled backend.
+    environment.insert(QStringLiteral("ESCAPEBOT_STORAGE_BACKEND"), QStringLiteral("json"));
+    environment.insert(
+        QStringLiteral("ESCAPEBOT_DATA_DIR"),
+        QDir(m_projectRoot).filePath(QStringLiteral("backend"))
+    );
+    environment.remove(QStringLiteral("ESCAPEBOT_DATABASE_URL"));
     m_process.setProcessEnvironment(environment);
     m_process.setWorkingDirectory(QDir(m_projectRoot).filePath(QStringLiteral("backend")));
     m_process.setProgram(python);
-    m_process.setArguments({QStringLiteral("-m"), QStringLiteral("escape_bot.server")});
+    m_process.setArguments({
+        QStringLiteral("-m"),
+        QStringLiteral("escape_bot.server"),
+        QStringLiteral("--storage=json")
+    });
     setStatus(tr("Spouštím lokální backend…"));
     emit stateChanged();
     m_process.start();
@@ -183,4 +196,3 @@ void BackendController::consumeOutput()
 }
 
 void BackendController::setStatus(const QString &status) { m_status = status; }
-

@@ -8,6 +8,7 @@ Desktop wrapper automaticky spustí backend Escape Botu, přihlásí lokální w
 - Windows a macOS: Qt detekuje aktivní Wi-Fi rozhraní, vytvoření AP zatím není implementováno, protože vyžaduje samostatný privilegovaný systémový adaptér.
 - Admin: výchozí adresa je `https://localhost:8088/admin`; lze zadat i backend na jiném lokálním uzlu.
 - Backend: wrapper najde kořen projektu, použije `backend/.venv` a spustí `python -m escape_bot.server`.
+- Persistence: desktopová varianta vždy vynutí `JsonStorage` a ukládá do souborů v `backend/`. Ignoruje zděděné cloudové nastavení PostgreSQL a databázovou URL backendu nepředává.
 - Přihlášení: pro každý běh vygeneruje nový náhodný admin token, předá jej backendu přes prostředí procesu a vloží do `sessionStorage` pouze pro localhost.
 - Captive portál: po spuštění AP aktivuje lokální DNS/HTTP responder a přesměruje běžné HTTP captive sondy na hru.
 
