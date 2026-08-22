@@ -563,6 +563,12 @@ class StateMachineCheckpointTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(self.machine.state.score, score_before + score_update.payload["delta"])
         self.assertEqual(self.machine.state.checkpoint_states["timeline_calibration"]["status"], "solved")
         self.assertTrue(self.machine.state.flags["timeline_calibrated"])
+        directions = " ".join(
+            str(item.payload.get("text", ""))
+            for item in final_response
+            if item.type == "bot.message"
+        ).casefold()
+        self.assertIn("terasu u rybníka", directions)
         terrace = await self.scan("terrace_echo")
         self.assertTrue(self.response(terrace, "qr.result").payload["accepted"])
 

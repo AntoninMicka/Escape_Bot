@@ -254,7 +254,7 @@
         "team_completion_bonus": 40,
         "seed": 5312026
       },
-      "success_message": {"text": "Oba časové proudy drží! Kalibrace 5–3–1 je dokončena a venkovní časové ozvěny jsou znovu čitelné.", "mood": "success", "channel": "lost"},
+      "success_message": {"text": "Oba časové proudy drží! Kalibrace 5–3–1 je dokončena. Vyjděte ven na terasu u rybníka a najděte tam časovou kotvu s nočním obrazovým přenosem.", "mood": "success", "channel": "lost"},
       "failure_message": {"text": "Kalibrační prostor se zahltil. Obnovte aktuální etapu a zkuste uzly rozložit úsporněji.", "mood": "error", "channel": "general"}
     },
     "courtyard_karel": {
