@@ -6,6 +6,8 @@ Repozitář sestavuje dvě oddělené Qt aplikace. `EscapeBotDesktop` je lokáln
 
 Cloud Operator spojuje konfiguraci prostředí, Terraform provisioning, vytvoření tajemství, deploy image podle digestu, pauzu/obnovení, archivaci, reset, stažení archivů a finální odstranění infrastruktury. Běžný provoz nabízí jako několik složených tlačítek; jednotlivé kroky zůstávají v pokročilé části.
 
+Rozhraní má samostatné záložky **Ovládání životního cyklu** a **Admin dashboard**. Ovládací záložka používá dva sloupce: rychlé akce a cloudovou konfiguraci vlevo, pokročilé operace a průběžný log vpravo. Dashboard díky tomu využívá celou plochu okna.
+
 Tlačítko **Přihlásit Google účet** spustí jediný webový `gcloud auth login --update-adc`, který připraví zároveň Google Cloud CLI i Application Default Credentials pro Terraform. **Připravit testovací prostředí** automaticky vytvoří infrastrukturu, náhodný admin token v Secret Manageru, restartuje VM, počká na konfiguraci a nasadí image. Short-run používá atomické JSON soubory na samostatném perzistentním disku, takže nevytváří Cloud SQL, databázové heslo ani proxy. Hodnota admin tokenu se nezapisuje do logu ani do nastavení aplikace.
 
 V pravé části je vzdálený `/admin` dashboard. Operátor načte admin token ze Secret Manageru do paměti a vloží jej pouze do `sessionStorage` HTTPS dashboardu. Token nevkládá do URL, logu ani `QSettings`; nedůvěryhodný TLS certifikát nepovolí.

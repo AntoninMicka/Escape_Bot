@@ -26,6 +26,7 @@
 #include <QSettings>
 #include <QSaveFile>
 #include <QSplitter>
+#include <QTabWidget>
 #include <QStandardPaths>
 #include <QTextEdit>
 #include <QUrl>
@@ -248,9 +249,12 @@ QString CloudOperatorWindow::findProjectRoot()
 
 void CloudOperatorWindow::buildUi()
 {
-    auto *root = new QSplitter(this);
-    auto *left = new QWidget(root);
+    auto *tabs = new QTabWidget(this);
+    auto *controlPage = new QSplitter(Qt::Horizontal, tabs);
+    auto *left = new QWidget(controlPage);
     auto *leftLayout = new QVBoxLayout(left);
+    auto *operationsPanel = new QWidget(controlPage);
+    auto *operationsLayout = new QVBoxLayout(operationsPanel);
     auto *quickBox = new QGroupBox(tr("Rychlé ovládání krátkodobého provozu"), left);
     auto *quick = new QVBoxLayout(quickBox);
     m_googleIdentity = new QLabel(tr("Kontroluji Google účet…"));
@@ -372,7 +376,7 @@ void CloudOperatorWindow::buildUi()
     connect(loadExisting, &QPushButton::clicked, this, &CloudOperatorWindow::loadRemoteConfiguration);
     connect(save, &QPushButton::clicked, this, &CloudOperatorWindow::saveSettings);
 
-    auto *lifeBox = new QGroupBox(tr("Pokročilé jednotlivé operace"), left);
+    auto *lifeBox = new QGroupBox(tr("Pokročilé jednotlivé operace"), operationsPanel);
     lifeBox->setCheckable(true);
     lifeBox->setChecked(false);
     auto *life = new QVBoxLayout(lifeBox);
@@ -473,33 +477,36 @@ void CloudOperatorWindow::buildUi()
     });
     connect(m_cancel, &QPushButton::clicked, m_controller, &CloudLifecycleController::cancel);
 
-    m_log = new QTextEdit(left);
+    m_log = new QTextEdit(operationsPanel);
     m_log->setReadOnly(true);
     m_log->setPlaceholderText(tr("Výstup operací…"));
     leftLayout->addWidget(quickBox);
     leftLayout->addWidget(configBox);
-    leftLayout->addWidget(lifeBox);
-    leftLayout->addWidget(m_log, 1);
+    leftLayout->addStretch(1);
+    operationsLayout->addWidget(lifeBox);
+    operationsLayout->addWidget(m_log, 1);
+    controlPage->addWidget(left);
+    controlPage->addWidget(operationsPanel);
+    controlPage->setStretchFactor(0, 1);
+    controlPage->setStretchFactor(1, 1);
 
-    auto *right = new QWidget(root);
-    auto *rightLayout = new QVBoxLayout(right);
+    auto *dashboardPage = new QWidget(tabs);
+    auto *rightLayout = new QVBoxLayout(dashboardPage);
     auto *webButtons = new QHBoxLayout;
     m_adminLoginButton = new QPushButton(tr("Automaticky přihlásit admin dashboard"));
     auto *reload = new QPushButton(tr("Obnovit"));
     webButtons->addWidget(m_adminLoginButton);
     webButtons->addWidget(reload);
     webButtons->addStretch();
-    m_web = new QWebEngineView(right);
+    m_web = new QWebEngineView(dashboardPage);
     m_web->setPage(new CloudAdminPage(m_web));
     rightLayout->addLayout(webButtons);
     rightLayout->addWidget(m_web, 1);
     connect(m_adminLoginButton, &QPushButton::clicked, this, &CloudOperatorWindow::loginAdminDashboard);
     connect(reload, &QPushButton::clicked, m_web, &QWebEngineView::reload);
-    root->addWidget(left);
-    root->addWidget(right);
-    root->setStretchFactor(0, 0);
-    root->setStretchFactor(1, 1);
-    setCentralWidget(root);
+    tabs->addTab(controlPage, tr("Ovládání životního cyklu"));
+    tabs->addTab(dashboardPage, tr("Admin dashboard"));
+    setCentralWidget(tabs);
     updateActionAvailability();
 }
 

@@ -79,3 +79,6 @@ class DesktopConfigurationTests(unittest.TestCase):
         self.assertIn("updateActionAvailability", operator)
         self.assertIn("m_resumeButton->setEnabled(!m_operationBusy && paused)", operator)
         self.assertIn("m_prepareLiveButton->setEnabled(!m_operationBusy && runningEnvironment)", operator)
+        self.assertIn('tabs->addTab(controlPage, tr("Ovládání životního cyklu"))', operator)
+        self.assertIn('tabs->addTab(dashboardPage, tr("Admin dashboard"))', operator)
+        self.assertIn("controlPage->addWidget(operationsPanel)", operator)
