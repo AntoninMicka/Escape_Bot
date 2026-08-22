@@ -2,6 +2,7 @@ FROM python:3.12-slim
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
+    PYTHONPATH=/app/backend \
     ESCAPEBOT_ENV=production \
     ESCAPEBOT_DATA_DIR=/data
 

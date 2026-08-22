@@ -23,7 +23,7 @@ from .scenario import ScenarioLoader, build_checkpoint_qr_set, build_demo_checkp
 from .ollama_adapter import OllamaAdapter
 from .team_lobby import Lobby, LobbyRegistry, classify_activity
 from .mine_karel import safe_path as karel_safe_path
-from .storage import JsonStorage, Storage
+from .storage import Storage, create_storage
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger("EscapeBot")
@@ -33,9 +33,16 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__fil
 CLIENT_DIR = os.path.join(BASE_DIR, "client")
 DATA_DIR = os.path.abspath(os.getenv("ESCAPEBOT_DATA_DIR", os.path.join(BASE_DIR, "backend")))
 STORAGE_BACKEND = os.getenv("ESCAPEBOT_STORAGE_BACKEND", "json").strip().lower()
-if STORAGE_BACKEND != "json":
-    raise RuntimeError(f"Nepodporovaný backend úložiště: {STORAGE_BACKEND}")
-storage: Storage = JsonStorage(DATA_DIR)
+storage: Storage = create_storage(STORAGE_BACKEND, data_dir=DATA_DIR)
+
+
+def configure_storage(backend: str | None = None, database_url: str | None = None) -> None:
+    """Apply a launch-time override before the application lifespan starts."""
+    global STORAGE_BACKEND, storage
+    previous = storage
+    storage = create_storage(backend, data_dir=DATA_DIR, database_url=database_url)
+    STORAGE_BACKEND = storage.backend_name
+    previous.close()
 
 # Úložiště pro nezávislé relace hráčů (session_id -> state_machine)
 active_sessions: dict[str, EscapeBotStateMachine] = {}
@@ -224,6 +231,7 @@ async def lifespan(app: FastAPI):
         asyncio.create_task(ai_checker.ensure_model())
     yield
     monitor_task.cancel()
+    storage.close()
 
 # --- Inicializace FastAPI ---
 app = FastAPI(title="Escape Bot", lifespan=lifespan)
@@ -1152,4 +1160,12 @@ def main():
         uvicorn.run("escape_bot.server:app", host="0.0.0.0", port=8088, log_level="info")
 
 if __name__ == "__main__":
+    import argparse
+
+    parser = argparse.ArgumentParser(description="Escape Bot backend")
+    parser.add_argument("--storage", choices=("json", "postgres"), help="Přepíše ESCAPEBOT_STORAGE_BACKEND")
+    parser.add_argument("--database-url", help="Přepíše ESCAPEBOT_DATABASE_URL")
+    arguments = parser.parse_args()
+    if arguments.storage or arguments.database_url:
+        configure_storage(arguments.storage, arguments.database_url)
     main()

@@ -37,9 +37,23 @@ for argument in "$@"; do
                 exit 2
             fi
             ;;
+        --storage=*)
+            export ESCAPEBOT_STORAGE_BACKEND="${argument#--storage=}"
+            if [ "$ESCAPEBOT_STORAGE_BACKEND" != "json" ] && [ "$ESCAPEBOT_STORAGE_BACKEND" != "postgres" ]; then
+                echo "Chyba: --storage musí být json nebo postgres."
+                exit 2
+            fi
+            ;;
+        --database-url=*)
+            export ESCAPEBOT_DATABASE_URL="${argument#--database-url=}"
+            if [ -z "$ESCAPEBOT_DATABASE_URL" ]; then
+                echo "Chyba: databázová URL nesmí být prázdná."
+                exit 2
+            fi
+            ;;
         *)
             echo "Neznámý parametr: $argument"
-            echo "Použití: ./start_backend.sh [--demo] [--admin-token=HESLO] [--reset-venv]"
+            echo "Použití: ./start_backend.sh [--demo] [--admin-token=HESLO] [--storage=json|postgres] [--database-url=URL] [--reset-venv]"
             exit 2
             ;;
     esac

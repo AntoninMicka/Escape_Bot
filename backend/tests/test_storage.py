@@ -5,7 +5,8 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from escape_bot.storage import JsonStorage
+from escape_bot.storage import JsonStorage, create_storage
+from escape_bot.storage_migration import migrate_storage
 
 
 class JsonStorageTests(unittest.TestCase):
@@ -53,6 +54,38 @@ class JsonStorageTests(unittest.TestCase):
         result = self.storage.check_ready()
         self.assertEqual(result, {"backend": "json", "writable": True})
         self.assertEqual(list(self.data_dir.glob(".escape-bot-ready-*")), [])
+
+    def test_factory_allows_explicit_backend_override(self) -> None:
+        configured = create_storage("json", data_dir=self.data_dir / "override")
+        self.assertEqual(configured.backend_name, "json")
+        self.assertEqual(configured.data_dir, (self.data_dir / "override").resolve())
+
+    def test_migration_dry_run_does_not_modify_target(self) -> None:
+        self.storage.save_sessions({"session-1": {"score": 1000}})
+        self.storage.save_lobbies([{"session_id": "session-1", "players": {"a": {}}}])
+        target = JsonStorage(self.data_dir / "target")
+
+        report = migrate_storage(self.storage, target, apply=False)
+
+        self.assertEqual(report["sessions"], 1)
+        self.assertEqual(report["players"], 1)
+        self.assertFalse(target.data_dir.exists())
+
+    def test_migration_apply_is_idempotent(self) -> None:
+        self.storage.save_sessions({"session-1": {"score": 1000}})
+        self.storage.save_lobbies([{"session_id": "session-1", "players": {}}])
+        target = JsonStorage(self.data_dir / "target")
+
+        migrate_storage(self.storage, target, apply=True)
+        migrate_storage(self.storage, target, apply=True)
+
+        self.assertEqual(target.load_sessions(), {"session-1": {"score": 1000}})
+        self.assertEqual(len(target.load_lobbies()), 1)
+
+    def test_migration_rejects_lobby_without_session(self) -> None:
+        self.storage.save_lobbies([{"session_id": "missing", "players": {}}])
+        with self.assertRaisesRegex(ValueError, "Lobby bez odpovídající relace"):
+            migrate_storage(self.storage)
 
 
 class OperationalEndpointTests(unittest.TestCase):

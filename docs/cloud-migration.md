@@ -8,6 +8,48 @@ Repozitář obsahuje `Dockerfile`, `compose.cloud.yml`, Caddy konfiguraci a uká
 
 Persistence je oddělena rozhraním `Storage`; současný `JsonStorage` se volí pomocí `ESCAPEBOT_STORAGE_BACKEND=json`. Liveness endpoint `/api/health` potvrzuje běh procesu, zatímco `/api/ready` provede skutečný test zápisu do úložiště a používá se pro Docker healthcheck.
 
+## Volba úložiště a migrace
+
+Výchozí backend určuje konfigurace:
+
+```bash
+ESCAPEBOT_STORAGE_BACKEND=json
+# nebo
+ESCAPEBOT_STORAGE_BACKEND=postgres
+ESCAPEBOT_DATABASE_URL=postgresql://escape_bot:HESLO@HOST:5432/escape_bot
+```
+
+Lokální start dovoluje jednorázový override pomocí `--storage=json|postgres` a `--database-url=...`. Databázové heslo předávejte v produkci přes Secret Manager a proměnnou prostředí, protože argument může být viditelný v seznamu procesů.
+
+Importní nástroj má oddělenou konfiguraci `ESCAPEBOT_MIGRATION_SOURCE`, `ESCAPEBOT_MIGRATION_TARGET` a odpovídající URL/adresáře. Argumenty ji mohou při konkrétním běhu přepsat. Bez `--apply` nástroj jen načte a zkontroluje zdrojová data:
+
+```bash
+cd backend
+python3 -m escape_bot.storage_migration \
+  --source json --target postgres \
+  --source-data-dir /data
+```
+
+Po kontrole reportu lze provést idempotentní import. Nástroj založí první verzi PostgreSQL schématu, data zapíše pomocí UPSERT a následně porovná celý cíl se zdrojem:
+
+```bash
+ESCAPEBOT_DATABASE_URL='postgresql://escape_bot:HESLO@HOST:5432/escape_bot' \
+python3 -m escape_bot.storage_migration \
+  --source json --target postgres \
+  --source-data-dir /data --apply
+```
+
+Pro návrat lze směry obrátit a nastavit samostatný `--target-data-dir`. Před každým ostrým importem stále vytvořte snapshot zdroje i databáze.
+
+Stejný příkaz lze spustit z produkčního image; `/data` musí obsahovat připojený read-only zdrojový volume:
+
+```bash
+docker run --rm --network HOST_NETWORK -v escape_bot_data:/data:ro \
+  -e ESCAPEBOT_DATABASE_URL \
+  escape-bot:TAG python -m escape_bot.storage_migration \
+  --source json --target postgres --source-data-dir /data --apply
+```
+
 ### Požadavky
 
 - Linuxový server s veřejnými porty 80 a 443,

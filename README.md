@@ -33,6 +33,8 @@ Wrapper lze sestavit a rovnou spustit příkazem `./build_and_run_desktop.sh`.
 
 První produkční cloudová varianta používá jednu instanci FastAPI, perzistentní Docker volume a Caddy pro automatické HTTPS/WSS. Konfigurace je v `compose.cloud.yml`; přesný postup, zálohování a omezení jedné repliky popisuje [`docs/cloud-migration.md`](docs/cloud-migration.md).
 
+Úložiště se volí konfigurací `ESCAPEBOT_STORAGE_BACKEND=json|postgres`. Pro PostgreSQL je navíc povinné `ESCAPEBOT_DATABASE_URL`. Při lokálním spuštění lze konfiguraci jednorázově přepsat například `./start_backend.sh --storage=postgres --database-url=postgresql://...`; heslo je bezpečnější předat proměnnou prostředí než argumentem příkazové řádky.
+
 ## Rychlý start backendu
 
 ```bash

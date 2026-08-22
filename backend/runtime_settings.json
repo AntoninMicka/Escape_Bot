@@ -1,7 +1,7 @@
 {
   "online_mode": false,
   "gameplay_enabled": true,
-  "max_active_teams": 4,
+  "max_active_teams": 1,
   "start_interval_minutes": 15,
   "game_duration_minutes": 120,
   "opening_time": "08:00",

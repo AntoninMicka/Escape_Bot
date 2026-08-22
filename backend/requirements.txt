@@ -2,3 +2,4 @@ fastapi
 uvicorn
 websockets
 qrcode[pil]
+psycopg[binary,pool]>=3.2,<4
