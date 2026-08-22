@@ -106,3 +106,4 @@ class DesktopConfigurationTests(unittest.TestCase):
         self.assertIn('tabs->addTab(controlPage, tr("Ovládání životního cyklu"))', operator)
         self.assertIn('tabs->addTab(dashboardPage, tr("Admin dashboard"))', operator)
         self.assertIn("controlPage->addWidget(operationsPanel)", operator)
+        self.assertIn("m_varFile->text(), QString(), root", operator)

@@ -343,7 +343,7 @@ void CloudOperatorWindow::buildUi()
         const QString root = m_controller->projectRoot();
         runScript(tr("Sestavení a nasazení opravy"), "deploy/gcp/deploy-short-run-fix.sh",
                   {m_project->text(), m_region->text(), m_zone->text(), m_vm->text(),
-                   m_stateBucket->text(), m_environment->text(), m_varFile->text(), m_image->text(), root});
+                   m_stateBucket->text(), m_environment->text(), m_varFile->text(), QString(), root});
     });
     connect(m_prepareLiveButton, &QPushButton::clicked, this, [this] {
         if (!validateCommon() || !confirmPhrase(tr("Příprava ostrého provozu"),
