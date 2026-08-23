@@ -23,6 +23,10 @@ class JuryScenarioTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(doom.scenario.data["world"]["mode"], "doom")
         self.assertEqual(doom.scenario.data["world"]["virtual_map"]["meters_per_unit"], 1)
         self.assertEqual(
+            doom.scenario.data["world"]["virtual_map"]["facade_manifest"],
+            "/assets/textures/pardubice/facades.json",
+        )
+        self.assertEqual(
             [item["contract"] for item in geo.scenario.data["world"]["checkpoints"]],
             [item["contract"] for item in doom.scenario.data["world"]["checkpoints"]],
         )

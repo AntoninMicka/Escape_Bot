@@ -898,6 +898,8 @@
         let mapillaryConfig = {enabled:false,access_token:''};
         let mapillaryRequest = null;
         let doomFacadeTexture = null;
+        const doomFacadeTextures = new Map();
+        let doomFacadeManifestUrl = '';
         let geoWatchId = null;
         let doomPlayer = null;
         let doomGeometry = null;
@@ -3808,6 +3810,7 @@
             }
             drawDoomMap();
             loadDoomGeometry(world.virtual_map?.geometry_asset);
+            loadDoomFacadeManifest(world.virtual_map?.facade_manifest);
             ensureDoomLoop();
             document.getElementById('doom-map-canvas')?.focus({preventScroll:true});
         }
@@ -3822,6 +3825,31 @@
                 doomGeometryUrl = url; drawDoomMap();
             } catch (error) {
                 showNotification(`OSM geometrie se nenačetla: ${error.message}`, 'error');
+            }
+        }
+
+        async function loadDoomFacadeManifest(url) {
+            if (!url || doomFacadeManifestUrl === url) return;
+            try {
+                const manifest = await fetch(url).then(response => {
+                    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                    return response.json();
+                });
+                const loaded = await Promise.all((manifest.textures || []).map(async entry => {
+                    const image = new Image();
+                    await new Promise((resolve, reject) => {
+                        image.onload = resolve;
+                        image.onerror = () => reject(new Error(`Asset ${entry.asset} se nenačetl`));
+                        image.src = entry.asset;
+                    });
+                    return [String(entry.osm_id), {...entry, image}];
+                }));
+                doomFacadeTextures.clear();
+                loaded.forEach(([osmId, entry]) => doomFacadeTextures.set(osmId, entry));
+                doomFacadeManifestUrl = url;
+                requestDoomRender(true);
+            } catch (error) {
+                showNotification(`Lokální textury fasád se nenačetly: ${error.message}`, 'error');
             }
         }
 
@@ -4051,7 +4079,7 @@
             const textureCredit=document.getElementById('doom-texture-credit');
             if(position)position.innerHTML=`POLOHA <strong>${doomPlayer.x_m.toFixed(1)}, ${doomPlayer.y_m.toFixed(1)} m</strong> · SMĚR <strong>${Math.round((doomPlayer.heading_deg+360)%360)}°</strong>`;
             if(target)target.innerHTML=available?`CÍL <strong>${escapeHtml(available.name)} · ${Math.round(Math.hypot(available.x_m-doomPlayer.x_m,available.y_m-doomPlayer.y_m))} m</strong>`:'<strong>ŽÁDNÝ DOSTUPNÝ CÍL</strong>';
-            if(textureCredit)textureCredit.innerHTML=doomFacadeTexture?`TEXTURA <a target="_blank" rel="noopener" href="https://www.mapillary.com/app/?pKey=${encodeURIComponent(doomFacadeTexture.imageId)}&focus=photo">MAPILLARY${doomFacadeTexture.captured?` · ${escapeHtml(doomFacadeTexture.captured)}`:''}</a>`:'';
+            if(textureCredit)textureCredit.innerHTML=doomFacadeTexture?`TEXTURA <a target="_blank" rel="noopener" href="https://www.mapillary.com/app/?pKey=${encodeURIComponent(doomFacadeTexture.imageId)}&focus=photo">MAPILLARY${doomFacadeTexture.captured?` · ${escapeHtml(doomFacadeTexture.captured)}`:''}</a>`:(doomFacadeTextures.size?`LOKÁLNÍ FASÁDY <strong>${doomFacadeTextures.size}</strong>`:'');
         }
 
         function drawDoomGroundTexture(ctx,horizon,heading){
@@ -4078,8 +4106,9 @@
             if(hit.roofShape!=='flat'){ctx.fillStyle='rgba(255,205,150,.18)';ctx.fillRect(x,top+roofHeight-2,width,2)}
             const wallTop=top+roofHeight,wallHeight=Math.max(0,height-roofHeight);
             ctx.fillStyle=`rgb(${Math.round(light*variation)},${Math.round(light*.72*variation)},${Math.round(light*.49*variation)})`;ctx.fillRect(x,wallTop,width,wallHeight);
-            if(doomFacadeTexture?.buildingId===hit.buildingId&&doomFacadeTexture.image.complete){
-                const texture=doomFacadeTexture.image,sliceWidth=Math.max(1,texture.naturalWidth/180),sourceX=Math.max(0,Math.min(texture.naturalWidth-sliceWidth,Number(hit.facadeU||0)*(texture.naturalWidth-sliceWidth)));
+            const facade=doomFacadeTexture?.buildingId===hit.buildingId?doomFacadeTexture:doomFacadeTextures.get(String(hit.buildingId));
+            if(facade?.image.complete){
+                const texture=facade.image,repeat=Math.max(1,Number(facade.repeat_x||1)),u=(Number(hit.facadeU||0)*repeat)%1,sliceWidth=Math.max(1,texture.naturalWidth/180),sourceX=Math.max(0,Math.min(texture.naturalWidth-sliceWidth,u*(texture.naturalWidth-sliceWidth)));
                 ctx.drawImage(texture,sourceX,0,sliceWidth,texture.naturalHeight,x,wallTop,width,wallHeight);
                 ctx.fillStyle=`rgba(8,10,12,${Math.max(.08,Math.min(.62,hit.distance/180))})`;ctx.fillRect(x,wallTop,width,wallHeight);
             }

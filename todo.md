@@ -1088,11 +1088,11 @@ Původní stručný záměr je rozpracován v oddílu 19. Editor nemá být svá
 
 - [x] Ověřit přístup k Mapillary API a vykreslení vzdálené fotografie jako prototypu fasádní textury.
 - [x] Doplnit stabilní souřadnici zásahu paprsku po hraně budovy, aby textura při pohybu neplavala.
-- [ ] Vybrat jednu výraznou budovu u prvního checkpointu a dokončit ji jako referenční vertikální řez.
+- [x] Vybrat jednu výraznou budovu u prvního checkpointu: Zelená brána, OSM ID `45818106`; první lokální textura je prototyp k vizuálnímu ověření, ne finální dokumentární asset.
 - [ ] Mapillary používat při přípravě assetů jako obrazovou referenci, ne jako povinnou runtime službu během hry.
 - [ ] Z referenční fotografie perspektivně narovnat fasádu, odstranit auta, lidi a oblohu a vytvořit opakovatelnou stylizovanou texturu.
 - [ ] Uložit výslednou texturu lokálně s licencí, atribucí, zdrojovým Mapillary image ID a vazbou na konkrétní OSM ID budovy.
-- [ ] Přidat malý manifest `OSM ID → textura → měřítko/patra/orientace` a načítat jej spolu s mapovou geometrií.
+- [x] Přidat malý manifest `OSM ID → textura → měřítko/patra/orientace` a načítat jej spolu s mapovou geometrií.
 - [ ] Ověřit vzhled z více úhlů, rozměry oken a dveří, paměť, FPS na slabším telefonu a offline chod bez Mapillary.
 - [ ] Teprve po schválení referenční budovy zpracovat přibližně 10–20 orientačních budov kolem checkpointů; zbytek ponechat procedurální.
 - [ ] Po dokončení lokálních assetů odstranit nebo skrýt experimentální tlačítko `TEXTURA FASÁDY` a ponechat Mapillary integraci pouze jako vývojový nástroj.

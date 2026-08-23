@@ -1,0 +1,18 @@
+{
+  "schema_version": 1,
+  "location_id": "pardubice_center",
+  "textures": [
+    {
+      "osm_id": 45818106,
+      "name": "Zelená brána",
+      "asset": "/assets/textures/pardubice/zelenabrana-facade-v1.png",
+      "status": "prototype",
+      "source": "AI-generated architectural study; verify against an attributed reference before production use",
+      "facade_width_m": 12,
+      "facade_height_m": 32,
+      "floors": 5,
+      "orientation_deg": 0,
+      "repeat_x": 1
+    }
+  ]
+}

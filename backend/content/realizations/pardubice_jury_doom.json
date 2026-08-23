@@ -318,6 +318,7 @@
         },
         "geometry_status": "osm_geometry_v2",
         "geometry_asset": "/api/world-geometry/pardubice_center",
+        "facade_manifest": "/assets/textures/pardubice/facades.json",
         "collision_layer": "buildings",
         "textures": {
           "masonry": "brick",
