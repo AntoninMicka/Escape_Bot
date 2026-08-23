@@ -22,6 +22,28 @@ class StateMachineCheckpointTests(unittest.IsolatedAsyncioTestCase):
         self.machine = EscapeBotStateMachine(self.scenario)
         self.machine.state.phase = GamePhase.NAVIGATING
 
+    def test_every_declared_voice_has_a_local_audio_file(self) -> None:
+        declarations = []
+
+        def collect(value):
+            if isinstance(value, dict):
+                if value.get("voice_id"):
+                    declarations.append(value)
+                for child in value.values():
+                    collect(child)
+            elif isinstance(value, list):
+                for child in value:
+                    collect(child)
+
+        collect(self.scenario.data)
+        self.assertTrue(declarations)
+        for declaration in declarations:
+            audio_url = declaration.get("audio_url", "")
+            self.assertTrue(audio_url.startswith("/assets/voices/"), declaration["voice_id"])
+            audio_path = SCENARIO_PATH.parents[1] / "client" / audio_url.lstrip("/")
+            self.assertTrue(audio_path.is_file(), declaration["voice_id"])
+            self.assertGreater(audio_path.stat().st_size, 10_000, declaration["voice_id"])
+
     def test_team_line_games_are_independent_and_require_full_team_coverage(self) -> None:
         self.machine._team_mode = "team"
         self.machine._participant_ids = ["alice", "bob"]

@@ -1,4 +1,4 @@
-const CACHE_NAME = 'escape-bot-v68';
+const CACHE_NAME = 'escape-bot-v69';
 const ASSETS_TO_CACHE = [
     './',
     './index.html',
@@ -9,6 +9,15 @@ const ASSETS_TO_CACHE = [
     './assets/puzzles/terrace-morse-cats-hriste-v2.png',
     './assets/puzzles/sports-pigpen-hodiny.svg',
     './assets/puzzles/time-machine-jigsaw.png',
+    './assets/voices/captain_crystal_recovered.mp3',
+    './assets/voices/captain_final_countdown.mp3',
+    './assets/voices/captain_first_contact.mp3',
+    './assets/voices/captain_motor_recovered.mp3',
+    './assets/voices/elara_first_contact.mp3',
+    './assets/voices/elara_return_vector.mp3',
+    './assets/voices/elara_returned.mp3',
+    './assets/voices/elara_stabilizer_recovered.mp3',
+    './assets/voices/elara_temporal_reveal.mp3',
     'https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js'
 ];
 

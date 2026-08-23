@@ -1,6 +1,6 @@
 [
   {
-    "session_id": "056305acae4148c5b40cdb846bce968d",
+    "session_id": "4ee48a7f571a41dd94005db3e614eaa3",
     "mode": "solo",
     "creator_id": "46c4b312-8a98-4aea-abca-527300ba58e5",
     "team_name": "Pokus",
@@ -10,10 +10,10 @@
       "46c4b312-8a98-4aea-abca-527300ba58e5": {
         "id": "46c4b312-8a98-4aea-abca-527300ba58e5",
         "name": "PC",
-        "joined_at": "2026-08-22T22:41:03.095448+00:00"
+        "joined_at": "2026-08-23T05:34:18.020523+00:00"
       }
     },
     "max_players": 1,
-    "applied_score_adjustment": 20
+    "applied_score_adjustment": 0
   }
 ]

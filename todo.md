@@ -50,7 +50,7 @@
 - [x] Atmosférické efekty přes hardwarovou akceleraci (CRT, glitching, odlesky).
 - [x] Synchronizace základního offline zvukového designu s interkomem, checkpointy, hádankami, Karlem, Sokobanem, jigsaw puzzle a finále; uživatelská hlasitost a mute.
 - [x] Přidat přehrávač klíčových hlasových replik se samostatnou hlasitostí, textovým ekvivalentem, opakováním a lokálním syntetickým fallbackem pro budoucí nahrávky.
-- [ ] Dokončit ženské hlasové nahrávky Kapitánky a Elary pro všechny klíčové repliky interkomu; zachovat titulky, opakování a syntetický fallback.
+- [x] Dokončit ženské hlasové nahrávky Kapitánky a Elary pro všechny klíčové repliky interkomu; zachovat titulky, opakování a syntetický fallback.
 
 ## 7. Vizuální editor her (Produkční nástroje)
 - [ ] Nodové rozhraní (desktop Qt/C++) pro návrh příběhových větví a stavového automatu.
