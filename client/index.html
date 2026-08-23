@@ -2563,13 +2563,23 @@
                 }
                 }
                 else if (msg.type === 'score.update') {
-                    if (msg.payload.reason === 'line_game_time') {
+                    if (['line_game_time','line_game_individual'].includes(msg.payload.reason)) {
                         const delta = Number(msg.payload.delta) || 0;
-                        if (delta > 0) showNotification(`Časový bonus: +${delta} bodů.`, 'success');
-                        else if (delta < 0) showNotification(`Časová penalizace: ${delta} bodů.`, 'error');
-                        else showNotification('Dokončeno přesně v neutrálním čase bez změny skóre.', 'info');
+                        if (delta > 0) showNotification(`Vaše mřížka je hotová před 3. minutou: časový bonus +${delta} bodů.`, 'success');
+                        else if (delta < 0) showNotification(`Vaše mřížka je hotová po 3. minutě: časová penalizace ${delta} bodů.`, 'error');
+                        else showNotification('Vaše mřížka je hotová přesně ve 3. minutě: skóre se nemění.', 'info');
+                    } else if (msg.payload.reason === 'line_game_team') {
+                        const delta = Number(msg.payload.delta) || 0;
+                        showNotification(`Tým společně pokryl všechny tři kalibrační cíle: +${delta} bodů.`, 'success');
                     } else if (msg.payload.reason === 'sokoban_level') {
                         showNotification(`Dokončený servisní sektor: +${msg.payload.delta} bodů.`, 'success');
+                    } else if (msg.payload.reason === 'mine_karel') {
+                        const delta = Number(msg.payload.delta) || 0;
+                        showNotification(`Výsledek navigace minovým polem: ${delta >= 0 ? '+' : ''}${delta} bodů.`, delta >= 0 ? 'success' : 'error');
+                    } else if (msg.payload.reason === 'triad_individual') {
+                        showNotification(`Dokončili jste vlastní část zarovnání: +${Number(msg.payload.delta) || 0} bodů.`, 'success');
+                    } else if (msg.payload.reason === 'triad') {
+                        showNotification(`Tým dokončil společné zarovnání: +${Number(msg.payload.delta) || 0} bodů.`, 'success');
                     } else if (msg.payload.reason === 'team_size') {
                         const delta = Number(msg.payload.delta) || 0;
                         showNotification(delta >= 0 ? `Úprava za velikost týmu: +${delta} bodů.` : `Malus za velikost týmu: ${delta} bodů.`, delta >= 0 ? 'success' : 'error');
@@ -2580,9 +2590,15 @@
                     } else if (msg.payload.reason === 'admin_score_adjustment') {
                         const delta = Number(msg.payload.delta) || 0;
                         showNotification(`Úprava skóre správcem: ${delta >= 0 ? '+' : ''}${delta} bodů · ${msg.payload.description || ''}`, delta >= 0 ? 'success' : 'error');
+                    } else if (msg.payload.reason === 'admin_resolution') {
+                        showNotification(`Zásah Game Mastera: −${Number(msg.payload.penalty) || 0} bodů · ${msg.payload.description || ''}`, 'error');
+                    } else if (msg.payload.reason === 'cipher_tool') {
+                        showNotification(`Odemčena šifrovací pomůcka (−${Number(msg.payload.penalty) || 0} bodů).`, 'error');
+                    } else if (!msg.payload.reason) {
+                        showNotification(`Použita nápověda (−${Number(msg.payload.penalty) || 0} bodů).`, 'error');
                     } else {
-                        const reason = msg.payload.reason === 'cipher_tool' ? 'Odemčena šifrovací pomůcka' : 'Použita nápověda';
-                        showNotification(`${reason} (-${msg.payload.penalty} bodů).`, 'error');
+                        const delta = Number(msg.payload.delta ?? -(Number(msg.payload.penalty) || 0));
+                        showNotification(`Změna skóre (${escapeHtml(msg.payload.reason)}): ${delta >= 0 ? '+' : ''}${delta} bodů.`, delta >= 0 ? 'success' : 'error');
                     }
                 }
                 else if (msg.type === 'team.player_message') {
