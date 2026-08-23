@@ -30,14 +30,14 @@ class ScenarioComposerTest(unittest.TestCase):
         scenario = ScenarioLoader.load_composed(str(TEMPLATE_PATH), str(REALIZATION_PATH))
 
         self.assertEqual(scenario.data["id"], "kraskov_time_rescue")
-        self.assertEqual(scenario.provenance["realization_version"], "1.0.0")
+        self.assertEqual(scenario.provenance["realization_version"], "1.1.0")
 
     def test_rejects_missing_contract_binding(self) -> None:
-        realization = deepcopy(self.realization)
-        realization["node_bindings"].pop("final_console")
+        template = deepcopy(self.template)
+        template["node_bindings"].pop("final_console")
 
         with self.assertRaisesRegex(ScenarioCompositionError, "chybí vazby: final_console"):
-            compose_documents(self.template, realization)
+            compose_documents(template, self.realization)
 
     def test_rejects_incompatible_template_version(self) -> None:
         realization = deepcopy(self.realization)
@@ -46,19 +46,30 @@ class ScenarioComposerTest(unittest.TestCase):
         with self.assertRaisesRegex(ScenarioCompositionError, "jinou šablonu"):
             compose_documents(self.template, realization)
 
-    def test_rejects_implicit_runtime_override(self) -> None:
+    def test_rejects_missing_required_variable(self) -> None:
         realization = deepcopy(self.realization)
-        realization["runtime"]["cipher_tools_access"] = "earned"
+        realization["variables"]["checkpoints"]["public_archive"].pop("token")
 
-        with self.assertRaisesRegex(ScenarioCompositionError, "stejné části runtime"):
+        with self.assertRaisesRegex(ScenarioCompositionError, "checkpoints.public_archive.token"):
             compose_documents(self.template, realization)
 
     def test_rejects_missing_required_capability(self) -> None:
-        realization = deepcopy(self.realization)
-        realization["node_bindings"]["hazard_navigation"]["capabilities"] = []
+        template = deepcopy(self.template)
+        template["node_bindings"]["hazard_navigation"]["capabilities"] = []
 
         with self.assertRaisesRegex(ScenarioCompositionError, "navigation_game"):
-            compose_documents(self.template, realization)
+            compose_documents(template, self.realization)
+
+    def test_supports_text_object_and_dynamic_key_variables(self) -> None:
+        template = deepcopy(self.template)
+        template["variable_schema"]["extension"] = {"type": "object"}
+        template["runtime"]["${game.id}-extension"] = {"$var": "extension"}
+        realization = deepcopy(self.realization)
+        realization["variables"]["extension"] = {"enabled": True, "items": [1, 2]}
+
+        compiled = compose_documents(template, realization)
+
+        self.assertEqual(compiled.data["kraskov_time_rescue-extension"], {"enabled": True, "items": [1, 2]})
 
 
 if __name__ == "__main__":

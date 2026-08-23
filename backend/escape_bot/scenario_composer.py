@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 from copy import deepcopy
 from dataclasses import dataclass
 from pathlib import Path
@@ -37,21 +38,83 @@ def _require_document(document: dict[str, Any], kind: str, source: str) -> None:
         raise ScenarioCompositionError(f"{source}: nepodporovaná verze schématu.")
     if document.get("kind") != kind:
         raise ScenarioCompositionError(f"{source}: očekáván dokument typu {kind}.")
-    for field in ("id", "version", "runtime"):
+    required_fields = ("id", "version", "runtime") if kind == "story_template" else ("id", "version", "variables")
+    for field in required_fields:
         if not document.get(field):
             raise ScenarioCompositionError(f"{source}: chybí povinné pole {field}.")
-    if not isinstance(document["runtime"], dict):
+    if kind == "story_template" and not isinstance(document["runtime"], dict):
         raise ScenarioCompositionError(f"{source}: runtime musí být objekt.")
+    if kind == "realization" and not isinstance(document["variables"], dict):
+        raise ScenarioCompositionError(f"{source}: variables musí být objekt.")
 
 
-def _deep_merge(base: dict[str, Any], override: dict[str, Any]) -> dict[str, Any]:
-    result = deepcopy(base)
-    for key, value in override.items():
-        if isinstance(value, dict) and isinstance(result.get(key), dict):
-            result[key] = _deep_merge(result[key], value)
+_INTERPOLATION = re.compile(r"\$\{([a-zA-Z0-9_.-]+)\}")
+
+
+def _resolve_variable(variables: dict[str, Any], path: str) -> Any:
+    value: Any = variables
+    for part in path.split("."):
+        if not isinstance(value, dict) or part not in value:
+            raise ScenarioCompositionError(f"Realizaci chybí proměnná {path}.")
+        value = value[part]
+    return value
+
+
+def _render_string(value: str, variables: dict[str, Any]) -> str:
+    def replace(match: re.Match[str]) -> str:
+        path = match.group(1)
+        replacement = _resolve_variable(variables, path)
+        if isinstance(replacement, (dict, list)) or replacement is None:
+            raise ScenarioCompositionError(f"Proměnnou {path} nelze vložit do textu nebo klíče.")
+        return str(replacement)
+
+    return _INTERPOLATION.sub(replace, value)
+
+
+def _render(value: Any, variables: dict[str, Any]) -> Any:
+    if isinstance(value, dict):
+        if set(value) == {"$var"}:
+            path = value["$var"]
+            if not isinstance(path, str):
+                raise ScenarioCompositionError("Hodnota $var musí být cesta k proměnné.")
+            return deepcopy(_resolve_variable(variables, path))
+        result: dict[str, Any] = {}
+        for key, child in value.items():
+            rendered_key = _render_string(key, variables)
+            if rendered_key in result:
+                raise ScenarioCompositionError(f"Dosazení vytvořilo duplicitní klíč {rendered_key}.")
+            result[rendered_key] = _render(child, variables)
+        return result
+    if isinstance(value, list):
+        return [_render(item, variables) for item in value]
+    if isinstance(value, str):
+        return _render_string(value, variables)
+    return deepcopy(value)
+
+
+def _validate_variables(schema: dict[str, Any], variables: dict[str, Any]) -> None:
+    supported_types = {
+        "string": str, "number": (int, float), "boolean": bool,
+        "object": dict, "array": list, "any": object,
+    }
+    for path, declaration in schema.items():
+        if not isinstance(declaration, dict):
+            raise ScenarioCompositionError(f"Deklarace proměnné {path} musí být objekt.")
+        try:
+            value = _resolve_variable(variables, path)
+        except ScenarioCompositionError:
+            if declaration.get("required", True):
+                raise
+            continue
+        expected = declaration.get("type", "any")
+        if expected not in supported_types:
+            raise ScenarioCompositionError(f"Proměnná {path} má neznámý typ {expected}.")
+        if expected == "number" and isinstance(value, bool):
+            valid = False
         else:
-            result[key] = deepcopy(value)
-    return result
+            valid = isinstance(value, supported_types[expected])
+        if not valid:
+            raise ScenarioCompositionError(f"Proměnná {path} musí mít typ {expected}.")
 
 
 def compose_documents(template: dict[str, Any], realization: dict[str, Any]) -> CompiledScenario:
@@ -63,8 +126,14 @@ def compose_documents(template: dict[str, Any], realization: dict[str, Any]) -> 
     if expected.get("id") != template["id"] or expected.get("version") != template["version"]:
         raise ScenarioCompositionError("Realizace odkazuje na jinou šablonu nebo její verzi.")
 
+    variables = realization["variables"]
+    variable_schema = template.get("variable_schema", {})
+    if not isinstance(variable_schema, dict):
+        raise ScenarioCompositionError("variable_schema musí být objekt.")
+    _validate_variables(variable_schema, variables)
+
     contracts = template.get("node_contracts", {})
-    bindings = realization.get("node_bindings", {})
+    bindings = _render(template.get("node_bindings", {}), variables)
     if not isinstance(contracts, dict) or not isinstance(bindings, dict):
         raise ScenarioCompositionError("node_contracts a node_bindings musí být objekty.")
     missing = sorted(set(contracts) - set(bindings))
@@ -75,13 +144,7 @@ def compose_documents(template: dict[str, Any], realization: dict[str, Any]) -> 
         if unknown: details.append("neznámé vazby: " + ", ".join(unknown))
         raise ScenarioCompositionError("Neúplné mapování realizace; " + "; ".join(details))
 
-    overlapping_runtime = sorted(set(template["runtime"]) & set(realization["runtime"]))
-    if overlapping_runtime:
-        raise ScenarioCompositionError(
-            "Šablona a realizace nesmí bez explicitního migračního pravidla vlastnit stejné části runtime: "
-            + ", ".join(overlapping_runtime)
-        )
-    runtime = _deep_merge(template["runtime"], realization["runtime"])
+    runtime = _render(template["runtime"], variables)
     flow_items = runtime.get("scenario_flow", [])
     if not isinstance(flow_items, list):
         raise ScenarioCompositionError("Složený runtime musí obsahovat pole scenario_flow.")
