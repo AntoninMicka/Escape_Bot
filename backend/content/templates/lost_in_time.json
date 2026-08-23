@@ -841,6 +841,7 @@
         "checkpoint_id": "${checkpoints.machine_part_one.id}",
         "instructions": "Obrazový záznam z diagnostického prostoru bowlingu.",
         "image": "assets/puzzles/bowling-binary-motor-v3.png",
+        "ciphertext": "1001101 1001111 1010100 1001111 1010010",
         "answer": "MOTOR",
         "admin_solution": "MOTOR – sedmibitové ASCII v označených řadách 4+3: 1001101 1001111 1010100 1001111 1010010; přední řady 2+1 jsou šum",
         "success_message": {
@@ -876,6 +877,7 @@
         "checkpoint_id": "${checkpoints.machine_part_two.id}",
         "instructions": "Noční obrazový záznam z terasy u rybníka.",
         "image": "assets/puzzles/terrace-morse-cats-hriste-v2.png",
+        "ciphertext": ".... .-. .. ... - .",
         "answer": "HRISTE",
         "answers": [
           "HRISTE",
@@ -1917,7 +1919,7 @@
         "puzzle_id": "bowling_binary",
         "next_checkpoint": "${checkpoints.timeline_calibration.id}",
         "navigation_message": {
-          "text": "Motor máme. Chronomapa nyní zvýraznila kalibrační terminál časové osy; pokračujte k němu dřív, než se oba časové proudy znovu rozladí.",
+          "text": "Motor máme. Zůstaňte v prostoru bowlingu a přesuňte se ke křesílkům u drah. Najděte tam QR štítek označený KALIBRACE ČASOVÉ OSY, načtěte jej a potom otevřete záložku HÁDANKY.",
           "mood": "focused",
           "channel": "captain"
         },

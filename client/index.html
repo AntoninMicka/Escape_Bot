@@ -441,9 +441,10 @@
         .puzzle-category strong { display: block; color: #0aa; margin-bottom: 7px; }
         .puzzle-category span { display: block; padding: 3px 0; }
         .puzzle-clues { color: #dfffff; line-height: 1.5; }
-        .puzzle-answer { display: flex; gap: 10px; margin-top: 18px; max-width: 520px; }
-        .puzzle-answer input { font-size: 1.3em; letter-spacing: .2em; text-align: center; }
-        .puzzle-actions { display: flex; gap: 10px; margin-top: 10px; }
+        .puzzle-answer { display: flex; gap: 10px; width: 100%; max-width: 520px; min-width: 0; margin-top: 18px; }
+        .puzzle-answer input { width: 100%; min-width: 0; font-size: 1.3em; letter-spacing: .2em; text-align: center; }
+        .puzzle-answer button { flex: 0 0 auto; }
+        .puzzle-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 10px; }
         .puzzle-status.solved { padding: 12px; border: 1px solid #0f0; color: #0f0; background: #002200; }
         .puzzle-locked { color: #777; border: 1px dashed #444; padding: 16px; }
         .line-game { max-width: 620px; margin-top: 16px; padding: 14px; border: 1px solid #066; background: #000b0d; }
@@ -489,6 +490,8 @@
         .sokoban-meta { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px; color: #9dd; }
         .sokoban-command { margin: 10px 0; padding: 9px; border: 1px solid #0aa; color: #0ff; text-align: center; background: #001c20; }
         .sokoban-command.blocked { border-color: #f44; color: #f66; background: #240505; }
+        .sokoban-command-slot { min-height: 48px; }
+        .sokoban-command-slot:empty { visibility: hidden; }
         .finale-overlay > div { text-align: center; animation: finale-pulse 1s ease-in-out infinite; }
         .finale-overlay small { display: block; margin-top: 12px; font-size: clamp(.75rem, 2.4vw, 1.2rem); letter-spacing: .2em; }
         .finale-overlay .finale-modules-live { display: flex; justify-content: center; gap: 8px; margin-top: 20px; font-size: .8rem; }
@@ -626,6 +629,11 @@
             .doom-title { margin:2px 0 6px; font-size:.9rem; }
             .doom-hud { gap:3px 10px; margin:5px 0; font-size:.72rem; }
             .world-map > p { margin:5px 0; font-size:.72rem; }
+            .puzzle-container { padding: 10px; overflow-x: hidden; }
+            .puzzle-answer { gap: 6px; }
+            .puzzle-answer input { padding: 9px 6px; font-size: 1rem; letter-spacing: .08em; }
+            .puzzle-answer .icon-action { width: 44px; min-width: 44px; min-height: 44px; padding: 7px; }
+            .puzzle-actions > button { flex: 1 1 44px; min-height: 44px; padding: 8px; }
         }
     </style>
 </head>
@@ -1489,6 +1497,8 @@
         const requestedRecoveryToken = new URLSearchParams(window.location.search).get('recover');
         let savedLobby = null;
         let lobbySyncTimer = null;
+        let pendingLobbyRequest = null;
+        let pendingLobbyTimer = null;
         let reconnectTimer = null;
         let selectedLobbyType = '';
         try { savedLobby = JSON.parse(localStorage.getItem('escapeBotLobby') || 'null'); } catch (_) { savedLobby = null; }
@@ -1881,6 +1891,33 @@
             }
         }
 
+        async function copyPuzzleCiphertext(puzzleId) {
+            const puzzle = puzzlesState.find(item => item.id === puzzleId);
+            const text = String(puzzle?.ciphertext || '').trim().replace(/\r\n?/g, '\n');
+            if (!text) { showNotification('Čistý text této šifry není dostupný.', 'error'); return; }
+            let input = null;
+            try {
+                if (navigator.clipboard?.writeText) {
+                    await navigator.clipboard.writeText(text);
+                } else {
+                    input = document.createElement('textarea');
+                    input.value = text;
+                    input.setAttribute('readonly', '');
+                    input.style.position = 'fixed';
+                    input.style.opacity = '0';
+                    document.body.appendChild(input);
+                    input.select();
+                    input.setSelectionRange(0, input.value.length);
+                    if (!document.execCommand('copy')) throw new Error('Kopírování není podporováno.');
+                }
+                showNotification('Čistý text šifry byl zkopírován.', 'success');
+            } catch (_) {
+                showNotification('Text šifry se nepodařilo zkopírovat.', 'error');
+            } finally {
+                input?.remove();
+            }
+        }
+
         function renderPlayerRecovery(payload) {
             const url = new URL(window.location.pathname || '/', window.location.origin);
             url.searchParams.set('recover', payload.token);
@@ -2116,13 +2153,29 @@
             return false;
         }
 
-        function sendLobby(type, extra = {}) {
-            if (!ws || ws.readyState !== WebSocket.OPEN) return;
+        function sendLobby(type, extra = {}, retry = false) {
             if (type !== 'lobby.resume' && !requireLobbyName('lobby-player-name', 'Zadejte jméno hráče.')) return;
             if ((type === 'lobby.solo' || type === 'lobby.create') && !requireLobbyName('lobby-team-name', 'Zadejte název týmu.')) return;
             const scenarioId = document.getElementById('lobby-game-select').value;
+            if(['lobby.create','lobby.join'].includes(type))pendingLobbyRequest={type,extra};
+            if (!ws || ws.readyState !== WebSocket.OPEN) {
+                document.getElementById('lobby-status').textContent = 'Obnovuji spojení se serverem…';
+                connect();return;
+            }
             ws.send(JSON.stringify({type, payload:{client_id:clientId, name:lobbyPlayerName(), team_name:lobbyTeamName(), demo_mode:demoModeRequested, lobby_type:selectedLobbyType || 'on_site_qr', scenario_id:scenarioId, ...extra}}));
-            document.getElementById('lobby-status').textContent = 'Navazuji týmovou relaci…';
+            document.getElementById('lobby-status').textContent = retry ? 'Opakuji připojení k týmové relaci…' : 'Navazuji týmovou relaci…';
+            if(pendingLobbyRequest){
+                clearTimeout(pendingLobbyTimer);
+                pendingLobbyTimer=setTimeout(()=>{
+                    if(!pendingLobbyRequest)return;
+                    document.getElementById('lobby-status').textContent='Server neodpověděl, obnovuji spojení…';
+                    if(ws?.readyState===WebSocket.OPEN)ws.close(4000,'Lobby response timeout');else connect();
+                },8000);
+            }
+        }
+
+        function clearPendingLobbyRequest() {
+            pendingLobbyRequest=null;clearTimeout(pendingLobbyTimer);pendingLobbyTimer=null;
         }
 
         function chooseSoloMode() { sendLobby('lobby.solo'); }
@@ -2227,6 +2280,7 @@
         }
 
         function renderLobby(payload) {
+            clearPendingLobbyRequest();
             clearTimeout(lobbySyncTimer);
             currentLobby = payload;
             stopJoinTeamScanner();
@@ -2512,7 +2566,10 @@
                     }, 5000);
                 } else {
                     ws.send(JSON.stringify({ type: 'leaderboard.get', payload: {} }));
-                    beginLobbyConnection();
+                    if(pendingLobbyRequest){
+                        const pending=pendingLobbyRequest;
+                        sendLobby(pending.type,pending.extra,true);
+                    } else beginLobbyConnection();
                 }
             };
 
@@ -2629,6 +2686,7 @@
                     renderLobby(msg.payload);
                 }
                 else if (msg.type === 'lobby.error') {
+                    clearPendingLobbyRequest();
                     localStorage.removeItem('escapeBotLobby');
                     savedLobby = null;
                     stopJoinTeamScanner();
@@ -2717,13 +2775,23 @@
                 }
                 }
                 else if (msg.type === 'score.update') {
-                    if (msg.payload.reason === 'line_game_time') {
+                    if (['line_game_time','line_game_individual'].includes(msg.payload.reason)) {
                         const delta = Number(msg.payload.delta) || 0;
-                        if (delta > 0) showNotification(`Časový bonus: +${delta} bodů.`, 'success');
-                        else if (delta < 0) showNotification(`Časová penalizace: ${delta} bodů.`, 'error');
-                        else showNotification('Dokončeno přesně v neutrálním čase bez změny skóre.', 'info');
+                        if (delta > 0) showNotification(`Vaše mřížka je hotová před 3. minutou: časový bonus +${delta} bodů.`, 'success');
+                        else if (delta < 0) showNotification(`Vaše mřížka je hotová po 3. minutě: časová penalizace ${delta} bodů.`, 'error');
+                        else showNotification('Vaše mřížka je hotová přesně ve 3. minutě: skóre se nemění.', 'info');
+                    } else if (msg.payload.reason === 'line_game_team') {
+                        const delta = Number(msg.payload.delta) || 0;
+                        showNotification(`Tým společně pokryl všechny tři kalibrační cíle: +${delta} bodů.`, 'success');
                     } else if (msg.payload.reason === 'sokoban_level') {
                         showNotification(`Dokončený servisní sektor: +${msg.payload.delta} bodů.`, 'success');
+                    } else if (msg.payload.reason === 'mine_karel') {
+                        const delta = Number(msg.payload.delta) || 0;
+                        showNotification(`Výsledek navigace minovým polem: ${delta >= 0 ? '+' : ''}${delta} bodů.`, delta >= 0 ? 'success' : 'error');
+                    } else if (msg.payload.reason === 'triad_individual') {
+                        showNotification(`Dokončili jste vlastní část zarovnání: +${Number(msg.payload.delta) || 0} bodů.`, 'success');
+                    } else if (msg.payload.reason === 'triad') {
+                        showNotification(`Tým dokončil společné zarovnání: +${Number(msg.payload.delta) || 0} bodů.`, 'success');
                     } else if (msg.payload.reason === 'team_size') {
                         const delta = Number(msg.payload.delta) || 0;
                         showNotification(delta >= 0 ? `Úprava za velikost týmu: +${delta} bodů.` : `Malus za velikost týmu: ${delta} bodů.`, delta >= 0 ? 'success' : 'error');
@@ -2734,9 +2802,15 @@
                     } else if (msg.payload.reason === 'admin_score_adjustment') {
                         const delta = Number(msg.payload.delta) || 0;
                         showNotification(`Úprava skóre správcem: ${delta >= 0 ? '+' : ''}${delta} bodů · ${msg.payload.description || ''}`, delta >= 0 ? 'success' : 'error');
+                    } else if (msg.payload.reason === 'admin_resolution') {
+                        showNotification(`Zásah Game Mastera: −${Number(msg.payload.penalty) || 0} bodů · ${msg.payload.description || ''}`, 'error');
+                    } else if (msg.payload.reason === 'cipher_tool') {
+                        showNotification(`Odemčena šifrovací pomůcka (−${Number(msg.payload.penalty) || 0} bodů).`, 'error');
+                    } else if (!msg.payload.reason) {
+                        showNotification(`Použita nápověda (−${Number(msg.payload.penalty) || 0} bodů).`, 'error');
                     } else {
-                        const reason = msg.payload.reason === 'cipher_tool' ? 'Odemčena šifrovací pomůcka' : 'Použita nápověda';
-                        showNotification(`${reason} (-${msg.payload.penalty} bodů).`, 'error');
+                        const delta = Number(msg.payload.delta ?? -(Number(msg.payload.penalty) || 0));
+                        showNotification(`Změna skóre (${escapeHtml(msg.payload.reason)}): ${delta >= 0 ? '+' : ''}${delta} bodů.`, delta >= 0 ? 'success' : 'error');
                     }
                 }
                 else if (msg.type === 'team.player_message') {
@@ -3100,6 +3174,9 @@
 
             container.innerHTML = visible.map(puzzle => {
                 const artifact = puzzle.image ? `<img class="puzzle-artifact" src="${escapeHtml(puzzle.image)}" alt="Nalezený obrazový artefakt">` : '';
+                const copyCiphertext = puzzle.ciphertext
+                    ? `<div class="puzzle-actions"><button class="icon-action" type="button" onclick="copyPuzzleCiphertext('${escapeHtml(puzzle.id)}')" title="Kopírovat čistý text šifry" aria-label="Kopírovat čistý text šifry">📋</button><span>ČISTÝ TEXT ŠIFRY</span></div>`
+                    : '';
                 const categories = Object.entries(puzzle.categories || {}).map(([name, values]) =>
                     `<div class="puzzle-category"><strong>${escapeHtml(name)}</strong>${values.map(value => `<span>${escapeHtml(value)}</span>`).join('')}</div>`
                 ).join('');
@@ -3112,11 +3189,12 @@
                     <h3>${escapeHtml(puzzle.title)}</h3>
                     <p>${escapeHtml(puzzle.instructions)}</p>
                     ${artifact}
+                    ${copyCiphertext}
                     <div class="puzzle-categories">${categories}</div>
                     <ol class="puzzle-clues">${clues}</ol>
                     ${interactiveGame || (solved
                         ? '<p class="puzzle-status solved">HÁDANKA VYŘEŠENA · CHECKPOINT POTVRZEN</p>'
-                        : `<div class="puzzle-answer"><input id="puzzle-answer-${escapeHtml(puzzle.id)}" maxlength="180" autocomplete="off" placeholder="ODPOVĚĎ / KÓD" onkeydown="if(event.key==='Enter'){event.preventDefault();submitPuzzle('${escapeHtml(puzzle.id)}')}"><button class="icon-action" onclick="pasteIntoField('puzzle-answer-${escapeHtml(puzzle.id)}')" title="Vložit ze schránky" aria-label="Vložit ze schránky">📥</button><button onclick="submitPuzzle('${escapeHtml(puzzle.id)}')">OVĚŘIT</button></div>
+                        : `<div class="puzzle-answer"><input id="puzzle-answer-${escapeHtml(puzzle.id)}" maxlength="180" autocomplete="off" placeholder="ODPOVĚĎ / KÓD" onkeydown="if(event.key==='Enter'){event.preventDefault();submitPuzzle('${escapeHtml(puzzle.id)}')}"><button class="icon-action" onclick="pasteIntoField('puzzle-answer-${escapeHtml(puzzle.id)}')" title="Vložit ze schránky" aria-label="Vložit ze schránky">📥</button><button class="icon-action" onclick="submitPuzzle('${escapeHtml(puzzle.id)}')" title="Ověřit odpověď" aria-label="Ověřit odpověď">✓</button></div>
                            ${renderHintButtons(puzzle)}<div class="puzzle-actions"><span>Pokusy: ${puzzle.attempts || 0}</span></div>`)}
                 </article>`;
             }).join('');
@@ -3145,7 +3223,7 @@
                     const path = jigsawPiecePath(source, size);
                     return `<button class="jigsaw-piece ${selectedArchivePiece === cardId ? 'selected' : ''}" onclick="selectArchivePiece('${escapeHtml(puzzle.id)}','${escapeHtml(cardId)}')" aria-label="Dílek skládačky"><svg viewBox="-14 -14 128 128" aria-hidden="true"><defs><clipPath id="${clipId}"><path d="${path}"/></clipPath></defs><image href="${escapeHtml(game.image)}" x="${-x * 100}" y="${-y * 100}" width="${size * 100}" height="${size * 100}" preserveAspectRatio="none" clip-path="url(#${clipId})"/><path d="${path}" fill="none" stroke="#6ff" stroke-width="1.2" opacity=".7"/></svg></button>`;
                 }).join('');
-                const reveal = game.assembled ? `<div class="archive-reveal"><small>ODHALENÝ KLÍČ</small><div class="archive-key">${escapeHtml(game.revealed_key)}</div><p><strong>POŘADÍ MODULŮ:</strong> ${game.module_order.map(escapeHtml).join(' → ')}</p></div><h4>ZACHYCENÝ PŘENOS</h4><div class="archive-ciphertext">${escapeHtml(puzzle.ciphertext)}</div><div class="puzzle-answer"><input id="puzzle-answer-${escapeHtml(puzzle.id)}" maxlength="100" autocomplete="off" placeholder="CELÝ DEŠIFROVANÝ TEXT" onkeydown="if(event.key==='Enter'){event.preventDefault();submitPuzzle('${escapeHtml(puzzle.id)}')}"><button class="icon-action" onclick="pasteIntoField('puzzle-answer-${escapeHtml(puzzle.id)}')" title="Vložit ze schránky" aria-label="Vložit ze schránky">📥</button><button onclick="submitPuzzle('${escapeHtml(puzzle.id)}')">OVĚŘIT</button></div>` : '<p class="cipher-note">Vyberte dva dílky, které chcete prohodit. Obraz zatím není úplný.</p>';
+                const reveal = game.assembled ? `<div class="archive-reveal"><small>ODHALENÝ KLÍČ</small><div class="archive-key">${escapeHtml(game.revealed_key)}</div><p><strong>POŘADÍ MODULŮ:</strong> ${game.module_order.map(escapeHtml).join(' → ')}</p></div><h4>ZACHYCENÝ PŘENOS</h4><div class="archive-ciphertext">${escapeHtml(puzzle.ciphertext)}</div><div class="puzzle-answer"><input id="puzzle-answer-${escapeHtml(puzzle.id)}" maxlength="100" autocomplete="off" placeholder="CELÝ DEŠIFROVANÝ TEXT" onkeydown="if(event.key==='Enter'){event.preventDefault();submitPuzzle('${escapeHtml(puzzle.id)}')}"><button class="icon-action" onclick="pasteIntoField('puzzle-answer-${escapeHtml(puzzle.id)}')" title="Vložit ze schránky" aria-label="Vložit ze schránky">📥</button><button class="icon-action" onclick="submitPuzzle('${escapeHtml(puzzle.id)}')" title="Ověřit odpověď" aria-label="Ověřit odpověď">✓</button></div>` : '<p class="cipher-note">Vyberte dva dílky, které chcete prohodit. Obraz zatím není úplný.</p>';
                 return `<div class="archive-assembly"><div class="jigsaw-board" style="grid-template-columns:repeat(${size},1fr)">${pieces}</div><p>PROHOZENÍ: ${Number(game.moves)}</p>${reveal}${renderHintButtons(puzzle)}<div class="puzzle-actions"><span>Pokusy: ${puzzle.attempts || 0}</span></div></div>`;
             }
             const cards = game.order.map(cardId => {
@@ -3153,7 +3231,7 @@
                 const rotation = Number(game.rotations[cardId] || 0);
                 return `<div class="archive-card-wrap"><div class="archive-card ${escapeHtml(card.color)}" style="transform:rotate(${rotation}deg)" aria-label="${escapeHtml(card.label)}, natočení ${rotation} stupňů"><strong>${escapeHtml(card.icon)}</strong></div><small>${escapeHtml(card.label)}</small><div class="archive-card-controls"><button onclick="arrangeArchiveCard('${escapeHtml(puzzle.id)}','${escapeHtml(cardId)}','left')" aria-label="Posunout vlevo">←</button><button onclick="arrangeArchiveCard('${escapeHtml(puzzle.id)}','${escapeHtml(cardId)}','rotate')" aria-label="Otočit">↻</button><button onclick="arrangeArchiveCard('${escapeHtml(puzzle.id)}','${escapeHtml(cardId)}','right')" aria-label="Posunout vpravo">→</button></div></div>`;
             }).join('');
-            const reveal = game.assembled ? `<div class="archive-reveal"><small>ODHALENÝ KLÍČ</small><div class="archive-key">${escapeHtml(game.revealed_key)}</div><p><strong>POŘADÍ MODULŮ:</strong> ${game.module_order.map(escapeHtml).join(' → ')}</p></div><h4>ZACHYCENÝ PŘENOS</h4><div class="archive-ciphertext">${escapeHtml(puzzle.ciphertext)}</div><div class="puzzle-answer"><input id="puzzle-answer-${escapeHtml(puzzle.id)}" maxlength="100" autocomplete="off" placeholder="CELÝ DEŠIFROVANÝ TEXT" onkeydown="if(event.key==='Enter'){event.preventDefault();submitPuzzle('${escapeHtml(puzzle.id)}')}"><button class="icon-action" onclick="pasteIntoField('puzzle-answer-${escapeHtml(puzzle.id)}')" title="Vložit ze schránky" aria-label="Vložit ze schránky">📥</button><button onclick="submitPuzzle('${escapeHtml(puzzle.id)}')">OVĚŘIT</button></div>` : '<p class="cipher-note">Křivka ani stupnice zatím nenavazují.</p>';
+            const reveal = game.assembled ? `<div class="archive-reveal"><small>ODHALENÝ KLÍČ</small><div class="archive-key">${escapeHtml(game.revealed_key)}</div><p><strong>POŘADÍ MODULŮ:</strong> ${game.module_order.map(escapeHtml).join(' → ')}</p></div><h4>ZACHYCENÝ PŘENOS</h4><div class="archive-ciphertext">${escapeHtml(puzzle.ciphertext)}</div><div class="puzzle-answer"><input id="puzzle-answer-${escapeHtml(puzzle.id)}" maxlength="100" autocomplete="off" placeholder="CELÝ DEŠIFROVANÝ TEXT" onkeydown="if(event.key==='Enter'){event.preventDefault();submitPuzzle('${escapeHtml(puzzle.id)}')}"><button class="icon-action" onclick="pasteIntoField('puzzle-answer-${escapeHtml(puzzle.id)}')" title="Vložit ze schránky" aria-label="Vložit ze schránky">📥</button><button class="icon-action" onclick="submitPuzzle('${escapeHtml(puzzle.id)}')" title="Ověřit odpověď" aria-label="Ověřit odpověď">✓</button></div>` : '<p class="cipher-note">Křivka ani stupnice zatím nenavazují.</p>';
             return `<div class="archive-assembly"><div class="archive-cards">${cards}</div><p>TAHY: ${Number(game.moves)}</p>${reveal}${renderHintButtons(puzzle)}<div class="puzzle-actions"><span>Pokusy: ${puzzle.attempts || 0}</span></div></div>`;
         }
 
@@ -3280,7 +3358,7 @@
             const levels = (game.active_level_ids || []).map((id, index) => `<div class="line-game-objective ${index < game.completed_levels.length ? 'complete' : (index === game.level_index ? 'active' : '')}"><strong>POLE ${index + 1}</strong><br>${index < game.completed_levels.length ? `+${game.points_per_level} bodů` : (index === game.level_index ? 'AKTIVNÍ' : 'ČEKÁ')}</div>`).join('');
             const playback = pendingKarelAnimation?.puzzleId === puzzle.id ? `<div class="puzzle-actions"><button onclick="startKarelAnimation()">▶ PŘEHRÁT</button><button onclick="pauseKarelAnimation()">Ⅱ POZASTAVIT</button><button onclick="stepKarelAnimation()">KROK</button><button onclick="cancelKarelAnimation()">ZRUŠIT PŘEHRÁVÁNÍ</button></div>` : '';
             const textGrid = (game.text_grid || []).map(line => escapeHtml(line)).join('\n');
-            return `<div class="sokoban-game"><div class="line-game-progress">${levels}</div><div class="sokoban-meta"><strong>${escapeHtml(game.level_label)} · ${game.level_index + 1}/${game.total_levels}</strong><span>KROKY: ${game.moves}</span><span>ZÁSAHY: ${game.strikes}</span><span>RESTARTY: ${game.restarts}</span><strong class="sokoban-timer" data-deadline="${escapeHtml(game.deadline_at)}">ČAS ${formatLineGameTime(game.remaining_seconds)}</strong></div><div class="mine-position-readout" role="status" aria-live="polite">ELARA: R${playerRow} C${playerColumn} · POLE ${playerField}${game.animation_clue !== undefined && game.animation_clue !== null ? ` · SONDA ${game.animation_clue}` : ''}</div>${navigationBoard}${playback}<details><summary>TEXTOVÉ ZOBRAZENÍ MŘÍŽKY</summary><pre aria-label="Textová mapa minového pole">${textGrid}</pre><p>E = Elara, S = start, X = cíl, ! = aktivovaná anomálie, ? = neprozkoumané pole.</p></details><p>Malé číslo v rohu je pořadové číslo pole. Číslo uprostřed udává počet min v osmi sousedních polích. Každé dokončené pole přidá <strong>+${game.points_per_level} bodů</strong>.</p><button onclick="resetKarel('${escapeHtml(puzzle.id)}')">RESET AKTUÁLNÍHO POLE</button></div>`;
+            return `<div class="sokoban-game"><div class="line-game-progress">${levels}</div><div class="sokoban-meta"><strong>${escapeHtml(game.level_label)} · ${game.level_index + 1}/${game.total_levels}</strong><span>KROKY: ${game.moves}</span><span>ZÁSAHY: ${game.strikes}</span><span>RESTARTY: ${game.restarts}</span><strong class="sokoban-timer" data-deadline="${escapeHtml(game.deadline_at)}">ČAS ${formatLineGameTime(game.remaining_seconds)}</strong></div>${navigationBoard}<div class="mine-position-readout" role="status" aria-live="polite">ELARA: R${playerRow} C${playerColumn} · POLE ${playerField}${game.animation_clue !== undefined && game.animation_clue !== null ? ` · SONDA ${game.animation_clue}` : ''}</div>${playback}<details><summary>TEXTOVÉ ZOBRAZENÍ MŘÍŽKY</summary><pre aria-label="Textová mapa minového pole">${textGrid}</pre><p>E = Elara, S = start, X = cíl, ! = aktivovaná anomálie, ? = neprozkoumané pole.</p></details><p>Malé číslo v rohu je pořadové číslo pole. Číslo uprostřed udává počet min v osmi sousedních polích. Každé dokončené pole přidá <strong>+${game.points_per_level} bodů</strong>.</p><button onclick="resetKarel('${escapeHtml(puzzle.id)}')">RESET AKTUÁLNÍHO POLE</button></div>`;
         }
 
         function renderSoloNavigationBoard(board, puzzleId, sendFunction) {
@@ -3522,8 +3600,8 @@
             return `<div class="sokoban-game">
                 <div class="line-game-progress">${game.active_level_ids.map((levelId, index) => `<div class="line-game-objective ${index < game.completed_levels.length ? 'complete' : (index === game.level_index ? 'active' : '')}"><strong>SEKTOR ${index + 1}</strong><br>${index < game.completed_levels.length ? `+${game.points_per_level} bodů` : (index === game.level_index ? 'AKTIVNÍ' : 'ČEKÁ')}</div>`).join('')}</div>
                 <div class="sokoban-meta"><strong>${escapeHtml(game.level_label)} · ${game.level_index + 1}/${game.total_levels}</strong><span>KROKY: ${game.moves}</span><span>ZATLAČENÍ: ${game.pushes}</span><span>RESTARTY: ${game.restarts}</span><strong class="sokoban-timer" data-deadline="${escapeHtml(game.deadline_at)}">ČAS ${formatLineGameTime(game.remaining_seconds)}</strong></div>
-                ${animationStatus}
                 ${navigationBoard}
+                <div class="sokoban-command-slot" role="status" aria-live="polite">${animationStatus}</div>
                 <p>${currentLobby?.mode === 'solo' ? 'Elaru ovládejte šipkami kolem hracího pole.' : 'Pokyny posílejte Elaře v kanálu <strong># ztracená_sig</strong>.'} Dokončení sektoru přidá <strong>+${game.points_per_level} bodů</strong>.</p>
                 <div class="puzzle-actions">${animationControl}<button onclick="undoSokoban('${escapeHtml(puzzle.id)}')" ${pendingSokobanAnimation ? 'disabled' : ''}>ZPĚT</button><button onclick="resetSokoban('${escapeHtml(puzzle.id)}')" ${pendingSokobanAnimation ? 'disabled' : ''}>RESET</button></div>
             </div>`;

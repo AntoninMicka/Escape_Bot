@@ -274,6 +274,7 @@ Původní stručný záměr je rozpracován v oddílu 19. Editor nemá být svá
 - [x] Vytvořit jediný obrazový artefakt s pěti fotografiemi Elary při hodu a samostatným PIP v každé fotografii.
 - [x] V každém PIP zobrazit kompletní trojúhelník 4–3–2–1; označené řady 4+3 kódují sedm bitů a řady 2+1 jsou obrazový šum.
 - [x] Ve všech deseti pozicích použít stojící kuželku jako `1` a prázdnou obrysovou pozici jako `0`.
+- [x] Umístit navazující QR `KALIBRACE ČASOVÉ OSY` ke křesílkům u bowlingových drah a v navigační zprávě výslovně říct, že tým zůstává v prostoru bowlingu.
 
 ### 13.7 Checkpoint 4 – Terasa nebo okolí rybníka
 **Typ:** Morseova abeceda a navigační zpráva.

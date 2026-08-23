@@ -151,6 +151,14 @@ class LobbyRegistry:
             self.by_join_code[join_code] = session_id
         return lobby
 
+    def pending_team_for_creator(self, client_id: str, team_name: str) -> Lobby | None:
+        """Return a just-created lobby when a client retries after losing its response."""
+        normalized = _normalize_team_name(team_name)
+        return next((lobby for lobby in self.by_session.values()
+                     if lobby.mode == "team" and not lobby.started
+                     and lobby.creator_id == client_id
+                     and _normalize_team_name(lobby.team_name) == normalized), None)
+
     def join(self, join_code: str, client_id: str, name: str = "") -> Lobby:
         session_id = self.by_join_code.get(join_code.strip().upper())
         if not session_id:

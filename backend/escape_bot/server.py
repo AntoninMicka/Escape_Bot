@@ -1184,7 +1184,14 @@ async def websocket_endpoint(websocket: WebSocket):
                             entry = scenario_catalog.entries.get(requested_scenario_id)
                             if entry is None or not scenario_supports_lobby(entry, lobby_type):
                                 raise ValueError("Vybraná hra není pro tento typ lobby dostupná.")
-                            lobby = lobby_registry.create(requested_client_id, "team", name, team_name, lobby_type, requested_scenario_id)
+                            # Mobile Safari can suspend a socket immediately after
+                            # sending. A retry must recover the created lobby instead
+                            # of failing on its now-duplicate team name.
+                            lobby = lobby_registry.pending_team_for_creator(requested_client_id, team_name)
+                            if lobby is None:
+                                lobby = lobby_registry.create(requested_client_id, "team", name, team_name, lobby_type, requested_scenario_id)
+                            else:
+                                lobby.add_player(requested_client_id, name)
                         elif msg.type == "lobby.join":
                             lobby = lobby_registry.join(str(msg.payload.get("join_code", "")), requested_client_id, name)
                         elif msg.type == "lobby.resume":

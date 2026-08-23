@@ -177,6 +177,7 @@
       "checkpoint_id": "bowling_diagnostics",
       "instructions": "Obrazový záznam z diagnostického prostoru bowlingu.",
       "image": "assets/puzzles/bowling-binary-motor-v3.png",
+      "ciphertext": "1001101 1001111 1010100 1001111 1010010",
       "answer": "MOTOR",
       "admin_solution": "MOTOR – sedmibitové ASCII v označených řadách 4+3: 1001101 1001111 1010100 1001111 1010010; přední řady 2+1 jsou šum",
       "success_message": {"text": "Diagnostická sekvence potvrzena: MOTOR. TEMPORÁLNÍ MOTOR je znovu synchronizován s terminálem.", "mood": "success", "channel": "captain", "voice_id": "captain_motor_recovered", "audio_url": "/assets/voices/captain_motor_recovered.mp3"},
@@ -193,6 +194,7 @@
       "checkpoint_id": "terrace_echo",
       "instructions": "Noční obrazový záznam z terasy u rybníka.",
       "image": "assets/puzzles/terrace-morse-cats-hriste-v2.png",
+      "ciphertext": ".... .-. .. ... - .",
       "answer": "HRISTE",
       "answers": ["HRISTE", "HŘIŠTĚ"],
       "admin_solution": "HŘIŠTĚ – kotě = tečka, dospělá kočka = čárka; .... / .-. / .. / ... / - / .",
@@ -408,7 +410,7 @@
       "requires": ["courtyard_minefield"],
       "puzzle_id": "bowling_binary",
       "next_checkpoint": "timeline_calibration",
-      "navigation_message": {"text": "Motor máme. Chronomapa nyní zvýraznila kalibrační terminál časové osy; pokračujte k němu dřív, než se oba časové proudy znovu rozladí.", "mood": "focused", "channel": "captain"},
+      "navigation_message": {"text": "Motor máme. Zůstaňte v prostoru bowlingu a přesuňte se ke křesílkům u drah. Najděte tam QR štítek označený KALIBRACE ČASOVÉ OSY, načtěte jej a potom otevřete záložku HÁDANKY.", "mood": "focused", "channel": "captain"},
       "found_rewards": {"cipher_tools": ["binary_ascii"]},
       "rewards": {"inventory": ["TEMPORÁLNÍ MOTOR"], "flags": ["temporal_motor_recovered"]},
       "message": {"text": "Bowlingová kotva aktivní. Terminál obnovil binární diagnostický záznam a referenci ASCII.", "mood": "focused", "channel": "captain"}
@@ -424,7 +426,7 @@
       "message": {"text": "Kotva u terasy zachytila noční světelný přenos. Obrazový záznam byl uložen do archivu hádanek.", "mood": "alert", "channel": "lost"}
     },
     "timeline_calibration": {
-      "label": "Kalibrační terminál časové osy",
+      "label": "Kalibrační terminál u křesílek bowlingu",
       "token": "9c6fa028b7614a669c9c43def9df1ba8",
       "requires": ["bowling_diagnostics"],
       "puzzle_id": "timeline_lines",

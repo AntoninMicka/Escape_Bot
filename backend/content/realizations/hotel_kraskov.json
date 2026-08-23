@@ -49,7 +49,7 @@
       },
       "timeline_calibration": {
         "id": "timeline_calibration",
-        "name": "Kalibrační terminál časové osy",
+        "name": "Kalibrační terminál u křesílek bowlingu",
         "route_name": "Kalibrace časové osy",
         "token": "9c6fa028b7614a669c9c43def9df1ba8"
       },
