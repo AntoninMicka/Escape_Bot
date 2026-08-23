@@ -20,6 +20,7 @@
       "projection_scale": 0.55,
       "facade_center_m": [0, 1],
       "facade_axis_deg": 120,
+      "front_normal_deg": 210,
       "floors": 6,
       "repeat_x": 1
     }

@@ -4006,7 +4006,8 @@
         function castDoomRay(origin, angle, maxDistance=240) {
             let hit=null;
             for(const building of doomRayBuildings){
-                if(doomFacadeTextures.get(String(building.osm_id))?.render_mode==='landmark_sprite')continue;
+                const landmark=doomFacadeTextures.get(String(building.osm_id));
+                if(landmark?.render_mode==='landmark_sprite'&&doomLandmarkFacesPlayer(landmark))continue;
                 const polygon=building.polygon_m||[];
                 for(let index=1;index<polygon.length;index++){
                     const intersection=raySegmentHit(origin,angle,polygon[index-1],polygon[index]),distance=intersection?.distance??null;
@@ -4104,14 +4105,21 @@
         function drawDoomLandmarks(ctx,heading,fov,horizon){
             const focal=ctx.canvas.width/(2*Math.tan(fov/2));
             for(const landmark of doomFacadeTextures.values()){
-                if(landmark.render_mode!=='landmark_sprite'||!landmark.image?.complete)continue;
+                if(landmark.render_mode!=='landmark_sprite'||!landmark.image?.complete||!doomLandmarkFacesPlayer(landmark))continue;
                 const center=landmark.facade_center_m||[0,0],dx=Number(center[0])-doomPlayer.x_m,dy=Number(center[1])-doomPlayer.y_m,distance=Math.hypot(dx,dy);
                 let angle=Math.atan2(dy,dx)-heading;while(angle>Math.PI)angle-=Math.PI*2;while(angle<-Math.PI)angle+=Math.PI*2;
                 if(distance<2||Math.abs(angle)>fov*.72)continue;
                 const scale=Math.max(.1,Number(landmark.projection_scale||1)),width=focal*Number(landmark.render_width_m||10)/distance*scale,height=focal*Number(landmark.render_height_m||18)/distance*scale;
-                const screenX=ctx.canvas.width*(.5-angle/fov),eyeHeight=Number(latestScenarioProgress?.world?.virtual_map?.spawn?.z_m||1.7),bottom=horizon+focal*eyeHeight/distance*scale;
+                const screenX=ctx.canvas.width*(.5-angle/fov),eyeHeight=Number(latestScenarioProgress?.world?.virtual_map?.spawn?.z_m||1.7),bottom=horizon+focal*eyeHeight/distance;
                 ctx.drawImage(landmark.image,screenX-width/2,bottom-height,width,height);
             }
+        }
+
+        function doomLandmarkFacesPlayer(landmark){
+            if(!doomPlayer)return false;
+            const center=landmark.facade_center_m||[0,0],normal=Number(landmark.front_normal_deg||0)*Math.PI/180;
+            const dx=doomPlayer.x_m-Number(center[0]),dy=doomPlayer.y_m-Number(center[1]),distance=Math.hypot(dx,dy)||1;
+            return (dx*Math.cos(normal)+dy*Math.sin(normal))/distance>.12;
         }
 
         function drawDoomWallSlice(ctx,x,width,top,height,hit,light){
