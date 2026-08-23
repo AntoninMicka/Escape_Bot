@@ -59,10 +59,12 @@ def main() -> None:
             })
         highway = tags.get("highway")
         if highway:
+            tunnel = tags.get("tunnel", "")
             paths.append({
                 "osm_id": element.get("id"), "line_m": points, "kind": highway,
                 "width_m": PATH_WIDTHS.get(highway, 5.0), "surface": tags.get("surface", "paving_stones"),
-                "name": tags.get("name", ""),
+                "name": tags.get("name", ""), "tunnel": tunnel,
+                "passage": tunnel in {"yes", "building_passage"} or tags.get("covered") == "yes",
             })
         if tags.get("leisure") == "park" or tags.get("natural") == "water":
             if points[0] != points[-1]: points.append(points[0])

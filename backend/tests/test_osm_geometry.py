@@ -45,6 +45,12 @@ class OsmGeometryTest(unittest.TestCase):
             distance = min(point_segment_distance((checkpoint["x_m"], checkpoint["y_m"]), *segment) for segment in segments)
             self.assertLess(distance, 35, checkpoint["name"])
 
+    def test_building_passages_survive_osm_conversion(self) -> None:
+        passages = [path for path in self.geometry["paths"] if path.get("passage")]
+        self.assertGreaterEqual(len(passages), 10)
+        self.assertTrue(any(path.get("name") == "Zelenobranská" for path in passages))
+        self.assertTrue(any(path.get("name") == "Příhrádek" for path in passages))
+
 
 if __name__ == "__main__":
     unittest.main()

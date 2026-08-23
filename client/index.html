@@ -3753,14 +3753,27 @@
             return inside;
         }
 
+        function pointSegmentDistance(point,start,end) {
+            const dx=end[0]-start[0],dy=end[1]-start[1];
+            const lengthSquared=dx*dx+dy*dy;
+            const ratio=lengthSquared?Math.max(0,Math.min(1,((point.x_m-start[0])*dx+(point.y_m-start[1])*dy)/lengthSquared)):0;
+            return Math.hypot(point.x_m-(start[0]+ratio*dx),point.y_m-(start[1]+ratio*dy));
+        }
+
+        function doomPointInPassage(point,margin=0) {
+            return (doomGeometry?.paths||[]).some(path=>path.passage&&(path.line_m||[]).slice(1).some((end,index)=>
+                pointSegmentDistance(point,path.line_m[index],end)<=Math.max(.8,Number(path.width_m||3)/2+margin)
+            ));
+        }
+
         function doomPositionBlocked(next, previous) {
             if (!doomGeometry) return false;
             const buildings=doomGeometry.buildings||[];
-            const previousInside=buildings.some(building=>pointInPolygon(previous,building.polygon_m));
+            const previousInside=!doomPointInPassage(previous)&&buildings.some(building=>pointInPolygon(previous,building.polygon_m));
             const radius=1.1;
             return Array.from({length:8},(_,index)=>index*Math.PI/4).some(angle=>{
                 const sample={x_m:next.x_m+Math.cos(angle)*radius,y_m:next.y_m+Math.sin(angle)*radius};
-                return buildings.some(building=>pointInPolygon(sample,building.polygon_m));
+                return !doomPointInPassage(sample)&&buildings.some(building=>pointInPolygon(sample,building.polygon_m));
             }) && !previousInside;
         }
 
@@ -3780,7 +3793,8 @@
                 const polygon=building.polygon_m||[];
                 for(let index=1;index<polygon.length;index++){
                     const distance=raySegmentDistance(origin,angle,polygon[index-1],polygon[index]);
-                    if(distance!==null&&distance<maxDistance&&(!hit||distance<hit.distance)) hit={distance,height:Number(building.height_m||9),kind:building.kind||'building'};
+                    const hitPoint=distance===null?null:{x_m:origin.x_m+Math.cos(angle)*distance,y_m:origin.y_m+Math.sin(angle)*distance};
+                    if(distance!==null&&!doomPointInPassage(hitPoint,.25)&&distance<maxDistance&&(!hit||distance<hit.distance)) hit={distance,height:Number(building.height_m||9),kind:building.kind||'building'};
                 }
             }
             return hit;
@@ -3814,6 +3828,7 @@
                 ctx.fillStyle=`rgb(${Math.round(light)},${Math.round(light*.74)},${Math.round(light*.52)})`;
                 ctx.fillRect(x,horizon-height*.58,columnWidth+1,height);
             }
+            drawDoomPassages(ctx,heading,fov,horizon);
             const statuses=Object.fromEntries((latestScenarioProgress.nodes||[]).map(n=>[n.id,n.status]));
             points.forEach(point=>{
                 const dx=point.x_m-doomPlayer.x_m,dy=point.y_m-doomPlayer.y_m,distance=Math.hypot(dx,dy);
@@ -3831,11 +3846,26 @@
             if(target)target.innerHTML=available?`CÍL <strong>${escapeHtml(available.name)} · ${Math.round(Math.hypot(available.x_m-doomPlayer.x_m,available.y_m-doomPlayer.y_m))} m</strong>`:'<strong>ŽÁDNÝ DOSTUPNÝ CÍL</strong>';
         }
 
+        function drawDoomPassages(ctx,heading,fov,horizon) {
+            for(const path of doomGeometry?.paths||[]){
+                if(!path.passage||!path.line_m?.length)continue;
+                const middle=path.line_m[Math.floor(path.line_m.length/2)],dx=middle[0]-doomPlayer.x_m,dy=middle[1]-doomPlayer.y_m,distance=Math.hypot(dx,dy);
+                let angle=Math.atan2(dy,dx)-heading;while(angle>Math.PI)angle-=Math.PI*2;while(angle<-Math.PI)angle+=Math.PI*2;
+                if(distance>55||Math.abs(angle)>fov*.55)continue;
+                const x=ctx.canvas.width*(.5+angle/fov),height=Math.max(24,Math.min(150,520*3/distance)),width=Math.max(16,height*.58);
+                ctx.strokeStyle='#62efff';ctx.lineWidth=Math.max(2,8-distance/10);ctx.strokeRect(x-width/2,horizon-height*.62,width,height);
+                ctx.fillStyle='#d9fbff';ctx.font='bold 11px monospace';ctx.textAlign='center';ctx.fillText(path.name?`PRŮCHOD · ${path.name}`:'PRŮCHOD',x,horizon-height*.7);
+            }
+        }
+
         function drawDoomMinimap(ctx,points,statuses,heading){
             const size=150,left=ctx.canvas.width-size-12,top=12,scale=1.45;
-            ctx.save();ctx.beginPath();ctx.rect(left,top,size,size);ctx.clip();ctx.fillStyle='#001012dd';ctx.fillRect(left,top,size,size);
+            ctx.save();ctx.beginPath();ctx.rect(left,top,size,size);ctx.clip();ctx.fillStyle='#b8b09bdd';ctx.fillRect(left,top,size,size);
             const project=point=>[left+size/2+(point.x_m-doomPlayer.x_m)*scale,top+size/2-(point.y_m-doomPlayer.y_m)*scale];
-            for(const path of doomGeometry?.paths||[]){ctx.beginPath();path.line_m.forEach(([x,y],index)=>{const p=project({x_m:x,y_m:y});index?ctx.lineTo(...p):ctx.moveTo(...p)});ctx.strokeStyle='#59625d';ctx.lineWidth=1;ctx.stroke()}
+            for(const surface of doomGeometry?.surfaces||[]){tracePolygon(ctx,surface.polygon_m,project);ctx.fillStyle=surface.kind==='water'?'#176b8b':surface.kind==='park'?'#477c43':'#718758';ctx.fill()}
+            for(const path of doomGeometry?.paths||[]){if(path.passage)continue;ctx.beginPath();path.line_m.forEach(([x,y],index)=>{const p=project({x_m:x,y_m:y});index?ctx.lineTo(...p):ctx.moveTo(...p)});ctx.strokeStyle=path.surface==='asphalt'?'#555b5c':'#e3d6b8';ctx.lineWidth=Math.max(1,Math.min(5,Number(path.width_m||3)*scale));ctx.stroke()}
+            for(const building of doomGeometry?.buildings||[]){tracePolygon(ctx,building.polygon_m,project);ctx.fillStyle='#392b29';ctx.fill();ctx.strokeStyle='#f2b36f';ctx.lineWidth=1;ctx.stroke()}
+            for(const path of doomGeometry?.paths||[]){if(!path.passage)continue;ctx.beginPath();path.line_m.forEach(([x,y],index)=>{const p=project({x_m:x,y_m:y});index?ctx.lineTo(...p):ctx.moveTo(...p)});ctx.strokeStyle='#00191d';ctx.lineWidth=Math.max(5,Number(path.width_m||3)*scale+3);ctx.stroke();ctx.strokeStyle='#72e7ff';ctx.lineWidth=Math.max(3,Number(path.width_m||3)*scale);ctx.stroke()}
             points.forEach(point=>{const [x,y]=project(point),status=statuses[point.node_id]||'locked';ctx.fillStyle=status==='complete'?'#0f8':status==='available'?'#ff0':'#555';ctx.beginPath();ctx.arc(x,y,4,0,Math.PI*2);ctx.fill()});
             ctx.translate(left+size/2,top+size/2);ctx.rotate(-heading);ctx.fillStyle='#0ff';ctx.beginPath();ctx.moveTo(10,0);ctx.lineTo(-7,-6);ctx.lineTo(-7,6);ctx.closePath();ctx.fill();ctx.restore();
             ctx.strokeStyle='#0aa';ctx.lineWidth=2;ctx.strokeRect(left,top,size,size);
