@@ -3,8 +3,9 @@
   "location_id": "pardubice_center",
   "textures": [
     {
-      "osm_id": 45818106,
-      "name": "Zelená brána",
+      "osm_id": 45849176,
+      "name": "Zelená brána – západní předvěží",
+      "related_tower_osm_id": 45818106,
       "asset": "/assets/textures/pardubice/zelenabrana-facade-v2.png",
       "status": "prototype",
       "source": "Derived architectural study based on a Wikimedia Commons photograph",
@@ -18,7 +19,7 @@
       "render_width_m": 10,
       "render_height_m": 18,
       "projection_scale": 0.55,
-      "facade_center_m": [0, 1],
+      "facade_center_m": [-14.13, -6.18],
       "facade_axis_deg": 120,
       "front_normal_deg": 210,
       "floors": 6,
