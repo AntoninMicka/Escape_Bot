@@ -874,6 +874,17 @@ class StateMachineCheckpointTests(unittest.IsolatedAsyncioTestCase):
         with self.assertRaisesRegex(ValueError, "už existuje"):
             registry.create("other", "team", "Bob", " časoví skokani ")
 
+    def test_team_creation_retry_recovers_pending_creator_lobby(self) -> None:
+        registry = LobbyRegistry()
+        lobby = registry.create("iphone", "team", "Alice", "Chrononauti")
+
+        recovered = registry.pending_team_for_creator("iphone", " chrononauti ")
+
+        self.assertIs(recovered, lobby)
+        self.assertIsNone(registry.pending_team_for_creator("other-device", "Chrononauti"))
+        lobby.started = True
+        self.assertIsNone(registry.pending_team_for_creator("iphone", "Chrononauti"))
+
     def test_player_identity_transfer_preserves_team_size_and_creator(self) -> None:
         registry = LobbyRegistry()
         lobby = registry.create("old-device", "team", "Alice", "Chrononauti")

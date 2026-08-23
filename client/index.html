@@ -441,9 +441,10 @@
         .puzzle-category strong { display: block; color: #0aa; margin-bottom: 7px; }
         .puzzle-category span { display: block; padding: 3px 0; }
         .puzzle-clues { color: #dfffff; line-height: 1.5; }
-        .puzzle-answer { display: flex; gap: 10px; margin-top: 18px; max-width: 520px; }
-        .puzzle-answer input { font-size: 1.3em; letter-spacing: .2em; text-align: center; }
-        .puzzle-actions { display: flex; gap: 10px; margin-top: 10px; }
+        .puzzle-answer { display: flex; gap: 10px; width: 100%; max-width: 520px; min-width: 0; margin-top: 18px; }
+        .puzzle-answer input { width: 100%; min-width: 0; font-size: 1.3em; letter-spacing: .2em; text-align: center; }
+        .puzzle-answer button { flex: 0 0 auto; }
+        .puzzle-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 10px; }
         .puzzle-status.solved { padding: 12px; border: 1px solid #0f0; color: #0f0; background: #002200; }
         .puzzle-locked { color: #777; border: 1px dashed #444; padding: 16px; }
         .line-game { max-width: 620px; margin-top: 16px; padding: 14px; border: 1px solid #066; background: #000b0d; }
@@ -599,6 +600,11 @@
             .controls input { min-width: 0; padding: 9px 7px; }
             .controls button { padding: 9px 10px; }
             .controls button[title="Vyfotit selfie"] { display: none; }
+            .puzzle-container { padding: 10px; overflow-x: hidden; }
+            .puzzle-answer { gap: 6px; }
+            .puzzle-answer input { padding: 9px 6px; font-size: 1rem; letter-spacing: .08em; }
+            .puzzle-answer .icon-action { width: 44px; min-width: 44px; min-height: 44px; padding: 7px; }
+            .puzzle-actions > button { flex: 1 1 44px; min-height: 44px; padding: 8px; }
         }
     </style>
 </head>
@@ -1431,6 +1437,8 @@
         const requestedRecoveryToken = new URLSearchParams(window.location.search).get('recover');
         let savedLobby = null;
         let lobbySyncTimer = null;
+        let pendingLobbyRequest = null;
+        let pendingLobbyTimer = null;
         let reconnectTimer = null;
         try { savedLobby = JSON.parse(localStorage.getItem('escapeBotLobby') || 'null'); } catch (_) { savedLobby = null; }
 
@@ -1970,12 +1978,28 @@
             return false;
         }
 
-        function sendLobby(type, extra = {}) {
-            if (!ws || ws.readyState !== WebSocket.OPEN) return;
+        function sendLobby(type, extra = {}, retry = false) {
             if (type !== 'lobby.resume' && !requireLobbyName('lobby-player-name', 'Zadejte jméno hráče.')) return;
             if ((type === 'lobby.solo' || type === 'lobby.create') && !requireLobbyName('lobby-team-name', 'Zadejte název týmu.')) return;
+            if(['lobby.create','lobby.join'].includes(type))pendingLobbyRequest={type,extra};
+            if (!ws || ws.readyState !== WebSocket.OPEN) {
+                document.getElementById('lobby-status').textContent = 'Obnovuji spojení se serverem…';
+                connect();return;
+            }
             ws.send(JSON.stringify({type, payload:{client_id:clientId, name:lobbyPlayerName(), team_name:lobbyTeamName(), demo_mode:demoModeRequested, ...extra}}));
-            document.getElementById('lobby-status').textContent = 'Navazuji týmovou relaci…';
+            document.getElementById('lobby-status').textContent = retry ? 'Opakuji připojení k týmové relaci…' : 'Navazuji týmovou relaci…';
+            if(pendingLobbyRequest){
+                clearTimeout(pendingLobbyTimer);
+                pendingLobbyTimer=setTimeout(()=>{
+                    if(!pendingLobbyRequest)return;
+                    document.getElementById('lobby-status').textContent='Server neodpověděl, obnovuji spojení…';
+                    if(ws?.readyState===WebSocket.OPEN)ws.close(4000,'Lobby response timeout');else connect();
+                },8000);
+            }
+        }
+
+        function clearPendingLobbyRequest() {
+            pendingLobbyRequest=null;clearTimeout(pendingLobbyTimer);pendingLobbyTimer=null;
         }
 
         function chooseSoloMode() { sendLobby('lobby.solo'); }
@@ -2059,6 +2083,7 @@
         }
 
         function renderLobby(payload) {
+            clearPendingLobbyRequest();
             clearTimeout(lobbySyncTimer);
             currentLobby = payload;
             stopJoinTeamScanner();
@@ -2344,7 +2369,10 @@
                     }, 5000);
                 } else {
                     ws.send(JSON.stringify({ type: 'leaderboard.get', payload: {} }));
-                    beginLobbyConnection();
+                    if(pendingLobbyRequest){
+                        const pending=pendingLobbyRequest;
+                        sendLobby(pending.type,pending.extra,true);
+                    } else beginLobbyConnection();
                 }
             };
 
@@ -2446,6 +2474,7 @@
                     renderLobby(msg.payload);
                 }
                 else if (msg.type === 'lobby.error') {
+                    clearPendingLobbyRequest();
                     localStorage.removeItem('escapeBotLobby');
                     savedLobby = null;
                     stopJoinTeamScanner();
@@ -2928,7 +2957,7 @@
                     <ol class="puzzle-clues">${clues}</ol>
                     ${interactiveGame || (solved
                         ? '<p class="puzzle-status solved">HÁDANKA VYŘEŠENA · CHECKPOINT POTVRZEN</p>'
-                        : `<div class="puzzle-answer"><input id="puzzle-answer-${escapeHtml(puzzle.id)}" maxlength="180" autocomplete="off" placeholder="ODPOVĚĎ / KÓD" onkeydown="if(event.key==='Enter'){event.preventDefault();submitPuzzle('${escapeHtml(puzzle.id)}')}"><button class="icon-action" onclick="pasteIntoField('puzzle-answer-${escapeHtml(puzzle.id)}')" title="Vložit ze schránky" aria-label="Vložit ze schránky">📥</button><button onclick="submitPuzzle('${escapeHtml(puzzle.id)}')">OVĚŘIT</button></div>
+                        : `<div class="puzzle-answer"><input id="puzzle-answer-${escapeHtml(puzzle.id)}" maxlength="180" autocomplete="off" placeholder="ODPOVĚĎ / KÓD" onkeydown="if(event.key==='Enter'){event.preventDefault();submitPuzzle('${escapeHtml(puzzle.id)}')}"><button class="icon-action" onclick="pasteIntoField('puzzle-answer-${escapeHtml(puzzle.id)}')" title="Vložit ze schránky" aria-label="Vložit ze schránky">📥</button><button class="icon-action" onclick="submitPuzzle('${escapeHtml(puzzle.id)}')" title="Ověřit odpověď" aria-label="Ověřit odpověď">✓</button></div>
                            ${renderHintButtons(puzzle)}<div class="puzzle-actions"><span>Pokusy: ${puzzle.attempts || 0}</span></div>`)}
                 </article>`;
             }).join('');
@@ -2957,7 +2986,7 @@
                     const path = jigsawPiecePath(source, size);
                     return `<button class="jigsaw-piece ${selectedArchivePiece === cardId ? 'selected' : ''}" onclick="selectArchivePiece('${escapeHtml(puzzle.id)}','${escapeHtml(cardId)}')" aria-label="Dílek skládačky"><svg viewBox="-14 -14 128 128" aria-hidden="true"><defs><clipPath id="${clipId}"><path d="${path}"/></clipPath></defs><image href="${escapeHtml(game.image)}" x="${-x * 100}" y="${-y * 100}" width="${size * 100}" height="${size * 100}" preserveAspectRatio="none" clip-path="url(#${clipId})"/><path d="${path}" fill="none" stroke="#6ff" stroke-width="1.2" opacity=".7"/></svg></button>`;
                 }).join('');
-                const reveal = game.assembled ? `<div class="archive-reveal"><small>ODHALENÝ KLÍČ</small><div class="archive-key">${escapeHtml(game.revealed_key)}</div><p><strong>POŘADÍ MODULŮ:</strong> ${game.module_order.map(escapeHtml).join(' → ')}</p></div><h4>ZACHYCENÝ PŘENOS</h4><div class="archive-ciphertext">${escapeHtml(puzzle.ciphertext)}</div><div class="puzzle-answer"><input id="puzzle-answer-${escapeHtml(puzzle.id)}" maxlength="100" autocomplete="off" placeholder="CELÝ DEŠIFROVANÝ TEXT" onkeydown="if(event.key==='Enter'){event.preventDefault();submitPuzzle('${escapeHtml(puzzle.id)}')}"><button class="icon-action" onclick="pasteIntoField('puzzle-answer-${escapeHtml(puzzle.id)}')" title="Vložit ze schránky" aria-label="Vložit ze schránky">📥</button><button onclick="submitPuzzle('${escapeHtml(puzzle.id)}')">OVĚŘIT</button></div>` : '<p class="cipher-note">Vyberte dva dílky, které chcete prohodit. Obraz zatím není úplný.</p>';
+                const reveal = game.assembled ? `<div class="archive-reveal"><small>ODHALENÝ KLÍČ</small><div class="archive-key">${escapeHtml(game.revealed_key)}</div><p><strong>POŘADÍ MODULŮ:</strong> ${game.module_order.map(escapeHtml).join(' → ')}</p></div><h4>ZACHYCENÝ PŘENOS</h4><div class="archive-ciphertext">${escapeHtml(puzzle.ciphertext)}</div><div class="puzzle-answer"><input id="puzzle-answer-${escapeHtml(puzzle.id)}" maxlength="100" autocomplete="off" placeholder="CELÝ DEŠIFROVANÝ TEXT" onkeydown="if(event.key==='Enter'){event.preventDefault();submitPuzzle('${escapeHtml(puzzle.id)}')}"><button class="icon-action" onclick="pasteIntoField('puzzle-answer-${escapeHtml(puzzle.id)}')" title="Vložit ze schránky" aria-label="Vložit ze schránky">📥</button><button class="icon-action" onclick="submitPuzzle('${escapeHtml(puzzle.id)}')" title="Ověřit odpověď" aria-label="Ověřit odpověď">✓</button></div>` : '<p class="cipher-note">Vyberte dva dílky, které chcete prohodit. Obraz zatím není úplný.</p>';
                 return `<div class="archive-assembly"><div class="jigsaw-board" style="grid-template-columns:repeat(${size},1fr)">${pieces}</div><p>PROHOZENÍ: ${Number(game.moves)}</p>${reveal}${renderHintButtons(puzzle)}<div class="puzzle-actions"><span>Pokusy: ${puzzle.attempts || 0}</span></div></div>`;
             }
             const cards = game.order.map(cardId => {
@@ -2965,7 +2994,7 @@
                 const rotation = Number(game.rotations[cardId] || 0);
                 return `<div class="archive-card-wrap"><div class="archive-card ${escapeHtml(card.color)}" style="transform:rotate(${rotation}deg)" aria-label="${escapeHtml(card.label)}, natočení ${rotation} stupňů"><strong>${escapeHtml(card.icon)}</strong></div><small>${escapeHtml(card.label)}</small><div class="archive-card-controls"><button onclick="arrangeArchiveCard('${escapeHtml(puzzle.id)}','${escapeHtml(cardId)}','left')" aria-label="Posunout vlevo">←</button><button onclick="arrangeArchiveCard('${escapeHtml(puzzle.id)}','${escapeHtml(cardId)}','rotate')" aria-label="Otočit">↻</button><button onclick="arrangeArchiveCard('${escapeHtml(puzzle.id)}','${escapeHtml(cardId)}','right')" aria-label="Posunout vpravo">→</button></div></div>`;
             }).join('');
-            const reveal = game.assembled ? `<div class="archive-reveal"><small>ODHALENÝ KLÍČ</small><div class="archive-key">${escapeHtml(game.revealed_key)}</div><p><strong>POŘADÍ MODULŮ:</strong> ${game.module_order.map(escapeHtml).join(' → ')}</p></div><h4>ZACHYCENÝ PŘENOS</h4><div class="archive-ciphertext">${escapeHtml(puzzle.ciphertext)}</div><div class="puzzle-answer"><input id="puzzle-answer-${escapeHtml(puzzle.id)}" maxlength="100" autocomplete="off" placeholder="CELÝ DEŠIFROVANÝ TEXT" onkeydown="if(event.key==='Enter'){event.preventDefault();submitPuzzle('${escapeHtml(puzzle.id)}')}"><button class="icon-action" onclick="pasteIntoField('puzzle-answer-${escapeHtml(puzzle.id)}')" title="Vložit ze schránky" aria-label="Vložit ze schránky">📥</button><button onclick="submitPuzzle('${escapeHtml(puzzle.id)}')">OVĚŘIT</button></div>` : '<p class="cipher-note">Křivka ani stupnice zatím nenavazují.</p>';
+            const reveal = game.assembled ? `<div class="archive-reveal"><small>ODHALENÝ KLÍČ</small><div class="archive-key">${escapeHtml(game.revealed_key)}</div><p><strong>POŘADÍ MODULŮ:</strong> ${game.module_order.map(escapeHtml).join(' → ')}</p></div><h4>ZACHYCENÝ PŘENOS</h4><div class="archive-ciphertext">${escapeHtml(puzzle.ciphertext)}</div><div class="puzzle-answer"><input id="puzzle-answer-${escapeHtml(puzzle.id)}" maxlength="100" autocomplete="off" placeholder="CELÝ DEŠIFROVANÝ TEXT" onkeydown="if(event.key==='Enter'){event.preventDefault();submitPuzzle('${escapeHtml(puzzle.id)}')}"><button class="icon-action" onclick="pasteIntoField('puzzle-answer-${escapeHtml(puzzle.id)}')" title="Vložit ze schránky" aria-label="Vložit ze schránky">📥</button><button class="icon-action" onclick="submitPuzzle('${escapeHtml(puzzle.id)}')" title="Ověřit odpověď" aria-label="Ověřit odpověď">✓</button></div>` : '<p class="cipher-note">Křivka ani stupnice zatím nenavazují.</p>';
             return `<div class="archive-assembly"><div class="archive-cards">${cards}</div><p>TAHY: ${Number(game.moves)}</p>${reveal}${renderHintButtons(puzzle)}<div class="puzzle-actions"><span>Pokusy: ${puzzle.attempts || 0}</span></div></div>`;
         }
 

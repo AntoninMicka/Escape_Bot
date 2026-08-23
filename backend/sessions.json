@@ -2709,13 +2709,16 @@
     "game_exclusions": {},
     "game_results": {}
   },
-  "4ee48a7f571a41dd94005db3e614eaa3": {
+  "c931d036b1624df3b9e37f497076280f": {
     "phase": "navigating",
-    "unlocked_discoveries": [],
+    "unlocked_discoveries": [
+      "reception_archive"
+    ],
     "inventory": [],
     "flags": {
-      "operations_started_at": "2026-08-23T05:34:18.020549+00:00",
-      "chronomap_unlocked": true
+      "operations_started_at": "2026-08-23T10:29:43.723103+00:00",
+      "chronomap_unlocked": true,
+      "reception_archive_unlocked": true
     },
     "chat_history": [
       {
@@ -2727,8 +2730,8 @@
       },
       {
         "role": "player",
-        "channel": "captain",
-        "text": "hoj"
+        "channel": "general",
+        "text": "Ok"
       },
       {
         "role": "bot",
@@ -2758,36 +2761,73 @@
         "text": "Jsme ve stejném Kraskově, ale já jsem uvázla v jeho budoucí časové vrstvě. Interkom přenese jen hlas a data; ven mě dostane až stabilní koridor. Havárie vymrštila tři součásti stroje do vašeho času. CHRONOMAPA je online — najděte její první stabilní bod u recepčního archivu.",
         "voice_id": "elara_temporal_reveal",
         "audio_url": "/assets/voices/elara_temporal_reveal.mp3"
+      },
+      {
+        "role": "bot",
+        "channel": "captain",
+        "text": "Časová kotva na recepci potvrzena. CHRONOMAPA obnovila recepční archiv."
+      },
+      {
+        "role": "bot",
+        "channel": "captain",
+        "text": "Archiv potvrzuje shodu: Elara, pokoj 214, pozice 7. V dokumentaci se obnovil servisní otisk panelu dveří 104:\n\nI   |   X   |   IV\n\nKaždá oddělená skupina tvoří jednu část čtyřmístného přístupového kódu."
+      },
+      {
+        "role": "bot",
+        "channel": "captain",
+        "text": "Než opustíte recepci, použijte obnovený servisní otisk k odemčení virtuálního pokoje 104. Potom pokračujte ke schodišti; tam leží další časová kotva."
       }
     ],
     "score": 1020,
     "hints_used": {},
-    "checkpoint_states": {},
+    "checkpoint_states": {
+      "reception_archive": {
+        "status": "solved",
+        "first_scanned_at": "2026-08-23T10:30:17.675239+00:00",
+        "solved_at": "2026-08-23T10:30:43.633873+00:00"
+      }
+    },
     "unlocked_cipher_tools": [
       "a1z26",
       "morse"
     ],
     "paid_cipher_tools": [],
-    "puzzle_attempts": {},
+    "puzzle_attempts": {
+      "reception_deduction": 1
+    },
     "interactive_games": {},
     "sokoban_games": {},
     "karel_games": {},
-    "last_activity_at": "2026-08-23T05:34:41.868194+00:00",
+    "last_activity_at": "2026-08-23T10:30:43.633836+00:00",
     "triad_games": {},
     "archive_games": {},
     "event_history": [
       {
-        "at": "2026-08-23T05:34:33.101449+00:00",
+        "at": "2026-08-23T10:29:54.502267+00:00",
+        "type": "player.message",
+        "details": {
+          "channel": "general"
+        }
+      },
+      {
+        "at": "2026-08-23T10:30:08.540855+00:00",
         "type": "player.message",
         "details": {
           "channel": "captain"
         }
       },
       {
-        "at": "2026-08-23T05:34:41.868194+00:00",
-        "type": "player.message",
+        "at": "2026-08-23T10:30:17.675207+00:00",
+        "type": "qr.detected",
         "details": {
-          "channel": "captain"
+          "value": "escapebot://checkpoint/4ec67b900c4a491ba180c8a48d5309f2"
+        }
+      },
+      {
+        "at": "2026-08-23T10:30:43.633836+00:00",
+        "type": "puzzle.submit",
+        "details": {
+          "puzzle_id": "reception_deduction"
         }
       }
     ],

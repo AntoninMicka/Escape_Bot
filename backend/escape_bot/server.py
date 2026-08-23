@@ -1085,7 +1085,14 @@ async def websocket_endpoint(websocket: WebSocket):
                             require_start_available()
                             lobby = lobby_registry.create(requested_client_id, "solo", name, team_name)
                         elif msg.type == "lobby.create":
-                            lobby = lobby_registry.create(requested_client_id, "team", name, team_name)
+                            # Mobile Safari can suspend a socket immediately after
+                            # sending. A retry must recover the created lobby instead
+                            # of failing on its now-duplicate team name.
+                            lobby = lobby_registry.pending_team_for_creator(requested_client_id, team_name)
+                            if lobby is None:
+                                lobby = lobby_registry.create(requested_client_id, "team", name, team_name)
+                            else:
+                                lobby.add_player(requested_client_id, name)
                         elif msg.type == "lobby.join":
                             lobby = lobby_registry.join(str(msg.payload.get("join_code", "")), requested_client_id, name)
                         elif msg.type == "lobby.resume":
