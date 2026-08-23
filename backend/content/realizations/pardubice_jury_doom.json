@@ -262,6 +262,7 @@
         "units": "meters",
         "meters_per_unit": 1,
         "route_width_m": 5,
+        "building_height_scale": 1.4,
         "route_centerline_m": [
           [
             0.0,
