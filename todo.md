@@ -1080,3 +1080,18 @@ Původní stručný záměr je rozpracován v oddílu 19. Editor nemá být svá
 - [ ] Vyhodnotit výkon telefonů, GPS spolehlivost, složitost tvorby obsahu, délku testování a skutečnou hráčskou hodnotu obou režimů.
 - [ ] Rozhodnout, zda hlavním produktem bude platforma fyzických realizací, hybridních her, virtuálních světů, nebo zda Geo/Doom zůstanou volitelnými moduly.
 - [ ] Teprve poté propojit editor s katalogem her, rezervacemi, platbami a víceuživatelským komerčním provozem z oddílu 16.
+
+### Rozpracovaný experiment – OSM Doom a fasády Mapillary (handoff 2026-08-23)
+
+**Stav na větvi `develop`:** raycastovaná mapa Pardubic má opravený rozjezd z kolizního překryvu, oddělenou pohybovou a kreslicí smyčku, lokální prostorové filtrování geometrie, procedurální střechy a okna. Volitelná integrace Mapillary umí najít snímek poblíž hráče a experimentálně jej promítnout na nejbližší OSM budovu. Veřejný klientský token je pouze v ignorovaném `.env.local` s oprávněním `600`; nikdy jej necommitovat. Přímé zobrazení samostatné uliční fotografie bylo vyhodnoceno jako slepá cesta.
+
+- [x] Ověřit přístup k Mapillary API a vykreslení vzdálené fotografie jako prototypu fasádní textury.
+- [x] Doplnit stabilní souřadnici zásahu paprsku po hraně budovy, aby textura při pohybu neplavala.
+- [ ] Vybrat jednu výraznou budovu u prvního checkpointu a dokončit ji jako referenční vertikální řez.
+- [ ] Mapillary používat při přípravě assetů jako obrazovou referenci, ne jako povinnou runtime službu během hry.
+- [ ] Z referenční fotografie perspektivně narovnat fasádu, odstranit auta, lidi a oblohu a vytvořit opakovatelnou stylizovanou texturu.
+- [ ] Uložit výslednou texturu lokálně s licencí, atribucí, zdrojovým Mapillary image ID a vazbou na konkrétní OSM ID budovy.
+- [ ] Přidat malý manifest `OSM ID → textura → měřítko/patra/orientace` a načítat jej spolu s mapovou geometrií.
+- [ ] Ověřit vzhled z více úhlů, rozměry oken a dveří, paměť, FPS na slabším telefonu a offline chod bez Mapillary.
+- [ ] Teprve po schválení referenční budovy zpracovat přibližně 10–20 orientačních budov kolem checkpointů; zbytek ponechat procedurální.
+- [ ] Po dokončení lokálních assetů odstranit nebo skrýt experimentální tlačítko `TEXTURA FASÁDY` a ponechat Mapillary integraci pouze jako vývojový nástroj.
