@@ -33,6 +33,46 @@ POINTS = {
 }
 
 
+# These story beats intentionally have no production puzzle yet. Keeping a
+# visible, solvable placeholder makes the GEO/Doom route testable without
+# silently shipping ciphers and artwork copied from Lost in Time.
+PLACEHOLDER_CIPHERS = {
+    "reception_deduction": ("Rozpory ve výpovědích", "Budoucí dedukční úloha nad výpověďmi porotců a časovou osou případu."),
+    "staircase_semaphore": ("Viditelnost svědka", "Budoucí obrazová šifra ověřující, co mohl klíčový svědek skutečně vidět."),
+    "bowling_binary": ("Digitální stopa telefonu", "Budoucí datová šifra nad časovými údaji z telefonu a vysílačů."),
+    "terrace_morse": ("Zvuk kroků v noci", "Budoucí zvuková nebo rytmická šifra porovnávající svědecké výpovědi."),
+    "sports_pigpen": ("Zašifrovaná poznámka", "Budoucí samostatná šifra založená na poznámce nalezené ve spise."),
+    "future_archive_cipher": ("Sestavení alternativní verze", "Budoucí závěrečná šifra, která spojí rozpory do alternativní verze událostí."),
+}
+
+
+def placeholder_cipher(puzzle: dict[str, Any], title: str, brief: str) -> dict[str, Any]:
+    """Replace inherited cipher content while preserving its route binding."""
+    return {
+        "title": title,
+        "type": "placeholder",
+        "development_status": "placeholder",
+        "checkpoint_id": puzzle["checkpoint_id"],
+        "instructions": (
+            f"{brief}\n\nToto stanoviště zatím používá vývojový placeholder. "
+            "Pro otestování průchodu zadejte PLACEHOLDER."
+        ),
+        "answer": "PLACEHOLDER",
+        "admin_solution": "PLACEHOLDER – dočasný průchod; finální šifra ještě není navržena.",
+        "success_message": {
+            "text": "Vývojový placeholder splněn. Stanoviště bude před vydáním nahrazeno původní šifrou.",
+            "mood": "focused",
+            "channel": "captain",
+        },
+        "failure_message": {
+            "text": "Jde o vývojový placeholder. Pro pokračování zadejte PLACEHOLDER.",
+            "mood": "error",
+            "channel": "general",
+        },
+        "hints": [],
+    }
+
+
 def rewrite_story(value: Any) -> Any:
     if isinstance(value, dict):
         return {key: rewrite_story(child) for key, child in value.items()}
@@ -184,6 +224,10 @@ def main() -> None:
     }
     for puzzle_id, title in puzzle_titles.items():
         template["runtime"]["puzzles"][puzzle_id]["title"] = title
+    for puzzle_id, (title, brief) in PLACEHOLDER_CIPHERS.items():
+        inherited = template["runtime"]["puzzles"][puzzle_id]
+        template["runtime"]["puzzles"][puzzle_id] = placeholder_cipher(inherited, title, brief)
+    template["runtime"]["puzzle_components"]["placeholder"] = {"adapter": "answer"}
     checkpoint_texts = {
         contract: (f"Důkazní bod {index} potvrzen: {POINTS[contract][0]}.",
                    "Pokračujte k dalšímu bodu mapy a porovnejte novou stopu s dosavadní časovou osou.")

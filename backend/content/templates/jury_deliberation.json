@@ -712,178 +712,83 @@
     "puzzles": {
       "reception_deduction": {
         "title": "Rozpory ve výpovědích",
-        "type": "logic_grid",
+        "type": "placeholder",
+        "development_status": "placeholder",
         "checkpoint_id": "${checkpoints.public_archive.id}",
-        "instructions": "V nočním archivu jsou záznamy čtyř členů projektu. Každý bydlel v jiném pokoji, přivezl jinou součást a jeho dokumentace skončila v jiné pozici archivu. Určete pokoj doktorky Elary a pozici jejího záznamu. Kód tvoří tři číslice pokoje a jedna číslice pozice archivu.",
-        "categories": {
-          "Vědec": [
-            "Nora",
-            "Novák",
-            "Silva",
-            "Chen"
-          ],
-          "Pokoj": [
-            "101",
-            "104",
-            "207",
-            "214"
-          ],
-          "Součást": [
-            "ČASOVÁ OSA",
-            "MOTIV",
-            "Krystal kotvy",
-            "Datový záznamník"
-          ],
-          "Pozice archivu": [
-            "3",
-            "5",
-            "7",
-            "9"
-          ]
-        },
-        "clues": [
-          "Doktor Novák bydlel v pokoji s nejnižším číslem.",
-          "Datový záznamník byl uložen v pokoji 104.",
-          "Doktorka Chen přivezla datový záznamník.",
-          "Krystal důkazní body byl uložen v pokoji 207.",
-          "Dokumentace krystalu leží na pozici 9.",
-          "Dokumentace důkazního motoru leží na pozici 3.",
-          "Dokumentace datového záznamníku leží na pozici 5.",
-          "Nora nepřivezla ani motor, ani krystal."
-        ],
-        "answer": "2147",
-        "admin_solution": "2147 – Nora bydlela v pokoji 214 a její dokumentace je na pozici archivu 7.",
+        "instructions": "Budoucí dedukční úloha nad výpověďmi porotců a časovou osou případu.\n\nToto stanoviště zatím používá vývojový placeholder. Pro otestování průchodu zadejte PLACEHOLDER.",
+        "answer": "PLACEHOLDER",
+        "admin_solution": "PLACEHOLDER – dočasný průchod; finální šifra ještě není navržena.",
         "success_message": {
-          "text": "Archiv potvrzuje shodu: Nora, pokoj 214, pozice 7. V dokumentaci se obnovil servisní otisk panelu dveří 104:\n\nI   |   X   |   IV\n\nKaždá oddělená skupina tvoří jednu část čtyřmístného přístupového kódu.",
-          "mood": "success",
+          "text": "Vývojový placeholder splněn. Stanoviště bude před vydáním nahrazeno původní šifrou.",
+          "mood": "focused",
           "channel": "captain"
         },
         "failure_message": {
-          "text": "Archivní kombinace nesouhlasí. Zkontrolujte vazby mezi pokoji, součástkami a pozicemi.",
+          "text": "Jde o vývojový placeholder. Pro pokračování zadejte PLACEHOLDER.",
           "mood": "error",
           "channel": "general"
         },
-        "hints": [
-          {
-            "text": "Začněte pevnými vazbami: Novák má nejnižší pokoj a Chen má záznamník.",
-            "penalty": 10
-          },
-          {
-            "text": "Pokoj 104 patří Chen. Pokoj 207 obsahoval krystal.",
-            "penalty": 20
-          },
-          {
-            "text": "Elaře zbývá fázový stabilizátor, pokoj 214 a pozice 7.",
-            "penalty": 35
-          }
-        ]
+        "hints": []
       },
       "staircase_semaphore": {
         "title": "Viditelnost svědka",
-        "type": "semaphore",
+        "type": "placeholder",
+        "development_status": "placeholder",
         "checkpoint_id": "${checkpoints.signal_transition.id}",
-        "instructions": "Nalezený obrazový soubor z Elařina osobního archivu.",
-        "image": "assets/puzzles/elara-clock-gallery.png",
-        "answer": "BOWLING",
-        "admin_solution": "BOWLING (B–O–W–L–I–N–G)",
+        "instructions": "Budoucí obrazová šifra ověřující, co mohl klíčový svědek skutečně vidět.\n\nToto stanoviště zatím používá vývojový placeholder. Pro otestování průchodu zadejte PLACEHOLDER.",
+        "answer": "PLACEHOLDER",
+        "admin_solution": "PLACEHOLDER – dočasný průchod; finální šifra ještě není navržena.",
         "success_message": {
-          "text": "Signál přeložen: BOWLING. Mapa důkazů zachytila diagnostické impulzy v prostoru kuželek.",
-          "mood": "success",
-          "channel": "lost"
+          "text": "Vývojový placeholder splněn. Stanoviště bude před vydáním nahrazeno původní šifrou.",
+          "mood": "focused",
+          "channel": "captain"
         },
         "failure_message": {
-          "text": "Archivní systém v nalezeném souboru tuto odpověď nepotvrzuje.",
+          "text": "Jde o vývojový placeholder. Pro pokračování zadejte PLACEHOLDER.",
           "mood": "error",
           "channel": "general"
         },
-        "hints": [
-          {
-            "text": "Sledujte dvojice barevných ručiček a zachovejte pořadí snímků.",
-            "penalty": 10
-          },
-          {
-            "text": "Každá dvojice poloh představuje jedno písmeno v praporové abecedě dostupné v pomůckách.",
-            "penalty": 20
-          },
-          {
-            "text": "Sedm znaků dává navigační slovo BOWLING.",
-            "penalty": 35
-          }
-        ]
+        "hints": []
       },
       "bowling_binary": {
         "title": "Digitální stopa telefonu",
-        "type": "binary_image",
+        "type": "placeholder",
+        "development_status": "placeholder",
         "checkpoint_id": "${checkpoints.machine_part_one.id}",
-        "instructions": "Obrazový záznam z diagnostického prostoru bowlingu.",
-        "image": "assets/puzzles/bowling-binary-motor-v3.png",
-        "answer": "MOTOR",
-        "admin_solution": "MOTOR – sedmibitové ASCII v označených řadách 4+3: 1001101 1001111 1010100 1001111 1010010; přední řady 2+1 jsou šum",
+        "instructions": "Budoucí datová šifra nad časovými údaji z telefonu a vysílačů.\n\nToto stanoviště zatím používá vývojový placeholder. Pro otestování průchodu zadejte PLACEHOLDER.",
+        "answer": "PLACEHOLDER",
+        "admin_solution": "PLACEHOLDER – dočasný průchod; finální šifra ještě není navržena.",
         "success_message": {
-          "text": "Diagnostická sekvence potvrzena: MOTOR. TEMPORÁLNÍ MOTOR je znovu synchronizován s terminálem.",
-          "mood": "success",
-          "channel": "captain",
-          "voice_id": "captain_motor_recovered",
-          "audio_url": "/assets/voices/captain_motor_recovered.mp3"
+          "text": "Vývojový placeholder splněn. Stanoviště bude před vydáním nahrazeno původní šifrou.",
+          "mood": "focused",
+          "channel": "captain"
         },
         "failure_message": {
-          "text": "Diagnostická sekvence tomuto označení součásti neodpovídá.",
+          "text": "Jde o vývojový placeholder. Pro pokračování zadejte PLACEHOLDER.",
           "mood": "error",
           "channel": "general"
         },
-        "hints": [
-          {
-            "text": "V každém snímku použijte pouze označené řady 4 + 3; přední řady jsou obrazový šum.",
-            "penalty": 10
-          },
-          {
-            "text": "Stojící kuželka znamená 1 a prázdný obrys 0. Každý snímek vytvoří sedm bitů.",
-            "penalty": 20
-          },
-          {
-            "text": "Pět sedmibitových ASCII znaků dává slovo MOTOR.",
-            "penalty": 35
-          }
-        ]
+        "hints": []
       },
       "terrace_morse": {
         "title": "Zvuk kroků v noci",
-        "type": "morse_image",
+        "type": "placeholder",
+        "development_status": "placeholder",
         "checkpoint_id": "${checkpoints.machine_part_two.id}",
-        "instructions": "Noční obrazový záznam z terasy u rybníka.",
-        "image": "assets/puzzles/terrace-morse-cats-hriste-v2.png",
-        "answer": "HRISTE",
-        "answers": [
-          "HRISTE",
-          "HŘIŠTĚ"
-        ],
-        "admin_solution": "HŘIŠTĚ – kotě = tečka, dospělá kočka = čárka; .... / .-. / .. / ... / - / .",
+        "instructions": "Budoucí zvuková nebo rytmická šifra porovnávající svědecké výpovědi.\n\nToto stanoviště zatím používá vývojový placeholder. Pro otestování průchodu zadejte PLACEHOLDER.",
+        "answer": "PLACEHOLDER",
+        "admin_solution": "PLACEHOLDER – dočasný průchod; finální šifra ještě není navržena.",
         "success_message": {
-          "text": "Světelný přenos potvrzen: HŘIŠTĚ. FÁZOVÝ STABILIZÁTOR se synchronizoval a Mapa důkazů označila sportovní areál.",
-          "mood": "success",
-          "channel": "lost",
-          "voice_id": "elara_stabilizer_recovered",
-          "audio_url": "/assets/voices/elara_stabilizer_recovered.mp3"
+          "text": "Vývojový placeholder splněn. Stanoviště bude před vydáním nahrazeno původní šifrou.",
+          "mood": "focused",
+          "channel": "captain"
         },
         "failure_message": {
-          "text": "Chronální přenos tuto cílovou lokaci nepotvrzuje.",
+          "text": "Jde o vývojový placeholder. Pro pokračování zadejte PLACEHOLDER.",
           "mood": "error",
           "channel": "general"
         },
-        "hints": [
-          {
-            "text": "Rozdělte zvířata do skupin podle větších mezer a zachovejte jejich pořadí.",
-            "penalty": 10
-          },
-          {
-            "text": "Kotě představuje krátký pulz a dospělá kočka dlouhý pulz; použijte odpovídající tabulku.",
-            "penalty": 20
-          },
-          {
-            "text": "Sekvence se překládá jako HŘIŠTĚ.",
-            "penalty": 35
-          }
-        ]
+        "hints": []
       },
       "timeline_lines": {
         "title": "Rekonstrukce časové osy",
@@ -1550,211 +1455,43 @@
       },
       "sports_pigpen": {
         "title": "Zašifrovaná poznámka",
-        "type": "pigpen",
+        "type": "placeholder",
+        "development_status": "placeholder",
         "checkpoint_id": "${checkpoints.machine_part_three.id}",
-        "instructions": "Terminál obnovil šest neznámých znaků z poškozeného archivního otisku. Určete jejich význam a zadejte výsledné české slovo.",
-        "image": "assets/puzzles/sports-pigpen-hodiny.svg",
-        "answer": "HODINY",
-        "answers": [
-          "HODINY",
-          "HODINY V LOBBY",
-          "LOBBY HODINY"
-        ],
-        "admin_solution": "HODINY – obě poloviny tabulky polského kříže společně určují šest znaků H–O–D–I–N–Y.",
+        "instructions": "Budoucí samostatná šifra založená na poznámce nalezené ve spise.\n\nToto stanoviště zatím používá vývojový placeholder. Pro otestování průchodu zadejte PLACEHOLDER.",
+        "answer": "PLACEHOLDER",
+        "admin_solution": "PLACEHOLDER – dočasný průchod; finální šifra ještě není navržena.",
         "success_message": {
-          "text": "Zpráva potvrzena: HODINY. V jejich servisním pouzdře je třetí díl stroje – KRYSTAL ČASOVÉ KOTVY – a přístupový otisk Archivu budoucnosti.",
-          "mood": "success",
-          "channel": "captain",
-          "voice_id": "captain_crystal_recovered",
-          "audio_url": "/assets/voices/captain_crystal_recovered.mp3"
+          "text": "Vývojový placeholder splněn. Stanoviště bude před vydáním nahrazeno původní šifrou.",
+          "mood": "focused",
+          "channel": "captain"
         },
         "failure_message": {
-          "text": "Archivní otisk tuto odpověď nepotvrzuje.",
+          "text": "Jde o vývojový placeholder. Pro pokračování zadejte PLACEHOLDER.",
           "mood": "error",
           "channel": "general"
         },
-        "hints": [
-          {
-            "text": "V Šifrovacích pomůckách je grafická tabulka používající stejné rohy, kříže a klíny.",
-            "penalty": 15
-          },
-          {
-            "text": "Jde o malý polský kříž. Čtěte znaky zleva doprava; výsledkem je objekt v hotelu, který ukazuje čas.",
-            "penalty": 30
-          },
-          {
-            "text": "Poškozený otisk ukrývá slovo HODINY.",
-            "penalty": 45
-          }
-        ]
+        "hints": []
       },
       "future_archive_cipher": {
         "title": "Sestavení alternativní verze",
-        "type": "archive_vector",
+        "type": "placeholder",
+        "development_status": "placeholder",
         "checkpoint_id": "${checkpoints.return_archive.id}",
-        "instructions": "Poškozený obraz rekonstrukce případu se rozpadl na šestnáct částí. Výběrem dvou dílků je prohoďte a obnovte celý obraz. Až se archiv stabilizuje, použijte odhalený klíč k přečtení zachyceného přenosu a zadejte celý dešifrovaný text.",
-        "ciphertext": "TVBRI OFWSR HEWKG KDQNG VXHAS QBSEA PFVBM NHGCE OVKTF HBFKV HSWYW RCAFF XFQUA RZ",
-        "answer": "ROKDVANULATRISEDMCASDVAJEDNACTYRINULAPORADIMOTORSTABILIZATORKRYSTAL",
-        "answers": [
-          "ROKDVANULATRISEDMCASDVAJEDNACTYRINULAPORADIMOTORSTABILIZATORKRYSTAL",
-          "ROK DVA NULA TRI SEDM CAS DVA JEDNA CTYRI NULA PORADI MOTOR STABILIZATOR KRYSTAL"
-        ],
-        "admin_solution": "Vigenère, klíč CHRONOS. Text: ROK DVA NULA TŘI SEDM / ČAS DVA JEDNA ČTYŘI NULA / POŘADÍ MOTOR STABILIZÁTOR KRYSTAL, tedy 2037, 21:40, MOTOR → STABILIZÁTOR → KRYSTAL.",
-        "assembly": {
-          "mode": "jigsaw",
-          "image": "assets/puzzles/time-machine-jigsaw.png",
-          "grid_size": 4,
-          "cards": [
-            {
-              "id": "tile_1",
-              "label": "DÍLEK",
-              "source_index": 0
-            },
-            {
-              "id": "tile_2",
-              "label": "DÍLEK",
-              "source_index": 1
-            },
-            {
-              "id": "tile_3",
-              "label": "DÍLEK",
-              "source_index": 2
-            },
-            {
-              "id": "tile_4",
-              "label": "DÍLEK",
-              "source_index": 3
-            },
-            {
-              "id": "tile_5",
-              "label": "DÍLEK",
-              "source_index": 4
-            },
-            {
-              "id": "tile_6",
-              "label": "DÍLEK",
-              "source_index": 5
-            },
-            {
-              "id": "tile_7",
-              "label": "DÍLEK",
-              "source_index": 6
-            },
-            {
-              "id": "tile_8",
-              "label": "DÍLEK",
-              "source_index": 7
-            },
-            {
-              "id": "tile_9",
-              "label": "DÍLEK",
-              "source_index": 8
-            },
-            {
-              "id": "tile_10",
-              "label": "DÍLEK",
-              "source_index": 9
-            },
-            {
-              "id": "tile_11",
-              "label": "DÍLEK",
-              "source_index": 10
-            },
-            {
-              "id": "tile_12",
-              "label": "DÍLEK",
-              "source_index": 11
-            },
-            {
-              "id": "tile_13",
-              "label": "DÍLEK",
-              "source_index": 12
-            },
-            {
-              "id": "tile_14",
-              "label": "DÍLEK",
-              "source_index": 13
-            },
-            {
-              "id": "tile_15",
-              "label": "DÍLEK",
-              "source_index": 14
-            },
-            {
-              "id": "tile_16",
-              "label": "DÍLEK",
-              "source_index": 15
-            }
-          ],
-          "initial_order": [
-            "tile_11",
-            "tile_4",
-            "tile_15",
-            "tile_1",
-            "tile_8",
-            "tile_13",
-            "tile_6",
-            "tile_16",
-            "tile_3",
-            "tile_10",
-            "tile_2",
-            "tile_12",
-            "tile_7",
-            "tile_14",
-            "tile_5",
-            "tile_9"
-          ],
-          "correct_order": [
-            "tile_1",
-            "tile_2",
-            "tile_3",
-            "tile_4",
-            "tile_5",
-            "tile_6",
-            "tile_7",
-            "tile_8",
-            "tile_9",
-            "tile_10",
-            "tile_11",
-            "tile_12",
-            "tile_13",
-            "tile_14",
-            "tile_15",
-            "tile_16"
-          ],
-          "revealed_key": "CHRONOS",
-          "module_order": [
-            "TEMPORÁLNÍ MOTOR",
-            "FÁZOVÝ STABILIZÁTOR",
-            "KRYSTAL ČASOVÉ KOTVY"
-          ]
-        },
+        "instructions": "Budoucí závěrečná šifra, která spojí rozpory do alternativní verze událostí.\n\nToto stanoviště zatím používá vývojový placeholder. Pro otestování průchodu zadejte PLACEHOLDER.",
+        "answer": "PLACEHOLDER",
+        "admin_solution": "PLACEHOLDER – dočasný průchod; finální šifra ještě není navržena.",
         "success_message": {
-          "text": "Návratový vektor obnoven: rok 2037, čas 21:40, pořadí MOTOR → STABILIZÁTOR → KRYSTAL. Vraťte se k základně rekonstrukce případu.",
-          "mood": "relieved",
-          "channel": "lost",
-          "voice_id": "elara_return_vector",
-          "audio_url": "/assets/voices/elara_return_vector.mp3"
+          "text": "Vývojový placeholder splněn. Stanoviště bude před vydáním nahrazeno původní šifrou.",
+          "mood": "focused",
+          "channel": "captain"
         },
         "failure_message": {
-          "text": "Archiv vektor odmítl. Ověřte rok, čas i pořadí všech tří modulů.",
+          "text": "Jde o vývojový placeholder. Pro pokračování zadejte PLACEHOLDER.",
           "mood": "error",
           "channel": "general"
         },
-        "hints": [
-          {
-            "text": "Sledujte výrazné kabely, kruhové konstrukce a barevné světelné stopy přes okraje dílků.",
-            "penalty": 15
-          },
-          {
-            "text": "Azurový motor patří doprostřed, jantarový systém vlevo a fialový krystal vpravo. Správný obraz odhalí sedmipísmenný klíč.",
-            "penalty": 25
-          },
-          {
-            "text": "Použijte Vigenèrovu tabulku. Klíč CHRONOS opakujte nad celým archivním záznamem.",
-            "penalty": 40
-          }
-        ]
+        "hints": []
       },
       "time_machine_finale": {
         "title": "Závěrečné hlasování poroty",
@@ -2192,6 +1929,9 @@
       },
       "finale": {
         "adapter": "finale"
+      },
+      "placeholder": {
+        "adapter": "answer"
       }
     },
     "world": {

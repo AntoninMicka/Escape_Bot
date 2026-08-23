@@ -11,6 +11,11 @@ důkazy.
 pořadí jedenácti mapových checkpointů. Obě realizace používají stejné kontrakty a
 stejné herní mechanismy:
 
+Klasické šifry jsou během návrhu označené jako vývojové placeholdery. Neobsahují
+obrázky, zadání ani řešení převzatá ze scénáře Ztracena v čase; testovací průchod
+jimi používá odpověď `PLACEHOLDER`. Interaktivní minihry zatím zůstávají zapojené
+pro ověření celého herního toku.
+
 - `pardubice_jury_geo.json` — fyzický okruh od Zelené brány přes historické centrum,
   zámecké okolí a Automatické mlýny;
 - `pardubice_jury_doom.json` — online virtuální okruh nad stejnými souřadnicemi.
