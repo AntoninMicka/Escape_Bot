@@ -111,6 +111,7 @@
       ]
     }
   },
+  "cipher_tools_access": "all",
   "cipher_tools": {
     "morse": {"label": "Morseova abeceda", "default_unlocked": true, "unlock_cost": 0},
     "semaphore": {"label": "Praporová / semaforová abeceda", "default_unlocked": false, "unlock_cost": 30},

@@ -232,6 +232,13 @@ class StateMachineCheckpointTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(self.machine.state.score, 965)
         self.assertIn("pigpen", self.machine.state.paid_cipher_tools)
 
+    def test_scenario_can_present_every_cipher_tool_without_paid_unlock(self) -> None:
+        payload = self.machine._state_message().payload
+
+        self.assertEqual(self.scenario.data["cipher_tools_access"], "all")
+        self.assertTrue(payload["cipher_tools"])
+        self.assertTrue(all(tool["status"] == "unlocked" for tool in payload["cipher_tools"]))
+
     async def test_room_requires_physical_checkpoint_even_with_correct_pin(self) -> None:
         room_pin = self.scenario.data["rooms"]["104"]["pin"]
         denied = await self.machine.handle(Message("room.unlock", {"pin": room_pin}))
@@ -728,6 +735,9 @@ class StateMachineCheckpointTests(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(payload["frames"][-1]["hit_mine"])
         self.assertEqual(payload["frames"][-1]["player"], [0, 0])
         self.assertNotIn("mines", payload)
+        movement_messages = [item.payload for item in result if item.type == "bot.message"]
+        self.assertTrue(movement_messages)
+        self.assertTrue(all(item.get("suppress_unread") for item in movement_messages))
         self.assertNotIn("clues", payload)
         self.assertEqual(self.machine.state.karel_games["courtyard_karel"]["player"], [0, 0])
         self.assertEqual(self.machine.state.score, score_before - 20)

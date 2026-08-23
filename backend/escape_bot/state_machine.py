@@ -235,11 +235,12 @@ class EscapeBotStateMachine:
             "costs": [int(hint.get("penalty", 10)) for hint in phase_hints],
         }
         tools = self.scenario.data.get("cipher_tools", {})
+        all_tools_available = self.scenario.data.get("cipher_tools_access") == "all"
         snapshot["cipher_tools"] = [
             {
                 "id": tool_id,
                 "label": tool.get("label", tool_id),
-                "status": "unlocked" if tool_id in self.state.unlocked_cipher_tools else "available_for_points",
+                "status": "unlocked" if all_tools_available or tool_id in self.state.unlocked_cipher_tools else "available_for_points",
                 "unlock_cost": int(tool.get("unlock_cost", 0)),
             }
             for tool_id, tool in tools.items()
@@ -973,13 +974,13 @@ class EscapeBotStateMachine:
         command_names = {"up": "NAHORU", "down": "DOLŮ", "left": "VLEVO", "right": "VPRAVO"}
         understood = ", ".join(command_names.get(item, item.upper()) for item in message.payload.get("commands", []))
         responses = [
-            reply("bot.message", {"text": f"Rozumím sekvenci: {understood}. Provádím.", "mood": "focused", "channel": "lost"}, message),
+            reply("bot.message", {"text": f"Rozumím sekvenci: {understood}. Provádím.", "mood": "focused", "channel": "lost", "suppress_unread": True}, message),
             reply("karel.result", result, message),
         ]
         if result["hit_mine"]:
-            responses.append(reply("bot.message", {"text": "Pozor! Narazila jsem na nestabilní pole a nouzový systém mě vrátil na začátek.", "mood": "tense", "channel": "lost", "voice_id": "elara_anomaly_hit"}, message))
+            responses.append(reply("bot.message", {"text": "Pozor! Narazila jsem na nestabilní pole a nouzový systém mě vrátil na začátek.", "mood": "tense", "channel": "lost", "voice_id": "elara_anomaly_hit", "suppress_unread": True}, message))
         elif result["blocked"]:
-            responses.append(reply("bot.message", {"text": "Tudy cesta nevede. Poslední povel by mě vyvedl mimo stabilní oblast.", "mood": "alert", "channel": "lost"}, message))
+            responses.append(reply("bot.message", {"text": "Tudy cesta nevede. Poslední povel by mě vyvedl mimo stabilní oblast.", "mood": "alert", "channel": "lost", "suppress_unread": True}, message))
         elif result["frames"]:
             last_frame = result["frames"][-1]
             clue = int(last_frame.get("clue") or 0)
@@ -991,7 +992,7 @@ class EscapeBotStateMachine:
                 text = f"Sonda hlásí {clue} okolní anomálie. Postupuji opatrně."
             else:
                 text = "Okolí je čisté, sonda nehlásí žádnou anomálii."
-            responses.append(reply("bot.message", {"text": text, "mood": "focused", "channel": "lost"}, message))
+            responses.append(reply("bot.message", {"text": text, "mood": "focused", "channel": "lost", "suppress_unread": True}, message))
         if result["game_complete"]:
             checkpoint_state["status"] = "solved"; checkpoint_state["solved_at"] = datetime.now(UTC).isoformat()
             self._apply_checkpoint_rewards(self.scenario.data.get("checkpoints", {}).get(checkpoint_id, {}))
