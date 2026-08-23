@@ -314,8 +314,15 @@ def load_runtime_settings():
 def save_runtime_settings():
     storage.save_runtime_settings(runtime_settings)
 
-scenario_path = os.path.join(BASE_DIR, "backend", "scenario.json")
-scenario = ScenarioLoader.load(scenario_path)
+scenario_template_path = os.getenv(
+    "ESCAPEBOT_SCENARIO_TEMPLATE",
+    os.path.join(BASE_DIR, "backend", "content", "templates", "lost_in_time.json"),
+)
+scenario_realization_path = os.getenv(
+    "ESCAPEBOT_SCENARIO_REALIZATION",
+    os.path.join(BASE_DIR, "backend", "content", "realizations", "hotel_kraskov.json"),
+)
+scenario = ScenarioLoader.load_composed(scenario_template_path, scenario_realization_path)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):

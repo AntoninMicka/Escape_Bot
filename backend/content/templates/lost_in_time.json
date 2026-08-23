@@ -1,0 +1,39 @@
+{
+  "schema_version": 1,
+  "kind": "story_template",
+  "id": "lost_in_time",
+  "version": "1.0.0",
+  "title": "Ztracená v čase",
+  "description": "Tým obnoví spojení s vědkyní uvězněnou v jiné časové vrstvě, stabilizuje trasu a sestaví zařízení pro její návrat.",
+  "node_contracts": {
+    "first_contact": {"kind": "phase", "requires_capabilities": ["intercom"]},
+    "carrier_frequency": {"kind": "phase", "requires_capabilities": ["intercom", "cipher"]},
+    "mission_route": {"kind": "phase", "requires_capabilities": ["map"]},
+    "public_archive": {"kind": "checkpoint", "requires_capabilities": ["physical_presence", "logic_puzzle"]},
+    "signal_transition": {"kind": "checkpoint", "requires_capabilities": ["physical_presence", "visual_cipher"]},
+    "hazard_navigation": {"kind": "checkpoint", "requires_capabilities": ["navigation_game"]},
+    "machine_part_one": {"kind": "checkpoint", "requires_capabilities": ["physical_presence", "cipher"]},
+    "timeline_calibration": {"kind": "checkpoint", "requires_capabilities": ["team_game"]},
+    "machine_part_two": {"kind": "checkpoint", "requires_capabilities": ["physical_presence", "cipher"]},
+    "alignment_game": {"kind": "checkpoint", "requires_capabilities": ["team_game"]},
+    "spatial_archive": {"kind": "checkpoint", "requires_capabilities": ["navigation_game"]},
+    "machine_part_three": {"kind": "checkpoint", "requires_capabilities": ["physical_presence", "cipher"]},
+    "return_archive": {"kind": "checkpoint", "requires_capabilities": ["assembly_game"]},
+    "final_console": {"kind": "checkpoint", "requires_capabilities": ["physical_presence"]},
+    "optional_archive": {"kind": "room", "requires_capabilities": ["code_entry"]},
+    "return_finale": {"kind": "finale", "requires_capabilities": ["finale"]}
+  },
+  "runtime": {
+    "cipher_tools_access": "all",
+    "cipher_tools": {
+      "morse": {"label": "Morseova abeceda", "default_unlocked": true, "unlock_cost": 0},
+      "semaphore": {"label": "Praporová / semaforová abeceda", "default_unlocked": false, "unlock_cost": 30},
+      "pigpen": {"label": "Polský kříž", "default_unlocked": false, "unlock_cost": 35},
+      "binary_ascii": {"label": "Binární kód a ASCII", "default_unlocked": false, "unlock_cost": 25},
+      "a1z26": {"label": "A1Z26 a římské číslice", "default_unlocked": true, "unlock_cost": 0},
+      "braille": {"label": "Braillovo písmo", "default_unlocked": false, "unlock_cost": 20},
+      "signal_flags": {"label": "Námořní vlajková abeceda", "default_unlocked": false, "unlock_cost": 20},
+      "classical": {"label": "Caesar a šifrovací čtverec", "default_unlocked": false, "unlock_cost": 25}
+    }
+  }
+}

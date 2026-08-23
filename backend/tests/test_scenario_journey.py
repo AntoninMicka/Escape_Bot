@@ -8,11 +8,13 @@ from escape_bot.team_lobby import LobbyRegistry
 
 
 SCENARIO_PATH = Path(__file__).resolve().parents[1] / "scenario.json"
+TEMPLATE_PATH = Path(__file__).resolve().parents[1] / "content" / "templates" / "lost_in_time.json"
+REALIZATION_PATH = Path(__file__).resolve().parents[1] / "content" / "realizations" / "hotel_kraskov.json"
 
 
 class CompleteScenarioJourneyTest(unittest.IsolatedAsyncioTestCase):
     def setUp(self) -> None:
-        self.scenario = ScenarioLoader.load(str(SCENARIO_PATH))
+        self.scenario = ScenarioLoader.load_composed(str(TEMPLATE_PATH), str(REALIZATION_PATH))
         self.machine = EscapeBotStateMachine(self.scenario)
 
     @staticmethod

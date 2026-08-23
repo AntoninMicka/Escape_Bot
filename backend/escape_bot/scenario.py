@@ -6,6 +6,7 @@ from typing import Any
 @dataclass
 class Scenario:
     data: dict[str, Any]
+    provenance: dict[str, str | int] | None = None
 
     def get_phase_data(self, phase: str) -> dict[str, Any]:
         return self.data.get("phases", {}).get(phase, {})
@@ -19,6 +20,16 @@ class ScenarioLoader:
         with open(filepath, "r", encoding="utf-8") as f:
             data = json.load(f)
         scenario = Scenario(data)
+        validate_checkpoint_navigation(scenario)
+        return scenario
+
+    @staticmethod
+    def load_composed(template_path: str, realization_path: str) -> Scenario:
+        # Local import keeps the legacy single-file loader independent.
+        from .scenario_composer import compose_files
+
+        compiled = compose_files(template_path, realization_path)
+        scenario = Scenario(compiled.data, compiled.provenance)
         validate_checkpoint_navigation(scenario)
         return scenario
 
