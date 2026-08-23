@@ -126,7 +126,10 @@ def runtime_payload() -> dict[str, object]:
         item = entry.public()
         item["lobby_types"] = [kind for kind in ("online_doom", "on_site_qr", "geo") if scenario_supports_lobby(entry, kind)]
         games.append(item)
-    return {**runtime_settings, "availability": start_availability(),
+    return {**runtime_settings,
+            "mapillary": {"enabled": bool(os.getenv("ESCAPEBOT_MAPILLARY_TOKEN", "")),
+                           "access_token": os.getenv("ESCAPEBOT_MAPILLARY_TOKEN", "")},
+            "availability": start_availability(),
             "checkpoints": build_demo_checkpoint_catalog(scenario), "games": games,
             "scenario_available": scenario_available}
 

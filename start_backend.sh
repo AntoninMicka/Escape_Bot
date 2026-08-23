@@ -11,6 +11,14 @@ set -e # Ukončí skript při první chybě
 
 # Přejdeme do adresáře backendu relativně k umístění skriptu
 SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &> /dev/null && pwd)
+
+# Lokální tajné hodnoty a vývojová konfigurace. Soubor je v .gitignore.
+if [ -f "$SCRIPT_DIR/.env.local" ]; then
+    set -a
+    source "$SCRIPT_DIR/.env.local"
+    set +a
+fi
+
 cd "$SCRIPT_DIR/backend"
 
 # Zkontrolujeme, zda je nainstalován python3 a modul venv

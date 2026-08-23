@@ -555,6 +555,9 @@
         .doom-controls { display:grid; grid-template-columns:repeat(3,52px); justify-content:center; gap:5px; margin:8px auto; touch-action:none; user-select:none; }
         .doom-controls button { min-width:52px; min-height:42px; padding:5px; font-size:1.15rem; }
         .doom-controls .doom-forward { grid-column:2; }
+        .doom-streetview { position:relative; margin:8px 0; border:1px solid #0aa; background:#061012; }
+        .doom-streetview img { display:block; width:100%; max-height:70vh; object-fit:contain; }
+        .doom-streetview-bar { display:flex; justify-content:space-between; align-items:center; gap:8px; padding:6px 8px; color:#9dd; }
         .scenario-editor-grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
         .scenario-editor-grid textarea { width:100%; min-height:55vh; box-sizing:border-box; font:12px/1.4 monospace; }
         .scenario-variable-form { border:1px solid #066; padding:12px; margin:12px 0; }
@@ -884,6 +887,9 @@
         let operationsEnabled = true;
         let runtimeAvailability = null;
         let runtimeGames = [];
+        let mapillaryConfig = {enabled:false,access_token:''};
+        let mapillaryRequest = null;
+        let doomFacadeTexture = null;
         let geoWatchId = null;
         let doomPlayer = null;
         let doomGeometry = null;
@@ -2562,6 +2568,7 @@
                 else if (msg.type === 'runtime.settings') {
                     onlineModeEnabled = Boolean(msg.payload.online_mode);
                     operationsEnabled = Boolean(msg.payload.gameplay_enabled);
+                    mapillaryConfig = msg.payload.mapillary || {enabled:false,access_token:''};
                     runtimeAvailability = msg.payload.availability || null;
                     runtimeCheckpoints = msg.payload.checkpoints || [];
                     runtimeGames = msg.payload.games || [];
@@ -3715,7 +3722,7 @@
                 panel.innerHTML = `<h3>[ GEO / GNSS TRASA ]</h3><iframe title="OSM mapa trasy" src="https://www.openstreetmap.org/export/embed.html?bbox=${encodeURIComponent(bbox)}&layer=mapnik"></iframe><p><button onclick="startGeoTracking()">AKTIVOVAT GNSS</button> <span id="geo-tracking-status">Poloha není aktivní.</span></p><ol>${rows}</ol><p><a href="${escapeHtml(world.map_source?.url || 'https://www.openstreetmap.org/copyright')}" target="_blank" rel="noopener">${escapeHtml(world.map_source?.attribution || '© OpenStreetMap contributors')}</a></p>`;
                 return;
             }
-            panel.innerHTML = `<h3 class="doom-title"><span>[ DOOM · PARDUBICE 1:1 ]</span><button onclick="toggleDoomFullscreen()" title="Přepnout zobrazení přes celou obrazovku">⛶ CELÁ OBRAZOVKA</button></h3><canvas id="doom-map-canvas" width="900" height="520" tabindex="0" aria-label="Virtuální prostor z pohledu hráče"></canvas><div class="doom-hud"><span id="doom-position"></span><span id="doom-target"></span></div><div class="doom-controls" aria-label="Dotykové ovládání"><button class="doom-forward" data-doom-control="forward" aria-label="Vpřed">▲</button><button data-doom-control="turn-left" aria-label="Otočit doleva">↶</button><button data-doom-control="backward" aria-label="Vzad">▼</button><button data-doom-control="turn-right" aria-label="Otočit doprava">↷</button><button data-doom-control="strafe-left" aria-label="Úkrok doleva">◀</button><button data-doom-control="stop" aria-label="Zastavit">■</button><button data-doom-control="strafe-right" aria-label="Úkrok doprava">▶</button></div><p>Držte WASD nebo šipky. Kliknutím do obrazu aktivujete rozhlížení myší; Esc je ukončí. Pokud uvíznete, klávesa R obnoví startovní pozici.</p><p>${escapeHtml(world.map_source?.attribution || '© OpenStreetMap contributors')} · geometrie ${escapeHtml(world.virtual_map?.geometry_status || '')}</p>`;
+            panel.innerHTML = `<h3 class="doom-title"><span>[ DOOM · PARDUBICE 1:1 ]</span><span><button onclick="showNearestStreetView()" title="Promítnout nejbližší uliční snímek na fasádu">▣ TEXTURA FASÁDY</button> <button onclick="toggleDoomFullscreen()" title="Přepnout zobrazení přes celou obrazovku">⛶ CELÁ OBRAZOVKA</button></span></h3><div id="doom-streetview" class="doom-streetview hidden"></div><canvas id="doom-map-canvas" width="900" height="520" tabindex="0" aria-label="Virtuální prostor z pohledu hráče"></canvas><div class="doom-hud"><span id="doom-position"></span><span id="doom-target"></span><span id="doom-texture-credit"></span></div><div class="doom-controls" aria-label="Dotykové ovládání"><button class="doom-forward" data-doom-control="forward" aria-label="Vpřed">▲</button><button data-doom-control="turn-left" aria-label="Otočit doleva">↶</button><button data-doom-control="backward" aria-label="Vzad">▼</button><button data-doom-control="turn-right" aria-label="Otočit doprava">↷</button><button data-doom-control="strafe-left" aria-label="Úkrok doleva">◀</button><button data-doom-control="stop" aria-label="Zastavit">■</button><button data-doom-control="strafe-right" aria-label="Úkrok doprava">▶</button></div><p>Držte WASD nebo šipky. Kliknutím do obrazu aktivujete rozhlížení myší; Esc je ukončí. Pokud uvíznete, klávesa R obnoví startovní pozici.</p><p>${escapeHtml(world.map_source?.attribution || '© OpenStreetMap contributors')} · geometrie ${escapeHtml(world.virtual_map?.geometry_status || '')}</p>`;
             if (!doomPlayer || doomWorldId !== progress.scenario_id) {
                 doomPlayer = {...(world.virtual_map?.spawn || {x_m:0,y_m:0})};
                 doomPlayer.heading_deg = Number(doomPlayer.heading_deg || 0);
@@ -3749,6 +3756,71 @@
                 canvas.focus({preventScroll:true});
             } catch(error) {
                 showNotification(`Celou obrazovku nelze aktivovat: ${error.message}`, 'error');
+            }
+        }
+
+        function doomLocalToLonLat(point) {
+            const origin=doomGeometry?.origin;
+            if(!origin)return null;
+            const earthRadius=6371000,latitude=Number(origin.lat)+Number(point.y_m)/earthRadius*180/Math.PI;
+            const longitude=Number(origin.lon)+Number(point.x_m)/(earthRadius*Math.cos(Number(origin.lat)*Math.PI/180))*180/Math.PI;
+            return {latitude,longitude};
+        }
+
+        function doomLonLatToLocal(longitude,latitude) {
+            const origin=doomGeometry?.origin,earthRadius=6371000;
+            if(!origin)return null;
+            return {x_m:(Number(longitude)-Number(origin.lon))*Math.PI/180*earthRadius*Math.cos(Number(origin.lat)*Math.PI/180),y_m:(Number(latitude)-Number(origin.lat))*Math.PI/180*earthRadius};
+        }
+
+        function nearestDoomBuilding(point) {
+            let nearest=null,best=Infinity;
+            for(const building of doomGeometry?.buildings||[]){
+                const polygon=building.polygon_m||[];
+                for(let index=1;index<polygon.length;index++){
+                    const distance=pointSegmentDistance(point,polygon[index-1],polygon[index]);
+                    if(distance<best){best=distance;nearest=building}
+                }
+            }
+            return best<=35?nearest:null;
+        }
+
+        async function showNearestStreetView() {
+            const container=document.getElementById('doom-streetview');
+            if(!container||!doomPlayer)return;
+            if(!mapillaryConfig.enabled||!mapillaryConfig.access_token){
+                showNotification('Mapillary není nastavené. Doplňte ESCAPEBOT_MAPILLARY_TOKEN na serveru.', 'error');return;
+            }
+            const position=doomLocalToLonLat(doomPlayer);
+            if(!position){showNotification('Nejdřív je nutné načíst geometrii mapy.', 'error');return}
+            mapillaryRequest?.abort();mapillaryRequest=new AbortController();
+            container.classList.remove('hidden');container.textContent='Hledám nejbližší uliční snímek…';
+            const radius=.00055,bbox=[position.longitude-radius,position.latitude-radius,position.longitude+radius,position.latitude+radius].join(',');
+            const url=new URL('https://graph.mapillary.com/images');
+            url.searchParams.set('access_token',mapillaryConfig.access_token);
+            url.searchParams.set('fields','id,computed_geometry,thumb_2048_url,computed_compass_angle,captured_at');
+            url.searchParams.set('bbox',bbox);url.searchParams.set('limit','30');
+            try {
+                const response=await fetch(url,{signal:mapillaryRequest.signal});
+                if(!response.ok)throw new Error(`Mapillary HTTP ${response.status}`);
+                const images=(await response.json()).data||[];
+                const distance=image=>{
+                    const coordinates=image.computed_geometry?.coordinates||[];
+                    return Math.hypot((Number(coordinates[0])-position.longitude)*Math.cos(position.latitude*Math.PI/180),Number(coordinates[1])-position.latitude);
+                };
+                const nearest=images.filter(image=>image.thumb_2048_url&&image.computed_geometry?.coordinates).sort((a,b)=>distance(a)-distance(b))[0];
+                if(!nearest)throw new Error('V okruhu přibližně 60 m není dostupný snímek');
+                const coordinates=nearest.computed_geometry.coordinates,building=nearestDoomBuilding(doomLonLatToLocal(coordinates[0],coordinates[1]));
+                if(!building)throw new Error('Ke snímku se nepodařilo přiřadit blízkou budovu');
+                const image=new Image();image.crossOrigin='anonymous';
+                await new Promise((resolve,reject)=>{image.onload=resolve;image.onerror=()=>reject(new Error('Obraz textury se nepodařilo stáhnout'));image.src=nearest.thumb_2048_url});
+                const captured=nearest.captured_at?new Date(nearest.captured_at).toLocaleDateString('cs-CZ'):'';
+                doomFacadeTexture={image,buildingId:building.osm_id,imageId:nearest.id,captured};
+                container.classList.add('hidden');container.replaceChildren();requestDoomRender(true);
+                showNotification('Mapillary snímek byl použit jako textura nejbližší fasády.', 'success');
+            } catch(error) {
+                if(error.name==='AbortError')return;
+                container.classList.add('hidden');container.replaceChildren();showNotification(`Uliční snímek se nepodařilo načíst: ${error.message}`, 'error');
             }
         }
 
@@ -3818,14 +3890,21 @@
             return distance>0.05&&along>=0&&along<=1?distance:null;
         }
 
+        function raySegmentHit(origin,angle,start,end) {
+            const dx=Math.cos(angle),dy=Math.sin(angle),sx=end[0]-start[0],sy=end[1]-start[1],denominator=dx*sy-dy*sx;
+            if(Math.abs(denominator)<1e-7)return null;
+            const ax=start[0]-origin.x_m,ay=start[1]-origin.y_m,distance=(ax*sy-ay*sx)/denominator,along=(ax*dy-ay*dx)/denominator;
+            return distance>0.05&&along>=0&&along<=1?{distance,along}:null;
+        }
+
         function castDoomRay(origin, angle, maxDistance=240) {
             let hit=null;
             for(const building of doomRayBuildings){
                 const polygon=building.polygon_m||[];
                 for(let index=1;index<polygon.length;index++){
-                    const distance=raySegmentDistance(origin,angle,polygon[index-1],polygon[index]);
+                    const intersection=raySegmentHit(origin,angle,polygon[index-1],polygon[index]),distance=intersection?.distance??null;
                     const hitPoint=distance===null?null:{x_m:origin.x_m+Math.cos(angle)*distance,y_m:origin.y_m+Math.sin(angle)*distance};
-                    if(distance!==null&&!doomPointInPassage(hitPoint,.25,doomNearbyPassages)&&distance<maxDistance&&(!hit||distance<hit.distance)) hit={distance,height:Number(building.height_m||9),kind:building.kind||'building',roofColor:building.roof_color||'',roofShape:building.roof_shape||'pitched'};
+                    if(distance!==null&&!doomPointInPassage(hitPoint,.25,doomNearbyPassages)&&distance<maxDistance&&(!hit||distance<hit.distance)) hit={distance,height:Number(building.height_m||9),kind:building.kind||'building',buildingId:building.osm_id,facadeU:intersection.along,roofColor:building.roof_color||'',roofShape:building.roof_shape||'pitched'};
                 }
             }
             for(const path of doomNearbyPassages){
@@ -3891,8 +3970,10 @@
             drawDoomMinimap(ctx,points,statuses,heading);
             const available=points.filter(point=>statuses[point.node_id]==='available').sort((a,b)=>Math.hypot(a.x_m-doomPlayer.x_m,a.y_m-doomPlayer.y_m)-Math.hypot(b.x_m-doomPlayer.x_m,b.y_m-doomPlayer.y_m))[0];
             const position=document.getElementById('doom-position'),target=document.getElementById('doom-target');
+            const textureCredit=document.getElementById('doom-texture-credit');
             if(position)position.innerHTML=`POLOHA <strong>${doomPlayer.x_m.toFixed(1)}, ${doomPlayer.y_m.toFixed(1)} m</strong> · SMĚR <strong>${Math.round((doomPlayer.heading_deg+360)%360)}°</strong>`;
             if(target)target.innerHTML=available?`CÍL <strong>${escapeHtml(available.name)} · ${Math.round(Math.hypot(available.x_m-doomPlayer.x_m,available.y_m-doomPlayer.y_m))} m</strong>`:'<strong>ŽÁDNÝ DOSTUPNÝ CÍL</strong>';
+            if(textureCredit)textureCredit.innerHTML=doomFacadeTexture?`TEXTURA <a target="_blank" rel="noopener" href="https://www.mapillary.com/app/?pKey=${encodeURIComponent(doomFacadeTexture.imageId)}&focus=photo">MAPILLARY${doomFacadeTexture.captured?` · ${escapeHtml(doomFacadeTexture.captured)}`:''}</a>`:'';
         }
 
         function drawDoomGroundTexture(ctx,horizon,heading){
@@ -3919,6 +4000,11 @@
             if(hit.roofShape!=='flat'){ctx.fillStyle='rgba(255,205,150,.18)';ctx.fillRect(x,top+roofHeight-2,width,2)}
             const wallTop=top+roofHeight,wallHeight=Math.max(0,height-roofHeight);
             ctx.fillStyle=`rgb(${Math.round(light*variation)},${Math.round(light*.72*variation)},${Math.round(light*.49*variation)})`;ctx.fillRect(x,wallTop,width,wallHeight);
+            if(doomFacadeTexture?.buildingId===hit.buildingId&&doomFacadeTexture.image.complete){
+                const texture=doomFacadeTexture.image,sliceWidth=Math.max(1,texture.naturalWidth/180),sourceX=Math.max(0,Math.min(texture.naturalWidth-sliceWidth,Number(hit.facadeU||0)*(texture.naturalWidth-sliceWidth)));
+                ctx.drawImage(texture,sourceX,0,sliceWidth,texture.naturalHeight,x,wallTop,width,wallHeight);
+                ctx.fillStyle=`rgba(8,10,12,${Math.max(.08,Math.min(.62,hit.distance/180))})`;ctx.fillRect(x,wallTop,width,wallHeight);
+            }
             const course=Math.max(7,Math.min(24,height/9)),offset=Math.floor(hit.distance*1.7)%Math.round(course);
             ctx.fillStyle='rgba(35,24,19,.32)';
             for(let y=wallTop+offset;y<top+height;y+=course)ctx.fillRect(x,y,width,1);

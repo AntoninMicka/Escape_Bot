@@ -33,7 +33,7 @@
       }
     },
     "max_players": 1,
-    "applied_score_adjustment": 0,
+    "applied_score_adjustment": 20,
     "lobby_type": "online_doom",
     "scenario_id": "pardubice_jury_doom"
   }

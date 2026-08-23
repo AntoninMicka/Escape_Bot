@@ -36,6 +36,8 @@ První produkční cloudová varianta používá jednu instanci FastAPI, perzist
 
 Úložiště se volí konfigurací `ESCAPEBOT_STORAGE_BACKEND=json|postgres`. Pro PostgreSQL je navíc povinné `ESCAPEBOT_DATABASE_URL`. Při lokálním spuštění lze konfiguraci jednorázově přepsat například `./start_backend.sh --storage=postgres --database-url=postgresql://...`; heslo je bezpečnější předat proměnnou prostředí než argumentem příkazové řádky.
 
+U DOOM mapy lze volitelně zapnout nejbližší uliční fotografie Mapillary. V Mapillary Developer Dashboard vytvořte veřejný klientský token a uložte jej jako `ESCAPEBOT_MAPILLARY_TOKEN=...` do lokálního souboru `.env.local`, který Git ignoruje a `start_backend.sh` automaticky načte. Hráč pak může tlačítkem **ULICE** zobrazit nejbližší dostupný snímek; bez tokenu zůstává tato funkce vypnutá.
+
 ## Rychlý start backendu
 
 ```bash
