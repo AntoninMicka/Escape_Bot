@@ -1832,6 +1832,33 @@
             }
         }
 
+        async function copyPuzzleCiphertext(puzzleId) {
+            const puzzle = puzzlesState.find(item => item.id === puzzleId);
+            const text = String(puzzle?.ciphertext || '').trim().replace(/\r\n?/g, '\n');
+            if (!text) { showNotification('Čistý text této šifry není dostupný.', 'error'); return; }
+            let input = null;
+            try {
+                if (navigator.clipboard?.writeText) {
+                    await navigator.clipboard.writeText(text);
+                } else {
+                    input = document.createElement('textarea');
+                    input.value = text;
+                    input.setAttribute('readonly', '');
+                    input.style.position = 'fixed';
+                    input.style.opacity = '0';
+                    document.body.appendChild(input);
+                    input.select();
+                    input.setSelectionRange(0, input.value.length);
+                    if (!document.execCommand('copy')) throw new Error('Kopírování není podporováno.');
+                }
+                showNotification('Čistý text šifry byl zkopírován.', 'success');
+            } catch (_) {
+                showNotification('Text šifry se nepodařilo zkopírovat.', 'error');
+            } finally {
+                input?.remove();
+            }
+        }
+
         function renderPlayerRecovery(payload) {
             const url = new URL(window.location.pathname || '/', window.location.origin);
             url.searchParams.set('recover', payload.token);
@@ -2959,6 +2986,9 @@
 
             container.innerHTML = visible.map(puzzle => {
                 const artifact = puzzle.image ? `<img class="puzzle-artifact" src="${escapeHtml(puzzle.image)}" alt="Nalezený obrazový artefakt">` : '';
+                const copyCiphertext = puzzle.ciphertext
+                    ? `<div class="puzzle-actions"><button class="icon-action" type="button" onclick="copyPuzzleCiphertext('${escapeHtml(puzzle.id)}')" title="Kopírovat čistý text šifry" aria-label="Kopírovat čistý text šifry">📋</button><span>ČISTÝ TEXT ŠIFRY</span></div>`
+                    : '';
                 const categories = Object.entries(puzzle.categories || {}).map(([name, values]) =>
                     `<div class="puzzle-category"><strong>${escapeHtml(name)}</strong>${values.map(value => `<span>${escapeHtml(value)}</span>`).join('')}</div>`
                 ).join('');
@@ -2971,6 +3001,7 @@
                     <h3>${escapeHtml(puzzle.title)}</h3>
                     <p>${escapeHtml(puzzle.instructions)}</p>
                     ${artifact}
+                    ${copyCiphertext}
                     <div class="puzzle-categories">${categories}</div>
                     <ol class="puzzle-clues">${clues}</ol>
                     ${interactiveGame || (solved
