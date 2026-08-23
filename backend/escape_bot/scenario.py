@@ -21,6 +21,7 @@ class ScenarioLoader:
             data = json.load(f)
         scenario = Scenario(data)
         validate_checkpoint_navigation(scenario)
+        validate_phase_engine(scenario)
         return scenario
 
     @staticmethod
@@ -31,7 +32,31 @@ class ScenarioLoader:
         compiled = compose_files(template_path, realization_path)
         scenario = Scenario(compiled.data, compiled.provenance)
         validate_checkpoint_navigation(scenario)
+        validate_phase_engine(scenario)
         return scenario
+
+
+def validate_phase_engine(scenario: Scenario) -> None:
+    engine = scenario.data.get("phase_engine")
+    if engine is None:
+        return
+    if not isinstance(engine, dict):
+        raise ValueError("phase_engine musí být objekt.")
+    phases = scenario.data.get("phases", {})
+    initial = str(engine.get("initial_phase", ""))
+    if initial not in phases:
+        raise ValueError(f"Počáteční fáze {initial or '—'} neexistuje.")
+    transitions = engine.get("transitions", {})
+    if not isinstance(transitions, dict):
+        raise ValueError("phase_engine.transitions musí být objekt.")
+    for phase_id, transition in transitions.items():
+        if phase_id not in phases or not isinstance(transition, dict):
+            raise ValueError(f"Neplatné pravidlo přechodu fáze {phase_id}.")
+        next_phase = str(transition.get("next_phase", ""))
+        if next_phase not in phases:
+            raise ValueError(f"Přechod z {phase_id} míří na neexistující fázi {next_phase or '—'}.")
+        if transition.get("match", "any") not in {"any", "contains", "equals"}:
+            raise ValueError(f"Fáze {phase_id} používá nepodporovanou podmínku přechodu.")
 
 
 def validate_checkpoint_navigation(scenario: Scenario) -> None:

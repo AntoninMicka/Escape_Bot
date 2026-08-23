@@ -1,6 +1,6 @@
 [
   {
-    "session_id": "6408f0410cb64923a00bde784eeb2039",
+    "session_id": "ba2b2ca117c040779d11f2714012bf6c",
     "mode": "solo",
     "creator_id": "46c4b312-8a98-4aea-abca-527300ba58e5",
     "team_name": "Pokus",
@@ -10,12 +10,12 @@
       "46c4b312-8a98-4aea-abca-527300ba58e5": {
         "id": "46c4b312-8a98-4aea-abca-527300ba58e5",
         "name": "PC",
-        "joined_at": "2026-08-23T07:43:15.471554+00:00"
+        "joined_at": "2026-08-23T07:50:21.595186+00:00"
       }
     },
     "max_players": 1,
-    "applied_score_adjustment": 0,
-    "lobby_type": "geo",
-    "scenario_id": "pardubice_jury_geo"
+    "applied_score_adjustment": 20,
+    "lobby_type": "online_doom",
+    "scenario_id": "pardubice_jury_doom"
   }
 ]

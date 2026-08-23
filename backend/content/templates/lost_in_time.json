@@ -2162,6 +2162,26 @@
         "mood": "alert",
         "channel": "lost"
       }
+    },
+    "phase_engine": {
+      "initial_phase": "comms_offline",
+      "completion_phase": "portal_open",
+      "transitions": {
+        "comms_offline": {
+          "event": "player.message",
+          "match": "any",
+          "next_phase": "searching_lost"
+        },
+        "searching_lost": {
+          "event": "player.message",
+          "match": "contains",
+          "value": "734",
+          "next_phase": "navigating",
+          "set_flags": {
+            "chronomap_unlocked": true
+          }
+        }
+      }
     }
   }
 }

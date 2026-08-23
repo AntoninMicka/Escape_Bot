@@ -45,7 +45,7 @@ class GamePhase(StrEnum):
 
 @dataclass(slots=True)
 class GameState:
-    phase: GamePhase = GamePhase.BOOT
+    phase: str = GamePhase.BOOT.value
     unlocked_discoveries: set[str] = field(default_factory=set)
     inventory: list[str] = field(default_factory=list)
     flags: dict[str, Any] = field(default_factory=dict)
@@ -68,7 +68,7 @@ class GameState:
 
     def snapshot(self) -> dict[str, Any]:
         return {
-            "phase": self.phase.value,
+            "phase": str(self.phase),
             "unlocked_discoveries": sorted(self.unlocked_discoveries),
             "inventory": list(self.inventory),
             "flags": self.flags,
@@ -93,12 +93,12 @@ class GameState:
     @classmethod
     def restore(cls, data: dict[str, Any]) -> "GameState":
         state = cls()
-        state.phase = GamePhase(data.get("phase", GamePhase.BOOT.value))
+        state.phase = str(data.get("phase", GamePhase.BOOT.value))
         state.unlocked_discoveries = set(data.get("unlocked_discoveries", []))
         state.inventory = list(data.get("inventory", []))
         state.flags = dict(data.get("flags", {}))
-        if state.phase in {GamePhase.LOST_CONNECTED, GamePhase.CONNECTION_LOST}:
-            state.phase = GamePhase.NAVIGATING
+        if state.phase in {GamePhase.LOST_CONNECTED.value, GamePhase.CONNECTION_LOST.value}:
+            state.phase = GamePhase.NAVIGATING.value
             state.flags["chronomap_unlocked"] = True
         state.chat_history = list(data.get("chat_history", []))
         state.score = int(data.get("score", 1000))
@@ -132,7 +132,7 @@ class EscapeBotStateMachine:
 
     def restore_state(self, data: dict[str, Any]) -> None:
         self.state = GameState.restore(data)
-        if self.state.phase in {GamePhase.NAVIGATING, GamePhase.PORTAL_OPEN}:
+        if self.state.phase in {GamePhase.NAVIGATING.value, GamePhase.PORTAL_OPEN.value}:
             self.state.flags["chronomap_unlocked"] = True
         self._unlock_default_cipher_tools()
 
@@ -259,7 +259,7 @@ class EscapeBotStateMachine:
     def _state_message(self, player_id: str = "") -> Message:
         player_id = player_id or self._current_player_id
         snapshot = self.state.snapshot()
-        phase_id = self.state.phase.value
+        phase_id = str(self.state.phase)
         phase_hints = self.scenario.get_phase_data(phase_id).get("hints", [])
         snapshot["phase_hints"] = {
             "phase_id": phase_id,
@@ -328,24 +328,25 @@ class EscapeBotStateMachine:
                 elif puzzle.get("type") == "archive_vector":
                     item["archive_game"] = self._public_archive_game(puzzle_id, puzzle)
             result.append(item)
-        room = self.scenario.get_room_data("104")
-        room_available = all(
-            self.state.checkpoint_states.get(str(checkpoint_id), {}).get("status") == "solved"
-            for checkpoint_id in room.get("requires_checkpoints", [])
-        )
-        if room and room_available:
+        for room_id, room in self.scenario.data.get("rooms", {}).items():
+            room_available = all(
+                self.state.checkpoint_states.get(str(checkpoint_id), {}).get("status") == "solved"
+                for checkpoint_id in room.get("requires_checkpoints", [])
+            )
+            if not room_available:
+                continue
             hints = room.get("hints", [])
             result.append({
-                "id": "room_104_panel",
-                "room_id": "104",
-                "title": "Přístupový panel dveří 104",
+                "id": f"room_{room_id}_panel",
+                "room_id": str(room_id),
+                "title": room.get("title", f"Přístupový panel {room_id}"),
                 "type": "room_pin",
-                "status": "solved" if self.state.flags.get("room_104_unlocked") else "found",
+                "status": "solved" if self.state.flags.get(f"room_{room_id}_unlocked") else "found",
                 "instructions": room.get("clue", ""),
                 "attempts": 0,
                 "has_hints": bool(hints),
                 "hint_count": len(hints),
-                "hints_unlocked": min(self.state.hints_used.get("room_104", 0), len(hints)),
+                "hints_unlocked": min(self.state.hints_used.get(f"room_{room_id}", 0), len(hints)),
                 "hint_costs": [int(hint.get("penalty", 10)) for hint in hints],
             })
         return result
@@ -467,9 +468,10 @@ class EscapeBotStateMachine:
                 url = f"https://image.pollinations.ai/prompt/{encoded_prompt}?width=128&height=128&nologo=true&seed=42"
                 avatar_msgs.append(Message("avatar.update", {"channel": channel, "url": url}))
 
-        if self.state.phase == GamePhase.BOOT:
-            self.state.phase = GamePhase.COMMS_OFFLINE
-            p_data = self.scenario.get_phase_data("comms_offline")
+        if self.state.phase == GamePhase.BOOT.value:
+            initial_phase = str(self.scenario.data.get("phase_engine", {}).get("initial_phase", GamePhase.COMMS_OFFLINE.value))
+            self.state.phase = initial_phase
+            p_data = self.scenario.get_phase_data(initial_phase)
             return avatar_msgs + [
                 reply("bot.message", p_data.get("enter_message", {}), message),
                 self._state_message(),
@@ -488,26 +490,34 @@ class EscapeBotStateMachine:
         if not text:
             return [reply("error", {"message": "Text message is empty."}, message)]
 
-        if self.state.phase == GamePhase.COMMS_OFFLINE:
-            self.state.phase = GamePhase.SEARCHING_LOST
-            p_data = self.scenario.get_phase_data("searching_lost")
-            return [
-                reply("bot.message", p_data.get("enter_message", {}), message),
-                self._state_message(),
-            ]
-
-        if self.state.phase == GamePhase.SEARCHING_LOST:
-            p_data = self.scenario.get_phase_data("searching_lost")
-            if p_data.get("success_keyword", "734") in text:
-                self.state.phase = GamePhase.NAVIGATING
-                self.state.flags["chronomap_unlocked"] = True
-                responses = [reply("bot.message", m, message) for m in p_data.get("success_messages", [])]
+        phase_id = str(self.state.phase)
+        transition = self.scenario.data.get("phase_engine", {}).get("transitions", {}).get(phase_id)
+        # Compatibility for legacy single-file scenarios and restored sessions.
+        if not isinstance(transition, dict) and phase_id == GamePhase.COMMS_OFFLINE.value:
+            transition = {"event": "player.message", "match": "any", "next_phase": GamePhase.SEARCHING_LOST.value}
+        elif not isinstance(transition, dict) and phase_id == GamePhase.SEARCHING_LOST.value:
+            transition = {"event": "player.message", "match": "contains", "value": "734", "next_phase": GamePhase.NAVIGATING.value, "set_flags": {"chronomap_unlocked": True}}
+        if isinstance(transition, dict) and transition.get("event", "player.message") == "player.message":
+            match = str(transition.get("match", "any"))
+            expected = str(transition.get("value", self.scenario.get_phase_data(str(self.state.phase)).get("success_keyword", "")))
+            accepted = match == "any" or (match == "contains" and expected in text) or (match == "equals" and expected == text)
+            if accepted:
+                current_data = self.scenario.get_phase_data(str(self.state.phase))
+                next_phase = str(transition.get("next_phase", self.state.phase))
+                self.state.phase = next_phase
+                for flag, value in transition.get("set_flags", {}).items():
+                    self.state.flags[str(flag)] = value
+                configured = transition.get("success_messages", current_data.get("success_messages", []))
+                if isinstance(configured, dict): configured = [configured]
+                if not configured:
+                    enter = self.scenario.get_phase_data(next_phase).get("enter_message", {})
+                    configured = [enter] if enter else []
+                responses = [reply("bot.message", item, message) for item in configured]
                 responses.append(self._state_message())
                 return responses
-            else:
-                fail_msg = p_data.get("fail_message", {}).copy()
-                fail_msg["text"] = fail_msg.get("text", "").replace("{text}", text)
-                return [reply("bot.message", fail_msg, message), self._state_message()]
+            fail_msg = transition.get("fail_message", self.scenario.get_phase_data(str(self.state.phase)).get("fail_message", {})).copy()
+            fail_msg["text"] = fail_msg.get("text", "").replace("{text}", text)
+            return [reply("bot.message", fail_msg, message), self._state_message()]
 
         # Výchozí odpověď pro fázi NAVIGATING
         if str(message.payload.get("channel", "general")) == "lost":
@@ -537,7 +547,7 @@ class EscapeBotStateMachine:
                 if commands and commands != ["undo"]:
                     return await self._handle_karel_command(Message("karel.command", {"puzzle_id": karel_id, "commands": commands}, message.request_id))
 
-        p_data = self.scenario.get_phase_data("navigating")
+        p_data = self.scenario.get_phase_data(str(self.state.phase))
         
         ai_prompt = p_data.get("ai_system_prompt")
         if LLM_ENABLED and ai_prompt:
@@ -574,7 +584,7 @@ class EscapeBotStateMachine:
             ]
 
         required_phase = checkpoint.get("requires_phase")
-        if required_phase and self.state.phase.value != required_phase:
+        if required_phase and str(self.state.phase) != required_phase:
             return [
                 reply("qr.result", {
                     "accepted": False,
@@ -768,7 +778,7 @@ class EscapeBotStateMachine:
 
     async def _handle_phase_hint(self, message: Message) -> list[Message]:
         phase_id = str(message.payload.get("phase_id", "")).strip()
-        if phase_id != self.state.phase.value:
+        if phase_id != str(self.state.phase):
             return [reply("error", {"message": "Tato fáze už není aktivní."}, message)]
         hints = self.scenario.get_phase_data(phase_id).get("hints", [])
         try:
@@ -1383,7 +1393,7 @@ class EscapeBotStateMachine:
         now = datetime.now(UTC).isoformat()
         checkpoint_state.update({"status": "solved", "solved_at": now})
         self._apply_checkpoint_rewards(self.scenario.data.get("checkpoints", {}).get(checkpoint_id, {}))
-        self.state.phase = GamePhase.PORTAL_OPEN
+        self.state.phase = str(puzzle.get("completion_phase", self.scenario.data.get("phase_engine", {}).get("completion_phase", GamePhase.PORTAL_OPEN.value)))
         self.state.flags.update({"game_completed": True, "completed_at": now})
         thresholds = puzzle.get("rating_thresholds", {})
         rating = next((label for minimum, label in sorted(((int(score), label) for score, label in thresholds.items()), reverse=True) if self.state.score >= minimum), "STABILIZOVÁNO")

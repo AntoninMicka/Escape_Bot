@@ -76,6 +76,17 @@ def main() -> None:
     templated_runtime = transform(runtime, replacements)
     templated_runtime["id"] = "${game.id}"
     templated_runtime["knowledge_base"] = {"$var": "location.knowledge_base"}
+    templated_runtime["phase_engine"] = {
+        "initial_phase": "comms_offline",
+        "completion_phase": "portal_open",
+        "transitions": {
+            "comms_offline": {"event": "player.message", "match": "any", "next_phase": "searching_lost"},
+            "searching_lost": {
+                "event": "player.message", "match": "contains", "value": "734",
+                "next_phase": "navigating", "set_flags": {"chronomap_unlocked": True},
+            },
+        },
+    }
 
     variables: dict[str, Any] = {
         "game": {"id": runtime["id"]},

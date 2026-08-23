@@ -91,9 +91,46 @@ Konkrétní `scenario_id` i typ lobby se ukládají do relace a zachovají se po
 ## První verze editoru
 
 Administrace obsahuje kartu **Editor her**. Z katalogu načte zdrojovou šablonu a
-realizaci, umožní je upravit jako JSON a spustí stejnou serverovou validaci jako při
-startu. V této fázi editor záměrně nezapisuje na disk; slouží k bezpečné přípravě a
-ověření datového modelu před doplněním verzovaného publikování.
+realizaci. Z `variable_schema` vytvoří formulář pro texty, čísla, objekty a další
+hodnoty a samostatnou tabulku ID, názvů a tokenů checkpointů. Pokročilý JSON editor
+zůstává dostupný pod rozbalovacím detailem. Obě podoby používají stejnou serverovou
+validaci jako start aplikace. V této fázi editor záměrně nezapisuje na disk; slouží k
+bezpečné přípravě a ověření datového modelu před doplněním verzovaného publikování.
+
+## Deklarativní fáze
+
+Šablona nemusí používat pevné fáze Kraskova. `phase_engine` určuje libovolnou
+počáteční fázi, cílovou fázi finále a přechody vyvolané zprávou hráče:
+
+```json
+"phase_engine": {
+  "initial_phase": "briefing",
+  "completion_phase": "verdict",
+  "transitions": {
+    "briefing": {
+      "event": "player.message",
+      "match": "any",
+      "next_phase": "vote_code"
+    },
+    "vote_code": {
+      "event": "player.message",
+      "match": "equals",
+      "value": "12",
+      "next_phase": "evidence_walk",
+      "set_flags": {"map_unlocked": true}
+    }
+  }
+}
+```
+
+Podporované podmínky jsou `any`, `contains` a `equals`. Zprávy při vstupu, úspěchu
+a neúspěchu zůstávají v odpovídajících položkách `phases`. Loader ověřuje, že
+počáteční i cílové fáze přechodů skutečně existují. Starý monolitický scénář má po
+dobu migrace kompatibilní fallback.
+
+Místnosti už nejsou omezené na pokoj 104. Každá položka `rooms` se automaticky
+zobrazí jako přístupový panel, jakmile jsou splněné její `requires_checkpoints`;
+název, PIN, nápovědy i výsledná vlajka se odvozují z jejího ID a dat šablony.
 
 Toto je základ pro editor: šablonový editor bude upravovat herní logiku a deklarace
 proměnných, zatímco editor realizace nabídne formulář vygenerovaný z

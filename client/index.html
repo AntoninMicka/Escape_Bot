@@ -548,6 +548,12 @@
         .world-map iframe, .world-map canvas { width:100%; min-height:420px; border:1px solid #088; background:#020707; }
         .scenario-editor-grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
         .scenario-editor-grid textarea { width:100%; min-height:55vh; box-sizing:border-box; font:12px/1.4 monospace; }
+        .scenario-variable-form { border:1px solid #066; padding:12px; margin:12px 0; }
+        .scenario-variable-fields { display:grid; grid-template-columns:repeat(auto-fit,minmax(260px,1fr)); gap:10px; }
+        .scenario-variable-fields label { display:flex; flex-direction:column; gap:4px; }
+        .scenario-checkpoints { width:100%; border-collapse:collapse; margin-top:12px; }
+        .scenario-checkpoints th,.scenario-checkpoints td { border-bottom:1px solid #044; padding:6px; text-align:left; }
+        .scenario-checkpoints input { width:100%; box-sizing:border-box; }
         .recovery-dialog { max-width: 430px; border: 2px solid #0cc; background: #001416; color: #dfffff; padding: 20px; text-align: center; }
         .recovery-dialog::backdrop { background: #000c; }
         .admin-node-actions { display: flex; flex-wrap: wrap; gap: 5px; margin: 4px 0 9px 20px; }
@@ -621,7 +627,7 @@
         <section id="admin-tab-analytics" class="admin-section admin-analytics hidden"><h2>[ TELEMETRIE OBTÍŽNOSTI ]</h2><div class="admin-toolbar"><label>OBDOBÍ <select id="analytics-period" onchange="renderAdminAnalytics()"><option value="all">Celá historie</option><option value="1">Posledních 24 hodin</option><option value="7">Posledních 7 dní</option><option value="30">Posledních 30 dní</option></select></label><button onclick="exportTelemetryCsv(true)">ANONYMIZOVANÉ CSV</button><button onclick="exportTelemetryCsv(false)">INTERNÍ CSV</button></div><div id="admin-analytics-summary" class="admin-summary"></div><div id="admin-analytics-content"></div></section>
         <section id="admin-tab-chats" class="admin-section hidden"><h2>[ PODPORA TÝMŮ ]</h2><div id="admin-chat-grid" class="admin-grid"></div></section>
         <section id="admin-tab-leaderboard" class="admin-section admin-leaderboard hidden"><h2>[ SPRÁVA SÍNĚ SLÁVY ]</h2><div id="admin-leaderboard"></div></section>
-        <section id="admin-tab-scenarios" class="admin-section hidden"><h2>[ EDITOR HER — NÁHLED A VALIDACE ]</h2><div class="admin-toolbar"><select id="scenario-editor-select"></select><button onclick="loadScenarioEditor()">NAČÍST</button><button onclick="validateScenarioEditor()">OVĚŘIT</button></div><p id="scenario-editor-status">Editor zatím provádí bezpečnou validaci bez zápisu na disk.</p><div class="scenario-editor-grid"><label>ŠABLONA<textarea id="scenario-template-editor" spellcheck="false"></textarea></label><label>REALIZACE<textarea id="scenario-realization-editor" spellcheck="false"></textarea></label></div><h3>NEPLATNÉ / VYŘAZENÉ SCÉNÁŘE</h3><div id="scenario-editor-errors"></div></section>
+        <section id="admin-tab-scenarios" class="admin-section hidden"><h2>[ EDITOR HER — NÁHLED A VALIDACE ]</h2><div class="admin-toolbar"><select id="scenario-editor-select"></select><button onclick="loadScenarioEditor()">NAČÍST</button><button onclick="validateScenarioEditor()">OVĚŘIT</button></div><p id="scenario-editor-status">Editor zatím provádí bezpečnou validaci bez zápisu na disk.</p><section id="scenario-form-editor" class="scenario-variable-form hidden"></section><details><summary>POKROČILÝ JSON EDITOR</summary><div class="scenario-editor-grid"><label>ŠABLONA<textarea id="scenario-template-editor" spellcheck="false"></textarea></label><label>REALIZACE<textarea id="scenario-realization-editor" spellcheck="false"></textarea></label></div></details><h3>NEPLATNÉ / VYŘAZENÉ SCÉNÁŘE</h3><div id="scenario-editor-errors"></div></section>
         <section id="admin-tab-tools" class="admin-section hidden"><h2>[ PROVOZ HRY ]</h2><button id="admin-operations-toggle" onclick="toggleAdminOperations()" style="width:100%;padding:22px;font-size:1.35rem">NAČÍTÁM STAV…</button><div class="admin-actions" style="margin:16px 0"><label>Max. týmů<input id="schedule-max-teams" type="number" min="1" max="100"></label><label>Rozestup startů (min)<input id="schedule-interval" type="number" min="0" max="240"></label><label>Délka hry (min)<input id="schedule-duration" type="number" min="15" max="720"></label><label>Postih za nedokončení<input id="schedule-deadline-penalty" type="number" min="0" max="1000"></label><label>Postih za opuštění<input id="schedule-abandonment-penalty" type="number" min="0" max="1000"></label><label>Bonus za dokončení<input id="schedule-completion-bonus" type="number" min="0" max="1000"></label><label>Otevření<input id="schedule-opening" type="time"></label><label>Uzavření<input id="schedule-closing" type="time"></label><label>Časová zóna<input id="schedule-timezone" value="Europe/Prague"></label><button onclick="saveScheduleSettings()">ULOŽIT PROVOZNÍ NASTAVENÍ</button></div><p id="admin-schedule-status"></p><h2>[ NÁSTROJE GAME MASTERA ]</h2><div class="admin-toolbar"><button onclick="requestAdminQrSet()">PŘIPRAVIT QR SADU</button><button onclick="exportAdminCsv()">EXPORT UDÁLOSTÍ A STATISTIK (CSV)</button><button id="admin-online-toggle" onclick="toggleAdminOnlineMode()">ONLINE REŽIM: ?</button></div></section>
     </section>
     <div id="admin-spectator-bar" class="admin-spectator-bar hidden"><strong id="admin-spectator-label">NÁHLED HRY</strong><button onclick="stopAdminSpectate()">ZPĚT DO ADMINISTRACE</button></div>
@@ -1855,6 +1861,8 @@
         }
 
         let latestAdminPayload = null;
+        let scenarioEditorTemplateDoc = null;
+        let scenarioEditorRealizationDoc = null;
 
         function applyAdminFilters() { renderAdminOverview(); }
 
@@ -2010,6 +2018,50 @@
             } catch (error) {
                 document.getElementById('scenario-editor-status').textContent = `Neplatný JSON: ${error.message}`;
             }
+        }
+
+        function nestedValue(root, path) {
+            return path.split('.').reduce((value, key) => value && value[key], root);
+        }
+
+        function setNestedValue(root, path, value) {
+            const parts = path.split('.'); let target = root;
+            parts.slice(0,-1).forEach(key => { if (!target[key] || typeof target[key] !== 'object') target[key] = {}; target = target[key]; });
+            target[parts.at(-1)] = value;
+        }
+
+        function syncScenarioRealizationJson() {
+            document.getElementById('scenario-realization-editor').value = JSON.stringify(scenarioEditorRealizationDoc, null, 2);
+            document.getElementById('scenario-editor-status').textContent = 'Lokální změny nejsou ověřené ani uložené.';
+        }
+
+        function updateScenarioVariable(field) {
+            if (!scenarioEditorRealizationDoc) return;
+            const declaration = scenarioEditorTemplateDoc.variable_schema[field.dataset.path] || {};
+            let value = field.type === 'checkbox' ? field.checked : field.value;
+            try {
+                if (declaration.type === 'number') value = Number(value);
+                if (declaration.type === 'object' || declaration.type === 'array') value = JSON.parse(value);
+                setNestedValue(scenarioEditorRealizationDoc.variables, field.dataset.path, value);
+                field.setCustomValidity(''); syncScenarioRealizationJson();
+            } catch (error) { field.setCustomValidity(`Neplatný JSON: ${error.message}`); field.reportValidity(); }
+        }
+
+        function renderScenarioVariableForm() {
+            const panel = document.getElementById('scenario-form-editor');
+            if (!scenarioEditorTemplateDoc || !scenarioEditorRealizationDoc) { panel.classList.add('hidden'); return; }
+            const schema = scenarioEditorTemplateDoc.variable_schema || {};
+            const scalarFields = Object.entries(schema).filter(([path]) => !path.startsWith('checkpoints.')).map(([path,declaration]) => {
+                const value = nestedValue(scenarioEditorRealizationDoc.variables, path);
+                const label = `${path} · ${declaration.type || 'any'}${declaration.required === false ? ' (volitelné)' : ''}`;
+                if (declaration.type === 'boolean') return `<label>${escapeHtml(label)}<input type="checkbox" data-path="${escapeHtml(path)}" ${value ? 'checked' : ''} onchange="updateScenarioVariable(this)"></label>`;
+                if (declaration.type === 'object' || declaration.type === 'array' || String(value ?? '').length > 100) return `<label>${escapeHtml(label)}<textarea rows="5" data-path="${escapeHtml(path)}" onchange="updateScenarioVariable(this)">${escapeHtml(declaration.type === 'object' || declaration.type === 'array' ? JSON.stringify(value, null, 2) : value ?? '')}</textarea></label>`;
+                return `<label>${escapeHtml(label)}<input ${declaration.type === 'number' ? 'type="number"' : 'type="text"'} data-path="${escapeHtml(path)}" value="${escapeHtml(value ?? '')}" onchange="updateScenarioVariable(this)"></label>`;
+            }).join('');
+            const checkpoints = scenarioEditorRealizationDoc.variables?.checkpoints || {};
+            const checkpointRows = Object.entries(checkpoints).map(([contract,item]) => `<tr><td>${escapeHtml(contract)}</td>${['id','name','route_name','token'].map(key => `<td><input data-path="checkpoints.${escapeHtml(contract)}.${key}" value="${escapeHtml(item[key] || '')}" onchange="updateScenarioVariable(this)"></td>`).join('')}</tr>`).join('');
+            panel.innerHTML = `<h3>[ PROMĚNNÉ REALIZACE ]</h3><div class="scenario-variable-fields">${scalarFields}</div><h3>[ CHECKPOINTY ]</h3><div style="overflow-x:auto"><table class="scenario-checkpoints"><thead><tr><th>Kontrakt</th><th>ID</th><th>Název</th><th>Název trasy</th><th>Token</th></tr></thead><tbody>${checkpointRows}</tbody></table></div>`;
+            panel.classList.remove('hidden');
         }
 
         function lobbyTeamName() {
@@ -2446,8 +2498,11 @@
                     renderAdminQrSet(msg.payload);
                 }
                 else if (msg.type === 'admin.scenario_source') {
+                    scenarioEditorTemplateDoc = msg.payload.template;
+                    scenarioEditorRealizationDoc = msg.payload.realization;
                     document.getElementById('scenario-template-editor').value = JSON.stringify(msg.payload.template, null, 2);
                     document.getElementById('scenario-realization-editor').value = JSON.stringify(msg.payload.realization, null, 2);
+                    renderScenarioVariableForm();
                     document.getElementById('scenario-editor-status').textContent = `Načten scénář ${msg.payload.scenario_id}. Změny jsou zatím pouze lokální.`;
                 }
                 else if (msg.type === 'admin.scenario_validation') {

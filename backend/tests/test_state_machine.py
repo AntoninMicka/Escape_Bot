@@ -398,6 +398,43 @@ class StateMachineCheckpointTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn("Každá skupina", self.response(first, "bot.message").payload["text"])
         self.assertIn("Každá skupina", self.response(repeated, "bot.message").payload["text"])
 
+    async def test_scenario_can_define_custom_phase_ids_and_transitions(self) -> None:
+        data = deepcopy(self.scenario.data)
+        data["phases"] = {
+            "briefing": {"enter_message": {"text": "Briefing", "channel": "general"}},
+            "vote_code": {"enter_message": {"text": "Zadejte hlas", "channel": "general"}, "fail_message": {"text": "Neplatí: {text}", "channel": "general"}},
+            "evidence_walk": {"default_message": {"text": "Pokračujte", "channel": "general"}},
+        }
+        data["phase_engine"] = {
+            "initial_phase": "briefing", "completion_phase": "verdict",
+            "transitions": {
+                "briefing": {"event": "player.message", "match": "any", "next_phase": "vote_code"},
+                "vote_code": {"event": "player.message", "match": "equals", "value": "12", "next_phase": "evidence_walk", "set_flags": {"map_unlocked": True}},
+            },
+        }
+        machine = EscapeBotStateMachine(Scenario(data))
+
+        hello = await machine.handle(Message("client.hello", {}))
+        self.assertEqual(machine.state.phase, "briefing")
+        self.assertEqual(self.response(hello, "bot.message").payload["text"], "Briefing")
+        await machine.handle(Message("player.message", {"text": "příjem"}))
+        rejected = await machine.handle(Message("player.message", {"text": "11"}))
+        self.assertEqual(machine.state.phase, "vote_code")
+        self.assertIn("11", self.response(rejected, "bot.message").payload["text"])
+        await machine.handle(Message("player.message", {"text": "12"}))
+        self.assertEqual(machine.state.phase, "evidence_walk")
+        self.assertTrue(machine.state.flags["map_unlocked"])
+
+    def test_puzzle_catalog_includes_every_available_room(self) -> None:
+        data = deepcopy(self.scenario.data)
+        data["rooms"]["12"] = {"title": "Porotní archiv", "pin": "1212", "requires_checkpoints": []}
+        machine = EscapeBotStateMachine(Scenario(data))
+
+        room = next(item for item in machine._puzzle_state() if item.get("room_id") == "12")
+
+        self.assertEqual(room["id"], "room_12_panel")
+        self.assertEqual(room["title"], "Porotní archiv")
+
     async def test_first_checkpoint_requires_navigating_phase(self) -> None:
         self.machine.state.phase = GamePhase.SEARCHING_LOST
         responses = await self.scan("reception_archive")

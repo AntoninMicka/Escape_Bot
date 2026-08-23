@@ -3,7 +3,7 @@ import unittest
 from copy import deepcopy
 from pathlib import Path
 
-from escape_bot.scenario import ScenarioLoader
+from escape_bot.scenario import Scenario, ScenarioLoader, validate_phase_engine
 from escape_bot.scenario_composer import ScenarioCompositionError, compose_documents, compose_files
 
 
@@ -18,11 +18,14 @@ class ScenarioComposerTest(unittest.TestCase):
         self.template = json.loads(TEMPLATE_PATH.read_text(encoding="utf-8"))
         self.realization = json.loads(REALIZATION_PATH.read_text(encoding="utf-8"))
 
-    def test_kraskov_compiles_to_the_existing_runtime_without_changes(self) -> None:
+    def test_kraskov_compiles_to_the_existing_runtime_plus_declarative_phase_rules(self) -> None:
         compiled = compose_files(TEMPLATE_PATH, REALIZATION_PATH)
         legacy = json.loads(LEGACY_PATH.read_text(encoding="utf-8"))
 
+        phase_engine = compiled.data.pop("phase_engine")
         self.assertEqual(compiled.data, legacy)
+        self.assertEqual(phase_engine["initial_phase"], "comms_offline")
+        self.assertEqual(phase_engine["transitions"]["searching_lost"]["next_phase"], "navigating")
         self.assertEqual(compiled.provenance["template_id"], "lost_in_time")
         self.assertEqual(compiled.provenance["realization_id"], "hotel_kraskov")
 
@@ -70,6 +73,13 @@ class ScenarioComposerTest(unittest.TestCase):
         compiled = compose_documents(template, realization)
 
         self.assertEqual(compiled.data["kraskov_time_rescue-extension"], {"enabled": True, "items": [1, 2]})
+
+    def test_rejects_transition_to_unknown_phase(self) -> None:
+        compiled = compose_documents(self.template, self.realization)
+        compiled.data["phase_engine"]["transitions"]["searching_lost"]["next_phase"] = "missing"
+
+        with self.assertRaisesRegex(ValueError, "neexistující fázi missing"):
+            validate_phase_engine(Scenario(compiled.data))
 
 
 if __name__ == "__main__":
