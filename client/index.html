@@ -4010,7 +4010,7 @@
                 for(let index=1;index<polygon.length;index++){
                     const intersection=raySegmentHit(origin,angle,polygon[index-1],polygon[index]),distance=intersection?.distance??null;
                     const hitPoint=distance===null?null:{x_m:origin.x_m+Math.cos(angle)*distance,y_m:origin.y_m+Math.sin(angle)*distance};
-                    if(distance!==null&&!doomPointInPassage(hitPoint,.25,doomNearbyPassages)&&distance<maxDistance&&(!hit||distance<hit.distance)) hit={distance,height:Number(building.height_m||9),kind:building.kind||'building',buildingId:building.osm_id,facadeU:intersection.along,roofColor:building.roof_color||'',roofShape:building.roof_shape||'pitched'};
+                    if(distance!==null&&!doomPointInPassage(hitPoint,.25,doomNearbyPassages)&&distance<maxDistance&&(!hit||distance<hit.distance)) hit={distance,height:Number(building.height_m||9),kind:building.kind||'building',buildingId:building.osm_id,hitPoint,facadeU:intersection.along,roofColor:building.roof_color||'',roofShape:building.roof_shape||'pitched'};
                 }
             }
             for(const path of doomNearbyPassages){
@@ -4058,7 +4058,9 @@
                 if(!hit)continue;
                 const corrected=Math.max(.2,hit.distance*Math.cos(offset));
                 const heightScale=Number(world.virtual_map?.building_height_scale||1);
-                const height=Math.min(canvas.height*1.9,canvas.height*Number(hit.height||9)*(hit.kind==='passage'?1:heightScale)/corrected);
+                const facade=doomFacadeTextures.get(String(hit.buildingId));
+                const visualHeight=Number(facade?.render_height_m||hit.height||9);
+                const height=Math.min(canvas.height*1.9,canvas.height*visualHeight*(hit.kind==='passage'?1:heightScale)/corrected);
                 const light=Math.max(16,Math.min(145,155-corrected*.55));
                 drawDoomWallSlice(ctx,x,columnWidth+1,horizon-height*.58,height,hit,light);
             }
@@ -4079,7 +4081,10 @@
             const textureCredit=document.getElementById('doom-texture-credit');
             if(position)position.innerHTML=`POLOHA <strong>${doomPlayer.x_m.toFixed(1)}, ${doomPlayer.y_m.toFixed(1)} m</strong> · SMĚR <strong>${Math.round((doomPlayer.heading_deg+360)%360)}°</strong>`;
             if(target)target.innerHTML=available?`CÍL <strong>${escapeHtml(available.name)} · ${Math.round(Math.hypot(available.x_m-doomPlayer.x_m,available.y_m-doomPlayer.y_m))} m</strong>`:'<strong>ŽÁDNÝ DOSTUPNÝ CÍL</strong>';
-            if(textureCredit)textureCredit.innerHTML=doomFacadeTexture?`TEXTURA <a target="_blank" rel="noopener" href="https://www.mapillary.com/app/?pKey=${encodeURIComponent(doomFacadeTexture.imageId)}&focus=photo">MAPILLARY${doomFacadeTexture.captured?` · ${escapeHtml(doomFacadeTexture.captured)}`:''}</a>`:(doomFacadeTextures.size?`LOKÁLNÍ FASÁDY <strong>${doomFacadeTextures.size}</strong>`:'');
+            if(textureCredit){
+                const localFacade=[...doomFacadeTextures.values()][0];
+                textureCredit.innerHTML=doomFacadeTexture?`TEXTURA <a target="_blank" rel="noopener" href="https://www.mapillary.com/app/?pKey=${encodeURIComponent(doomFacadeTexture.imageId)}&focus=photo">MAPILLARY${doomFacadeTexture.captured?` · ${escapeHtml(doomFacadeTexture.captured)}`:''}</a>`:(localFacade?`TEXTURA <a target="_blank" rel="noopener" href="${escapeHtml(localFacade.reference_url||'#')}">${escapeHtml(localFacade.name||'LOKÁLNÍ FASÁDA')} · ${escapeHtml(localFacade.reference_author||'')} · ${escapeHtml(localFacade.license||'')}</a>`:'');
+            }
         }
 
         function drawDoomGroundTexture(ctx,horizon,heading){
@@ -4108,7 +4113,14 @@
             ctx.fillStyle=`rgb(${Math.round(light*variation)},${Math.round(light*.72*variation)},${Math.round(light*.49*variation)})`;ctx.fillRect(x,wallTop,width,wallHeight);
             const facade=doomFacadeTexture?.buildingId===hit.buildingId?doomFacadeTexture:doomFacadeTextures.get(String(hit.buildingId));
             if(facade?.image.complete){
-                const texture=facade.image,repeat=Math.max(1,Number(facade.repeat_x||1)),u=(Number(hit.facadeU||0)*repeat)%1,sliceWidth=Math.max(1,texture.naturalWidth/180),sourceX=Math.max(0,Math.min(texture.naturalWidth-sliceWidth,u*(texture.naturalWidth-sliceWidth)));
+                const texture=facade.image,repeat=Math.max(1,Number(facade.repeat_x||1));
+                let u=Number(hit.facadeU||0);
+                if(facade.facade_center_m&&hit.hitPoint){
+                    const axis=Number(facade.facade_axis_deg||0)*Math.PI/180,center=facade.facade_center_m,widthMeters=Math.max(1,Number(facade.facade_width_m||1));
+                    u=.5+((hit.hitPoint.x_m-Number(center[0]))*Math.cos(axis)+(hit.hitPoint.y_m-Number(center[1]))*Math.sin(axis))/widthMeters;
+                }
+                u=((u*repeat)%1+1)%1;
+                const sliceWidth=Math.max(1,texture.naturalWidth/180),sourceX=Math.max(0,Math.min(texture.naturalWidth-sliceWidth,u*(texture.naturalWidth-sliceWidth)));
                 ctx.drawImage(texture,sourceX,0,sliceWidth,texture.naturalHeight,x,wallTop,width,wallHeight);
                 ctx.fillStyle=`rgba(8,10,12,${Math.max(.08,Math.min(.62,hit.distance/180))})`;ctx.fillRect(x,wallTop,width,wallHeight);
             }

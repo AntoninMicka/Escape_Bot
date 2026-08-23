@@ -5,13 +5,19 @@
     {
       "osm_id": 45818106,
       "name": "Zelená brána",
-      "asset": "/assets/textures/pardubice/zelenabrana-facade-v1.png",
+      "asset": "/assets/textures/pardubice/zelenabrana-facade-v2.png",
       "status": "prototype",
-      "source": "AI-generated architectural study; verify against an attributed reference before production use",
+      "source": "Derived architectural study based on a Wikimedia Commons photograph",
+      "reference_url": "https://commons.wikimedia.org/wiki/File:Pardubice_-_N%C3%A1m%C4%9Bst%C3%AD_republiky_-_View_ENE_on_Zelen%C3%A1_br%C3%A1na_-_Green_Gate_1538_-_Renaissance.jpg",
+      "reference_author": "Txllxt TxllxT",
+      "license": "CC BY-SA 4.0",
+      "modified": true,
       "facade_width_m": 12,
-      "facade_height_m": 32,
-      "floors": 5,
-      "orientation_deg": 0,
+      "facade_height_m": 59,
+      "render_height_m": 28,
+      "facade_center_m": [0, 1],
+      "facade_axis_deg": 120,
+      "floors": 6,
       "repeat_x": 1
     }
   ]

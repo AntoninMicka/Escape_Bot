@@ -1,4 +1,4 @@
-const CACHE_NAME = 'escape-bot-v77';
+const CACHE_NAME = 'escape-bot-v78';
 const ASSETS_TO_CACHE = [
     './',
     './index.html',
@@ -10,7 +10,7 @@ const ASSETS_TO_CACHE = [
     './assets/puzzles/sports-pigpen-hodiny.svg',
     './assets/puzzles/time-machine-jigsaw.png',
     './assets/textures/pardubice/facades.json',
-    './assets/textures/pardubice/zelenabrana-facade-v1.png',
+    './assets/textures/pardubice/zelenabrana-facade-v2.png',
     './assets/voices/captain_crystal_recovered.mp3',
     './assets/voices/captain_final_countdown.mp3',
     './assets/voices/captain_first_contact.mp3',
