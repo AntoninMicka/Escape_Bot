@@ -3748,7 +3748,9 @@
             }
         }
 
-        document.addEventListener('fullscreenchange',()=>requestAnimationFrame(drawDoomMap));
+        document.addEventListener('fullscreenchange',()=>{releaseDoomControls();requestAnimationFrame(drawDoomMap)});
+        document.addEventListener('pointerlockchange',releaseDoomControls);
+        document.addEventListener('visibilitychange',()=>{if(document.hidden)releaseDoomControls()});
 
         function tracePolygon(ctx, polygon, project) {
             ctx.beginPath(); polygon.forEach(([x,y],index)=>{const [px,py]=project({x_m:x,y_m:y});index?ctx.lineTo(px,py):ctx.moveTo(px,py)});ctx.closePath();
@@ -3844,13 +3846,14 @@
             const horizon=canvas.height*.48;
             const sky=ctx.createLinearGradient(0,0,0,horizon);sky.addColorStop(0,'#071527');sky.addColorStop(1,'#345064');ctx.fillStyle=sky;ctx.fillRect(0,0,canvas.width,horizon);
             const ground=ctx.createLinearGradient(0,horizon,0,canvas.height);ground.addColorStop(0,'#34342f');ground.addColorStop(1,'#090b0b');ctx.fillStyle=ground;ctx.fillRect(0,horizon,canvas.width,canvas.height-horizon);
+            drawDoomGroundTexture(ctx,horizon,heading);
             doomRayBuildings=(doomGeometry?.buildings||[]).filter(building=>building.polygon_m.some(([x,y])=>Math.abs(x-doomPlayer.x_m)<=250&&Math.abs(y-doomPlayer.y_m)<=250));
             const fov=Math.PI/3,columnWidth=5;
             if(doomGeometry) for(let x=0;x<canvas.width;x+=columnWidth){
-                const offset=(x/canvas.width-.5)*fov,hit=castDoomRay(doomPlayer,heading+offset);
+                const offset=(x/canvas.width-.5)*fov,hit=castDoomRay(doomPlayer,heading-offset);
                 if(!hit)continue;
                 const corrected=Math.max(.2,hit.distance*Math.cos(offset));
-                const heightScale=Number(world.virtual_map?.building_height_scale||1.4);
+                const heightScale=Number(world.virtual_map?.building_height_scale||1);
                 const height=Math.min(canvas.height*1.9,canvas.height*Number(hit.height||9)*(hit.kind==='passage'?1:heightScale)/corrected);
                 const light=Math.max(16,Math.min(145,155-corrected*.55));
                 drawDoomWallSlice(ctx,x,columnWidth+1,horizon-height*.58,height,hit,light);
@@ -3871,6 +3874,20 @@
             const position=document.getElementById('doom-position'),target=document.getElementById('doom-target');
             if(position)position.innerHTML=`POLOHA <strong>${doomPlayer.x_m.toFixed(1)}, ${doomPlayer.y_m.toFixed(1)} m</strong> · SMĚR <strong>${Math.round((doomPlayer.heading_deg+360)%360)}°</strong>`;
             if(target)target.innerHTML=available?`CÍL <strong>${escapeHtml(available.name)} · ${Math.round(Math.hypot(available.x_m-doomPlayer.x_m,available.y_m-doomPlayer.y_m))} m</strong>`:'<strong>ŽÁDNÝ DOSTUPNÝ CÍL</strong>';
+        }
+
+        function drawDoomGroundTexture(ctx,horizon,heading){
+            const bottom=ctx.canvas.height,depth=bottom-horizon;
+            ctx.strokeStyle='rgba(202,190,157,.18)';ctx.lineWidth=1;
+            for(let row=1;row<=14;row++){
+                const ratio=row/14,y=horizon+depth*ratio*ratio;
+                ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(ctx.canvas.width,y);ctx.stroke();
+            }
+            const shift=((heading/(Math.PI*2))%1)*90;
+            ctx.strokeStyle='rgba(18,20,19,.28)';
+            for(let x=-ctx.canvas.width;x<=ctx.canvas.width*2;x+=45){
+                ctx.beginPath();ctx.moveTo(ctx.canvas.width/2+shift,horizon);ctx.lineTo(x+shift,bottom);ctx.stroke();
+            }
         }
 
         function drawDoomWallSlice(ctx,x,width,top,height,hit,light){
@@ -3929,7 +3946,8 @@
             const control=doomKeyControls[event.code];
             if(control)doomHeldControls.delete(control);
         });
-        window.addEventListener('blur',()=>doomHeldControls.clear());
+        function releaseDoomControls(){doomHeldControls.clear()}
+        window.addEventListener('blur',releaseDoomControls);
 
         document.addEventListener('pointerdown',event=>{
             const button=event.target.closest?.('[data-doom-control]');
@@ -4001,7 +4019,7 @@
             const point=(latestScenarioProgress.world.checkpoints||[]).find(item=>nodes[item.node_id]?.status==='available'&&Math.hypot(item.x_m-doomPlayer.x_m,item.y_m-doomPlayer.y_m)<=8);
             if(!point){doomActivatingCheckpoint='';return}
             if(doomActivatingCheckpoint===point.node_id)return;
-            doomActivatingCheckpoint=point.node_id;simulateQrScan(nodes[point.node_id].activation_value,point.name);
+            doomActivatingCheckpoint=point.node_id;releaseDoomControls();simulateQrScan(nodes[point.node_id].activation_value,point.name);
         }
 
         function renderOnlineMapActions() {

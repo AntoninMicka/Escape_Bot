@@ -146,7 +146,7 @@ def world(mode: str) -> dict[str, Any]:
         common["virtual_map"] = {
             "projection": "local_equirectangular", "origin": {"lat": origin_lat, "lon": origin_lon},
             "units": "meters", "meters_per_unit": 1, "route_width_m": 5,
-            "building_height_scale": 1.4,
+            "building_height_scale": 1.0,
             "route_centerline_m": route, "wall_height_m": 3.2,
             "spawn": {"x_m": route[0][0], "y_m": route[0][1], "z_m": 1.7, "heading_deg": 35},
             "geometry_status": "osm_geometry_v2",
