@@ -2,6 +2,8 @@
 
 > **Audit aktuálnosti 2026-08-05:** Do dokončení a prvního ostrého ověření Kraskova, plánovaného na konec září 2026, tvoří aktivní roadmapu pouze produkční scénář v oddílu 13. Cloudová migrace, sdílený 3D svět, komerční provoz více her a obecné příběhové šablony v oddílech 14–17 jsou návrhy pro období po Kraskovu a do té doby se neimplementují. Oddíly 8 a 12 jsou pouze historie původního konceptu. QML/WASM byl nahrazen webovou PWA a AI/Ollama není podmínkou herního průchodu.
 
+> **Budoucí vývojová větev 2026-08-23:** Pro samostatnou větev budoucího vývoje tvoří společný aktivní plán oddíly 15, 17, 18, 19 a 20: Doom modul, rozdělení scénáře na šablonu a realizaci, geo/mapový režim a editor. Pořadí implementace určuje oddíl 20; produkční větev Kraskova se tím automaticky nemění.
+
 ## Aktuální milník – Kraskov do konce září 2026
 
 **Cíl:** první verzi hry opakovaně projít v reálných podmínkách, odstranit technická a herní třecí místa a připravit ji k bezpečnému provozu. Nové platformní směry z oddílů 14–17 se do tohoto milníku nepřidávají, pokud neřeší konkrétní blokující problém Kraskova.
@@ -53,8 +55,12 @@
 - [x] Dokončit ženské hlasové nahrávky Kapitánky a Elary pro všechny klíčové repliky interkomu; zachovat titulky, opakování a syntetický fallback.
 
 ## 7. Vizuální editor her (Produkční nástroje)
-- [ ] Nodové rozhraní (desktop Qt/C++) pro návrh příběhových větví a stavového automatu.
+
+Původní stručný záměr je rozpracován v oddílu 19. Editor nemá být svázaný pouze s desktopovým Qt ani vzniknout před ustálením datového modelu.
+
+- [ ] Nodové rozhraní pro návrh příběhových větví a stavového automatu.
 - [ ] Export scénářů a správa multimediálních assetů.
+- [ ] Podporovat oddělenou tvorbu šablony příběhu, konkrétní realizace, provozního deploymentu i kompletní samostatné hry.
 
 ## 8. Archivní námět: Ztracená v jiné dimenzi (nahrazen oddílem 13)
 - [ ] **Koncept**: Hráč se přes interkom spojí s "Kapitánkou" (první postava). Ta mu dá úkol zachránit "Ztracenou" (druhá postava v jiné dimenzi). Hra obsahuje umělé výpadky spojení pro prodloužení a zvýšení napětí.
@@ -871,6 +877,19 @@
 - [ ] Vytvořit papírový návrh realizace pro druhé město a ověřit, zda lze všechny obecné role obsadit bez změny společné dějové logiky.
 - [ ] Teprve po těchto třech variantách zmrazit první verzi schématu a začít stavět editor realizací.
 
+### 17.10 Migrace prvního scénáře na šablonu a realizaci
+
+- [ ] Před rozdělením zmrazit současný `scenario.json` jako referenční vstup a uložit očekávaný snapshot celé hráčské cesty, textů, odpovědí, bodování, inventáře a odemykání.
+- [ ] Vytvořit `story_template` s pracovním ID `lost_in_time`: postavy, obecná pravidla cestování časem, abstraktní kapitoly, návaznosti, povinné informace, logické typy úkolů a podmínky finále bez názvů Kraskova.
+- [ ] Vytvořit realizaci `hotel_kraskov`: skutečné názvy míst, navigační texty, QR checkpointy, konkrétní zadání, odpovědi, fyzické rekvizity, lokální obrázky, hlasy a bezpečnostní fallbacky.
+- [ ] Vytvořit explicitní vazby `template_node_id → realization_node_id`; zakázat párování pouze podle pořadí položek nebo zobrazovaného názvu.
+- [ ] Určit, která data smí realizace přepsat. Podmínky příběhu a význam uzlu zůstávají v šabloně, zatímco lokalita, prezentace, assety a povolená varianta úkolu patří realizaci.
+- [ ] Doplnit překladač/kompilátor, který z šablony a realizace sestaví neměnný runtime balíček ve formátu, který umí současný engine načíst.
+- [ ] Po dobu migrace podporovat čtení původního monolitického `scenario.json`; nové relace postupně přepnout na sestavený balíček a staré relace musí zůstat obnovitelné.
+- [ ] Porovnat původní a sestavenou variantu deterministickým smoke testem. Migrace je hotová teprve tehdy, když se nezmění průchod, skóre ani hráčské texty bez výslovného rozhodnutí.
+- [ ] Do každé relace uložit ID a verzi šablony, realizace, sestaveného balíčku a schématu, aby budoucí editace nezměnila rozehranou hru.
+- [ ] Teprve po úspěšné migraci Kraskova vytvořit druhou malou realizaci stejné šablony: geo trasu nebo virtuální Doom místnost.
+
 ## 18. Lokační varianta hry s GPS a mapou (odloženo po Kraskovu)
 
 **Cíl:** umožnit venkovní nebo městskou variantu, v níž se úkol zpřístupní až po skutečném příchodu týmu do určené oblasti. Hráčská mapa má podporovat orientaci a zobrazovat postup, ale nesmí předčasně odhalit celou trasu ani řešení. Tato varianta je samostatná vůči sdílenému 3D světu z oddílu 15 a může využít obecné realizace z oddílu 17.
@@ -924,3 +943,140 @@
 - [ ] Odemknout každý krok kombinací geofence a QR fallbacku a propsat výsledek do společného scénářového postupu.
 - [ ] Projít trasu alespoň na třech fyzických telefonech a teprve podle naměřené přesnosti stanovit výchozí poloměry geofence.
 - [ ] Po ověření vertikálního řezu rozhodnout, zda přidat navigační trasu, offline dlaždice, bonusové body a paralelní větve checkpointů.
+
+## 19. Editor šablon, realizací a kompletních her
+
+**Cíl:** vytvořit jeden produkční nástroj nad verzovaným datovým modelem, nikoli několik nesouvisejících editorů. Uživatel musí vždy vědět, zda upravuje obecnou šablonu, konkrétní realizaci, provozní deployment, nebo kompletní hru bez sdílené šablony. První verze má být webová a používat stejné validační API jako backend; případný desktopový obal může přijít později.
+
+### 19.1 Režimy a hranice editoru
+
+- [ ] Nabídnout tři vstupní režimy: `Nová šablona příběhu`, `Nová realizace existující šablony` a `Nová kompletní hra`.
+- [ ] Kompletní hru interně ukládat jako šablonu a výchozí realizaci, i když ji editor prezentuje jako jediný dokument; nevytvářet druhý paralelní datový formát.
+- [ ] Deployment editovat odděleně jako provozní konfiguraci: termín, kapacita, aktivní trasa, QR tokeny, mapové podklady, limity, fallbacky a verze publikovaného balíčku.
+- [ ] V každém formuláři viditelně označit původ hodnoty: šablona, realizace, deployment nebo výchozí hodnota enginu.
+- [ ] Povolit realizaci přepsat jen pole deklarovaná schématem; nepodporovat obecný „override libovolného JSONu“.
+- [ ] Umožnit otevřít zdrojový JSON/YAML pro pokročilou kontrolu, ale všechny změny znovu validovat stejným schématem jako vizuální editor.
+
+### 19.2 Editor šablony příběhu
+
+- [ ] Přidat nodový graf kapitol, checkpointů, hádanek, zpráv, větví, podmínek, odměn, postihů a finále.
+- [ ] Rozlišit typ uzlu, jeho příběhový význam a požadované schopnosti od konkrétní prezentace či lokace.
+- [ ] Umožnit definovat proměnné, příznaky, inventář, bodové události, časové limity, týmové podmínky a idempotentní vedlejší efekty.
+- [ ] Přidat editor postav, kanálů, textů, hlasových replik, nápověd a lokalizačních klíčů.
+- [ ] U každého uzlu zobrazit vstupní podmínky, možné výsledky a všechny následníky; zvýraznit nedosažitelné uzly, cykly bez ukončení a slepé větve.
+- [ ] Umožnit označit uzel jako `required`, `optional`, `bonus` nebo `fallback` a definovat, jakou povinnou příběhovou informaci předává.
+- [ ] Přidat knihovnu znovupoužitelných typů úkolů a jejich verzí, aniž by šablona obsahovala implementační detaily konkrétní minihry.
+
+### 19.3 Editor konkrétní realizace
+
+- [ ] Zobrazit vedle sebe abstraktní uzly šablony a jejich konkrétní obsazení místem, variantou úkolu, textem, odpovědí, assety a fallbackem.
+- [ ] Přidat přehled nepřiřazených povinných rolí a nekompatibilních variant podle požadovaných schopností.
+- [ ] U fyzické realizace editovat QR hodnoty, navigační instrukce, rekvizity, přístupnost, kapacitu, otevírací dobu, rizika a datum poslední kontroly.
+- [ ] U geo realizace vložit OSM mapu pro umístění bodu, kruhu nebo polygonu, nastavení přesnosti a geofence, pořadí odhalování a QR fallbacku.
+- [ ] U virtuální realizace přiřadit uzlu 2D obrazovku nebo Doom mapový balíček, spawn, vstupní portál, cíle a bezpečný návrat.
+- [ ] Podporovat hybridní realizaci, kde jednotlivé uzly používají QR, GPS, běžnou webovou minihru nebo sdílený svět, ale všechny zapisují do stejného scénářového stavu.
+- [ ] Přidat náhled hráčské mapy bez tajných bodů a samostatný organizační náhled se všemi checkpointy a fallbacky.
+
+### 19.4 Editor Doom map a virtuálních místností
+
+- [ ] První verzi editoru postavit až po ručním vytvoření a ověření alespoň dvou mapových balíčků podle oddílu 15.5.
+- [ ] Umožnit import GLB/glTF scény, umístění spawnů, kolizních objemů, portálů, dveří, spínačů, sběratelných předmětů a interakčních zón.
+- [ ] Každé entitě přidělit stabilní ID a vazbu na scénářovou událost; vizuální objekt nesmí být současně jediným nositelem herního stavu.
+- [ ] Přidat jednoduchý testovací režim přímo v editoru: pohyb, kolize, dosažitelnost cíle, sólo fallback a simulace druhého hráče.
+- [ ] Zobrazit rozpočet mapy: velikost balíčku, textury, trojúhelníky, světla, interaktivní entity a odhad dopadu na slabší telefon.
+- [ ] Validovat spawn ve stěně, chybějící kolizi, duplicitní ID, nedosažitelný cíl, chybějící návratový portál a objekt bez scénářové vazby.
+- [ ] Nepokoušet se v první verzi nahrazovat plný 3D modelovací software; editor skládá a konfiguruje připravené assety.
+
+### 19.5 Assety, texty a hlas
+
+- [ ] Přidat knihovnu obrázků, zvuků, hlasů, videí, 3D modelů a mapových symbolů se stabilním ID, náhledem, licencí, velikostí, hashem a použitím.
+- [ ] Automaticky najít chybějící a nepoužívané assety a zabránit publikaci, pokud povinný soubor není součástí balíčku nebo offline cache.
+- [ ] U hlasové repliky zobrazit text, postavu, `voice_id`, připojenou nahrávku, možnost přehrání a stav syntetického fallbacku.
+- [ ] Podporovat lokalizační varianty textů i assetů a zobrazit úplnost každého jazyka.
+- [ ] Oddělit pracovní soubory ve vysoké kvalitě od optimalizovaných runtime assetů; publikace vytvoří deterministické webové varianty.
+
+### 19.6 Náhled, validace a testování
+
+- [ ] Používat jedno sdílené schéma a validační knihovnu v editoru, CLI, backendu i CI; klientská validace sama nestačí.
+- [ ] Přidat okamžitou kontrolu povinných polí, typů, duplicitních ID, neplatných vazeb a neexistujících assetů.
+- [ ] Přidat grafovou analýzu dosažitelnosti, podmínek finále, fallbackových cest a možnosti uváznutí po každém významném zásahu.
+- [ ] Umožnit spustit deterministický smoke průchod, demo relaci a simulaci QR/GPS/Doom událostí přímo z konceptu bez publikace do produkce.
+- [ ] Zobrazit náhled pro sólo, různé velikosti týmu, mobilní zařízení, hráčskou mapu, interkom a administrační dohled.
+- [ ] Generovat report změn oproti poslední publikované verzi: texty, řešení, bodování, trasa, assety, oprávnění a kompatibilita uložených relací.
+
+### 19.7 Koncepty, verzování a publikace
+
+- [ ] Zavést stav `draft`, `in_review`, `approved`, `published`, `retired`; pouze publikovaný neměnný balíček lze použít pro novou produkční relaci.
+- [ ] Průběžně ukládat koncepty, vést historii revizí a umožnit návrat ke starší verzi bez přepisování publikovaného balíčku.
+- [ ] Publikaci provádět jako samostatnou transakci: validace → sestavení balíčku → hash → smoke test → schválení → aktivace.
+- [ ] Uložit autora, čas, důvod změny a schvalovatele; rizikové změny řešení, bodování nebo trasy vyžadují nové schválení realizace.
+- [ ] Umožnit export/import přenositelného balíčku a před importem ověřit schéma, hash, kolize ID a bezpečnost cest k souborům.
+- [ ] Nikdy automaticky nemigrovat aktivní relaci na novou verzi; oprava rozehrané hry musí být zvláštní auditovaná operace.
+
+### 19.8 Oprávnění a provoz editoru
+
+- [ ] Zavést role `autor šablony`, `editor realizace`, `správce assetů`, `tester`, `schvalovatel` a `provozovatel deploymentu` s minimálními oprávněními.
+- [ ] Oddělit editor od hráčského a běžného Game Master rozhraní; produkční publikace nesmí být vedle rutinního ukončení týmu.
+- [ ] Chránit neveřejná řešení a kompletní organizační mapy před načtením hráčským klientem.
+- [ ] Auditovat publikaci, změny oprávnění, exporty, importy a ruční zásahy do publikovaného deploymentu.
+- [ ] Připravit zálohování konceptů, assetů a verzí balíčků a ověřit obnovu před prvním ostrým použitím editoru.
+
+### 19.9 Doporučený vertikální řez editoru
+
+- [ ] Nejprve vytvořit read-only prohlížeč rozděleného Kraskova: graf šablony, mapování realizace, assety a validační chyby.
+- [ ] Poté povolit úpravu názvu, textu, nápovědy a jednoho typu checkpointu s exportem čitelného diffu.
+- [ ] Následně přidat geo bod na OSM mapě a jednu ručně připravenou Doom místnost jako dva odlišné typy realizace stejného abstraktního uzlu.
+- [ ] Teprve po úspěšném sestavení a smoke testu těchto variant přidat obecný nodový editor, správu assetů a publikaci.
+- [ ] Za první použitelnou verzi považovat editor, který vytvoří druhou malou hru bez ruční editace výsledného JSONu a její balíček projde validací i kompletním smoke testem.
+
+## 20. Společný plán budoucí vývojové větve
+
+**Princip:** nejprve stabilizovat schéma a sestavení hry, potom vyvíjet runtime moduly a až nakonec plný editor. Geo režim i Doom používají stejné uzly, události, inventář, skóre, relace a publikační balíčky; nesmí vzniknout jako oddělené aplikace s vlastní kopií scénářového enginu.
+
+### Etapa 0 – Charakterizace současné hry
+
+- [ ] Zmrazit referenční testy Kraskova, inventář všech polí `scenario.json`, assetů, runtime stavů a administrátorských zásahů.
+- [ ] Sepsat rozhodnutí o formátech a hranicích `story_template`, `realization`, `deployment`, `compiled_game` a `session_snapshot`.
+- [ ] Definovat verzování schématu, stabilní ID, migrace, pravidla override a kompatibilitu starých relací.
+
+### Etapa 1 – Rozdělený scénář bez nové funkce
+
+- [ ] Rozdělit Kraskov podle oddílu 17.10 a sestavit z něj runtime balíček ekvivalentní původnímu scénáři.
+- [ ] Přidat JSON Schema nebo ekvivalentní striktní modely, CLI validátor a kompilátor.
+- [ ] Zachovat původní loader jako dočasnou kompatibilní cestu a potvrdit shodu kompletním smoke testem.
+
+### Etapa 2 – Read-only studio
+
+- [ ] Vytvořit webový prohlížeč šablony, realizace, výsledného grafu, assetů a validačního reportu.
+- [ ] Přidat vizuální diff mezi zdrojovými vrstvami a sestavenou hrou.
+- [ ] Zobrazit Kraskov bez možnosti zápisu a ověřit s autorem, že rozdělení odpovídá mentálnímu modelu tvorby hry.
+
+### Etapa 3 – Geo vertikální řez
+
+- [ ] Implementovat tříbodovou trasu z oddílu 18.6 jako novou realizaci jednoho malého příběhového úseku.
+- [ ] Přidat autoritativní geofence, hráčskou OSM mapu, demo simulaci a QR fallback.
+- [ ] Přidat do studia editaci geo bodu, poloměru, viditelnosti a mapového náhledu.
+
+### Etapa 4 – Doom vertikální řez
+
+- [ ] Implementovat jednu sólo místnost a následně jednu dvouhráčovou kooperativní místnost podle oddílu 15.
+- [ ] Napojit vstup, dokončení a fallback na stejný abstraktní uzel, jaký může geo realizace obsadit fyzickým checkpointem.
+- [ ] Přidat do studia import připravené mapy, umístění spawnů/interakcí a základní validační náhled.
+
+### Etapa 5 – Zapisovatelný editor a publikace
+
+- [ ] Povolit bezpečné úpravy šablon a realizací, správu assetů, koncepty, revize, schválení a sestavení neměnného balíčku.
+- [ ] Vytvořit druhou malou kompletní hru pouze přes editor a evidovat všechny chybějící funkce, které si vynutily ruční zásah.
+- [ ] Rozšířit editor až podle tohoto experimentu, nikoli podle hypotetických potřeb budoucích her.
+
+### Etapa 6 – Hybridní referenční hra
+
+- [ ] Vytvořit krátkou hru kombinující běžnou webovou hádanku, geo checkpoint a Doom místnost nad jednou šablonou a jedním týmovým stavem.
+- [ ] Ověřit sólo i týmovou variantu, obnovu relace, administrátorský dohled, offline/fallback cestu a izolaci více týmů.
+- [ ] Publikovat ji jako neměnný balíček a ověřit, že pozdější editace konceptu nezmění rozehranou ani historickou relaci.
+
+### Etapa 7 – Produkční rozhodnutí
+
+- [ ] Vyhodnotit výkon telefonů, GPS spolehlivost, složitost tvorby obsahu, délku testování a skutečnou hráčskou hodnotu obou režimů.
+- [ ] Rozhodnout, zda hlavním produktem bude platforma fyzických realizací, hybridních her, virtuálních světů, nebo zda Geo/Doom zůstanou volitelnými moduly.
+- [ ] Teprve poté propojit editor s katalogem her, rezervacemi, platbami a víceuživatelským komerčním provozem z oddílu 16.
