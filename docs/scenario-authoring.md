@@ -132,6 +132,33 @@ Místnosti už nejsou omezené na pokoj 104. Každá položka `rooms` se automat
 zobrazí jako přístupový panel, jakmile jsou splněné její `requires_checkpoints`;
 název, PIN, nápovědy i výsledná vlajka se odvozují z jejího ID a dat šablony.
 
+## Komponenty miniher
+
+Šablona deklaruje používané typy miniher a mapuje je na vestavěné adaptéry:
+
+```json
+"puzzle_components": {
+  "witness_grid": {"adapter": "line_game"},
+  "warehouse_navigation": {"adapter": "sokoban"},
+  "coded_statement": {"adapter": "answer"}
+}
+```
+
+Hádanka pak používá logický typ šablony, například `"type": "witness_grid"`.
+Engine z registru adaptéru získá podporované události, tvorbu veřejného stavu,
+restart, způsob odevzdání a dokončovací signál (`answer`, `game_complete`,
+`team_complete`, sestavení s následnou odpovědí nebo aktivace finále). Díky tomu může několik šablon pojmenovat stejnou herní
+mechaniku podle vlastního příběhu bez dalšího větvení ve state machine.
+
+Vestavěné adaptéry jsou `answer`, `line_game`, `mine_karel`, `triad`, `sokoban`,
+`archive_vector` a `finale`. Neznámý adaptér nebo chybějící konfigurace `game` či
+`assembly` vyřadí pouze dotčený scénář z katalogu. Staré scénáře bez manifestu mají
+kompatibilní odvození podle `type`.
+
+Editor zobrazuje manifest komponent v samostatné tabulce, včetně použitého adaptéru
+a seznamu hádanek. Změna adaptéru se ověří stejným validátorem; například mřížkový
+adaptér bez objektu `game` nelze publikovat.
+
 Toto je základ pro editor: šablonový editor bude upravovat herní logiku a deklarace
 proměnných, zatímco editor realizace nabídne formulář vygenerovaný z
 `variable_schema`. Doom může vzniknout jako jiná herní šablona; geo/mapová varianta

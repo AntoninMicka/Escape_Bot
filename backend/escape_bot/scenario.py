@@ -3,6 +3,8 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any
 
+from .puzzle_components import component_for
+
 @dataclass
 class Scenario:
     data: dict[str, Any]
@@ -22,6 +24,7 @@ class ScenarioLoader:
         scenario = Scenario(data)
         validate_checkpoint_navigation(scenario)
         validate_phase_engine(scenario)
+        validate_puzzle_components(scenario)
         return scenario
 
     @staticmethod
@@ -33,6 +36,7 @@ class ScenarioLoader:
         scenario = Scenario(compiled.data, compiled.provenance)
         validate_checkpoint_navigation(scenario)
         validate_phase_engine(scenario)
+        validate_puzzle_components(scenario)
         return scenario
 
 
@@ -57,6 +61,23 @@ def validate_phase_engine(scenario: Scenario) -> None:
             raise ValueError(f"Přechod z {phase_id} míří na neexistující fázi {next_phase or '—'}.")
         if transition.get("match", "any") not in {"any", "contains", "equals"}:
             raise ValueError(f"Fáze {phase_id} používá nepodporovanou podmínku přechodu.")
+
+
+def validate_puzzle_components(scenario: Scenario) -> None:
+    declarations = scenario.data.get("puzzle_components")
+    if declarations is not None and not isinstance(declarations, dict):
+        raise ValueError("puzzle_components musí být objekt.")
+    for puzzle_id, puzzle in scenario.data.get("puzzles", {}).items():
+        component_type = str(puzzle.get("type", "answer"))
+        if isinstance(declarations, dict) and component_type not in declarations:
+            raise ValueError(f"Hádanka {puzzle_id} používá nedeklarovanou komponentu {component_type}.")
+        if component_for(scenario.data, puzzle) is None:
+            raise ValueError(f"Hádanka {puzzle_id} používá neznámý adaptér komponenty {component_type}.")
+        component = component_for(scenario.data, puzzle)
+        if component and component.adapter in {"line_game", "mine_karel", "triad", "sokoban"} and not isinstance(puzzle.get("game"), dict):
+            raise ValueError(f"Komponenta {component_type} hádanky {puzzle_id} vyžaduje objekt game.")
+        if component and component.adapter == "archive_vector" and not isinstance(puzzle.get("assembly"), dict):
+            raise ValueError(f"Komponenta {component_type} hádanky {puzzle_id} vyžaduje objekt assembly.")
 
 
 def validate_checkpoint_navigation(scenario: Scenario) -> None:

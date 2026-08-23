@@ -435,6 +435,19 @@ class StateMachineCheckpointTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(room["id"], "room_12_panel")
         self.assertEqual(room["title"], "Porotní archiv")
 
+    def test_custom_component_alias_uses_registered_adapter(self) -> None:
+        data = deepcopy(self.scenario.data)
+        data["puzzle_components"] = {"custom_alignment": {"adapter": "line_game"}}
+        data["puzzles"]["timeline_lines"]["type"] = "custom_alignment"
+        machine = EscapeBotStateMachine(Scenario(data))
+        machine.state.checkpoint_states["timeline_calibration"] = {"status": "found"}
+
+        item = next(item for item in machine._puzzle_state() if item["id"] == "timeline_lines")
+        reset = machine.admin_reset_game("timeline_lines")
+
+        self.assertIn("game", item)
+        self.assertEqual(reset["game_type"], "custom_alignment")
+
     async def test_first_checkpoint_requires_navigating_phase(self) -> None:
         self.machine.state.phase = GamePhase.SEARCHING_LOST
         responses = await self.scan("reception_archive")

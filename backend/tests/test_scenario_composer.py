@@ -3,7 +3,7 @@ import unittest
 from copy import deepcopy
 from pathlib import Path
 
-from escape_bot.scenario import Scenario, ScenarioLoader, validate_phase_engine
+from escape_bot.scenario import Scenario, ScenarioLoader, validate_phase_engine, validate_puzzle_components
 from escape_bot.scenario_composer import ScenarioCompositionError, compose_documents, compose_files
 
 
@@ -23,9 +23,11 @@ class ScenarioComposerTest(unittest.TestCase):
         legacy = json.loads(LEGACY_PATH.read_text(encoding="utf-8"))
 
         phase_engine = compiled.data.pop("phase_engine")
+        puzzle_components = compiled.data.pop("puzzle_components")
         self.assertEqual(compiled.data, legacy)
         self.assertEqual(phase_engine["initial_phase"], "comms_offline")
         self.assertEqual(phase_engine["transitions"]["searching_lost"]["next_phase"], "navigating")
+        self.assertEqual(puzzle_components["sokoban"]["adapter"], "sokoban")
         self.assertEqual(compiled.provenance["template_id"], "lost_in_time")
         self.assertEqual(compiled.provenance["realization_id"], "hotel_kraskov")
 
@@ -80,6 +82,13 @@ class ScenarioComposerTest(unittest.TestCase):
 
         with self.assertRaisesRegex(ValueError, "neexistující fázi missing"):
             validate_phase_engine(Scenario(compiled.data))
+
+    def test_rejects_unknown_component_adapter(self) -> None:
+        compiled = compose_documents(self.template, self.realization)
+        compiled.data["puzzle_components"]["sokoban"]["adapter"] = "unknown_plugin"
+
+        with self.assertRaisesRegex(ValueError, "neznámý adaptér"):
+            validate_puzzle_components(Scenario(compiled.data))
 
 
 if __name__ == "__main__":

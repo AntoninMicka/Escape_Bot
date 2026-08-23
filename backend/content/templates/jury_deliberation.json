@@ -2159,6 +2159,41 @@
         }
       }
     },
+    "puzzle_components": {
+      "logic_grid": {
+        "adapter": "answer"
+      },
+      "semaphore": {
+        "adapter": "answer"
+      },
+      "binary_image": {
+        "adapter": "answer"
+      },
+      "morse_image": {
+        "adapter": "answer"
+      },
+      "pigpen": {
+        "adapter": "answer"
+      },
+      "line_game": {
+        "adapter": "line_game"
+      },
+      "mine_karel": {
+        "adapter": "mine_karel"
+      },
+      "triad": {
+        "adapter": "triad"
+      },
+      "sokoban": {
+        "adapter": "sokoban"
+      },
+      "archive_vector": {
+        "adapter": "archive_vector"
+      },
+      "finale": {
+        "adapter": "finale"
+      }
+    },
     "world": {
       "$var": "world"
     }

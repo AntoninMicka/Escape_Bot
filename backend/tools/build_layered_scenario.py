@@ -87,6 +87,16 @@ def main() -> None:
             },
         },
     }
+    component_adapters = {
+        "logic_grid": "answer", "semaphore": "answer", "binary_image": "answer",
+        "morse_image": "answer", "pigpen": "answer", "line_game": "line_game",
+        "mine_karel": "mine_karel", "triad": "triad", "sokoban": "sokoban",
+        "archive_vector": "archive_vector", "finale": "finale",
+    }
+    templated_runtime["puzzle_components"] = {
+        component_type: {"adapter": adapter}
+        for component_type, adapter in component_adapters.items()
+    }
 
     variables: dict[str, Any] = {
         "game": {"id": runtime["id"]},

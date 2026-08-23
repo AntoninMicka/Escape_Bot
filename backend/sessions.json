@@ -2708,5 +2708,105 @@
     "event_history": [],
     "game_exclusions": {},
     "game_results": {}
+  },
+  "9527827af15144faa5acee30d088ee15": {
+    "phase": "navigating",
+    "unlocked_discoveries": [
+      "jury_public_archive"
+    ],
+    "inventory": [],
+    "flags": {
+      "operations_started_at": "2026-08-23T08:03:08.741868+00:00",
+      "chronomap_unlocked": true
+    },
+    "chat_history": [
+      {
+        "role": "bot",
+        "channel": "captain",
+        "text": "Tady předsedkyně senátu. Porada byla přerušena: jeden hlas odmítá rychlý verdikt. Potvrďte příjem a otevřeme zapečetěný spis.",
+        "voice_id": "captain_first_contact",
+        "audio_url": "/assets/voices/captain_first_contact.mp3"
+      },
+      {
+        "role": "player",
+        "channel": "captain",
+        "text": "ok"
+      },
+      {
+        "role": "bot",
+        "channel": "captain",
+        "text": "Nouzový export spisu poškodil číslo případu. Tři skupiny krátkých a dlouhých pulzů ukrývají číslice. Rozluštěte je a odešlete tříciferný kód:\n\n━━  ━━  ●  ●  ●   /   ●  ●  ●  ━━  ━━   /   ●  ●  ●  ●  ━━"
+      },
+      {
+        "role": "player",
+        "channel": "captain",
+        "text": "734"
+      },
+      {
+        "role": "bot",
+        "channel": "captain",
+        "text": "Spis 734 ověřen. Přepojuji vás k porotkyni, která vznesla pochybnost."
+      },
+      {
+        "role": "bot",
+        "channel": "lost",
+        "text": "Tady Nora. Jedenáct lidí chtělo hlasovat pro vinu, ale časová osa a výpovědi si odporují. Projděte se mnou všech dvanáct důkazních bodů."
+      },
+      {
+        "role": "bot",
+        "channel": "lost",
+        "text": "Mapa důkazů je aktivní. Začněte prvním bodem a nic nepovažujte za fakt, dokud to neověříte."
+      },
+      {
+        "role": "bot",
+        "channel": "lost",
+        "text": "Důkazní bod 1 potvrzen: Zelená brána."
+      }
+    ],
+    "score": 1020,
+    "hints_used": {},
+    "checkpoint_states": {
+      "jury_public_archive": {
+        "status": "found",
+        "first_scanned_at": "2026-08-23T08:03:56.948042+00:00"
+      }
+    },
+    "unlocked_cipher_tools": [
+      "a1z26",
+      "morse"
+    ],
+    "paid_cipher_tools": [],
+    "puzzle_attempts": {},
+    "interactive_games": {},
+    "sokoban_games": {},
+    "karel_games": {},
+    "last_activity_at": "2026-08-23T08:03:56.948004+00:00",
+    "triad_games": {},
+    "archive_games": {},
+    "event_history": [
+      {
+        "at": "2026-08-23T08:03:24.449658+00:00",
+        "type": "player.message",
+        "details": {
+          "channel": "captain"
+        }
+      },
+      {
+        "at": "2026-08-23T08:03:38.396849+00:00",
+        "type": "player.message",
+        "details": {
+          "channel": "captain"
+        }
+      },
+      {
+        "at": "2026-08-23T08:03:56.948004+00:00",
+        "type": "qr.detected",
+        "details": {
+          "value": "escapebot://checkpoint/0135307694c5b1e137418cc787700f37"
+        }
+      }
+    ],
+    "game_exclusions": {},
+    "game_results": {}
   }
 }

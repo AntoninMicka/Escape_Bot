@@ -23,6 +23,7 @@ from .sokoban import (
 )
 from .mine_karel import execute as execute_karel, new_game as new_karel, public_game as public_karel, reset as reset_karel
 from .triad_game import new_game as new_triad, place as place_triad, public_game as public_triad, reset as reset_triad
+from .puzzle_components import component_for, declared_components
 
 LLM_ENABLED = os.getenv("ESCAPEBOT_LLM_ENABLED", "").lower() in {"1", "true", "yes", "on"}
 
@@ -163,18 +164,9 @@ class EscapeBotStateMachine:
                 "puzzle.submit": ("puzzle_id",),
                 "puzzle.hint": ("puzzle_id",),
                 "phase.hint": ("phase_id", "hint_index"),
-                "line_game.move": ("puzzle_id",),
-                "line_game.reset": ("puzzle_id",),
-                "sokoban.command": ("puzzle_id", "commands"),
-                "sokoban.undo": ("puzzle_id",),
-                "sokoban.reset": ("puzzle_id",),
-                "karel.command": ("puzzle_id", "commands"),
-                "karel.reset": ("puzzle_id",),
-                "triad.place": ("puzzle_id",),
-                "triad.reset": ("puzzle_id",),
-                "finale.activate": (),
-                "archive.arrange": ("puzzle_id",),
             }
+            for component in declared_components(self.scenario.data).values():
+                detail_keys.update(component.event_details)
             details = {key: str(message.payload.get(key, ""))[:120] for key in detail_keys.get(message.type, ()) if message.payload.get(key) is not None and message.payload.get(key) != ""}
             self.state.event_history.append({"at": now, "type": message.type, "details": details})
             self.state.event_history = self.state.event_history[-500:]
@@ -198,18 +190,10 @@ class EscapeBotStateMachine:
             "puzzle.submit": self._handle_puzzle_submit,
             "puzzle.hint": self._handle_puzzle_hint,
             "phase.hint": self._handle_phase_hint,
-            "line_game.move": self._handle_line_game_move,
-            "line_game.reset": self._handle_line_game_reset,
-            "sokoban.command": self._handle_sokoban_command,
-            "sokoban.undo": self._handle_sokoban_undo,
-            "sokoban.reset": self._handle_sokoban_reset,
-            "karel.command": self._handle_karel_command,
-            "karel.reset": self._handle_karel_reset,
-            "triad.place": self._handle_triad_place,
-            "triad.reset": self._handle_triad_reset,
-            "finale.activate": self._handle_finale_activate,
-            "archive.arrange": self._handle_archive_arrange,
         }
+        for component in declared_components(self.scenario.data).values():
+            for event, method_name in component.events.items():
+                handlers[event] = getattr(self, method_name)
         handler = handlers.get(message.type, self._handle_unknown)
         responses = await handler(message)
 
@@ -306,27 +290,9 @@ class EscapeBotStateMachine:
                     "clues": puzzle.get("clues", []),
                     "ciphertext": puzzle.get("ciphertext", ""),
                 })
-                if puzzle.get("type") == "line_game":
-                    config = puzzle.get("game", {})
-                    game = self._line_game_state(puzzle_id, config, player_id)
-                    item["game"] = public_game(config, game)
-                    item["team_progress"] = self._team_game_progress(puzzle_id, "line_game")
-                elif puzzle.get("type") == "sokoban":
-                    game = self._sokoban_state(puzzle_id, puzzle.get("game", {}))
-                    item["game"] = public_sokoban(puzzle.get("game", {}), game)
-                elif puzzle.get("type") == "mine_karel":
-                    game = self._karel_state(puzzle_id, puzzle.get("game", {}))
-                    item["game"] = public_karel(puzzle.get("game", {}), game)
-                elif puzzle.get("type") == "triad":
-                    game = self._triad_state(puzzle_id, puzzle.get("game", {}), player_id); item["game"] = public_triad(puzzle.get("game", {}), game)
-                    item["team_progress"] = self._team_game_progress(puzzle_id, "triad")
-                elif puzzle.get("type") == "finale":
-                    item["finale"] = {
-                        "module_labels": list(puzzle.get("module_labels", [])),
-                        "countdown_seconds": int(puzzle.get("countdown_seconds", 10)),
-                    }
-                elif puzzle.get("type") == "archive_vector":
-                    item["archive_game"] = self._public_archive_game(puzzle_id, puzzle)
+                component = component_for(self.scenario.data, puzzle)
+                if component and component.presenter:
+                    item.update(getattr(self, component.presenter)(puzzle_id, puzzle, player_id))
             result.append(item)
         for room_id, room in self.scenario.data.get("rooms", {}).items():
             room_available = all(
@@ -351,6 +317,28 @@ class EscapeBotStateMachine:
             })
         return result
 
+    def _present_line_game(self, puzzle_id: str, puzzle: dict[str, Any], player_id: str) -> dict[str, Any]:
+        config = puzzle.get("game", {})
+        return {"game": public_game(config, self._line_game_state(puzzle_id, config, player_id)),
+                "team_progress": self._team_game_progress(puzzle_id, "line_game")}
+
+    def _present_sokoban(self, puzzle_id: str, puzzle: dict[str, Any], _player_id: str) -> dict[str, Any]:
+        return {"game": public_sokoban(puzzle.get("game", {}), self._sokoban_state(puzzle_id, puzzle.get("game", {})))}
+
+    def _present_mine_karel(self, puzzle_id: str, puzzle: dict[str, Any], _player_id: str) -> dict[str, Any]:
+        return {"game": public_karel(puzzle.get("game", {}), self._karel_state(puzzle_id, puzzle.get("game", {})))}
+
+    def _present_triad(self, puzzle_id: str, puzzle: dict[str, Any], player_id: str) -> dict[str, Any]:
+        return {"game": public_triad(puzzle.get("game", {}), self._triad_state(puzzle_id, puzzle.get("game", {}), player_id)),
+                "team_progress": self._team_game_progress(puzzle_id, "triad")}
+
+    def _present_finale(self, _puzzle_id: str, puzzle: dict[str, Any], _player_id: str) -> dict[str, Any]:
+        return {"finale": {"module_labels": list(puzzle.get("module_labels", [])),
+                            "countdown_seconds": int(puzzle.get("countdown_seconds", 10))}}
+
+    def _present_archive_vector(self, puzzle_id: str, puzzle: dict[str, Any], _player_id: str) -> dict[str, Any]:
+        return {"archive_game": self._public_archive_game(puzzle_id, puzzle)}
+
     def _apply_rewards(self, rewards: dict[str, Any]) -> None:
         for item in rewards.get("inventory", []):
             if item not in self.state.inventory:
@@ -363,6 +351,14 @@ class EscapeBotStateMachine:
 
     def _apply_checkpoint_rewards(self, checkpoint: dict[str, Any]) -> None:
         self._apply_rewards(checkpoint.get("rewards", {}))
+
+    def _uses_component(self, puzzle: dict[str, Any] | None, adapter: str) -> bool:
+        component = component_for(self.scenario.data, puzzle or {})
+        return component is not None and component.adapter == adapter
+
+    def _component_result_complete(self, puzzle: dict[str, Any], result: dict[str, Any]) -> bool:
+        component = component_for(self.scenario.data, puzzle)
+        return bool(component and result.get(component.completion_signal))
 
     def _navigation_message(self, checkpoint_id: str, message: Message) -> Message | None:
         navigation = self.scenario.data.get("checkpoints", {}).get(checkpoint_id, {}).get("navigation_message")
@@ -405,26 +401,31 @@ class EscapeBotStateMachine:
         checkpoint_state = self.state.checkpoint_states.get(checkpoint_id)
         if not checkpoint_state or checkpoint_state.get("status") != "found":
             raise ValueError("Restartovat lze pouze aktivní, nedokončenou minihru.")
-        config = puzzle.get("game", {})
-        game_type = puzzle.get("type")
-        if game_type == "line_game":
-            container = self.state.interactive_games.get(puzzle_id, {})
-            if isinstance(container, dict) and isinstance(container.get("players"), dict):
-                for game in container["players"].values(): reset_game(config, game)
-            else: reset_game(config, self._line_game_state(puzzle_id, config))
-        elif game_type == "mine_karel":
-            reset_karel(config, self._karel_state(puzzle_id, config))
-        elif game_type == "triad":
-            container = self.state.triad_games.get(puzzle_id, {})
-            if isinstance(container, dict) and isinstance(container.get("players"), dict):
-                for game in container["players"].values(): reset_triad(config, game)
-            else: reset_triad(config, self._triad_state(puzzle_id, config))
-        elif game_type == "sokoban":
-            reset_sokoban(config, self._sokoban_state(puzzle_id, config))
-        else:
+        game_type = str(puzzle.get("type", ""))
+        component = component_for(self.scenario.data, puzzle)
+        if component is None or not component.resetter:
             raise ValueError("Tato hádanka nemá restartovatelnou minihru.")
+        getattr(self, component.resetter)(puzzle_id, puzzle)
         self.state.last_activity_at = datetime.now(UTC).isoformat()
         return {"puzzle_id": puzzle_id, "checkpoint_id": checkpoint_id, "game_type": game_type}
+
+    def _reset_line_game_component(self, puzzle_id: str, puzzle: dict[str, Any]) -> None:
+        config = puzzle.get("game", {}); container = self.state.interactive_games.get(puzzle_id, {})
+        if isinstance(container, dict) and isinstance(container.get("players"), dict):
+            for game in container["players"].values(): reset_game(config, game)
+        else: reset_game(config, self._line_game_state(puzzle_id, config))
+
+    def _reset_mine_karel_component(self, puzzle_id: str, puzzle: dict[str, Any]) -> None:
+        reset_karel(puzzle.get("game", {}), self._karel_state(puzzle_id, puzzle.get("game", {})))
+
+    def _reset_triad_component(self, puzzle_id: str, puzzle: dict[str, Any]) -> None:
+        config = puzzle.get("game", {}); container = self.state.triad_games.get(puzzle_id, {})
+        if isinstance(container, dict) and isinstance(container.get("players"), dict):
+            for game in container["players"].values(): reset_triad(config, game)
+        else: reset_triad(config, self._triad_state(puzzle_id, config))
+
+    def _reset_sokoban_component(self, puzzle_id: str, puzzle: dict[str, Any]) -> None:
+        reset_sokoban(puzzle.get("game", {}), self._sokoban_state(puzzle_id, puzzle.get("game", {})))
 
     def _provide_hint(self, phase: str, message: Message) -> list[Message]:
         p_data = self.scenario.get_phase_data(phase)
@@ -644,7 +645,10 @@ class EscapeBotStateMachine:
         puzzle = self.scenario.data.get("puzzles", {}).get(puzzle_id)
         if puzzle is None:
             return [reply("puzzle.result", {"correct": False, "reason": "Neznámá hádanka."}, message)]
-        if puzzle.get("type") in {"line_game", "sokoban", "mine_karel", "triad", "finale"}:
+        component = component_for(self.scenario.data, puzzle)
+        if component is None:
+            return [reply("puzzle.result", {"correct": False, "reason": "Typ této úlohy není v enginu dostupný."}, message)]
+        if component.submission != "answer":
             return [reply("puzzle.result", {"correct": False, "reason": "Tato úloha se řeší přímo na herní mřížce."}, message)]
 
         checkpoint_id = str(puzzle.get("checkpoint_id", ""))
@@ -653,9 +657,10 @@ class EscapeBotStateMachine:
             return [reply("puzzle.result", {"correct": False, "reason": "Hádanka zatím nebyla nalezena."}, message)]
         if checkpoint_state.get("status") == "solved":
             return [reply("puzzle.result", {"correct": True, "puzzle_id": puzzle_id, "already_solved": True}, message), self._state_message()]
-        if puzzle.get("type") == "archive_vector" and not self._archive_game_state(puzzle_id, puzzle).get("assembled"):
+        prerequisite_error = getattr(self, component.pre_submit)(puzzle_id, puzzle) if component.pre_submit else ""
+        if prerequisite_error:
             return [
-                reply("puzzle.result", {"correct": False, "reason": "Nejprve správně sestavte obraz stroje času."}, message),
+                reply("puzzle.result", {"correct": False, "reason": prerequisite_error}, message),
                 self._state_message(),
             ]
 
@@ -685,6 +690,9 @@ class EscapeBotStateMachine:
         if navigation: responses.append(navigation)
         responses.append(self._state_message())
         return responses
+
+    def _validate_archive_submission(self, puzzle_id: str, puzzle: dict[str, Any]) -> str:
+        return "" if self._archive_game_state(puzzle_id, puzzle).get("assembled") else "Nejprve správně sestavte obraz rekonstrukce."
 
     def _archive_game_state(self, puzzle_id: str, puzzle: dict[str, Any]) -> dict[str, Any]:
         config = puzzle.get("assembly", {})
@@ -726,7 +734,7 @@ class EscapeBotStateMachine:
         puzzle = self.scenario.data.get("puzzles", {}).get(puzzle_id)
         checkpoint_id = str(puzzle.get("checkpoint_id", "")) if puzzle else ""
         checkpoint = self.state.checkpoint_states.get(checkpoint_id)
-        if not puzzle or puzzle.get("type") != "archive_vector" or not checkpoint or checkpoint.get("status") != "found":
+        if not puzzle or not self._uses_component(puzzle, "archive_vector") or not checkpoint or checkpoint.get("status") != "found":
             return [reply("archive.result", {"success": False, "reason": "Archivní skládačka nyní není aktivní."}, message)]
         game = self._archive_game_state(puzzle_id, puzzle)
         card_id = str(message.payload.get("card_id", ""))
@@ -789,7 +797,7 @@ class EscapeBotStateMachine:
 
     def _active_line_game(self, puzzle_id: str) -> tuple[dict[str, Any], dict[str, Any], dict[str, Any]]:
         puzzle = self.scenario.data.get("puzzles", {}).get(puzzle_id)
-        if puzzle is None or puzzle.get("type") != "line_game":
+        if puzzle is None or not self._uses_component(puzzle, "line_game"):
             raise ValueError("Neznámá interaktivní úloha.")
         checkpoint_id = str(puzzle.get("checkpoint_id", ""))
         checkpoint_state = self.state.checkpoint_states.get(checkpoint_id)
@@ -889,7 +897,8 @@ class EscapeBotStateMachine:
     def admin_set_game_player(self, puzzle_id: str, player_id: str, action: str) -> dict[str, Any]:
         if player_id not in self._participant_ids: raise ValueError("Hráč do týmu nepatří.")
         puzzle = self.scenario.data.get("puzzles", {}).get(puzzle_id, {})
-        if puzzle.get("type") not in {"line_game", "triad"}: raise ValueError("Tato minihra nepodporuje individuální správu.")
+        adapter = component_for(self.scenario.data, puzzle).adapter if component_for(self.scenario.data, puzzle) else ""
+        if adapter not in {"line_game", "triad"}: raise ValueError("Tato minihra nepodporuje individuální správu.")
         checkpoint_id = str(puzzle.get("checkpoint_id", ""))
         checkpoint = self.state.checkpoint_states.get(checkpoint_id, {})
         if checkpoint.get("status") != "found": raise ValueError("Spravovat lze pouze aktivní minihru.")
@@ -900,11 +909,11 @@ class EscapeBotStateMachine:
             if player_id in excluded: excluded.remove(player_id)
         elif action == "reset":
             config = puzzle.get("game", {})
-            game = self._line_game_state(puzzle_id, config, player_id) if puzzle.get("type") == "line_game" else self._triad_state(puzzle_id, config, player_id)
-            (reset_game if puzzle.get("type") == "line_game" else reset_triad)(config, game)
+            game = self._line_game_state(puzzle_id, config, player_id) if adapter == "line_game" else self._triad_state(puzzle_id, config, player_id)
+            (reset_game if adapter == "line_game" else reset_triad)(config, game)
             self.state.game_results.get(puzzle_id, {}).pop(player_id, None)
         else: raise ValueError("Neplatná administrační akce.")
-        game_type = str(puzzle.get("type"))
+        game_type = adapter
         team_complete = self._team_conditions_complete(puzzle_id, game_type)
         if team_complete:
             checkpoint["status"] = "solved"; checkpoint["solved_at"] = datetime.now(UTC).isoformat()
@@ -954,7 +963,7 @@ class EscapeBotStateMachine:
                 self.state.score += individual_delta
                 responses.append(reply("score.update", {"score": self.state.score, "delta": individual_delta,
                     "bonus": max(0, individual_delta), "penalty": max(0, -individual_delta), "reason": "line_game_individual"}, message))
-        if result["team_complete"]:
+        if self._component_result_complete(puzzle, result):
             now = datetime.now(UTC).isoformat()
             checkpoint_state["status"] = "solved"
             checkpoint_state["solved_at"] = now
@@ -995,7 +1004,7 @@ class EscapeBotStateMachine:
     def _active_karel_id(self) -> str | None:
         for puzzle_id, puzzle in self.scenario.data.get("puzzles", {}).items():
             checkpoint = self.state.checkpoint_states.get(str(puzzle.get("checkpoint_id", "")), {})
-            if puzzle.get("type") == "mine_karel" and checkpoint.get("status") == "found": return puzzle_id
+            if self._uses_component(puzzle, "mine_karel") and checkpoint.get("status") == "found": return puzzle_id
         return None
 
     def _karel_state(self, puzzle_id: str, config: dict[str, Any]) -> dict[str, Any]:
@@ -1009,7 +1018,7 @@ class EscapeBotStateMachine:
         puzzle = self.scenario.data.get("puzzles", {}).get(puzzle_id, {})
         checkpoint_id = str(puzzle.get("checkpoint_id", ""))
         checkpoint_state = self.state.checkpoint_states.get(checkpoint_id)
-        if puzzle.get("type") != "mine_karel" or not checkpoint_state or checkpoint_state.get("status") != "found":
+        if not self._uses_component(puzzle, "mine_karel") or not checkpoint_state or checkpoint_state.get("status") != "found":
             return [reply("karel.result", {"success": False, "reason": "Navigační pole není aktivní."}, message)]
         try:
             result = execute_karel(self._karel_state(puzzle_id, puzzle.get("game", {})), puzzle.get("game", {}), list(message.payload.get("commands", [])))
@@ -1039,7 +1048,7 @@ class EscapeBotStateMachine:
             else:
                 text = "Okolí je čisté, sonda nehlásí žádnou anomálii."
             responses.append(reply("bot.message", {"text": text, "mood": "focused", "channel": "lost", "suppress_unread": True}, message))
-        if result["game_complete"]:
+        if self._component_result_complete(puzzle, result):
             checkpoint_state["status"] = "solved"; checkpoint_state["solved_at"] = datetime.now(UTC).isoformat()
             self._apply_checkpoint_rewards(self.scenario.data.get("checkpoints", {}).get(checkpoint_id, {}))
             responses.extend([reply("puzzle.result", {"correct": True, "puzzle_id": puzzle_id}, message), reply("bot.message", puzzle.get("success_message", {}), message)])
@@ -1052,7 +1061,7 @@ class EscapeBotStateMachine:
 
     async def _handle_karel_reset(self, message: Message) -> list[Message]:
         puzzle_id = str(message.payload.get("puzzle_id", "")); puzzle = self.scenario.data.get("puzzles", {}).get(puzzle_id, {})
-        if puzzle.get("type") != "mine_karel": return [reply("karel.result", {"success": False, "reason": "Neznámé pole."}, message)]
+        if not self._uses_component(puzzle, "mine_karel"): return [reply("karel.result", {"success": False, "reason": "Neznámé pole."}, message)]
         reset_karel(puzzle.get("game", {}), self._karel_state(puzzle_id, puzzle.get("game", {})))
         return [reply("karel.result", {"success": True, "reset": True}, message), self._state_message()]
 
@@ -1083,7 +1092,7 @@ class EscapeBotStateMachine:
         if self._current_player_id in self.state.game_exclusions.get(puzzle_id, []):
             return [reply("triad.result", {"success": False, "reason": "Game Master vás z této týmové minihry dočasně vyřadil."}, message), self._state_message()]
         checkpoint_id = str(puzzle.get("checkpoint_id", "")); checkpoint = self.state.checkpoint_states.get(checkpoint_id)
-        if puzzle.get("type") != "triad" or not checkpoint or checkpoint.get("status") != "found": return [reply("triad.result", {"success": False, "reason": "Pole není aktivní."}, message)]
+        if not self._uses_component(puzzle, "triad") or not checkpoint or checkpoint.get("status") != "found": return [reply("triad.result", {"success": False, "reason": "Pole není aktivní."}, message)]
         try:
             result = place_triad(self._triad_state(puzzle_id, puzzle.get("game", {})), puzzle.get("game", {}), int(message.payload.get("row", -1)), int(message.payload.get("column", -1)), str(message.payload.get("symbol", "")))
         except (ValueError, TypeError) as error: return [reply("triad.result", {"success": False, "reason": str(error)}, message), self._state_message()]
@@ -1100,7 +1109,7 @@ class EscapeBotStateMachine:
                 self.state.score += individual_delta
                 responses.append(reply("score.update", {"score": self.state.score, "delta": individual_delta,
                     "bonus": individual_delta, "penalty": 0, "reason": "triad_individual"}, message))
-        if result["team_complete"]:
+        if self._component_result_complete(puzzle, result):
             checkpoint["status"] = "solved"; checkpoint["solved_at"] = datetime.now(UTC).isoformat(); self._apply_checkpoint_rewards(self.scenario.data.get("checkpoints", {}).get(checkpoint_id, {}))
             bonus = int(puzzle.get("game", {}).get("team_completion_bonus", 60)) if self._team_mode == "team" else 0; self.state.score += bonus
             result["team_summary"] = self._team_game_progress(puzzle_id, "triad")
@@ -1111,13 +1120,13 @@ class EscapeBotStateMachine:
 
     async def _handle_triad_reset(self, message: Message) -> list[Message]:
         puzzle_id = str(message.payload.get("puzzle_id", "")); puzzle = self.scenario.data.get("puzzles", {}).get(puzzle_id, {})
-        if puzzle.get("type") != "triad": return [reply("triad.result", {"success": False, "reason": "Neznámé pole."}, message)]
+        if not self._uses_component(puzzle, "triad"): return [reply("triad.result", {"success": False, "reason": "Neznámé pole."}, message)]
         reset_triad(puzzle.get("game", {}), self._triad_state(puzzle_id, puzzle.get("game", {})))
         return [reply("triad.result", {"success": True, "reset": True}, message), self._state_message()]
 
     def _active_sokoban_id(self) -> str | None:
         for puzzle_id, puzzle in self.scenario.data.get("puzzles", {}).items():
-            if puzzle.get("type") != "sokoban":
+            if not self._uses_component(puzzle, "sokoban"):
                 continue
             checkpoint = self.state.checkpoint_states.get(str(puzzle.get("checkpoint_id", "")), {})
             if checkpoint.get("status") == "found":
@@ -1139,7 +1148,7 @@ class EscapeBotStateMachine:
 
     def _active_sokoban(self, puzzle_id: str) -> tuple[dict[str, Any], dict[str, Any], dict[str, Any]]:
         puzzle = self.scenario.data.get("puzzles", {}).get(puzzle_id)
-        if puzzle is None or puzzle.get("type") != "sokoban":
+        if puzzle is None or not self._uses_component(puzzle, "sokoban"):
             raise ValueError("Neznámá sokobanová úloha.")
         checkpoint_state = self.state.checkpoint_states.get(str(puzzle.get("checkpoint_id", "")))
         if checkpoint_state is None:
@@ -1193,7 +1202,7 @@ class EscapeBotStateMachine:
                 "reason": "sokoban_level",
                 "level_id": result.get("completed_level_id"),
             }, message))
-        if result["game_complete"]:
+        if self._component_result_complete(puzzle, result):
             now = datetime.now(UTC).isoformat()
             checkpoint_state["status"] = "solved"
             checkpoint_state["solved_at"] = now
@@ -1345,7 +1354,7 @@ class EscapeBotStateMachine:
     async def _handle_finale_activate(self, message: Message) -> list[Message]:
         puzzle_id = str(message.payload.get("puzzle_id", "")).strip()
         puzzle = self.scenario.data.get("puzzles", {}).get(puzzle_id)
-        if not puzzle or puzzle.get("type") != "finale":
+        if not puzzle or not self._uses_component(puzzle, "finale"):
             return [reply("finale.result", {"success": False, "reason": "Neznámý finální terminál."}, message)]
         checkpoint_id = str(puzzle.get("checkpoint_id", ""))
         checkpoint_state = self.state.checkpoint_states.get(checkpoint_id)
