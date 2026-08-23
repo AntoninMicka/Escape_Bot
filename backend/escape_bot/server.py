@@ -695,6 +695,19 @@ async def captive_portal_status() -> Response:
     )
 
 
+@app.get("/api/world-geometry/{geometry_id}")
+async def world_geometry(geometry_id: str) -> Response:
+    assets = {
+        "pardubice_center": os.path.join(BASE_DIR, "backend", "content", "maps", "pardubice_center.geometry.json"),
+    }
+    path = assets.get(geometry_id)
+    if path is None or not os.path.isfile(path):
+        return JSONResponse({"error": "Geometrie mapy není dostupná."}, status_code=404)
+    with open(path, "r", encoding="utf-8") as source:
+        content = source.read()
+    return Response(content=content, media_type="application/json", headers={"Cache-Control": "public, max-age=3600"})
+
+
 @app.get("/admin")
 async def admin_page() -> RedirectResponse:
     return RedirectResponse(url="/?admin=1", status_code=307)

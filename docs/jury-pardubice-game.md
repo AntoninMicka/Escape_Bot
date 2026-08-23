@@ -33,11 +33,15 @@ Virtuální mapa používá lokální metrickou projekci s počátkem u Zelené 
 vzdálenostem. První renderer nabízí klávesové ovládání, trasu, hráče a aktivaci
 důkazních bodů podle virtuální vzdálenosti.
 
-Aktuální `geometry_status` je `route_mesh_v1`: jde o hratelnou metrickou trasu, ne
-ještě o detailní 3D rekonstrukci fasád a interiérů. Další stupeň importuje půdorysy
-budov a průchodné cesty z OSM, vytvoří kolizní geometrii a doplní textury. OSM data
-musí být při distribuci opatřena atribucí `© OpenStreetMap contributors` a dodržet
-licenci ODbL.
+Aktuální `geometry_status` je `osm_geometry_v2`. Lokální výřez obsahuje 350 půdorysů
+budov, 563 komunikací a parkové či vodní plochy. Budovy tvoří kolizní vrstvu,
+komunikace zachovávají typ, šířku a povrch a výška budov se bere z OSM nebo odhaduje
+z počtu podlaží. Renderer používá procedurální barvy a povrchy pro zdivo, dlažbu,
+asfalt, park a vodu. Neobsahuje cizí fotografie ani jejich autorská práva.
+
+Jde stále o venkovní herní model, nikoli fotorealistický digitální dvojník fasád a
+interiérů. OSM data jsou při distribuci opatřena atribucí `© OpenStreetMap
+contributors` a licencí ODbL.
 
 ## Obnova zdrojových souborů
 
@@ -45,4 +49,9 @@ Datové soubory první verze lze konzistentně znovu vytvořit:
 
 ```bash
 python3 backend/tools/build_jury_scenarios.py
+python3 backend/tools/build_osm_geometry.py
 ```
+
+Zdrojový Overpass export je uložen v `backend/content/maps/pardubice_center.osm.json`;
+odvozená kompaktní geometrie v `pardubice_center.geometry.json`. Server ji poskytuje
+přes `/api/world-geometry/pardubice_center` s hodinovou cache.

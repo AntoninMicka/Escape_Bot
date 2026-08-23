@@ -866,6 +866,8 @@
         let runtimeGames = [];
         let geoWatchId = null;
         let doomPlayer = null;
+        let doomGeometry = null;
+        let doomGeometryUrl = '';
         let runtimeCheckpoints = [];
         let latestScenarioProgress = null;
         let deviceRole = localStorage.getItem('escapeBotDeviceRole') || 'free';
@@ -3627,7 +3629,39 @@
             panel.innerHTML = `<h3>[ DOOM MAPA · 1 JEDNOTKA = 1 METR ]</h3><canvas id="doom-map-canvas" width="900" height="520" tabindex="0"></canvas><p>Ovládání: WASD nebo šipky. Dojděte k právě dostupnému důkaznímu bodu.</p><p>${escapeHtml(world.map_source?.attribution || '© OpenStreetMap contributors')} · geometrie ${escapeHtml(world.virtual_map?.geometry_status || '')}</p>`;
             if (!doomPlayer) doomPlayer = {...(world.virtual_map?.spawn || {x_m:0,y_m:0})};
             drawDoomMap();
+            loadDoomGeometry(world.virtual_map?.geometry_asset);
             document.getElementById('doom-map-canvas')?.focus({preventScroll:true});
+        }
+
+        async function loadDoomGeometry(url) {
+            if (!url || (doomGeometry && doomGeometryUrl === url)) return;
+            try {
+                doomGeometry = await fetch(url).then(response => {
+                    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                    return response.json();
+                });
+                doomGeometryUrl = url; drawDoomMap();
+            } catch (error) {
+                showNotification(`OSM geometrie se nenačetla: ${error.message}`, 'error');
+            }
+        }
+
+        function tracePolygon(ctx, polygon, project) {
+            ctx.beginPath(); polygon.forEach(([x,y],index)=>{const [px,py]=project({x_m:x,y_m:y});index?ctx.lineTo(px,py):ctx.moveTo(px,py)});ctx.closePath();
+        }
+
+        function pointInPolygon(point, polygon) {
+            let inside=false;
+            for(let i=0,j=polygon.length-1;i<polygon.length;j=i++){
+                const [xi,yi]=polygon[i],[xj,yj]=polygon[j];
+                if(((yi>point.y_m)!==(yj>point.y_m))&&(point.x_m<(xj-xi)*(point.y_m-yi)/(yj-yi)+xi)) inside=!inside;
+            }
+            return inside;
+        }
+
+        function doomPositionBlocked(next, previous) {
+            if (!doomGeometry) return false;
+            return (doomGeometry.buildings||[]).some(building => pointInPolygon(next,building.polygon_m) && !pointInPolygon(previous,building.polygon_m));
         }
 
         function startGeoTracking() {
@@ -3649,7 +3683,13 @@
             const minX=Math.min(...xs)-20,maxX=Math.max(...xs)+20,minY=Math.min(...ys)-20,maxY=Math.max(...ys)+20;
             const scale=Math.min(canvas.width/(maxX-minX),canvas.height/(maxY-minY));
             const project=p=>[(p.x_m-minX)*scale,canvas.height-(p.y_m-minY)*scale];
-            ctx.fillStyle='#020707';ctx.fillRect(0,0,canvas.width,canvas.height);ctx.strokeStyle='#087';ctx.lineWidth=Math.max(3,Number(world.virtual_map?.route_width_m||5)*scale);
+            ctx.fillStyle='#020707';ctx.fillRect(0,0,canvas.width,canvas.height);
+            if(doomGeometry){
+                (doomGeometry.surfaces||[]).forEach(surface=>{tracePolygon(ctx,surface.polygon_m,project);ctx.fillStyle=surface.kind==='water'?'#07344b':'#164c2d';ctx.fill()});
+                (doomGeometry.paths||[]).forEach(path=>{ctx.beginPath();path.line_m.forEach(([x,y],i)=>{const [px,py]=project({x_m:x,y_m:y});i?ctx.lineTo(px,py):ctx.moveTo(px,py)});ctx.strokeStyle=path.surface==='asphalt'?'#394247':'#655f52';ctx.lineWidth=Math.max(1,Number(path.width_m||3)*scale);ctx.stroke()});
+                (doomGeometry.buildings||[]).forEach(building=>{tracePolygon(ctx,building.polygon_m,project);const shade=Math.min(150,55+Number(building.height_m||9)*3);ctx.fillStyle=`rgb(${shade},${Math.round(shade*.72)},${Math.round(shade*.5)})`;ctx.fill();ctx.strokeStyle='#d5a56a';ctx.lineWidth=1;ctx.stroke()});
+            }
+            ctx.strokeStyle='#0aa8';ctx.lineWidth=Math.max(2,Number(world.virtual_map?.route_width_m||5)*scale);
             ctx.beginPath();(world.virtual_map?.route_centerline_m||[]).forEach(([x,y],i)=>{const [px,py]=project({x_m:x,y_m:y});i?ctx.lineTo(px,py):ctx.moveTo(px,py)});ctx.stroke();
             const statuses=Object.fromEntries((latestScenarioProgress.nodes||[]).map(n=>[n.id,n.status]));
             points.forEach(point=>{const [x,y]=project(point);const status=statuses[point.node_id]||'locked';ctx.fillStyle=status==='complete'?'#0f8':status==='available'?'#ff0':'#555';ctx.beginPath();ctx.arc(x,y,7,0,Math.PI*2);ctx.fill();ctx.fillStyle='#fff';ctx.font='12px monospace';ctx.fillText(`${point.order}. ${point.name}`,x+10,y-8)});
@@ -3659,7 +3699,7 @@
         document.addEventListener('keydown', event => {
             if (latestScenarioProgress?.world?.mode !== 'doom' || !doomPlayer) return;
             const move={w:[0,1],ArrowUp:[0,1],s:[0,-1],ArrowDown:[0,-1],a:[-1,0],ArrowLeft:[-1,0],d:[1,0],ArrowRight:[1,0]}[event.key];
-            if (!move) return; event.preventDefault(); doomPlayer.x_m+=move[0]*2;doomPlayer.y_m+=move[1]*2;drawDoomMap();
+            if (!move) return; event.preventDefault(); const previous={...doomPlayer};const next={...doomPlayer,x_m:doomPlayer.x_m+move[0]*2,y_m:doomPlayer.y_m+move[1]*2};if(!doomPositionBlocked(next,previous))doomPlayer=next;drawDoomMap();
             const nodes=Object.fromEntries((latestScenarioProgress.nodes||[]).map(node=>[node.id,node]));
             const point=(latestScenarioProgress.world.checkpoints||[]).find(item=>nodes[item.node_id]?.status==='available'&&Math.hypot(item.x_m-doomPlayer.x_m,item.y_m-doomPlayer.y_m)<=8);
             if (point) simulateQrScan(nodes[point.node_id].activation_value, point.name);
