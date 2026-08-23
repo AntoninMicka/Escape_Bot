@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import math
 import unicodedata
 import urllib.parse
 from dataclasses import dataclass, field
@@ -154,6 +155,7 @@ class EscapeBotStateMachine:
             detail_keys = {
                 "player.message": ("channel",),
                 "qr.detected": ("code", "value"),
+                "geo.position": ("lat", "lon", "accuracy"),
                 "arg.verify": ("id", "answer"),
                 "room.unlock": ("room",),
                 "room.hint": ("room_id",),
@@ -187,6 +189,7 @@ class EscapeBotStateMachine:
             "client.hello": self._handle_hello,
             "player.message": self._handle_player_message,
             "qr.detected": self._handle_qr_detected,
+            "geo.position": self._handle_geo_position,
             "arg.verify": self._handle_arg_verify,
             "camera.frame": self._handle_camera_frame,
             "room.unlock": self._handle_room_unlock,
@@ -222,6 +225,36 @@ class EscapeBotStateMachine:
                 })
 
         return responses
+
+    async def _handle_geo_position(self, message: Message) -> list[Message]:
+        world = self.scenario.data.get("world", {})
+        if world.get("mode") != "geo":
+            return [reply("geo.result", {"accepted": False, "reason": "Aktuální hra nepoužívá GNSS checkpointy."}, message)]
+        try:
+            lat = float(message.payload.get("lat")); lon = float(message.payload.get("lon"))
+            accuracy = max(0.0, float(message.payload.get("accuracy", 9999)))
+        except (TypeError, ValueError):
+            return [reply("geo.result", {"accepted": False, "reason": "Neplatná poloha zařízení."}, message)]
+        required_accuracy = float(world.get("position_unlock", {}).get("accuracy_required_m", 35))
+        if accuracy > required_accuracy:
+            return [reply("geo.result", {"accepted": False, "reason": f"Poloha je příliš nepřesná (±{accuracy:.0f} m)."}, message)]
+        nearest = None
+        for point in world.get("checkpoints", []):
+            d_lat = math.radians(float(point["lat"]) - lat)
+            d_lon = math.radians(float(point["lon"]) - lon)
+            a = math.sin(d_lat / 2) ** 2 + math.cos(math.radians(lat)) * math.cos(math.radians(float(point["lat"]))) * math.sin(d_lon / 2) ** 2
+            distance = 6_371_000 * 2 * math.atan2(math.sqrt(a), math.sqrt(max(0, 1 - a)))
+            if nearest is None or distance < nearest[0]: nearest = (distance, point)
+        if nearest is None or nearest[0] > float(nearest[1].get("radius_m", 20)):
+            return [reply("geo.result", {"accepted": False, "reason": "Mimo dosah checkpointu.", "nearest_m": round(nearest[0]) if nearest else None}, message)]
+        node_id = str(nearest[1].get("node_id", ""))
+        checkpoint = self.scenario.data.get("checkpoints", {}).get(node_id)
+        if checkpoint is None:
+            return [reply("geo.result", {"accepted": False, "reason": "Checkpoint nemá vazbu na herní uzel."}, message)]
+        if node_id in self.state.checkpoint_states:
+            return [reply("geo.result", {"accepted": True, "duplicate": True, "checkpoint_id": node_id, "distance_m": round(nearest[0], 1)}, message)]
+        responses = await self._handle_qr_detected(Message("qr.detected", {"value": f"escapebot://checkpoint/{checkpoint.get('token', '')}"}))
+        return [reply("geo.result", {"accepted": True, "checkpoint_id": node_id, "distance_m": round(nearest[0], 1)}, message), *responses]
 
     def _state_message(self, player_id: str = "") -> Message:
         player_id = player_id or self._current_player_id
@@ -296,8 +329,11 @@ class EscapeBotStateMachine:
                     item["archive_game"] = self._public_archive_game(puzzle_id, puzzle)
             result.append(item)
         room = self.scenario.get_room_data("104")
-        reception_solved = self.state.checkpoint_states.get("reception_archive", {}).get("status") == "solved"
-        if room and reception_solved:
+        room_available = all(
+            self.state.checkpoint_states.get(str(checkpoint_id), {}).get("status") == "solved"
+            for checkpoint_id in room.get("requires_checkpoints", [])
+        )
+        if room and room_available:
             hints = room.get("hints", [])
             result.append({
                 "id": "room_104_panel",

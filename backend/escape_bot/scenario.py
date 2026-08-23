@@ -187,6 +187,10 @@ def build_scenario_progress(scenario: Scenario, state: dict[str, Any]) -> dict[s
             "solution": solution,
             "puzzle_id": next((puzzle_id for puzzle_id, item in scenario.data.get("puzzles", {}).items() if item is puzzle), None),
             "puzzle_type": puzzle.get("type") if puzzle else None,
+            "activation_value": (
+                f"escapebot://checkpoint/{scenario.data.get('checkpoints', {}).get(node_id, {}).get('token', '')}"
+                if scenario.data.get("world", {}).get("mode") == "doom" and kind == "checkpoint" else ""
+            ),
         })
 
     completed = sum(node["status"] == "complete" for node in nodes)
@@ -200,4 +204,5 @@ def build_scenario_progress(scenario: Scenario, state: dict[str, Any]) -> dict[s
         "nodes": nodes,
         "completed_nodes": completed,
         "total_nodes": len(nodes),
+        "world": scenario.data.get("world", {}),
     }

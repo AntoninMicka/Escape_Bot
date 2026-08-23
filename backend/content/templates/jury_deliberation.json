@@ -1,0 +1,2146 @@
+{
+  "schema_version": 1,
+  "kind": "story_template",
+  "id": "jury_deliberation",
+  "version": "1.0.0",
+  "title": "Dvanáct pochybností",
+  "description": "Originální porotní drama o hledání rozumné pochybnosti skrze dvanáct důkazních stanovišť.",
+  "variable_schema": {
+    "game.id": {
+      "type": "string"
+    },
+    "location.name": {
+      "type": "string"
+    },
+    "location.name_locative": {
+      "type": "string"
+    },
+    "location.knowledge_base": {
+      "type": "string"
+    },
+    "rooms.optional_archive.node_id": {
+      "type": "string"
+    },
+    "rooms.optional_archive.number": {
+      "type": "string"
+    },
+    "rooms.optional_archive.pin": {
+      "type": "string"
+    },
+    "checkpoints.public_archive.id": {
+      "type": "string"
+    },
+    "checkpoints.public_archive.name": {
+      "type": "string"
+    },
+    "checkpoints.public_archive.route_name": {
+      "type": "string"
+    },
+    "checkpoints.public_archive.token": {
+      "type": "string"
+    },
+    "checkpoints.signal_transition.id": {
+      "type": "string"
+    },
+    "checkpoints.signal_transition.name": {
+      "type": "string"
+    },
+    "checkpoints.signal_transition.route_name": {
+      "type": "string"
+    },
+    "checkpoints.signal_transition.token": {
+      "type": "string"
+    },
+    "checkpoints.hazard_navigation.id": {
+      "type": "string"
+    },
+    "checkpoints.hazard_navigation.name": {
+      "type": "string"
+    },
+    "checkpoints.hazard_navigation.route_name": {
+      "type": "string"
+    },
+    "checkpoints.hazard_navigation.token": {
+      "type": "string"
+    },
+    "checkpoints.machine_part_one.id": {
+      "type": "string"
+    },
+    "checkpoints.machine_part_one.name": {
+      "type": "string"
+    },
+    "checkpoints.machine_part_one.route_name": {
+      "type": "string"
+    },
+    "checkpoints.machine_part_one.token": {
+      "type": "string"
+    },
+    "checkpoints.timeline_calibration.id": {
+      "type": "string"
+    },
+    "checkpoints.timeline_calibration.name": {
+      "type": "string"
+    },
+    "checkpoints.timeline_calibration.route_name": {
+      "type": "string"
+    },
+    "checkpoints.timeline_calibration.token": {
+      "type": "string"
+    },
+    "checkpoints.machine_part_two.id": {
+      "type": "string"
+    },
+    "checkpoints.machine_part_two.name": {
+      "type": "string"
+    },
+    "checkpoints.machine_part_two.route_name": {
+      "type": "string"
+    },
+    "checkpoints.machine_part_two.token": {
+      "type": "string"
+    },
+    "checkpoints.alignment_game.id": {
+      "type": "string"
+    },
+    "checkpoints.alignment_game.name": {
+      "type": "string"
+    },
+    "checkpoints.alignment_game.route_name": {
+      "type": "string"
+    },
+    "checkpoints.alignment_game.token": {
+      "type": "string"
+    },
+    "checkpoints.spatial_archive.id": {
+      "type": "string"
+    },
+    "checkpoints.spatial_archive.name": {
+      "type": "string"
+    },
+    "checkpoints.spatial_archive.route_name": {
+      "type": "string"
+    },
+    "checkpoints.spatial_archive.token": {
+      "type": "string"
+    },
+    "checkpoints.machine_part_three.id": {
+      "type": "string"
+    },
+    "checkpoints.machine_part_three.name": {
+      "type": "string"
+    },
+    "checkpoints.machine_part_three.route_name": {
+      "type": "string"
+    },
+    "checkpoints.machine_part_three.token": {
+      "type": "string"
+    },
+    "checkpoints.return_archive.id": {
+      "type": "string"
+    },
+    "checkpoints.return_archive.name": {
+      "type": "string"
+    },
+    "checkpoints.return_archive.route_name": {
+      "type": "string"
+    },
+    "checkpoints.return_archive.token": {
+      "type": "string"
+    },
+    "checkpoints.final_console.id": {
+      "type": "string"
+    },
+    "checkpoints.final_console.name": {
+      "type": "string"
+    },
+    "checkpoints.final_console.route_name": {
+      "type": "string"
+    },
+    "checkpoints.final_console.token": {
+      "type": "string"
+    },
+    "world": {
+      "type": "object"
+    }
+  },
+  "node_contracts": {
+    "first_contact": {
+      "kind": "phase",
+      "requires_capabilities": [
+        "intercom"
+      ]
+    },
+    "carrier_frequency": {
+      "kind": "phase",
+      "requires_capabilities": [
+        "intercom",
+        "cipher"
+      ]
+    },
+    "mission_route": {
+      "kind": "phase",
+      "requires_capabilities": [
+        "map"
+      ]
+    },
+    "public_archive": {
+      "kind": "checkpoint",
+      "requires_capabilities": [
+        "physical_presence",
+        "logic_puzzle"
+      ]
+    },
+    "signal_transition": {
+      "kind": "checkpoint",
+      "requires_capabilities": [
+        "physical_presence",
+        "visual_cipher"
+      ]
+    },
+    "hazard_navigation": {
+      "kind": "checkpoint",
+      "requires_capabilities": [
+        "navigation_game"
+      ]
+    },
+    "machine_part_one": {
+      "kind": "checkpoint",
+      "requires_capabilities": [
+        "physical_presence",
+        "cipher"
+      ]
+    },
+    "timeline_calibration": {
+      "kind": "checkpoint",
+      "requires_capabilities": [
+        "team_game"
+      ]
+    },
+    "machine_part_two": {
+      "kind": "checkpoint",
+      "requires_capabilities": [
+        "physical_presence",
+        "cipher"
+      ]
+    },
+    "alignment_game": {
+      "kind": "checkpoint",
+      "requires_capabilities": [
+        "team_game"
+      ]
+    },
+    "spatial_archive": {
+      "kind": "checkpoint",
+      "requires_capabilities": [
+        "navigation_game"
+      ]
+    },
+    "machine_part_three": {
+      "kind": "checkpoint",
+      "requires_capabilities": [
+        "physical_presence",
+        "cipher"
+      ]
+    },
+    "return_archive": {
+      "kind": "checkpoint",
+      "requires_capabilities": [
+        "assembly_game"
+      ]
+    },
+    "final_console": {
+      "kind": "checkpoint",
+      "requires_capabilities": [
+        "physical_presence"
+      ]
+    },
+    "optional_archive": {
+      "kind": "room",
+      "requires_capabilities": [
+        "code_entry"
+      ]
+    },
+    "return_finale": {
+      "kind": "finale",
+      "requires_capabilities": [
+        "finale"
+      ]
+    }
+  },
+  "node_bindings": {
+    "first_contact": {
+      "runtime_node_id": "comms_offline",
+      "capabilities": [
+        "intercom"
+      ]
+    },
+    "carrier_frequency": {
+      "runtime_node_id": "searching_lost",
+      "capabilities": [
+        "intercom",
+        "cipher"
+      ]
+    },
+    "mission_route": {
+      "runtime_node_id": "navigating",
+      "capabilities": [
+        "map"
+      ]
+    },
+    "public_archive": {
+      "runtime_node_id": "${checkpoints.public_archive.id}",
+      "capabilities": [
+        "physical_presence",
+        "logic_puzzle",
+        "qr"
+      ]
+    },
+    "signal_transition": {
+      "runtime_node_id": "${checkpoints.signal_transition.id}",
+      "capabilities": [
+        "physical_presence",
+        "visual_cipher",
+        "qr"
+      ]
+    },
+    "hazard_navigation": {
+      "runtime_node_id": "${checkpoints.hazard_navigation.id}",
+      "capabilities": [
+        "navigation_game"
+      ]
+    },
+    "machine_part_one": {
+      "runtime_node_id": "${checkpoints.machine_part_one.id}",
+      "capabilities": [
+        "physical_presence",
+        "cipher",
+        "qr"
+      ]
+    },
+    "timeline_calibration": {
+      "runtime_node_id": "${checkpoints.timeline_calibration.id}",
+      "capabilities": [
+        "team_game"
+      ]
+    },
+    "machine_part_two": {
+      "runtime_node_id": "${checkpoints.machine_part_two.id}",
+      "capabilities": [
+        "physical_presence",
+        "cipher",
+        "qr"
+      ]
+    },
+    "alignment_game": {
+      "runtime_node_id": "${checkpoints.alignment_game.id}",
+      "capabilities": [
+        "team_game"
+      ]
+    },
+    "spatial_archive": {
+      "runtime_node_id": "${checkpoints.spatial_archive.id}",
+      "capabilities": [
+        "navigation_game"
+      ]
+    },
+    "machine_part_three": {
+      "runtime_node_id": "${checkpoints.machine_part_three.id}",
+      "capabilities": [
+        "physical_presence",
+        "cipher",
+        "qr"
+      ]
+    },
+    "return_archive": {
+      "runtime_node_id": "${checkpoints.return_archive.id}",
+      "capabilities": [
+        "assembly_game"
+      ]
+    },
+    "final_console": {
+      "runtime_node_id": "${checkpoints.final_console.id}",
+      "capabilities": [
+        "physical_presence",
+        "qr"
+      ]
+    },
+    "optional_archive": {
+      "runtime_node_id": "${rooms.optional_archive.node_id}",
+      "capabilities": [
+        "code_entry"
+      ]
+    },
+    "return_finale": {
+      "runtime_node_id": "time_machine_finale",
+      "capabilities": [
+        "finale"
+      ]
+    }
+  },
+  "runtime": {
+    "id": "${game.id}",
+    "title": "Dvanáct pochybností: ${location.name}",
+    "knowledge_base": {
+      "$var": "location.knowledge_base"
+    },
+    "time_travel_rules": [
+      "Porota rozhoduje pouze podle ověřených důkazů a musí oddělit fakt od domněnky.",
+      "Každý důkazní bod odhalí rozpor, který je nutné zanést do společné mapy případu.",
+      "Cílem není dokázat jiného pachatele, ale zjistit, zda přetrvává rozumná pochybnost.",
+      "Závěrečné rozhodnutí se odemkne až po prověření celého řetězce důkazů."
+    ],
+    "story_timeline": [
+      {
+        "id": "incident",
+        "when": "22:41",
+        "text": "Noční hlídač je nalezen mrtvý v uzamčeném skladu."
+      },
+      {
+        "id": "accusation",
+        "when": "23:06",
+        "text": "Vyšetřovatelé zadrží mladíka, kterého se skladem spojuje svědecká výpověď."
+      },
+      {
+        "id": "deliberation",
+        "when": "Nyní",
+        "text": "Porota znovu skládá časovou osu a ověřuje, zda obžaloba unesla důkazní břemeno."
+      }
+    ],
+    "characters": {
+      "captain": {
+        "avatar_prompt": "experienced Czech judge, neutral expression, modern courtroom, realistic portrait"
+      },
+      "lost": {
+        "avatar_prompt": "thoughtful female juror and investigator, rainy city at night, realistic portrait"
+      }
+    },
+    "scenario_flow": [
+      {
+        "id": "comms_offline",
+        "label": "Navázání spojení",
+        "kind": "phase",
+        "requires": [],
+        "solution": "Odeslat libovolnou zprávu"
+      },
+      {
+        "id": "searching_lost",
+        "label": "Nouzová nosná frekvence",
+        "kind": "phase",
+        "requires": [
+          "comms_offline"
+        ],
+        "solution": "734"
+      },
+      {
+        "id": "navigating",
+        "label": "MAPA DŮKAZŮ aktivní",
+        "kind": "phase",
+        "requires": [
+          "searching_lost"
+        ],
+        "solution": "Aktivovat recepční QR"
+      },
+      {
+        "id": "${checkpoints.public_archive.id}",
+        "label": "${checkpoints.public_archive.route_name}",
+        "kind": "checkpoint",
+        "requires": [
+          "navigating"
+        ]
+      },
+      {
+        "id": "${checkpoints.signal_transition.id}",
+        "label": "${checkpoints.signal_transition.route_name}",
+        "kind": "checkpoint",
+        "requires": [
+          "${checkpoints.public_archive.id}"
+        ]
+      },
+      {
+        "id": "${checkpoints.hazard_navigation.id}",
+        "label": "${checkpoints.hazard_navigation.route_name}",
+        "kind": "checkpoint",
+        "requires": [
+          "${checkpoints.signal_transition.id}"
+        ]
+      },
+      {
+        "id": "${checkpoints.machine_part_one.id}",
+        "label": "${checkpoints.machine_part_one.route_name}",
+        "kind": "checkpoint",
+        "requires": [
+          "${checkpoints.hazard_navigation.id}"
+        ]
+      },
+      {
+        "id": "${checkpoints.timeline_calibration.id}",
+        "label": "${checkpoints.timeline_calibration.route_name}",
+        "kind": "checkpoint",
+        "requires": [
+          "${checkpoints.machine_part_one.id}"
+        ]
+      },
+      {
+        "id": "${checkpoints.machine_part_two.id}",
+        "label": "${checkpoints.machine_part_two.route_name}",
+        "kind": "checkpoint",
+        "requires": [
+          "${checkpoints.timeline_calibration.id}"
+        ]
+      },
+      {
+        "id": "${checkpoints.alignment_game.id}",
+        "label": "${checkpoints.alignment_game.route_name}",
+        "kind": "checkpoint",
+        "requires": [
+          "${checkpoints.machine_part_two.id}"
+        ]
+      },
+      {
+        "id": "${checkpoints.spatial_archive.id}",
+        "label": "${checkpoints.spatial_archive.route_name}",
+        "kind": "checkpoint",
+        "requires": [
+          "${checkpoints.alignment_game.id}"
+        ]
+      },
+      {
+        "id": "${checkpoints.machine_part_three.id}",
+        "label": "${checkpoints.machine_part_three.route_name}",
+        "kind": "checkpoint",
+        "requires": [
+          "${checkpoints.spatial_archive.id}"
+        ]
+      },
+      {
+        "id": "${checkpoints.return_archive.id}",
+        "label": "${checkpoints.return_archive.route_name}",
+        "kind": "checkpoint",
+        "requires": [
+          "${checkpoints.machine_part_three.id}"
+        ]
+      },
+      {
+        "id": "${checkpoints.final_console.id}",
+        "label": "${checkpoints.final_console.route_name}",
+        "kind": "checkpoint",
+        "requires": [
+          "${checkpoints.return_archive.id}"
+        ]
+      },
+      {
+        "id": "${rooms.optional_archive.node_id}",
+        "label": "Virtuální archiv 104",
+        "kind": "room",
+        "requires": [
+          "${checkpoints.public_archive.id}"
+        ],
+        "completion_flag": "room_104_unlocked"
+      },
+      {
+        "id": "time_machine_finale",
+        "label": "Návrat Elary",
+        "kind": "finale",
+        "requires": [
+          "${checkpoints.final_console.id}",
+          "${rooms.optional_archive.node_id}"
+        ],
+        "completion_flag": "game_completed"
+      }
+    ],
+    "phases": {
+      "comms_offline": {
+        "enter_message": {
+          "text": "Tady předsedkyně senátu. Porada byla přerušena: jeden hlas odmítá rychlý verdikt. Potvrďte příjem a otevřeme zapečetěný spis.",
+          "mood": "alert",
+          "channel": "captain",
+          "voice_id": "captain_first_contact",
+          "audio_url": "/assets/voices/captain_first_contact.mp3"
+        },
+        "hints": [
+          {
+            "text": "Pro potvrzení příjmu stačí do chatu odeslat jakoukoliv zprávu.",
+            "penalty": 5
+          }
+        ]
+      },
+      "searching_lost": {
+        "enter_message": {
+          "text": "Nouzový export spisu poškodil číslo případu. Tři skupiny krátkých a dlouhých pulzů ukrývají číslice. Rozluštěte je a odešlete tříciferný kód:\n\n━━  ━━  ●  ●  ●   /   ●  ●  ●  ━━  ━━   /   ●  ●  ●  ●  ━━",
+          "mood": "focused",
+          "channel": "captain"
+        },
+        "success_keyword": "734",
+        "success_messages": [
+          {
+            "text": "Spis 734 ověřen. Přepojuji vás k porotkyni, která vznesla pochybnost.",
+            "mood": "focused",
+            "channel": "captain"
+          },
+          {
+            "text": "Tady Nora. Jedenáct lidí chtělo hlasovat pro vinu, ale časová osa a výpovědi si odporují. Projděte se mnou všech dvanáct důkazních bodů.",
+            "mood": "tense",
+            "channel": "lost"
+          },
+          {
+            "text": "Mapa důkazů je aktivní. Začněte prvním bodem a nic nepovažujte za fakt, dokud to neověříte.",
+            "mood": "alert",
+            "channel": "lost"
+          }
+        ],
+        "hints": [
+          {
+            "text": "Každá skupina pulzů představuje právě jednu číslici. Pořadí skupin neměň.",
+            "penalty": 10
+          },
+          {
+            "text": "V nouzovém manuálu komunikátoru je tabulka používající stejné krátké a dlouhé pulzy.",
+            "penalty": 20
+          },
+          {
+            "text": "Jednotlivé skupiny odpovídají číslicím 7, 3 a 4.",
+            "penalty": 50
+          }
+        ],
+        "fail_message": {
+          "text": "*šum* Frekvence '{text}' je hluchá. Zkus to znovu, musíme ji najít!",
+          "mood": "tense",
+          "channel": "captain"
+        }
+      },
+      "navigating": {
+        "ai_system_prompt": "Jsi Nora, pečlivá členka poroty v českém detektivním dramatu. Pomáháš týmu hledat rozpory v důkazech, nikdy nepředjímáš vinu a neprozrazuješ řešení šifer. Odpovídej česky a nejvýše třemi větami.",
+        "default_message": {
+          "text": "Prověřujte důkazy v pořadí mapy. U každého rozporu rozhodněte, zda oslabuje jistotu obžaloby.",
+          "mood": "alert",
+          "channel": "lost"
+        },
+        "hints": [
+          {
+            "text": "Požádejte Elaru, aby se rozhlédla po místnosti a popsala vám, co přesně vidí.",
+            "penalty": 10
+          },
+          {
+            "text": "Nasměrujte Ztracenou směrem k hlavní recepci. Zkuste hledat zamčené dveře s číselníkem.",
+            "penalty": 20
+          },
+          {
+            "text": "Vaším hlavním úkolem je aktivovat důkazní body a najít ČASOVÁ OSA, MOTIV a Krystal důkazní body.",
+            "penalty": 30
+          }
+        ]
+      }
+    },
+    "rooms": {
+      "${rooms.optional_archive.number}": {
+        "pin": "${rooms.optional_archive.pin}",
+        "requires_checkpoints": [
+          "${checkpoints.public_archive.id}"
+        ],
+        "clue": "SERVISNÍ OTISK PANELU\nI   |   X   |   IV\nKaždá oddělená skupina tvoří jednu část čtyřmístného přístupového kódu.",
+        "hints": [
+          {
+            "text": "Tři skupiny zachovej oddělené a čti je zleva doprava.",
+            "penalty": 10
+          },
+          {
+            "text": "Znaky v servisním otisku jsou čísla zapsaná způsobem používaným ve starověkém Římě.",
+            "penalty": 20
+          },
+          {
+            "text": "I = 1, X = 10 a IV = 4. Po spojení vznikne PIN 1104.",
+            "penalty": 35
+          }
+        ],
+        "success_messages": [
+          {
+            "text": "Přístupový panel dveří 104 odemčen. Elektromagnetický zámek uvolněn.",
+            "mood": "success",
+            "channel": "general"
+          },
+          {
+            "text": "Slyšela jsem cvaknutí! Pokoj 104 je otevřený a archivní stopa zajištěná. Teď pokračujte ke schodišti a najděte tam další důkazní bod.",
+            "mood": "relieved",
+            "channel": "lost"
+          }
+        ]
+      }
+    },
+    "cipher_tools_access": "all",
+    "cipher_tools": {
+      "morse": {
+        "label": "Morseova abeceda",
+        "default_unlocked": true,
+        "unlock_cost": 0
+      },
+      "semaphore": {
+        "label": "Praporová / semaforová abeceda",
+        "default_unlocked": false,
+        "unlock_cost": 30
+      },
+      "pigpen": {
+        "label": "Polský kříž",
+        "default_unlocked": false,
+        "unlock_cost": 35
+      },
+      "binary_ascii": {
+        "label": "Binární kód a ASCII",
+        "default_unlocked": false,
+        "unlock_cost": 25
+      },
+      "a1z26": {
+        "label": "A1Z26 a římské číslice",
+        "default_unlocked": true,
+        "unlock_cost": 0
+      },
+      "braille": {
+        "label": "Braillovo písmo",
+        "default_unlocked": false,
+        "unlock_cost": 20
+      },
+      "signal_flags": {
+        "label": "Námořní vlajková abeceda",
+        "default_unlocked": false,
+        "unlock_cost": 20
+      },
+      "classical": {
+        "label": "Caesar a šifrovací čtverec",
+        "default_unlocked": false,
+        "unlock_cost": 25
+      }
+    },
+    "puzzles": {
+      "reception_deduction": {
+        "title": "Rozpory ve výpovědích",
+        "type": "logic_grid",
+        "checkpoint_id": "${checkpoints.public_archive.id}",
+        "instructions": "V nočním archivu jsou záznamy čtyř členů projektu. Každý bydlel v jiném pokoji, přivezl jinou součást a jeho dokumentace skončila v jiné pozici archivu. Určete pokoj doktorky Elary a pozici jejího záznamu. Kód tvoří tři číslice pokoje a jedna číslice pozice archivu.",
+        "categories": {
+          "Vědec": [
+            "Nora",
+            "Novák",
+            "Silva",
+            "Chen"
+          ],
+          "Pokoj": [
+            "101",
+            "104",
+            "207",
+            "214"
+          ],
+          "Součást": [
+            "ČASOVÁ OSA",
+            "MOTIV",
+            "Krystal kotvy",
+            "Datový záznamník"
+          ],
+          "Pozice archivu": [
+            "3",
+            "5",
+            "7",
+            "9"
+          ]
+        },
+        "clues": [
+          "Doktor Novák bydlel v pokoji s nejnižším číslem.",
+          "Datový záznamník byl uložen v pokoji 104.",
+          "Doktorka Chen přivezla datový záznamník.",
+          "Krystal důkazní body byl uložen v pokoji 207.",
+          "Dokumentace krystalu leží na pozici 9.",
+          "Dokumentace důkazního motoru leží na pozici 3.",
+          "Dokumentace datového záznamníku leží na pozici 5.",
+          "Nora nepřivezla ani motor, ani krystal."
+        ],
+        "answer": "2147",
+        "admin_solution": "2147 – Nora bydlela v pokoji 214 a její dokumentace je na pozici archivu 7.",
+        "success_message": {
+          "text": "Archiv potvrzuje shodu: Nora, pokoj 214, pozice 7. V dokumentaci se obnovil servisní otisk panelu dveří 104:\n\nI   |   X   |   IV\n\nKaždá oddělená skupina tvoří jednu část čtyřmístného přístupového kódu.",
+          "mood": "success",
+          "channel": "captain"
+        },
+        "failure_message": {
+          "text": "Archivní kombinace nesouhlasí. Zkontrolujte vazby mezi pokoji, součástkami a pozicemi.",
+          "mood": "error",
+          "channel": "general"
+        },
+        "hints": [
+          {
+            "text": "Začněte pevnými vazbami: Novák má nejnižší pokoj a Chen má záznamník.",
+            "penalty": 10
+          },
+          {
+            "text": "Pokoj 104 patří Chen. Pokoj 207 obsahoval krystal.",
+            "penalty": 20
+          },
+          {
+            "text": "Elaře zbývá fázový stabilizátor, pokoj 214 a pozice 7.",
+            "penalty": 35
+          }
+        ]
+      },
+      "staircase_semaphore": {
+        "title": "Viditelnost svědka",
+        "type": "semaphore",
+        "checkpoint_id": "${checkpoints.signal_transition.id}",
+        "instructions": "Nalezený obrazový soubor z Elařina osobního archivu.",
+        "image": "assets/puzzles/elara-clock-gallery.png",
+        "answer": "BOWLING",
+        "admin_solution": "BOWLING (B–O–W–L–I–N–G)",
+        "success_message": {
+          "text": "Signál přeložen: BOWLING. Mapa důkazů zachytila diagnostické impulzy v prostoru kuželek.",
+          "mood": "success",
+          "channel": "lost"
+        },
+        "failure_message": {
+          "text": "Archivní systém v nalezeném souboru tuto odpověď nepotvrzuje.",
+          "mood": "error",
+          "channel": "general"
+        },
+        "hints": [
+          {
+            "text": "Sledujte dvojice barevných ručiček a zachovejte pořadí snímků.",
+            "penalty": 10
+          },
+          {
+            "text": "Každá dvojice poloh představuje jedno písmeno v praporové abecedě dostupné v pomůckách.",
+            "penalty": 20
+          },
+          {
+            "text": "Sedm znaků dává navigační slovo BOWLING.",
+            "penalty": 35
+          }
+        ]
+      },
+      "bowling_binary": {
+        "title": "Digitální stopa telefonu",
+        "type": "binary_image",
+        "checkpoint_id": "${checkpoints.machine_part_one.id}",
+        "instructions": "Obrazový záznam z diagnostického prostoru bowlingu.",
+        "image": "assets/puzzles/bowling-binary-motor-v3.png",
+        "answer": "MOTOR",
+        "admin_solution": "MOTOR – sedmibitové ASCII v označených řadách 4+3: 1001101 1001111 1010100 1001111 1010010; přední řady 2+1 jsou šum",
+        "success_message": {
+          "text": "Diagnostická sekvence potvrzena: MOTOR. TEMPORÁLNÍ MOTOR je znovu synchronizován s terminálem.",
+          "mood": "success",
+          "channel": "captain",
+          "voice_id": "captain_motor_recovered",
+          "audio_url": "/assets/voices/captain_motor_recovered.mp3"
+        },
+        "failure_message": {
+          "text": "Diagnostická sekvence tomuto označení součásti neodpovídá.",
+          "mood": "error",
+          "channel": "general"
+        },
+        "hints": [
+          {
+            "text": "V každém snímku použijte pouze označené řady 4 + 3; přední řady jsou obrazový šum.",
+            "penalty": 10
+          },
+          {
+            "text": "Stojící kuželka znamená 1 a prázdný obrys 0. Každý snímek vytvoří sedm bitů.",
+            "penalty": 20
+          },
+          {
+            "text": "Pět sedmibitových ASCII znaků dává slovo MOTOR.",
+            "penalty": 35
+          }
+        ]
+      },
+      "terrace_morse": {
+        "title": "Zvuk kroků v noci",
+        "type": "morse_image",
+        "checkpoint_id": "${checkpoints.machine_part_two.id}",
+        "instructions": "Noční obrazový záznam z terasy u rybníka.",
+        "image": "assets/puzzles/terrace-morse-cats-hriste-v2.png",
+        "answer": "HRISTE",
+        "answers": [
+          "HRISTE",
+          "HŘIŠTĚ"
+        ],
+        "admin_solution": "HŘIŠTĚ – kotě = tečka, dospělá kočka = čárka; .... / .-. / .. / ... / - / .",
+        "success_message": {
+          "text": "Světelný přenos potvrzen: HŘIŠTĚ. FÁZOVÝ STABILIZÁTOR se synchronizoval a Mapa důkazů označila sportovní areál.",
+          "mood": "success",
+          "channel": "lost",
+          "voice_id": "elara_stabilizer_recovered",
+          "audio_url": "/assets/voices/elara_stabilizer_recovered.mp3"
+        },
+        "failure_message": {
+          "text": "Chronální přenos tuto cílovou lokaci nepotvrzuje.",
+          "mood": "error",
+          "channel": "general"
+        },
+        "hints": [
+          {
+            "text": "Rozdělte zvířata do skupin podle větších mezer a zachovejte jejich pořadí.",
+            "penalty": 10
+          },
+          {
+            "text": "Kotě představuje krátký pulz a dospělá kočka dlouhý pulz; použijte odpovídající tabulku.",
+            "penalty": 20
+          },
+          {
+            "text": "Sekvence se překládá jako HŘIŠTĚ.",
+            "penalty": 35
+          }
+        ]
+      },
+      "timeline_lines": {
+        "title": "Rekonstrukce časové osy",
+        "type": "line_game",
+        "checkpoint_id": "${checkpoints.timeline_calibration.id}",
+        "instructions": "Každý hráč kalibruje vlastní mřížku. Prohazujte sousední barvy a splňte libovolné 2 ze 3 podmínek: 5 trojic, 3 čtveřice nebo 1 pětici. V týmu musí být společně pokryté všechny tři podmínky; sólo hráči dokončí hru splněním vlastních dvou. Počítají se pouze azurové a jantarové uzly.",
+        "admin_solution": "Interaktivní match-3: prohazování sousedních kamenů, propadávání a kaskády; započítávají se pouze azurové a jantarové řady. Cíle v libovolném pořadí: 5× délka 3, 3× délka 4, 1× délka 5. Limit 5 minut.",
+        "game": {
+          "size": 7,
+          "colors": [
+            "cyan",
+            "amber",
+            "violet",
+            "green",
+            "red"
+          ],
+          "scoring_colors": [
+            "cyan",
+            "amber"
+          ],
+          "objectives": {
+            "3": 5,
+            "4": 3,
+            "5": 1
+          },
+          "required_condition_count": 2,
+          "time_limit_seconds": 300,
+          "neutral_time_seconds": 180,
+          "score_interval_seconds": 10,
+          "score_points_per_interval": 5,
+          "team_completion_bonus": 40,
+          "seed": 5312026
+        },
+        "success_message": {
+          "text": "Oba časové proudy drží! Kalibrace 5–3–1 je dokončena. Vyjděte ven na terasu u rybníka a najděte tam důkazní bod s nočním obrazovým přenosem.",
+          "mood": "success",
+          "channel": "lost"
+        },
+        "failure_message": {
+          "text": "Kalibrační prostor se zahltil. Obnovte aktuální etapu a zkuste uzly rozložit úsporněji.",
+          "mood": "error",
+          "channel": "general"
+        }
+      },
+      "courtyard_karel": {
+        "title": "Bezpečná cesta hlídače",
+        "type": "mine_karel",
+        "checkpoint_id": "${checkpoints.hazard_navigation.id}",
+        "instructions": "Číselné sondy udávají počet nestabilních polí v osmi sousedních pozicích. Nora musí dojít ze startu S k východu X. Mřížku sleduje operátor terminálu, pohyby zadává navigátor v interkomu. Vstup na minu vrátí Elaru na start a odečte 20 bodů.",
+        "admin_solution": "A: DOLŮ×4, VPRAVO×2, DOLŮ, VPRAVO×2, DOLŮ, VPRAVO×2. B: NAHORU×2, VPRAVO×2, NAHORU×2, VPRAVO×2, NAHORU×2, VPRAVO×2. C: DOLŮ×3, VPRAVO×2, NAHORU, VPRAVO×3, DOLŮ×3, VPRAVO×2, DOLŮ×2.",
+        "game": {
+          "level_time_seconds": 180,
+          "mine_penalty": 20,
+          "points_per_level": 40,
+          "active_level_ids": [
+            "field_a",
+            "field_b",
+            "field_c"
+          ],
+          "levels": [
+            {
+              "id": "field_a",
+              "label": "Pole A",
+              "rows": 7,
+              "columns": 7,
+              "start": [
+                0,
+                0
+              ],
+              "exit": [
+                6,
+                6
+              ],
+              "mines": [
+                [
+                  0,
+                  3
+                ],
+                [
+                  1,
+                  1
+                ],
+                [
+                  1,
+                  5
+                ],
+                [
+                  2,
+                  3
+                ],
+                [
+                  3,
+                  1
+                ],
+                [
+                  3,
+                  5
+                ],
+                [
+                  4,
+                  3
+                ],
+                [
+                  5,
+                  1
+                ],
+                [
+                  5,
+                  5
+                ],
+                [
+                  6,
+                  3
+                ]
+              ],
+              "revealed": [
+                [
+                  0,
+                  1
+                ],
+                [
+                  1,
+                  0
+                ],
+                [
+                  2,
+                  2
+                ],
+                [
+                  2,
+                  4
+                ],
+                [
+                  3,
+                  3
+                ],
+                [
+                  4,
+                  2
+                ],
+                [
+                  4,
+                  4
+                ],
+                [
+                  5,
+                  6
+                ],
+                [
+                  6,
+                  5
+                ]
+              ]
+            },
+            {
+              "id": "field_b",
+              "label": "Pole B",
+              "rows": 7,
+              "columns": 7,
+              "start": [
+                6,
+                0
+              ],
+              "exit": [
+                0,
+                6
+              ],
+              "mines": [
+                [
+                  6,
+                  3
+                ],
+                [
+                  5,
+                  1
+                ],
+                [
+                  5,
+                  5
+                ],
+                [
+                  4,
+                  3
+                ],
+                [
+                  3,
+                  1
+                ],
+                [
+                  3,
+                  5
+                ],
+                [
+                  2,
+                  5
+                ],
+                [
+                  1,
+                  1
+                ],
+                [
+                  1,
+                  3
+                ],
+                [
+                  0,
+                  1
+                ]
+              ],
+              "revealed": [
+                [
+                  5,
+                  0
+                ],
+                [
+                  4,
+                  1
+                ],
+                [
+                  4,
+                  2
+                ],
+                [
+                  3,
+                  2
+                ],
+                [
+                  2,
+                  3
+                ],
+                [
+                  2,
+                  4
+                ],
+                [
+                  1,
+                  4
+                ],
+                [
+                  0,
+                  5
+                ]
+              ]
+            },
+            {
+              "id": "field_c",
+              "label": "Pole C",
+              "rows": 8,
+              "columns": 8,
+              "start": [
+                0,
+                0
+              ],
+              "exit": [
+                7,
+                7
+              ],
+              "mines": [
+                [
+                  0,
+                  2
+                ],
+                [
+                  1,
+                  1
+                ],
+                [
+                  1,
+                  3
+                ],
+                [
+                  1,
+                  4
+                ],
+                [
+                  2,
+                  6
+                ],
+                [
+                  3,
+                  4
+                ],
+                [
+                  3,
+                  7
+                ],
+                [
+                  4,
+                  2
+                ],
+                [
+                  4,
+                  6
+                ],
+                [
+                  5,
+                  3
+                ],
+                [
+                  6,
+                  1
+                ],
+                [
+                  6,
+                  5
+                ],
+                [
+                  7,
+                  3
+                ]
+              ],
+              "revealed": [
+                [
+                  1,
+                  0
+                ],
+                [
+                  2,
+                  1
+                ],
+                [
+                  3,
+                  2
+                ],
+                [
+                  2,
+                  2
+                ],
+                [
+                  2,
+                  4
+                ],
+                [
+                  3,
+                  5
+                ],
+                [
+                  5,
+                  5
+                ],
+                [
+                  5,
+                  6
+                ],
+                [
+                  6,
+                  7
+                ]
+              ]
+            },
+            {
+              "id": "reserve_d",
+              "label": "Rezervní pole D",
+              "rows": 7,
+              "columns": 7,
+              "start": [
+                0,
+                6
+              ],
+              "exit": [
+                6,
+                0
+              ],
+              "mines": [
+                [
+                  0,
+                  3
+                ],
+                [
+                  1,
+                  1
+                ],
+                [
+                  1,
+                  5
+                ],
+                [
+                  2,
+                  3
+                ],
+                [
+                  3,
+                  1
+                ],
+                [
+                  3,
+                  5
+                ],
+                [
+                  4,
+                  3
+                ],
+                [
+                  5,
+                  1
+                ],
+                [
+                  5,
+                  5
+                ],
+                [
+                  6,
+                  3
+                ]
+              ],
+              "revealed": [
+                [
+                  0,
+                  5
+                ],
+                [
+                  1,
+                  6
+                ],
+                [
+                  2,
+                  4
+                ],
+                [
+                  3,
+                  3
+                ],
+                [
+                  4,
+                  2
+                ],
+                [
+                  5,
+                  0
+                ],
+                [
+                  6,
+                  1
+                ]
+              ]
+            },
+            {
+              "id": "reserve_e",
+              "label": "Rezervní pole E",
+              "rows": 8,
+              "columns": 8,
+              "start": [
+                7,
+                0
+              ],
+              "exit": [
+                0,
+                7
+              ],
+              "mines": [
+                [
+                  0,
+                  2
+                ],
+                [
+                  1,
+                  1
+                ],
+                [
+                  1,
+                  5
+                ],
+                [
+                  2,
+                  3
+                ],
+                [
+                  2,
+                  6
+                ],
+                [
+                  3,
+                  1
+                ],
+                [
+                  3,
+                  5
+                ],
+                [
+                  4,
+                  3
+                ],
+                [
+                  5,
+                  1
+                ],
+                [
+                  5,
+                  6
+                ],
+                [
+                  6,
+                  2
+                ],
+                [
+                  6,
+                  5
+                ],
+                [
+                  7,
+                  4
+                ]
+              ],
+              "revealed": [
+                [
+                  6,
+                  0
+                ],
+                [
+                  5,
+                  2
+                ],
+                [
+                  4,
+                  2
+                ],
+                [
+                  3,
+                  3
+                ],
+                [
+                  2,
+                  4
+                ],
+                [
+                  1,
+                  4
+                ],
+                [
+                  0,
+                  6
+                ]
+              ]
+            }
+          ]
+        },
+        "success_message": {
+          "text": "Jsem na druhé straně. Trasa je stabilní a přístup k dalšímu hotelovému uzlu se otevřel.",
+          "mood": "relieved",
+          "channel": "lost"
+        }
+      },
+      "temporal_triad": {
+        "title": "Shoda tří svědectví",
+        "type": "triad",
+        "checkpoint_id": "${checkpoints.alignment_game.id}",
+        "instructions": "Každý hráč zarovnává vlastní pole. Vytvořte trojice stejné barvy ve 2 ze 3 směrů: vodorovně, svisle nebo diagonálně. V týmu musí být společně pokryté všechny tři směry; sólo hráči dokončí hru vlastními dvěma. Automat po každém tahu pokládá červený rušivý uzel.",
+        "admin_solution": "Hra reaguje na každý tah, proto nemá jedinou pevnou sekvenci. Vytvářejte současně dvě hrozby, mezi nimiž si automat musí vybrat; hráč může v každém tahu změnit barvu. Dokončené směry zůstávají započítané.",
+        "game": {
+          "size": 6,
+          "symbols": [
+            "cyan",
+            "amber"
+          ],
+          "blocked": [],
+          "required_orientation_count": 2,
+          "time_limit_seconds": 180,
+          "individual_completion_bonus": 20,
+          "team_completion_bonus": 60
+        },
+        "success_message": {
+          "text": "Tři osy jsou zarovnané. Časové uzly vytvořily stabilní průchod ke sportovnímu archivu.",
+          "mood": "success",
+          "channel": "lost"
+        }
+      },
+      "sports_sokoban": {
+        "title": "Přesuny důkazů ve skladu",
+        "type": "sokoban",
+        "checkpoint_id": "${checkpoints.spatial_archive.id}",
+        "instructions": "Nora prochází třemi servisními sektory v naprosté tmě: její lokální displej nefunguje a sama mřížku nevidí. Tým musí sdílet informace mezi člověkem sledujícím mapu a navigátorem u interkomu. V kanálu # ztracená_sig používejte povely NAHORU, DOLŮ, VLEVO a VPRAVO; lze je spojit čárkami a opakovat například jako „2x NAHORU“. Přesuňte články na svítící cíle před vypršením času. Každý sektor přidá 30 bodů. Povel ZPĚT vrátí poslední krok a RESET obnoví aktuální úroveň i její čas.",
+        "admin_solution": "3 aktivní úrovně: A = NAHORU×4, VLEVO, DOLŮ×2, VPRAVO, DOLŮ, VLEVO, VPRAVO, DOLŮ, VLEVO×2; B = NAHORU, VPRAVO×2, DOLŮ, VPRAVO, DOLŮ, VLEVO, NAHORU×3, VPRAVO, DOLŮ, VLEVO, DOLŮ, VLEVO, DOLŮ, VPRAVO, DOLŮ, VLEVO; C = NAHORU, VPRAVO×3, DOLŮ, VLEVO, NAHORU, VLEVO, DOLŮ, VPRAVO, DOLŮ, VLEVO×2, DOLŮ×2, VPRAVO×2, NAHORU, VPRAVO×2, DOLŮ×2, VLEVO, NAHORU. Rezervní úrovně D a E jsou připravené ve scénáři.",
+        "game": {
+          "level_time_seconds": 120,
+          "points_per_level": 30,
+          "active_level_ids": [
+            "sector_a",
+            "sector_b",
+            "sector_c"
+          ],
+          "levels": [
+            {
+              "id": "sector_a",
+              "label": "Servisní sektor A",
+              "map": [
+                "########",
+                "##  #  #",
+                "#    $ #",
+                "###    #",
+                "#   .  #",
+                "#  . $@#",
+                "#      #",
+                "########"
+              ]
+            },
+            {
+              "id": "sector_b",
+              "label": "Servisní sektor B",
+              "map": [
+                "########",
+                "# ##   #",
+                "## $  ##",
+                "# @ $. #",
+                "###    #",
+                "# .  # #",
+                "#      #",
+                "########"
+              ]
+            },
+            {
+              "id": "sector_c",
+              "label": "Servisní sektor C",
+              "map": [
+                "########",
+                "##     #",
+                "# @ $  #",
+                "#.   # #",
+                "#    . #",
+                "##  $  #",
+                "### #  #",
+                "########"
+              ]
+            },
+            {
+              "id": "reserve_d",
+              "label": "Rezervní sektor D",
+              "map": [
+                "########",
+                "##  ##@#",
+                "#      #",
+                "#   $  #",
+                "#   # .#",
+                "#   $. #",
+                "#      #",
+                "########"
+              ]
+            },
+            {
+              "id": "reserve_e",
+              "label": "Rezervní sektor E",
+              "map": [
+                "########",
+                "#####  #",
+                "#  @ ..#",
+                "#      #",
+                "#  $# ##",
+                "#  $ # #",
+                "#      #",
+                "########"
+              ]
+            }
+          ]
+        },
+        "success_message": {
+          "text": "Všechny tři servisní sektory jsou stabilní. Síť se rozběhla a archiv vydal obě části šifrovací tabulky. Pokračujte ke sportovní šifrovací kotvě, kde lze obnovený otisk prozkoumat.",
+          "mood": "success",
+          "channel": "lost"
+        },
+        "failure_message": {
+          "text": "Článek se v této poloze nepohne. Potřebuji se k němu dostat z jiné strany.",
+          "mood": "error",
+          "channel": "lost"
+        }
+      },
+      "sports_pigpen": {
+        "title": "Zašifrovaná poznámka",
+        "type": "pigpen",
+        "checkpoint_id": "${checkpoints.machine_part_three.id}",
+        "instructions": "Terminál obnovil šest neznámých znaků z poškozeného archivního otisku. Určete jejich význam a zadejte výsledné české slovo.",
+        "image": "assets/puzzles/sports-pigpen-hodiny.svg",
+        "answer": "HODINY",
+        "answers": [
+          "HODINY",
+          "HODINY V LOBBY",
+          "LOBBY HODINY"
+        ],
+        "admin_solution": "HODINY – obě poloviny tabulky polského kříže společně určují šest znaků H–O–D–I–N–Y.",
+        "success_message": {
+          "text": "Zpráva potvrzena: HODINY. V jejich servisním pouzdře je třetí díl stroje – KRYSTAL ČASOVÉ KOTVY – a přístupový otisk Archivu budoucnosti.",
+          "mood": "success",
+          "channel": "captain",
+          "voice_id": "captain_crystal_recovered",
+          "audio_url": "/assets/voices/captain_crystal_recovered.mp3"
+        },
+        "failure_message": {
+          "text": "Archivní otisk tuto odpověď nepotvrzuje.",
+          "mood": "error",
+          "channel": "general"
+        },
+        "hints": [
+          {
+            "text": "V Šifrovacích pomůckách je grafická tabulka používající stejné rohy, kříže a klíny.",
+            "penalty": 15
+          },
+          {
+            "text": "Jde o malý polský kříž. Čtěte znaky zleva doprava; výsledkem je objekt v hotelu, který ukazuje čas.",
+            "penalty": 30
+          },
+          {
+            "text": "Poškozený otisk ukrývá slovo HODINY.",
+            "penalty": 45
+          }
+        ]
+      },
+      "future_archive_cipher": {
+        "title": "Sestavení alternativní verze",
+        "type": "archive_vector",
+        "checkpoint_id": "${checkpoints.return_archive.id}",
+        "instructions": "Poškozený obraz rekonstrukce případu se rozpadl na šestnáct částí. Výběrem dvou dílků je prohoďte a obnovte celý obraz. Až se archiv stabilizuje, použijte odhalený klíč k přečtení zachyceného přenosu a zadejte celý dešifrovaný text.",
+        "ciphertext": "TVBRI OFWSR HEWKG KDQNG VXHAS QBSEA PFVBM NHGCE OVKTF HBFKV HSWYW RCAFF XFQUA RZ",
+        "answer": "ROKDVANULATRISEDMCASDVAJEDNACTYRINULAPORADIMOTORSTABILIZATORKRYSTAL",
+        "answers": [
+          "ROKDVANULATRISEDMCASDVAJEDNACTYRINULAPORADIMOTORSTABILIZATORKRYSTAL",
+          "ROK DVA NULA TRI SEDM CAS DVA JEDNA CTYRI NULA PORADI MOTOR STABILIZATOR KRYSTAL"
+        ],
+        "admin_solution": "Vigenère, klíč CHRONOS. Text: ROK DVA NULA TŘI SEDM / ČAS DVA JEDNA ČTYŘI NULA / POŘADÍ MOTOR STABILIZÁTOR KRYSTAL, tedy 2037, 21:40, MOTOR → STABILIZÁTOR → KRYSTAL.",
+        "assembly": {
+          "mode": "jigsaw",
+          "image": "assets/puzzles/time-machine-jigsaw.png",
+          "grid_size": 4,
+          "cards": [
+            {
+              "id": "tile_1",
+              "label": "DÍLEK",
+              "source_index": 0
+            },
+            {
+              "id": "tile_2",
+              "label": "DÍLEK",
+              "source_index": 1
+            },
+            {
+              "id": "tile_3",
+              "label": "DÍLEK",
+              "source_index": 2
+            },
+            {
+              "id": "tile_4",
+              "label": "DÍLEK",
+              "source_index": 3
+            },
+            {
+              "id": "tile_5",
+              "label": "DÍLEK",
+              "source_index": 4
+            },
+            {
+              "id": "tile_6",
+              "label": "DÍLEK",
+              "source_index": 5
+            },
+            {
+              "id": "tile_7",
+              "label": "DÍLEK",
+              "source_index": 6
+            },
+            {
+              "id": "tile_8",
+              "label": "DÍLEK",
+              "source_index": 7
+            },
+            {
+              "id": "tile_9",
+              "label": "DÍLEK",
+              "source_index": 8
+            },
+            {
+              "id": "tile_10",
+              "label": "DÍLEK",
+              "source_index": 9
+            },
+            {
+              "id": "tile_11",
+              "label": "DÍLEK",
+              "source_index": 10
+            },
+            {
+              "id": "tile_12",
+              "label": "DÍLEK",
+              "source_index": 11
+            },
+            {
+              "id": "tile_13",
+              "label": "DÍLEK",
+              "source_index": 12
+            },
+            {
+              "id": "tile_14",
+              "label": "DÍLEK",
+              "source_index": 13
+            },
+            {
+              "id": "tile_15",
+              "label": "DÍLEK",
+              "source_index": 14
+            },
+            {
+              "id": "tile_16",
+              "label": "DÍLEK",
+              "source_index": 15
+            }
+          ],
+          "initial_order": [
+            "tile_11",
+            "tile_4",
+            "tile_15",
+            "tile_1",
+            "tile_8",
+            "tile_13",
+            "tile_6",
+            "tile_16",
+            "tile_3",
+            "tile_10",
+            "tile_2",
+            "tile_12",
+            "tile_7",
+            "tile_14",
+            "tile_5",
+            "tile_9"
+          ],
+          "correct_order": [
+            "tile_1",
+            "tile_2",
+            "tile_3",
+            "tile_4",
+            "tile_5",
+            "tile_6",
+            "tile_7",
+            "tile_8",
+            "tile_9",
+            "tile_10",
+            "tile_11",
+            "tile_12",
+            "tile_13",
+            "tile_14",
+            "tile_15",
+            "tile_16"
+          ],
+          "revealed_key": "CHRONOS",
+          "module_order": [
+            "TEMPORÁLNÍ MOTOR",
+            "FÁZOVÝ STABILIZÁTOR",
+            "KRYSTAL ČASOVÉ KOTVY"
+          ]
+        },
+        "success_message": {
+          "text": "Návratový vektor obnoven: rok 2037, čas 21:40, pořadí MOTOR → STABILIZÁTOR → KRYSTAL. Vraťte se k základně rekonstrukce případu.",
+          "mood": "relieved",
+          "channel": "lost",
+          "voice_id": "elara_return_vector",
+          "audio_url": "/assets/voices/elara_return_vector.mp3"
+        },
+        "failure_message": {
+          "text": "Archiv vektor odmítl. Ověřte rok, čas i pořadí všech tří modulů.",
+          "mood": "error",
+          "channel": "general"
+        },
+        "hints": [
+          {
+            "text": "Sledujte výrazné kabely, kruhové konstrukce a barevné světelné stopy přes okraje dílků.",
+            "penalty": 15
+          },
+          {
+            "text": "Azurový motor patří doprostřed, jantarový systém vlevo a fialový krystal vpravo. Správný obraz odhalí sedmipísmenný klíč.",
+            "penalty": 25
+          },
+          {
+            "text": "Použijte Vigenèrovu tabulku. Klíč CHRONOS opakujte nad celým archivním záznamem.",
+            "penalty": 40
+          }
+        ]
+      },
+      "time_machine_finale": {
+        "title": "Závěrečné hlasování poroty",
+        "type": "finale",
+        "checkpoint_id": "${checkpoints.final_console.id}",
+        "instructions": "Vložte všechny tři fyzické moduly do základny. Potom zadejte návratový rok, čas a přesné pořadí modulů získané v Archivu budoucnosti.",
+        "year": "2037",
+        "time": "21:40",
+        "module_order": [
+          "TEMPORÁLNÍ MOTOR",
+          "FÁZOVÝ STABILIZÁTOR",
+          "KRYSTAL ČASOVÉ KOTVY"
+        ],
+        "module_labels": [
+          "TEMPORÁLNÍ MOTOR",
+          "FÁZOVÝ STABILIZÁTOR",
+          "KRYSTAL ČASOVÉ KOTVY"
+        ],
+        "requires_checkpoints": [
+          "${checkpoints.public_archive.id}",
+          "${checkpoints.signal_transition.id}",
+          "${checkpoints.hazard_navigation.id}",
+          "${checkpoints.machine_part_one.id}",
+          "${checkpoints.timeline_calibration.id}",
+          "${checkpoints.machine_part_two.id}",
+          "${checkpoints.alignment_game.id}",
+          "${checkpoints.spatial_archive.id}",
+          "${checkpoints.machine_part_three.id}",
+          "${checkpoints.return_archive.id}"
+        ],
+        "requires_inventory": [
+          "TEMPORÁLNÍ MOTOR",
+          "FÁZOVÝ STABILIZÁTOR",
+          "KRYSTAL ČASOVÉ KOTVY"
+        ],
+        "requires_flags": [
+          "room_104_unlocked"
+        ],
+        "countdown_seconds": 10,
+        "rating_thresholds": {
+          "1200": "CHRONOMISTR",
+          "1000": "VÝZKUMNÝ TÝM",
+          "0": "STABILIZOVÁNO"
+        },
+        "admin_solution": "2037 · 21:40 · TEMPORÁLNÍ MOTOR → FÁZOVÝ STABILIZÁTOR → KRYSTAL ČASOVÉ KOTVY",
+        "failure_message": {
+          "text": "Synchronizace se rozpadá! Zadaný návratový vektor nesouhlasí s archivem budoucnosti.",
+          "mood": "error",
+          "channel": "lost"
+        },
+        "success_messages": [
+          {
+            "text": "Vektor přijat. Spouštím desetisekundovou stabilizační sekvenci. Držte se dál od kotvy!",
+            "mood": "alert",
+            "channel": "captain",
+            "voice_id": "captain_final_countdown",
+            "audio_url": "/assets/voices/captain_final_countdown.mp3"
+          },
+          {
+            "text": "Vidím vás! Časové vrstvy se překrývají… motor drží… jsem zpátky v Kraskově!",
+            "mood": "relieved",
+            "channel": "lost",
+            "voice_id": "elara_returned",
+            "audio_url": "/assets/voices/elara_returned.mp3"
+          }
+        ]
+      }
+    },
+    "checkpoints": {
+      "${checkpoints.public_archive.id}": {
+        "label": "${checkpoints.public_archive.name}",
+        "token": "${checkpoints.public_archive.token}",
+        "requires": [],
+        "requires_phase": "navigating",
+        "puzzle_id": "reception_deduction",
+        "next_checkpoint": "${checkpoints.signal_transition.id}",
+        "navigation_message": {
+          "text": "Pokračujte k dalšímu bodu mapy a porovnejte novou stopu s dosavadní časovou osou.",
+          "mood": "focused",
+          "channel": "captain"
+        },
+        "rewards": {
+          "flags": [
+            "reception_archive_unlocked"
+          ]
+        },
+        "message": {
+          "text": "Důkazní bod 1 potvrzen: Zelená brána.",
+          "mood": "focused",
+          "channel": "lost"
+        }
+      },
+      "${checkpoints.signal_transition.id}": {
+        "label": "${checkpoints.signal_transition.name}",
+        "token": "${checkpoints.signal_transition.token}",
+        "requires": [
+          "${checkpoints.public_archive.id}"
+        ],
+        "puzzle_id": "staircase_semaphore",
+        "next_checkpoint": "${checkpoints.hazard_navigation.id}",
+        "navigation_message": {
+          "text": "Pokračujte k dalšímu bodu mapy a porovnejte novou stopu s dosavadní časovou osou.",
+          "mood": "focused",
+          "channel": "captain"
+        },
+        "warning_if_missing_flag": {
+          "flag": "room_104_unlocked",
+          "message": {
+            "text": "Schodišťová kotva reaguje, ale pokoj 104 jste nechali zamčený. Než se dostanete k finále, vraťte se k virtuálnímu panelu a použijte servisní otisk z recepce.",
+            "mood": "tense",
+            "channel": "lost"
+          }
+        },
+        "found_rewards": {
+          "cipher_tools": [
+            "semaphore"
+          ]
+        },
+        "rewards": {
+          "flags": [
+            "bowling_route_unlocked"
+          ]
+        },
+        "message": {
+          "text": "Důkazní bod 2 potvrzen: Pernštýnské náměstí.",
+          "mood": "focused",
+          "channel": "lost"
+        }
+      },
+      "${checkpoints.machine_part_one.id}": {
+        "label": "${checkpoints.machine_part_one.name}",
+        "token": "${checkpoints.machine_part_one.token}",
+        "requires": [
+          "${checkpoints.hazard_navigation.id}"
+        ],
+        "puzzle_id": "bowling_binary",
+        "next_checkpoint": "${checkpoints.timeline_calibration.id}",
+        "navigation_message": {
+          "text": "Pokračujte k dalšímu bodu mapy a porovnejte novou stopu s dosavadní časovou osou.",
+          "mood": "focused",
+          "channel": "captain"
+        },
+        "found_rewards": {
+          "cipher_tools": [
+            "binary_ascii"
+          ]
+        },
+        "rewards": {
+          "inventory": [
+            "TEMPORÁLNÍ MOTOR"
+          ],
+          "flags": [
+            "temporal_motor_recovered"
+          ]
+        },
+        "message": {
+          "text": "Důkazní bod 4 potvrzen: Zámecké valy.",
+          "mood": "focused",
+          "channel": "lost"
+        }
+      },
+      "${checkpoints.machine_part_two.id}": {
+        "label": "${checkpoints.machine_part_two.name}",
+        "token": "${checkpoints.machine_part_two.token}",
+        "requires": [
+          "${checkpoints.timeline_calibration.id}"
+        ],
+        "puzzle_id": "terrace_morse",
+        "next_checkpoint": "${checkpoints.alignment_game.id}",
+        "navigation_message": {
+          "text": "Pokračujte k dalšímu bodu mapy a porovnejte novou stopu s dosavadní časovou osou.",
+          "mood": "focused",
+          "channel": "captain"
+        },
+        "rewards": {
+          "inventory": [
+            "FÁZOVÝ STABILIZÁTOR"
+          ],
+          "flags": [
+            "phase_stabilizer_recovered"
+          ]
+        },
+        "message": {
+          "text": "Důkazní bod 6 potvrzen: Lávka přes Chrudimku.",
+          "mood": "focused",
+          "channel": "lost"
+        }
+      },
+      "${checkpoints.timeline_calibration.id}": {
+        "label": "${checkpoints.timeline_calibration.name}",
+        "token": "${checkpoints.timeline_calibration.token}",
+        "requires": [
+          "${checkpoints.machine_part_one.id}"
+        ],
+        "puzzle_id": "timeline_lines",
+        "next_checkpoint": "${checkpoints.machine_part_two.id}",
+        "navigation_message": {
+          "text": "Pokračujte k dalšímu bodu mapy a porovnejte novou stopu s dosavadní časovou osou.",
+          "mood": "focused",
+          "channel": "captain"
+        },
+        "rewards": {
+          "flags": [
+            "timeline_calibrated"
+          ]
+        },
+        "message": {
+          "text": "Důkazní bod 5 potvrzen: Tyršovy sady.",
+          "mood": "focused",
+          "channel": "lost"
+        }
+      },
+      "${checkpoints.spatial_archive.id}": {
+        "label": "${checkpoints.spatial_archive.name}",
+        "token": "${checkpoints.spatial_archive.token}",
+        "requires": [
+          "${checkpoints.alignment_game.id}"
+        ],
+        "puzzle_id": "sports_sokoban",
+        "next_checkpoint": "${checkpoints.machine_part_three.id}",
+        "navigation_message": {
+          "text": "Pokračujte k dalšímu bodu mapy a porovnejte novou stopu s dosavadní časovou osou.",
+          "mood": "focused",
+          "channel": "captain"
+        },
+        "rewards": {
+          "cipher_tools": [
+            "pigpen"
+          ]
+        },
+        "message": {
+          "text": "Důkazní bod 8 potvrzen: Komenského náměstí.",
+          "mood": "focused",
+          "channel": "lost"
+        }
+      },
+      "${checkpoints.machine_part_three.id}": {
+        "label": "${checkpoints.machine_part_three.name}",
+        "token": "${checkpoints.machine_part_three.token}",
+        "requires": [
+          "${checkpoints.spatial_archive.id}"
+        ],
+        "puzzle_id": "sports_pigpen",
+        "next_checkpoint": "${checkpoints.return_archive.id}",
+        "navigation_message": {
+          "text": "Pokračujte k dalšímu bodu mapy a porovnejte novou stopu s dosavadní časovou osou.",
+          "mood": "focused",
+          "channel": "captain"
+        },
+        "rewards": {
+          "inventory": [
+            "KRYSTAL ČASOVÉ KOTVY"
+          ],
+          "flags": [
+            "anchor_crystal_recovered",
+            "future_archive_unlocked"
+          ]
+        },
+        "message": {
+          "text": "Důkazní bod 9 potvrzen: Bělobranské náměstí.",
+          "mood": "focused",
+          "channel": "lost"
+        }
+      },
+      "${checkpoints.return_archive.id}": {
+        "label": "${checkpoints.return_archive.name}",
+        "token": "${checkpoints.return_archive.token}",
+        "requires": [
+          "${checkpoints.machine_part_three.id}"
+        ],
+        "puzzle_id": "future_archive_cipher",
+        "next_checkpoint": "${checkpoints.final_console.id}",
+        "navigation_message": {
+          "text": "Pokračujte k dalšímu bodu mapy a porovnejte novou stopu s dosavadní časovou osou.",
+          "mood": "focused",
+          "channel": "captain"
+        },
+        "found_rewards": {
+          "cipher_tools": [
+            "classical"
+          ]
+        },
+        "rewards": {
+          "flags": [
+            "return_vector_recovered"
+          ]
+        },
+        "message": {
+          "text": "Důkazní bod 10 potvrzen: Wernerovo nábřeží.",
+          "mood": "focused",
+          "channel": "lost"
+        }
+      },
+      "${checkpoints.final_console.id}": {
+        "label": "${checkpoints.final_console.name}",
+        "token": "${checkpoints.final_console.token}",
+        "requires": [
+          "${checkpoints.return_archive.id}"
+        ],
+        "puzzle_id": "time_machine_finale",
+        "rewards": {
+          "flags": [
+            "elara_rescued"
+          ]
+        },
+        "message": {
+          "text": "Důkazní bod 11 potvrzen: Pernštýnské náměstí – radnice.",
+          "mood": "focused",
+          "channel": "lost"
+        }
+      },
+      "${checkpoints.alignment_game.id}": {
+        "label": "${checkpoints.alignment_game.name}",
+        "token": "${checkpoints.alignment_game.token}",
+        "requires": [
+          "${checkpoints.machine_part_two.id}"
+        ],
+        "puzzle_id": "temporal_triad",
+        "next_checkpoint": "${checkpoints.spatial_archive.id}",
+        "navigation_message": {
+          "text": "Pokračujte k dalšímu bodu mapy a porovnejte novou stopu s dosavadní časovou osou.",
+          "mood": "focused",
+          "channel": "captain"
+        },
+        "rewards": {
+          "flags": [
+            "temporal_nodes_aligned"
+          ]
+        },
+        "message": {
+          "text": "Důkazní bod 7 potvrzen: Automatické mlýny.",
+          "mood": "focused",
+          "channel": "lost"
+        }
+      },
+      "${checkpoints.hazard_navigation.id}": {
+        "label": "${checkpoints.hazard_navigation.name}",
+        "token": "${checkpoints.hazard_navigation.token}",
+        "requires": [
+          "${checkpoints.signal_transition.id}"
+        ],
+        "puzzle_id": "courtyard_karel",
+        "next_checkpoint": "${checkpoints.machine_part_one.id}",
+        "navigation_message": {
+          "text": "Pokračujte k dalšímu bodu mapy a porovnejte novou stopu s dosavadní časovou osou.",
+          "mood": "focused",
+          "channel": "captain"
+        },
+        "rewards": {
+          "flags": [
+            "courtyard_route_stable"
+          ]
+        },
+        "message": {
+          "text": "Důkazní bod 3 potvrzen: Příhrádek.",
+          "mood": "focused",
+          "channel": "lost"
+        }
+      }
+    },
+    "room_defaults": {
+      "fail_message": {
+        "text": "Chybný PIN kód '{pin}'. Přístup odepřen.",
+        "mood": "error",
+        "channel": "general"
+      }
+    },
+    "global_events": {
+      "reconnect": {
+        "text": "[Systém]: Spojení bylo úspěšně obnoveno. Relace je aktivní.",
+        "mood": "info",
+        "channel": "general"
+      },
+      "qr_detected": {
+        "text": "Důkazní bod '{checkpoint_id}' byla nalezena.",
+        "mood": "tense",
+        "channel": "lost"
+      },
+      "arg_verified": {
+        "text": "Máš pravdu! Ten symbol vážně zapadl do panelu u dveří.",
+        "mood": "alert",
+        "channel": "lost"
+      }
+    },
+    "world": {
+      "$var": "world"
+    }
+  }
+}

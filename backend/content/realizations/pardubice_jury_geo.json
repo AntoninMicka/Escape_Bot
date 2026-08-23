@@ -1,0 +1,263 @@
+{
+  "schema_version": 1,
+  "kind": "realization",
+  "id": "pardubice_jury_geo",
+  "version": "1.0.0",
+  "title": "Dvanáct pochybností — Pardubice GEO",
+  "template": {
+    "id": "jury_deliberation",
+    "version": "1.0.0"
+  },
+  "modes": [
+    "geo",
+    "osm",
+    "gnss"
+  ],
+  "variables": {
+    "game": {
+      "id": "pardubice_jury_geo"
+    },
+    "location": {
+      "name": "centrum Pardubic",
+      "name_locative": "centru Pardubic",
+      "knowledge_base": "Dvanáctičlenná porota posuzuje případ smrti nočního hlídače. Jedenáct hlasů míří k vině, Nora však upozorní na rozpory. Tým znovu prověří časovou osu, viditelnost svědků, původ nástroje, motiv a manipulaci se záznamem. Cílem není určit pachatele, ale rozhodnout, zda obžaloba odstranila rozumnou pochybnost."
+    },
+    "checkpoints": {
+      "public_archive": {
+        "id": "jury_public_archive",
+        "name": "Zelená brána",
+        "route_name": "Zelená brána",
+        "token": "81431c01873a91a2f67c8dccd3507787"
+      },
+      "signal_transition": {
+        "id": "jury_signal_transition",
+        "name": "Pernštýnské náměstí",
+        "route_name": "Pernštýnské náměstí",
+        "token": "e1aacf4cf98d9bca881d3e1fc2b5a627"
+      },
+      "hazard_navigation": {
+        "id": "jury_hazard_navigation",
+        "name": "Příhrádek",
+        "route_name": "Příhrádek",
+        "token": "7a8924f2bfe28b891dbe04b50fb3b4cf"
+      },
+      "machine_part_one": {
+        "id": "jury_machine_part_one",
+        "name": "Zámecké valy",
+        "route_name": "Zámecké valy",
+        "token": "0b3007af65457e982a628ccb49a4f03e"
+      },
+      "timeline_calibration": {
+        "id": "jury_timeline_calibration",
+        "name": "Tyršovy sady",
+        "route_name": "Tyršovy sady",
+        "token": "3ba38a8be73825df1a607554bfc63534"
+      },
+      "machine_part_two": {
+        "id": "jury_machine_part_two",
+        "name": "Lávka přes Chrudimku",
+        "route_name": "Lávka přes Chrudimku",
+        "token": "95758f21b91aa669e39a0c4466028e77"
+      },
+      "alignment_game": {
+        "id": "jury_alignment_game",
+        "name": "Automatické mlýny",
+        "route_name": "Automatické mlýny",
+        "token": "946b4eb55d126bd87dfb56c620f19f2f"
+      },
+      "spatial_archive": {
+        "id": "jury_spatial_archive",
+        "name": "Komenského náměstí",
+        "route_name": "Komenského náměstí",
+        "token": "029b197bd717eead1303b04ec4f05d59"
+      },
+      "machine_part_three": {
+        "id": "jury_machine_part_three",
+        "name": "Bělobranské náměstí",
+        "route_name": "Bělobranské náměstí",
+        "token": "cfeb850951dc5b31c66d737c34122ba4"
+      },
+      "return_archive": {
+        "id": "jury_return_archive",
+        "name": "Wernerovo nábřeží",
+        "route_name": "Wernerovo nábřeží",
+        "token": "461744a143e1446d844a7af06a47a481"
+      },
+      "final_console": {
+        "id": "jury_final_console",
+        "name": "Pernštýnské náměstí – radnice",
+        "route_name": "Pernštýnské náměstí – radnice",
+        "token": "c37f0a6a46e677d91d6d077001426959"
+      }
+    },
+    "rooms": {
+      "optional_archive": {
+        "node_id": "room_104",
+        "number": "104",
+        "pin": "1104"
+      }
+    },
+    "world": {
+      "mode": "geo",
+      "location_id": "pardubice_center",
+      "coordinate_system": "WGS84",
+      "center": {
+        "lat": 50.03965,
+        "lon": 15.77955,
+        "zoom": 16
+      },
+      "bounds": {
+        "south": 50.03755,
+        "west": 15.7739,
+        "north": 50.043,
+        "east": 15.78355
+      },
+      "checkpoints": [
+        {
+          "contract": "public_archive",
+          "node_id": "jury_public_archive",
+          "name": "Zelená brána",
+          "lat": 50.0379962,
+          "lon": 15.7779363,
+          "radius_m": 24,
+          "order": 1,
+          "x_m": 0.0,
+          "y_m": 0.0,
+          "z_m": 0
+        },
+        {
+          "contract": "signal_transition",
+          "node_id": "jury_signal_transition",
+          "name": "Pernštýnské náměstí",
+          "lat": 50.0383643,
+          "lon": 15.7790772,
+          "radius_m": 24,
+          "order": 2,
+          "x_m": 81.48,
+          "y_m": 40.93,
+          "z_m": 0
+        },
+        {
+          "contract": "hazard_navigation",
+          "node_id": "jury_hazard_navigation",
+          "name": "Příhrádek",
+          "lat": 50.039176,
+          "lon": 15.779318,
+          "radius_m": 24,
+          "order": 3,
+          "x_m": 98.68,
+          "y_m": 131.19,
+          "z_m": 0
+        },
+        {
+          "contract": "machine_part_one",
+          "node_id": "jury_machine_part_one",
+          "name": "Zámecké valy",
+          "lat": 50.0398569,
+          "lon": 15.7771889,
+          "radius_m": 24,
+          "order": 4,
+          "x_m": -53.38,
+          "y_m": 206.9,
+          "z_m": 0
+        },
+        {
+          "contract": "timeline_calibration",
+          "node_id": "jury_timeline_calibration",
+          "name": "Tyršovy sady",
+          "lat": 50.0425081,
+          "lon": 15.7748017,
+          "radius_m": 24,
+          "order": 5,
+          "x_m": -223.87,
+          "y_m": 501.7,
+          "z_m": 0
+        },
+        {
+          "contract": "machine_part_two",
+          "node_id": "jury_machine_part_two",
+          "name": "Lávka přes Chrudimku",
+          "lat": 50.041082,
+          "lon": 15.780125,
+          "radius_m": 24,
+          "order": 6,
+          "x_m": 156.31,
+          "y_m": 343.13,
+          "z_m": 0
+        },
+        {
+          "contract": "alignment_game",
+          "node_id": "jury_alignment_game",
+          "name": "Automatické mlýny",
+          "lat": 50.0416769,
+          "lon": 15.78159,
+          "radius_m": 24,
+          "order": 7,
+          "x_m": 260.94,
+          "y_m": 409.28,
+          "z_m": 0
+        },
+        {
+          "contract": "spatial_archive",
+          "node_id": "jury_spatial_archive",
+          "name": "Komenského náměstí",
+          "lat": 50.03923,
+          "lon": 15.78105,
+          "radius_m": 24,
+          "order": 8,
+          "x_m": 222.37,
+          "y_m": 137.19,
+          "z_m": 0
+        },
+        {
+          "contract": "machine_part_three",
+          "node_id": "jury_machine_part_three",
+          "name": "Bělobranské náměstí",
+          "lat": 50.040115,
+          "lon": 15.783035,
+          "radius_m": 24,
+          "order": 9,
+          "x_m": 364.14,
+          "y_m": 235.6,
+          "z_m": 0
+        },
+        {
+          "contract": "return_archive",
+          "node_id": "jury_return_archive",
+          "name": "Wernerovo nábřeží",
+          "lat": 50.03879,
+          "lon": 15.78226,
+          "radius_m": 24,
+          "order": 10,
+          "x_m": 308.79,
+          "y_m": 88.27,
+          "z_m": 0
+        },
+        {
+          "contract": "final_console",
+          "node_id": "jury_final_console",
+          "name": "Pernštýnské náměstí – radnice",
+          "lat": 50.03842,
+          "lon": 15.77931,
+          "radius_m": 24,
+          "order": 11,
+          "x_m": 98.11,
+          "y_m": 47.12,
+          "z_m": 0
+        }
+      ],
+      "map_source": {
+        "name": "OpenStreetMap",
+        "url": "https://www.openstreetmap.org/copyright",
+        "license": "ODbL-1.0",
+        "attribution": "© OpenStreetMap contributors",
+        "tile_url": "https://tile.openstreetmap.org/{z}/{x}/{y}.png"
+      },
+      "position_unlock": {
+        "accuracy_required_m": 35,
+        "dwell_seconds": 3,
+        "allow_qr_fallback": true
+      }
+    }
+  }
+}

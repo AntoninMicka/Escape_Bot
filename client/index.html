@@ -544,6 +544,8 @@
         .admin-detail summary { cursor: pointer; color: #0cc; }
         .admin-detail-list { max-height: none; overflow: visible; padding-left: 20px; }
         .admin-detail-list li { margin: 4px 0; }
+        .world-map { margin-bottom:16px; border:1px solid #077; padding:12px; background:#001012; }
+        .world-map iframe, .world-map canvas { width:100%; min-height:420px; border:1px solid #088; background:#020707; }
         .scenario-editor-grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
         .scenario-editor-grid textarea { width:100%; min-height:55vh; box-sizing:border-box; font:12px/1.4 monospace; }
         .recovery-dialog { max-width: 430px; border: 2px solid #0cc; background: #001416; color: #dfffff; padding: 20px; text-align: center; }
@@ -763,8 +765,10 @@
     </div>
 
     <div id="tab-map" class="tab-content">
-        <h2>[ CHRONOMAPA: HOTEL KRASKOV ]</h2>
+        <h2 id="map-title">[ CHRONOMAPA ]</h2>
         <div class="map-container">
+            <section id="world-map" class="world-map hidden"></section>
+            <div id="legacy-hotel-map">
             <div>
                 <div class="map-room">Pokoj 101</div>
                 <div class="map-room">Pokoj 102</div>
@@ -782,6 +786,7 @@
                 > Cíl mise: aktivujte časové kotvy a získejte tři součásti stroje času. <br>
                 > Neověřené oblasti CHRONOMAPY budou doplněny po průzkumu hotelu.
             </p>
+            </div>
             <section id="online-map-actions" class="demo-scanner-panel" style="margin-top:14px"></section>
         </div>
     </div>
@@ -859,6 +864,8 @@
         let operationsEnabled = true;
         let runtimeAvailability = null;
         let runtimeGames = [];
+        let geoWatchId = null;
+        let doomPlayer = null;
         let runtimeCheckpoints = [];
         let latestScenarioProgress = null;
         let deviceRole = localStorage.getItem('escapeBotDeviceRole') || 'free';
@@ -2704,6 +2711,11 @@
                         if (msg.payload.puzzle_id) showNotification('V archivu byla zpřístupněna nová hádanka.', 'success', null);
                     }
                 }
+                else if (msg.type === 'geo.result') {
+                    if (msg.payload.accepted && !msg.payload.duplicate) showNotification(`GNSS checkpoint potvrzen: ${msg.payload.checkpoint_id}`, 'success');
+                    const status = document.getElementById('geo-tracking-status');
+                    if (status && !msg.payload.accepted && msg.payload.reason !== 'Mimo dosah checkpointu.') status.textContent = msg.payload.reason || 'Poloha nebyla přijata.';
+                }
                 else if (msg.type === 'puzzle.result') {
                     if (msg.payload.correct) {
                         showNotification(msg.payload.already_solved ? 'Hádanka už byla vyřešena.' : 'Správné řešení. Checkpoint dokončen.', 'success', 'puzzle');
@@ -3573,6 +3585,7 @@
         function renderScenarioProgress(progress) {
             latestScenarioProgress = progress;
             renderOnlineMapActions();
+            renderWorldMap(progress);
             const panel = document.getElementById('scenario-progress');
             if (!demoModeRequested) return;
             panel.classList.add('active');
@@ -3596,6 +3609,61 @@
             document.getElementById('progress-inventory').textContent = (progress.inventory || []).join(' · ') || '—';
             document.getElementById('progress-tools').textContent = (progress.unlocked_cipher_tools || []).join(' · ') || '—';
         }
+
+        function renderWorldMap(progress) {
+            const world = progress.world || {};
+            const panel = document.getElementById('world-map');
+            const legacy = document.getElementById('legacy-hotel-map');
+            document.getElementById('map-title').textContent = `[ MAPA: ${progress.title || 'HRA'} ]`;
+            if (!world.mode) { panel.classList.add('hidden'); legacy.classList.remove('hidden'); return; }
+            legacy.classList.add('hidden'); panel.classList.remove('hidden');
+            if (world.mode === 'geo') {
+                const bounds = world.bounds;
+                const bbox = `${bounds.west},${bounds.south},${bounds.east},${bounds.north}`;
+                const rows = (world.checkpoints || []).map(point => `<li>${point.order}. ${escapeHtml(point.name)} · rádius ${Number(point.radius_m)} m</li>`).join('');
+                panel.innerHTML = `<h3>[ GEO / GNSS TRASA ]</h3><iframe title="OSM mapa trasy" src="https://www.openstreetmap.org/export/embed.html?bbox=${encodeURIComponent(bbox)}&layer=mapnik"></iframe><p><button onclick="startGeoTracking()">AKTIVOVAT GNSS</button> <span id="geo-tracking-status">Poloha není aktivní.</span></p><ol>${rows}</ol><p><a href="${escapeHtml(world.map_source?.url || 'https://www.openstreetmap.org/copyright')}" target="_blank" rel="noopener">${escapeHtml(world.map_source?.attribution || '© OpenStreetMap contributors')}</a></p>`;
+                return;
+            }
+            panel.innerHTML = `<h3>[ DOOM MAPA · 1 JEDNOTKA = 1 METR ]</h3><canvas id="doom-map-canvas" width="900" height="520" tabindex="0"></canvas><p>Ovládání: WASD nebo šipky. Dojděte k právě dostupnému důkaznímu bodu.</p><p>${escapeHtml(world.map_source?.attribution || '© OpenStreetMap contributors')} · geometrie ${escapeHtml(world.virtual_map?.geometry_status || '')}</p>`;
+            if (!doomPlayer) doomPlayer = {...(world.virtual_map?.spawn || {x_m:0,y_m:0})};
+            drawDoomMap();
+            document.getElementById('doom-map-canvas')?.focus({preventScroll:true});
+        }
+
+        function startGeoTracking() {
+            if (!navigator.geolocation) { showNotification('Zařízení nepodporuje GNSS polohu.', 'error'); return; }
+            if (geoWatchId !== null) navigator.geolocation.clearWatch(geoWatchId);
+            geoWatchId = navigator.geolocation.watchPosition(position => {
+                const status = document.getElementById('geo-tracking-status');
+                if (status) status.textContent = `${position.coords.latitude.toFixed(6)}, ${position.coords.longitude.toFixed(6)} · ±${Math.round(position.coords.accuracy)} m`;
+                ws?.send(JSON.stringify({type:'geo.position', payload:{lat:position.coords.latitude, lon:position.coords.longitude, accuracy:position.coords.accuracy}}));
+            }, error => showNotification(`Polohu nelze načíst: ${error.message}`, 'error'), {enableHighAccuracy:true, maximumAge:2000, timeout:15000});
+        }
+
+        function drawDoomMap() {
+            const canvas = document.getElementById('doom-map-canvas');
+            const world = latestScenarioProgress?.world;
+            if (!canvas || world?.mode !== 'doom') return;
+            const ctx = canvas.getContext('2d'); const points = world.checkpoints || [];
+            const xs = points.map(p => p.x_m); const ys = points.map(p => p.y_m);
+            const minX=Math.min(...xs)-20,maxX=Math.max(...xs)+20,minY=Math.min(...ys)-20,maxY=Math.max(...ys)+20;
+            const scale=Math.min(canvas.width/(maxX-minX),canvas.height/(maxY-minY));
+            const project=p=>[(p.x_m-minX)*scale,canvas.height-(p.y_m-minY)*scale];
+            ctx.fillStyle='#020707';ctx.fillRect(0,0,canvas.width,canvas.height);ctx.strokeStyle='#087';ctx.lineWidth=Math.max(3,Number(world.virtual_map?.route_width_m||5)*scale);
+            ctx.beginPath();(world.virtual_map?.route_centerline_m||[]).forEach(([x,y],i)=>{const [px,py]=project({x_m:x,y_m:y});i?ctx.lineTo(px,py):ctx.moveTo(px,py)});ctx.stroke();
+            const statuses=Object.fromEntries((latestScenarioProgress.nodes||[]).map(n=>[n.id,n.status]));
+            points.forEach(point=>{const [x,y]=project(point);const status=statuses[point.node_id]||'locked';ctx.fillStyle=status==='complete'?'#0f8':status==='available'?'#ff0':'#555';ctx.beginPath();ctx.arc(x,y,7,0,Math.PI*2);ctx.fill();ctx.fillStyle='#fff';ctx.font='12px monospace';ctx.fillText(`${point.order}. ${point.name}`,x+10,y-8)});
+            const [px,py]=project(doomPlayer);ctx.fillStyle='#0ff';ctx.beginPath();ctx.arc(px,py,8,0,Math.PI*2);ctx.fill();
+        }
+
+        document.addEventListener('keydown', event => {
+            if (latestScenarioProgress?.world?.mode !== 'doom' || !doomPlayer) return;
+            const move={w:[0,1],ArrowUp:[0,1],s:[0,-1],ArrowDown:[0,-1],a:[-1,0],ArrowLeft:[-1,0],d:[1,0],ArrowRight:[1,0]}[event.key];
+            if (!move) return; event.preventDefault(); doomPlayer.x_m+=move[0]*2;doomPlayer.y_m+=move[1]*2;drawDoomMap();
+            const nodes=Object.fromEntries((latestScenarioProgress.nodes||[]).map(node=>[node.id,node]));
+            const point=(latestScenarioProgress.world.checkpoints||[]).find(item=>nodes[item.node_id]?.status==='available'&&Math.hypot(item.x_m-doomPlayer.x_m,item.y_m-doomPlayer.y_m)<=8);
+            if (point) simulateQrScan(nodes[point.node_id].activation_value, point.name);
+        });
 
         function renderOnlineMapActions() {
             const panel = document.getElementById('online-map-actions');

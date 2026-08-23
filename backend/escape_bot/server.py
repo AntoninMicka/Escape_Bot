@@ -380,7 +380,7 @@ async def security_headers(request, call_next):
     response.headers.setdefault("X-Content-Type-Options", "nosniff")
     response.headers.setdefault("X-Frame-Options", "DENY")
     response.headers.setdefault("Referrer-Policy", "same-origin")
-    response.headers.setdefault("Permissions-Policy", "geolocation=(), microphone=()")
+    response.headers.setdefault("Permissions-Policy", "geolocation=(self), microphone=()")
     if request.url.path in {"/", "/index.html", "/admin", "/sw.js"}:
         response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
         response.headers["Pragma"] = "no-cache"
