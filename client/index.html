@@ -545,7 +545,11 @@
         .admin-detail-list { max-height: none; overflow: visible; padding-left: 20px; }
         .admin-detail-list li { margin: 4px 0; }
         .world-map { margin-bottom:16px; border:1px solid #077; padding:12px; background:#001012; }
-        .world-map iframe, .world-map canvas { width:100%; min-height:420px; border:1px solid #088; background:#020707; }
+        .world-map iframe { width:100%; min-height:420px; border:1px solid #088; background:#020707; }
+        .world-map canvas { display:block; width:100%; height:max(180px, min(520px, calc(100dvh - 285px))); min-height:0; border:1px solid #088; background:#020707; }
+        .world-map canvas:fullscreen { width:100vw; height:100dvh; border:0; object-fit:fill; }
+        .doom-title { display:flex; align-items:center; justify-content:space-between; gap:12px; }
+        .doom-title button { flex:0 0 auto; padding:6px 10px; }
         .doom-hud { display:flex; flex-wrap:wrap; gap:8px 18px; margin:9px 0; color:#9dd; }
         .doom-hud strong { color:#fff; }
         .scenario-editor-grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
@@ -611,6 +615,11 @@
             .controls input { min-width: 0; padding: 9px 7px; }
             .controls button { padding: 9px 10px; }
             .controls button[title="Vyfotit selfie"] { display: none; }
+            .world-map { padding:6px; margin-bottom:8px; }
+            .world-map canvas { height:max(150px, min(420px, calc(100dvh - 235px))); }
+            .doom-title { margin:2px 0 6px; font-size:.9rem; }
+            .doom-hud { gap:3px 10px; margin:5px 0; font-size:.72rem; }
+            .world-map > p { margin:5px 0; font-size:.72rem; }
         }
     </style>
 </head>
@@ -3693,7 +3702,7 @@
                 panel.innerHTML = `<h3>[ GEO / GNSS TRASA ]</h3><iframe title="OSM mapa trasy" src="https://www.openstreetmap.org/export/embed.html?bbox=${encodeURIComponent(bbox)}&layer=mapnik"></iframe><p><button onclick="startGeoTracking()">AKTIVOVAT GNSS</button> <span id="geo-tracking-status">Poloha není aktivní.</span></p><ol>${rows}</ol><p><a href="${escapeHtml(world.map_source?.url || 'https://www.openstreetmap.org/copyright')}" target="_blank" rel="noopener">${escapeHtml(world.map_source?.attribution || '© OpenStreetMap contributors')}</a></p>`;
                 return;
             }
-            panel.innerHTML = `<h3>[ DOOM · PARDUBICE 1:1 ]</h3><canvas id="doom-map-canvas" width="900" height="520" tabindex="0" aria-label="Virtuální prostor z pohledu hráče"></canvas><div class="doom-hud"><span id="doom-position"></span><span id="doom-target"></span></div><p>W/S nebo ↑/↓: vpřed a vzad · A/D: úkrok · ←/→: otočení. Dojděte k aktivnímu důkaznímu bodu.</p><p>${escapeHtml(world.map_source?.attribution || '© OpenStreetMap contributors')} · geometrie ${escapeHtml(world.virtual_map?.geometry_status || '')}</p>`;
+            panel.innerHTML = `<h3 class="doom-title"><span>[ DOOM · PARDUBICE 1:1 ]</span><button onclick="toggleDoomFullscreen()" title="Přepnout zobrazení přes celou obrazovku">⛶ CELÁ OBRAZOVKA</button></h3><canvas id="doom-map-canvas" width="900" height="520" tabindex="0" aria-label="Virtuální prostor z pohledu hráče"></canvas><div class="doom-hud"><span id="doom-position"></span><span id="doom-target"></span></div><p>W/S nebo ↑/↓: vpřed a vzad · A/D: úkrok · ←/→: otočení. Dojděte k aktivnímu důkaznímu bodu.</p><p>${escapeHtml(world.map_source?.attribution || '© OpenStreetMap contributors')} · geometrie ${escapeHtml(world.virtual_map?.geometry_status || '')}</p>`;
             if (!doomPlayer || doomWorldId !== progress.scenario_id) {
                 doomPlayer = {...(world.virtual_map?.spawn || {x_m:0,y_m:0})};
                 doomPlayer.heading_deg = Number(doomPlayer.heading_deg || 0);
@@ -3716,6 +3725,20 @@
                 showNotification(`OSM geometrie se nenačetla: ${error.message}`, 'error');
             }
         }
+
+        async function toggleDoomFullscreen() {
+            const canvas=document.getElementById('doom-map-canvas');
+            if(!canvas)return;
+            try {
+                if(document.fullscreenElement) await document.exitFullscreen();
+                else await canvas.requestFullscreen();
+                canvas.focus({preventScroll:true});
+            } catch(error) {
+                showNotification(`Celou obrazovku nelze aktivovat: ${error.message}`, 'error');
+            }
+        }
+
+        document.addEventListener('fullscreenchange',()=>requestAnimationFrame(drawDoomMap));
 
         function tracePolygon(ctx, polygon, project) {
             ctx.beginPath(); polygon.forEach(([x,y],index)=>{const [px,py]=project({x_m:x,y_m:y});index?ctx.lineTo(px,py):ctx.moveTo(px,py)});ctx.closePath();
