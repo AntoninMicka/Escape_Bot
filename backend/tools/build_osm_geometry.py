@@ -55,6 +55,8 @@ def main() -> None:
                 "osm_id": element.get("id"), "polygon_m": points,
                 "height_m": numeric_height(tags), "kind": tags.get("building", "yes"),
                 "material": tags.get("building:material", "masonry"),
+                "roof_color": tags.get("roof:colour", tags.get("roof:color", "")),
+                "roof_shape": tags.get("roof:shape", "pitched"),
                 "name": tags.get("name", ""),
             })
         highway = tags.get("highway")
