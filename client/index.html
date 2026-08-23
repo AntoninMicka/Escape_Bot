@@ -546,6 +546,8 @@
         .admin-detail-list li { margin: 4px 0; }
         .world-map { margin-bottom:16px; border:1px solid #077; padding:12px; background:#001012; }
         .world-map iframe, .world-map canvas { width:100%; min-height:420px; border:1px solid #088; background:#020707; }
+        .doom-hud { display:flex; flex-wrap:wrap; gap:8px 18px; margin:9px 0; color:#9dd; }
+        .doom-hud strong { color:#fff; }
         .scenario-editor-grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
         .scenario-editor-grid textarea { width:100%; min-height:55vh; box-sizing:border-box; font:12px/1.4 monospace; }
         .scenario-variable-form { border:1px solid #066; padding:12px; margin:12px 0; }
@@ -874,6 +876,7 @@
         let doomPlayer = null;
         let doomGeometry = null;
         let doomGeometryUrl = '';
+        let doomWorldId = '';
         let runtimeCheckpoints = [];
         let latestScenarioProgress = null;
         let deviceRole = localStorage.getItem('escapeBotDeviceRole') || 'free';
@@ -3690,8 +3693,12 @@
                 panel.innerHTML = `<h3>[ GEO / GNSS TRASA ]</h3><iframe title="OSM mapa trasy" src="https://www.openstreetmap.org/export/embed.html?bbox=${encodeURIComponent(bbox)}&layer=mapnik"></iframe><p><button onclick="startGeoTracking()">AKTIVOVAT GNSS</button> <span id="geo-tracking-status">Poloha není aktivní.</span></p><ol>${rows}</ol><p><a href="${escapeHtml(world.map_source?.url || 'https://www.openstreetmap.org/copyright')}" target="_blank" rel="noopener">${escapeHtml(world.map_source?.attribution || '© OpenStreetMap contributors')}</a></p>`;
                 return;
             }
-            panel.innerHTML = `<h3>[ DOOM MAPA · 1 JEDNOTKA = 1 METR ]</h3><canvas id="doom-map-canvas" width="900" height="520" tabindex="0"></canvas><p>Ovládání: WASD nebo šipky. Dojděte k právě dostupnému důkaznímu bodu.</p><p>${escapeHtml(world.map_source?.attribution || '© OpenStreetMap contributors')} · geometrie ${escapeHtml(world.virtual_map?.geometry_status || '')}</p>`;
-            if (!doomPlayer) doomPlayer = {...(world.virtual_map?.spawn || {x_m:0,y_m:0})};
+            panel.innerHTML = `<h3>[ DOOM · PARDUBICE 1:1 ]</h3><canvas id="doom-map-canvas" width="900" height="520" tabindex="0" aria-label="Virtuální prostor z pohledu hráče"></canvas><div class="doom-hud"><span id="doom-position"></span><span id="doom-target"></span></div><p>W/S nebo ↑/↓: vpřed a vzad · A/D: úkrok · ←/→: otočení. Dojděte k aktivnímu důkaznímu bodu.</p><p>${escapeHtml(world.map_source?.attribution || '© OpenStreetMap contributors')} · geometrie ${escapeHtml(world.virtual_map?.geometry_status || '')}</p>`;
+            if (!doomPlayer || doomWorldId !== progress.scenario_id) {
+                doomPlayer = {...(world.virtual_map?.spawn || {x_m:0,y_m:0})};
+                doomPlayer.heading_deg = Number(doomPlayer.heading_deg || 0);
+                doomWorldId = progress.scenario_id;
+            }
             drawDoomMap();
             loadDoomGeometry(world.virtual_map?.geometry_asset);
             document.getElementById('doom-map-canvas')?.focus({preventScroll:true});
@@ -3725,7 +3732,35 @@
 
         function doomPositionBlocked(next, previous) {
             if (!doomGeometry) return false;
-            return (doomGeometry.buildings||[]).some(building => pointInPolygon(next,building.polygon_m) && !pointInPolygon(previous,building.polygon_m));
+            const buildings=doomGeometry.buildings||[];
+            const previousInside=buildings.some(building=>pointInPolygon(previous,building.polygon_m));
+            const radius=1.1;
+            return Array.from({length:8},(_,index)=>index*Math.PI/4).some(angle=>{
+                const sample={x_m:next.x_m+Math.cos(angle)*radius,y_m:next.y_m+Math.sin(angle)*radius};
+                return buildings.some(building=>pointInPolygon(sample,building.polygon_m));
+            }) && !previousInside;
+        }
+
+        function raySegmentDistance(origin, angle, start, end) {
+            const dx=Math.cos(angle),dy=Math.sin(angle),sx=end[0]-start[0],sy=end[1]-start[1];
+            const denominator=dx*sy-dy*sx;
+            if(Math.abs(denominator)<1e-7)return null;
+            const ax=start[0]-origin.x_m,ay=start[1]-origin.y_m;
+            const distance=(ax*sy-ay*sx)/denominator;
+            const along=(ax*dy-ay*dx)/denominator;
+            return distance>0.05&&along>=0&&along<=1?distance:null;
+        }
+
+        function castDoomRay(origin, angle, maxDistance=100) {
+            let hit=null;
+            for(const building of doomGeometry?.buildings||[]){
+                const polygon=building.polygon_m||[];
+                for(let index=1;index<polygon.length;index++){
+                    const distance=raySegmentDistance(origin,angle,polygon[index-1],polygon[index]);
+                    if(distance!==null&&distance<maxDistance&&(!hit||distance<hit.distance)) hit={distance,height:Number(building.height_m||9),kind:building.kind||'building'};
+                }
+            }
+            return hit;
         }
 
         function startGeoTracking() {
@@ -3742,28 +3777,55 @@
             const canvas = document.getElementById('doom-map-canvas');
             const world = latestScenarioProgress?.world;
             if (!canvas || world?.mode !== 'doom') return;
-            const ctx = canvas.getContext('2d'); const points = world.checkpoints || [];
-            const xs = points.map(p => p.x_m); const ys = points.map(p => p.y_m);
-            const minX=Math.min(...xs)-20,maxX=Math.max(...xs)+20,minY=Math.min(...ys)-20,maxY=Math.max(...ys)+20;
-            const scale=Math.min(canvas.width/(maxX-minX),canvas.height/(maxY-minY));
-            const project=p=>[(p.x_m-minX)*scale,canvas.height-(p.y_m-minY)*scale];
-            ctx.fillStyle='#020707';ctx.fillRect(0,0,canvas.width,canvas.height);
-            if(doomGeometry){
-                (doomGeometry.surfaces||[]).forEach(surface=>{tracePolygon(ctx,surface.polygon_m,project);ctx.fillStyle=surface.kind==='water'?'#07344b':'#164c2d';ctx.fill()});
-                (doomGeometry.paths||[]).forEach(path=>{ctx.beginPath();path.line_m.forEach(([x,y],i)=>{const [px,py]=project({x_m:x,y_m:y});i?ctx.lineTo(px,py):ctx.moveTo(px,py)});ctx.strokeStyle=path.surface==='asphalt'?'#394247':'#655f52';ctx.lineWidth=Math.max(1,Number(path.width_m||3)*scale);ctx.stroke()});
-                (doomGeometry.buildings||[]).forEach(building=>{tracePolygon(ctx,building.polygon_m,project);const shade=Math.min(150,55+Number(building.height_m||9)*3);ctx.fillStyle=`rgb(${shade},${Math.round(shade*.72)},${Math.round(shade*.5)})`;ctx.fill();ctx.strokeStyle='#d5a56a';ctx.lineWidth=1;ctx.stroke()});
+            const ctx=canvas.getContext('2d'),points=world.checkpoints||[],heading=Number(doomPlayer.heading_deg||0)*Math.PI/180;
+            const horizon=canvas.height*.48;
+            const sky=ctx.createLinearGradient(0,0,0,horizon);sky.addColorStop(0,'#071527');sky.addColorStop(1,'#345064');ctx.fillStyle=sky;ctx.fillRect(0,0,canvas.width,horizon);
+            const ground=ctx.createLinearGradient(0,horizon,0,canvas.height);ground.addColorStop(0,'#34342f');ground.addColorStop(1,'#090b0b');ctx.fillStyle=ground;ctx.fillRect(0,horizon,canvas.width,canvas.height-horizon);
+            const fov=Math.PI/3,columnWidth=3;
+            if(doomGeometry) for(let x=0;x<canvas.width;x+=columnWidth){
+                const offset=(x/canvas.width-.5)*fov,hit=castDoomRay(doomPlayer,heading+offset);
+                if(!hit)continue;
+                const corrected=Math.max(.2,hit.distance*Math.cos(offset));
+                const height=Math.min(canvas.height*1.8,canvas.height*Number(hit.height||9)/corrected);
+                const light=Math.max(20,Math.min(145,155-corrected*1.7));
+                ctx.fillStyle=`rgb(${Math.round(light)},${Math.round(light*.74)},${Math.round(light*.52)})`;
+                ctx.fillRect(x,horizon-height*.58,columnWidth+1,height);
             }
-            ctx.strokeStyle='#0aa8';ctx.lineWidth=Math.max(2,Number(world.virtual_map?.route_width_m||5)*scale);
-            ctx.beginPath();(world.virtual_map?.route_centerline_m||[]).forEach(([x,y],i)=>{const [px,py]=project({x_m:x,y_m:y});i?ctx.lineTo(px,py):ctx.moveTo(px,py)});ctx.stroke();
             const statuses=Object.fromEntries((latestScenarioProgress.nodes||[]).map(n=>[n.id,n.status]));
-            points.forEach(point=>{const [x,y]=project(point);const status=statuses[point.node_id]||'locked';ctx.fillStyle=status==='complete'?'#0f8':status==='available'?'#ff0':'#555';ctx.beginPath();ctx.arc(x,y,7,0,Math.PI*2);ctx.fill();ctx.fillStyle='#fff';ctx.font='12px monospace';ctx.fillText(`${point.order}. ${point.name}`,x+10,y-8)});
-            const [px,py]=project(doomPlayer);ctx.fillStyle='#0ff';ctx.beginPath();ctx.arc(px,py,8,0,Math.PI*2);ctx.fill();
+            points.forEach(point=>{
+                const dx=point.x_m-doomPlayer.x_m,dy=point.y_m-doomPlayer.y_m,distance=Math.hypot(dx,dy);
+                let angle=Math.atan2(dy,dx)-heading;while(angle>Math.PI)angle-=Math.PI*2;while(angle<-Math.PI)angle+=Math.PI*2;
+                if(Math.abs(angle)>fov*.58||distance<1)return;
+                const x=canvas.width*(.5+angle/fov),size=Math.max(10,Math.min(55,270/distance));
+                const status=statuses[point.node_id]||'locked';ctx.fillStyle=status==='complete'?'#0f8':status==='available'?'#ffe44a':'#667';ctx.strokeStyle='#001';ctx.lineWidth=3;
+                ctx.beginPath();ctx.moveTo(x,horizon-size*1.8);ctx.lineTo(x-size*.65,horizon-size*.65);ctx.lineTo(x+size*.65,horizon-size*.65);ctx.closePath();ctx.stroke();ctx.fill();
+                if(status==='available'){ctx.fillStyle='#fff';ctx.font='bold 14px monospace';ctx.textAlign='center';ctx.fillText(`${point.name} · ${Math.round(distance)} m`,x,horizon-size*2.05)}
+            });
+            drawDoomMinimap(ctx,points,statuses,heading);
+            const available=points.filter(point=>statuses[point.node_id]==='available').sort((a,b)=>Math.hypot(a.x_m-doomPlayer.x_m,a.y_m-doomPlayer.y_m)-Math.hypot(b.x_m-doomPlayer.x_m,b.y_m-doomPlayer.y_m))[0];
+            const position=document.getElementById('doom-position'),target=document.getElementById('doom-target');
+            if(position)position.innerHTML=`POLOHA <strong>${doomPlayer.x_m.toFixed(1)}, ${doomPlayer.y_m.toFixed(1)} m</strong> · SMĚR <strong>${Math.round((doomPlayer.heading_deg+360)%360)}°</strong>`;
+            if(target)target.innerHTML=available?`CÍL <strong>${escapeHtml(available.name)} · ${Math.round(Math.hypot(available.x_m-doomPlayer.x_m,available.y_m-doomPlayer.y_m))} m</strong>`:'<strong>ŽÁDNÝ DOSTUPNÝ CÍL</strong>';
+        }
+
+        function drawDoomMinimap(ctx,points,statuses,heading){
+            const size=150,left=ctx.canvas.width-size-12,top=12,scale=1.45;
+            ctx.save();ctx.beginPath();ctx.rect(left,top,size,size);ctx.clip();ctx.fillStyle='#001012dd';ctx.fillRect(left,top,size,size);
+            const project=point=>[left+size/2+(point.x_m-doomPlayer.x_m)*scale,top+size/2-(point.y_m-doomPlayer.y_m)*scale];
+            for(const path of doomGeometry?.paths||[]){ctx.beginPath();path.line_m.forEach(([x,y],index)=>{const p=project({x_m:x,y_m:y});index?ctx.lineTo(...p):ctx.moveTo(...p)});ctx.strokeStyle='#59625d';ctx.lineWidth=1;ctx.stroke()}
+            points.forEach(point=>{const [x,y]=project(point),status=statuses[point.node_id]||'locked';ctx.fillStyle=status==='complete'?'#0f8':status==='available'?'#ff0':'#555';ctx.beginPath();ctx.arc(x,y,4,0,Math.PI*2);ctx.fill()});
+            ctx.translate(left+size/2,top+size/2);ctx.rotate(-heading);ctx.fillStyle='#0ff';ctx.beginPath();ctx.moveTo(10,0);ctx.lineTo(-7,-6);ctx.lineTo(-7,6);ctx.closePath();ctx.fill();ctx.restore();
+            ctx.strokeStyle='#0aa';ctx.lineWidth=2;ctx.strokeRect(left,top,size,size);
         }
 
         document.addEventListener('keydown', event => {
             if (latestScenarioProgress?.world?.mode !== 'doom' || !doomPlayer) return;
-            const move={w:[0,1],ArrowUp:[0,1],s:[0,-1],ArrowDown:[0,-1],a:[-1,0],ArrowLeft:[-1,0],d:[1,0],ArrowRight:[1,0]}[event.key];
-            if (!move) return; event.preventDefault(); const previous={...doomPlayer};const next={...doomPlayer,x_m:doomPlayer.x_m+move[0]*2,y_m:doomPlayer.y_m+move[1]*2};if(!doomPositionBlocked(next,previous))doomPlayer=next;drawDoomMap();
+            const key=event.key.length===1?event.key.toLowerCase():event.key;
+            if(key==='ArrowLeft'||key==='ArrowRight'){event.preventDefault();doomPlayer.heading_deg+=key==='ArrowLeft'?-8:8;drawDoomMap();return}
+            const local={w:[2.2,0],ArrowUp:[2.2,0],s:[-1.7,0],ArrowDown:[-1.7,0],a:[0,1.8],d:[0,-1.8]}[key];
+            if (!local) return; event.preventDefault();const angle=doomPlayer.heading_deg*Math.PI/180,previous={...doomPlayer};
+            const next={...doomPlayer,x_m:doomPlayer.x_m+Math.cos(angle)*local[0]-Math.sin(angle)*local[1],y_m:doomPlayer.y_m+Math.sin(angle)*local[0]+Math.cos(angle)*local[1]};
+            if(!doomPositionBlocked(next,previous))doomPlayer=next;drawDoomMap();
             const nodes=Object.fromEntries((latestScenarioProgress.nodes||[]).map(node=>[node.id,node]));
             const point=(latestScenarioProgress.world.checkpoints||[]).find(item=>nodes[item.node_id]?.status==='available'&&Math.hypot(item.x_m-doomPlayer.x_m,item.y_m-doomPlayer.y_m)<=8);
             if (point) simulateQrScan(nodes[point.node_id].activation_value, point.name);
@@ -3772,6 +3834,11 @@
         function renderOnlineMapActions() {
             const panel = document.getElementById('online-map-actions');
             if (!panel) return;
+            if (latestScenarioProgress?.world?.mode === 'doom') {
+                panel.classList.remove('active');
+                panel.innerHTML = '';
+                return;
+            }
             panel.classList.toggle('active', onlineModeEnabled);
             if (!onlineModeEnabled) { panel.innerHTML = ''; return; }
             const statusById = Object.fromEntries(((latestScenarioProgress || {}).nodes || []).map(node => [node.id, node.status]));

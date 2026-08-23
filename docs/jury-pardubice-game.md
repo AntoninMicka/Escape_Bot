@@ -33,6 +33,12 @@ uživatele.
 
 ## Doom režim
 
+Klient vykresluje metrickou OSM geometrii z pohledu první osoby. Budovy tvoří
+perspektivní stěny a kolizní obálku hráče, aktivní checkpointy mají prostorové
+značky a orientaci doplňuje lokální minimapa. Pohyb je relativní ke směru pohledu;
+checkpoint se aktivuje až po fyzickém přiblížení ve virtuálním prostoru, nikoli
+tlačítkem v seznamu online checkpointů.
+
 Virtuální mapa používá lokální metrickou projekci s počátkem u Zelené brány.
 `meters_per_unit` je `1`, takže polohy checkpointů a délky úseků odpovídají reálným
 vzdálenostem. První renderer nabízí klávesové ovládání, trasu, hráče a aktivaci
