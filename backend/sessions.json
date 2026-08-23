@@ -2715,7 +2715,41 @@
     "inventory": [],
     "flags": {
       "operations_started_at": "2026-08-23T05:34:18.020549+00:00",
-      "chronomap_unlocked": true
+      "chronomap_unlocked": true,
+      "administratively_ended": true,
+      "administratively_ended_at": "2026-08-23T06:51:27.893334+00:00",
+      "administratively_ended_reason": "abandoned",
+      "outcome_score_applied_abandoned": true,
+      "admin_score_adjustments": [
+        {
+          "delta": -100,
+          "amount": 100,
+          "reason": "Postih za opuštění hry",
+          "at": "2026-08-23T06:51:27.893344+00:00",
+          "score_before": 1020,
+          "score_after": 920,
+          "automatic": true
+        }
+      ],
+      "admin_penalties": [
+        {
+          "delta": -100,
+          "amount": 100,
+          "reason": "Postih za opuštění hry",
+          "at": "2026-08-23T06:51:27.893344+00:00",
+          "score_before": 1020,
+          "score_after": 920,
+          "automatic": true
+        }
+      ],
+      "admin_actions": [
+        {
+          "action": "session_end",
+          "label": "Hra byla automaticky ukončena po hodině bez aktivity.",
+          "reason": "abandoned",
+          "at": "2026-08-23T06:51:27.893334+00:00"
+        }
+      ]
     },
     "chat_history": [
       {
@@ -2760,7 +2794,7 @@
         "audio_url": "/assets/voices/elara_temporal_reveal.mp3"
       }
     ],
-    "score": 1020,
+    "score": 920,
     "hints_used": {},
     "checkpoint_states": {},
     "unlocked_cipher_tools": [

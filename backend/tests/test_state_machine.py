@@ -863,6 +863,24 @@ class StateMachineCheckpointTests(unittest.IsolatedAsyncioTestCase):
         restored.restore(registry.snapshot())
         self.assertEqual(restored.join(lobby.join_code, "fourth", "Dana").max_players, 4)
 
+    def test_lobby_keeps_independent_game_type_and_scenario(self) -> None:
+        registry = LobbyRegistry()
+        lobby = registry.create("creator", "team", "Alice", "Geo tým", "geo", "city_trail")
+        same_name_elsewhere = registry.create("other", "team", "Bob", "Geo tým", "geo", "other_trail")
+
+        public = lobby.public("creator", {"creator"})
+        self.assertEqual(public["lobby_type"], "geo")
+        self.assertEqual(public["scenario_id"], "city_trail")
+        self.assertNotEqual(lobby.session_id, same_name_elsewhere.session_id)
+
+        restored = LobbyRegistry()
+        restored.restore(registry.snapshot())
+        self.assertEqual(restored.by_session[lobby.session_id].lobby_type, "geo")
+        self.assertEqual(restored.by_session[lobby.session_id].scenario_id, "city_trail")
+
+        with self.assertRaisesRegex(ValueError, "typ herní lobby"):
+            registry.create("other", "solo", "Bob", "Neplatná", "unknown", "x")
+
     def test_team_lobby_requires_player_and_unique_team_names(self) -> None:
         registry = LobbyRegistry()
         with self.assertRaisesRegex(ValueError, "Název týmu"):

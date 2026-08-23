@@ -20,6 +20,9 @@ from starlette.middleware.trustedhost import TrustedHostMiddleware
 from .protocol import Message
 from .state_machine import EscapeBotStateMachine
 from .scenario import ScenarioLoader, build_checkpoint_qr_set, build_demo_checkpoint_catalog, build_puzzle_telemetry, build_scenario_progress
+from .scenario import Scenario
+from .scenario_catalog import load_scenario_catalog
+from .scenario_composer import compose_documents
 from .ollama_adapter import OllamaAdapter
 from .team_lobby import Lobby, LobbyRegistry, classify_activity
 from .mine_karel import safe_path as karel_safe_path
@@ -118,9 +121,18 @@ def start_availability(now: datetime | None = None) -> dict[str, object]:
             "start_interval_minutes": interval, "gameplay_enabled": bool(runtime_settings.get("gameplay_enabled", True))}
 
 def runtime_payload() -> dict[str, object]:
-    return {**runtime_settings, "availability": start_availability(), "checkpoints": build_demo_checkpoint_catalog(scenario)}
+    games = []
+    for entry in scenario_catalog.entries.values():
+        item = entry.public()
+        item["lobby_types"] = [kind for kind in ("online_doom", "on_site_qr", "geo") if scenario_supports_lobby(entry, kind)]
+        games.append(item)
+    return {**runtime_settings, "availability": start_availability(),
+            "checkpoints": build_demo_checkpoint_catalog(scenario), "games": games,
+            "scenario_available": scenario_available}
 
 def require_start_available() -> None:
+    if not scenario_available:
+        raise ValueError("Není dostupný žádný platný scénář. Správce může chyby opravit v editoru her.")
     availability = start_availability()
     if not availability["start_allowed"]:
         next_start = availability.get("next_start_at")
@@ -285,11 +297,16 @@ def save_sessions():
     data = {sid: sm.state.snapshot() for sid, sm in active_sessions.items()}
     storage.save_sessions(data)
 
-def load_sessions(scenario):
+def load_sessions(_default_scenario):
     try:
         data = storage.load_sessions()
         for sid, s_data in data.items():
-            sm = EscapeBotStateMachine(scenario)
+            lobby = lobby_registry.by_session.get(sid)
+            entry = scenario_catalog.entries.get(lobby.scenario_id if lobby else selected_scenario_id)
+            if entry is None:
+                logger.error("Relace %s nebyla obnovena: scénář není dostupný.", sid)
+                continue
+            sm = EscapeBotStateMachine(entry.scenario)
             sm.restore_state(s_data)
             active_sessions[sid] = sm
         logger.info(f"Úspěšně obnoveno {len(active_sessions)} uložených relací.")
@@ -314,15 +331,21 @@ def load_runtime_settings():
 def save_runtime_settings():
     storage.save_runtime_settings(runtime_settings)
 
-scenario_template_path = os.getenv(
-    "ESCAPEBOT_SCENARIO_TEMPLATE",
-    os.path.join(BASE_DIR, "backend", "content", "templates", "lost_in_time.json"),
+scenario_catalog = load_scenario_catalog(
+    os.getenv("ESCAPEBOT_TEMPLATE_DIR", os.path.join(BASE_DIR, "backend", "content", "templates")),
+    os.getenv("ESCAPEBOT_REALIZATION_DIR", os.path.join(BASE_DIR, "backend", "content", "realizations")),
 )
-scenario_realization_path = os.getenv(
-    "ESCAPEBOT_SCENARIO_REALIZATION",
-    os.path.join(BASE_DIR, "backend", "content", "realizations", "hotel_kraskov.json"),
-)
-scenario = ScenarioLoader.load_composed(scenario_template_path, scenario_realization_path)
+selected_scenario_id = os.getenv("ESCAPEBOT_SCENARIO_ID", "hotel_kraskov")
+selected_scenario = scenario_catalog.entries.get(selected_scenario_id)
+if selected_scenario is None and scenario_catalog.entries:
+    selected_scenario = next(iter(scenario_catalog.entries.values()))
+scenario_available = selected_scenario is not None
+scenario = selected_scenario.scenario if selected_scenario else Scenario({
+    "id": "unavailable", "title": "Žádný platný scénář", "scenario_flow": [],
+    "phases": {}, "rooms": {}, "puzzles": {}, "checkpoints": {}, "cipher_tools": {},
+})
+for scenario_error in scenario_catalog.errors:
+    logger.error("Scénář nebyl načten (%s): %s", scenario_error["path"], scenario_error["message"])
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -427,8 +450,21 @@ def attach_to_lobby(websocket: WebSocket, lobby: Lobby, client_id: str, demo_cli
 
 def ensure_state_machine(session_id: str) -> EscapeBotStateMachine:
     if session_id not in active_sessions:
-        active_sessions[session_id] = EscapeBotStateMachine(scenario)
+        lobby = lobby_registry.by_session.get(session_id)
+        entry = scenario_catalog.entries.get(lobby.scenario_id if lobby else selected_scenario_id)
+        if entry is None:
+            raise ValueError("Scénář zvolený pro tuto lobby není dostupný.")
+        active_sessions[session_id] = EscapeBotStateMachine(entry.scenario)
     return active_sessions[session_id]
+
+
+def scenario_supports_lobby(entry, lobby_type: str) -> bool:
+    modes = set(entry.modes)
+    if lobby_type == "on_site_qr":
+        return bool(modes & {"on_site_qr", "physical_indoor", "physical_outdoor", "hybrid"})
+    if lobby_type == "online_doom":
+        return bool(modes & {"online_doom", "doom", "online"})
+    return bool(modes & {"geo", "osm", "gnss", "location"})
 
 
 def apply_lobby_score(lobby: Lobby, state_machine: EscapeBotStateMachine) -> list[Message]:
@@ -462,7 +498,7 @@ def admin_overview(watched_sessions: set[str] | None = None) -> list[dict[str, o
     for lobby in lobby_registry.by_session.values():
         machine = active_sessions.get(lobby.session_id)
         state = machine.state.snapshot() if machine else {}
-        progress = build_scenario_progress(scenario, state) if machine else {"nodes": []}
+        progress = build_scenario_progress(machine.scenario, state) if machine else {"nodes": []}
         nodes = list(progress.get("nodes", []))
         flags = state.get("flags", {})
         penalties = list(flags.get("admin_penalties", []))
@@ -522,7 +558,7 @@ def admin_overview(watched_sessions: set[str] | None = None) -> list[dict[str, o
             "timeline": timeline,
             "hints_used": dict(state.get("hints_used", {})),
             "puzzle_attempts": dict(state.get("puzzle_attempts", {})),
-            "puzzle_telemetry": build_puzzle_telemetry(scenario, state),
+            "puzzle_telemetry": build_puzzle_telemetry(machine.scenario, state),
             "recent_messages": list(state.get("chat_history", []))[-8:],
             "support_chat": [item for item in state.get("chat_history", []) if item.get("channel") == "support"],
             "admin_support_joined": lobby.session_id in (watched_sessions or set()),
@@ -566,6 +602,9 @@ async def send_admin_overview(websocket: WebSocket) -> None:
         "leaderboard": leaderboard_entries(),
         "abandonment_thresholds": {"suspicious_seconds": 1800, "abandoned_seconds": 3600},
         "resolution_presets": ADMIN_RESOLUTION_PRESETS,
+        "scenario_catalog": scenario_catalog.public(),
+        "scenario_errors": scenario_catalog.errors,
+        "selected_scenario_id": selected_scenario.id if selected_scenario else "",
     }))
 
 
@@ -603,12 +642,12 @@ async def sync_started_client(websocket: WebSocket, state_machine: EscapeBotStat
     await send_message(websocket, state_machine._state_message(player_id))
     await send_message(websocket, Message(
         "scenario.progress",
-        build_scenario_progress(scenario, state_machine.state.snapshot()),
+        build_scenario_progress(state_machine.scenario, state_machine.state.snapshot()),
     ))
     if demo_client:
         await send_message(websocket, Message("demo.catalog", {
             "enabled": True,
-            "checkpoints": build_demo_checkpoint_catalog(scenario),
+            "checkpoints": build_demo_checkpoint_catalog(state_machine.scenario),
         }))
     await send_message(websocket, Message("runtime.settings", runtime_payload()))
 
@@ -681,7 +720,7 @@ async def websocket_endpoint(websocket: WebSocket):
                 data = json.loads(message_str)
                 msg = Message.from_json(data)
 
-                if msg.type in {"admin.list", "admin.penalty", "admin.score_adjustment", "admin.delete", "admin.qr_set", "admin.online_mode", "admin.operations", "admin.schedule_settings", "admin.evaluate_team", "admin.session_extend", "admin.session_end", "admin.checkpoint", "admin.game_reset", "admin.game_player", "admin.player_recovery", "admin.leaderboard_delete", "admin.support_join", "admin.support_leave", "admin.support_message", "admin.spectate_start", "admin.spectate_stop"}:
+                if msg.type in {"admin.list", "admin.penalty", "admin.score_adjustment", "admin.delete", "admin.qr_set", "admin.online_mode", "admin.operations", "admin.schedule_settings", "admin.evaluate_team", "admin.session_extend", "admin.session_end", "admin.checkpoint", "admin.game_reset", "admin.game_player", "admin.player_recovery", "admin.leaderboard_delete", "admin.support_join", "admin.support_leave", "admin.support_message", "admin.spectate_start", "admin.spectate_stop", "admin.scenario_source", "admin.scenario_validate"}:
                     try:
                         require_admin(msg.payload)
                         authenticated_admin_sockets.add(websocket)
@@ -690,7 +729,36 @@ async def websocket_endpoint(websocket: WebSocket):
                             await send_message(websocket, Message("runtime.settings", runtime_payload()))
                             continue
                         if msg.type == "admin.qr_set":
-                            await send_message(websocket, Message("admin.qr_set", {"scenario": scenario.data.get("title", "Escape Bot"), "checkpoints": build_checkpoint_qr_set(scenario)}))
+                            requested_id = str(msg.payload.get("scenario_id", selected_scenario.id if selected_scenario else ""))
+                            entry = scenario_catalog.entries.get(requested_id)
+                            if entry is None:
+                                raise ValueError("Požadovaný scénář není v katalogu dostupný.")
+                            await send_message(websocket, Message("admin.qr_set", {"scenario": entry.scenario.data.get("title", "Escape Bot"), "checkpoints": build_checkpoint_qr_set(entry.scenario)}))
+                            continue
+                        if msg.type == "admin.scenario_source":
+                            requested_id = str(msg.payload.get("scenario_id", selected_scenario.id if selected_scenario else ""))
+                            entry = scenario_catalog.entries.get(requested_id)
+                            if entry is None:
+                                raise ValueError("Požadovaný scénář není v katalogu dostupný.")
+                            await send_message(websocket, Message("admin.scenario_source", {
+                                "scenario_id": entry.id,
+                                "template": entry.template,
+                                "realization": entry.realization,
+                            }))
+                            continue
+                        if msg.type == "admin.scenario_validate":
+                            template = msg.payload.get("template")
+                            realization = msg.payload.get("realization")
+                            if not isinstance(template, dict) or not isinstance(realization, dict):
+                                raise ValueError("Editor musí odeslat šablonu i realizaci jako objekty JSON.")
+                            compiled = compose_documents(template, realization)
+                            candidate = Scenario(compiled.data, compiled.provenance)
+                            from .scenario import validate_checkpoint_navigation
+                            validate_checkpoint_navigation(candidate)
+                            await send_message(websocket, Message("admin.scenario_validation", {
+                                "valid": True, "scenario_id": realization.get("id", ""),
+                                "title": compiled.data.get("title", ""), "provenance": compiled.provenance,
+                            }))
                             continue
                         if msg.type == "admin.online_mode":
                             runtime_settings["online_mode"] = bool(msg.payload.get("enabled"))
@@ -768,7 +836,7 @@ async def websocket_endpoint(websocket: WebSocket):
                             await send_message(websocket, Message("admin.spectate_started", {"session_id": target_session, "team_name": lobby.team_name}))
                             await send_message(websocket, Message("chat.history", {"messages": machine.state.chat_history}))
                             await send_message(websocket, machine._state_message())
-                            await send_message(websocket, Message("scenario.progress", build_scenario_progress(scenario, machine.state.snapshot())))
+                            await send_message(websocket, Message("scenario.progress", build_scenario_progress(machine.scenario, machine.state.snapshot())))
                             await send_message(websocket, Message("runtime.settings", runtime_payload()))
                             continue
                         if msg.type == "admin.spectate_stop":
@@ -880,7 +948,7 @@ async def websocket_endpoint(websocket: WebSocket):
                             save_sessions()
                             updates = [machine._state_message()]
                             if result.get("team_complete"):
-                                puzzle = scenario.data.get("puzzles", {}).get(str(result.get("puzzle_id", "")), {})
+                                puzzle = machine.scenario.data.get("puzzles", {}).get(str(result.get("puzzle_id", "")), {})
                                 updates.insert(0, Message("bot.message", puzzle.get("success_message", {})))
                                 updates.insert(0, Message("puzzle.result", {"correct": True, "puzzle_id": result.get("puzzle_id"), "team_summary": result.get("team_summary")}))
                             await broadcast_session(target_session, updates)
@@ -963,7 +1031,7 @@ async def websocket_endpoint(websocket: WebSocket):
                             updates = [
                                 Message("bot.message", {"text": f"Game Master upravil postup: {label}.", "mood": "info", "channel": "general"}),
                                 machine._state_message(),
-                                Message("scenario.progress", build_scenario_progress(scenario, machine.state.snapshot())),
+                                Message("scenario.progress", build_scenario_progress(machine.scenario, machine.state.snapshot())),
                             ]
                             if penalty:
                                 updates.insert(0, Message("score.update", {"score": machine.state.score, "delta": -penalty, "penalty": penalty, "reason": "admin_resolution", "description": preset["label"]}))
@@ -983,7 +1051,7 @@ async def websocket_endpoint(websocket: WebSocket):
                             await broadcast_session(target_session, [
                                 Message("bot.message", {"text": f"Game Master provedl: {label}.", "mood": "info", "channel": "general"}),
                                 machine._state_message(),
-                                Message("scenario.progress", build_scenario_progress(scenario, machine.state.snapshot())),
+                                Message("scenario.progress", build_scenario_progress(machine.scenario, machine.state.snapshot())),
                             ])
                             await send_admin_overview(websocket)
                             continue
@@ -1017,6 +1085,8 @@ async def websocket_endpoint(websocket: WebSocket):
                             raise ValueError("Chybí identifikátor zařízení.")
                         name = str(msg.payload.get("name", "")).strip()
                         team_name = str(msg.payload.get("team_name", "")).strip()
+                        lobby_type = str(msg.payload.get("lobby_type", "on_site_qr")).strip()
+                        requested_scenario_id = str(msg.payload.get("scenario_id", selected_scenario_id)).strip()
                         requested_demo = DEMO_MODE_ENABLED and bool(msg.payload.get("demo_mode"))
                         if msg.type == "lobby.recover":
                             token = str(msg.payload.get("recovery_token", "")).strip().upper().removeprefix("ESCAPEBOT://RECOVER/")
@@ -1090,9 +1160,15 @@ async def websocket_endpoint(websocket: WebSocket):
                             continue
                         if msg.type == "lobby.solo":
                             require_start_available()
-                            lobby = lobby_registry.create(requested_client_id, "solo", name, team_name)
+                            entry = scenario_catalog.entries.get(requested_scenario_id)
+                            if entry is None or not scenario_supports_lobby(entry, lobby_type):
+                                raise ValueError("Vybraná hra není pro tento typ lobby dostupná.")
+                            lobby = lobby_registry.create(requested_client_id, "solo", name, team_name, lobby_type, requested_scenario_id)
                         elif msg.type == "lobby.create":
-                            lobby = lobby_registry.create(requested_client_id, "team", name, team_name)
+                            entry = scenario_catalog.entries.get(requested_scenario_id)
+                            if entry is None or not scenario_supports_lobby(entry, lobby_type):
+                                raise ValueError("Vybraná hra není pro tento typ lobby dostupná.")
+                            lobby = lobby_registry.create(requested_client_id, "team", name, team_name, lobby_type, requested_scenario_id)
                         elif msg.type == "lobby.join":
                             lobby = lobby_registry.join(str(msg.payload.get("join_code", "")), requested_client_id, name)
                         elif msg.type == "lobby.resume":
@@ -1133,9 +1209,9 @@ async def websocket_endpoint(websocket: WebSocket):
                                 if demo_client:
                                     responses.append(Message("demo.catalog", {
                                         "enabled": True,
-                                        "checkpoints": build_demo_checkpoint_catalog(scenario),
+                                        "checkpoints": build_demo_checkpoint_catalog(state_machine.scenario),
                                     }))
-                                responses.append(Message("scenario.progress", build_scenario_progress(scenario, state_machine.state.snapshot())))
+                                responses.append(Message("scenario.progress", build_scenario_progress(state_machine.scenario, state_machine.state.snapshot())))
                                 await broadcast_session(session_id, responses)
                             else:
                                 await sync_started_client(websocket, state_machine, demo_client)
@@ -1211,7 +1287,7 @@ async def websocket_endpoint(websocket: WebSocket):
                     responses = await state_machine.handle(msg)
                     if msg.type == "client.hello" and bool(msg.payload.get("demo_mode")):
                         if demo_client:
-                            checkpoints = build_demo_checkpoint_catalog(scenario)
+                            checkpoints = build_demo_checkpoint_catalog(state_machine.scenario)
                             responses.append(Message("demo.catalog", {"enabled": True, "checkpoints": checkpoints}))
                         else:
                             responses.append(Message("demo.catalog", {
@@ -1221,7 +1297,7 @@ async def websocket_endpoint(websocket: WebSocket):
                             }))
                     responses.append(Message(
                         "scenario.progress",
-                        build_scenario_progress(scenario, state_machine.state.snapshot()),
+                        build_scenario_progress(state_machine.scenario, state_machine.state.snapshot()),
                     ))
                     if msg.type == "player.message" and session_id:
                         await broadcast_session(session_id, [Message("team.player_message", {

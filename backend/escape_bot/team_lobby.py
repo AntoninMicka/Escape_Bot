@@ -39,6 +39,8 @@ class Lobby:
     players: dict[str, dict[str, Any]] = field(default_factory=dict)
     max_players: int = 0
     applied_score_adjustment: int = 0
+    lobby_type: str = "on_site_qr"
+    scenario_id: str = "hotel_kraskov"
 
     def add_player(self, client_id: str, name: str = "") -> None:
         clean_name = " ".join(name.strip().split())[:24]
@@ -80,6 +82,8 @@ class Lobby:
         return {
             "session_id": self.session_id,
             "mode": self.mode,
+            "lobby_type": self.lobby_type,
+            "scenario_id": self.scenario_id,
             "team_name": self.team_name,
             "join_code": self.join_code,
             "started": self.started,
@@ -108,6 +112,8 @@ class Lobby:
             "players": self.players,
             "max_players": self.max_players,
             "applied_score_adjustment": self.applied_score_adjustment,
+            "lobby_type": self.lobby_type,
+            "scenario_id": self.scenario_id,
         }
 
 
@@ -116,18 +122,27 @@ class LobbyRegistry:
         self.by_session: dict[str, Lobby] = {}
         self.by_join_code: dict[str, str] = {}
 
-    def create(self, client_id: str, mode: str, name: str = "", team_name: str = "") -> Lobby:
+    def create(self, client_id: str, mode: str, name: str = "", team_name: str = "",
+               lobby_type: str = "on_site_qr", scenario_id: str = "hotel_kraskov") -> Lobby:
         if mode not in {"solo", "team"}:
             raise ValueError("Neznámý herní režim.")
+        if lobby_type not in {"online_doom", "on_site_qr", "geo"}:
+            raise ValueError("Neznámý typ herní lobby.")
         clean_team_name = " ".join(team_name.strip().split())[:32]
         if not clean_team_name:
             raise ValueError("Název týmu je povinný.")
         normalized = _normalize_team_name(clean_team_name)
-        if any(_normalize_team_name(lobby.team_name) == normalized for lobby in self.by_session.values()):
+        if any(
+            _normalize_team_name(lobby.team_name) == normalized
+            and lobby.lobby_type == lobby_type
+            and lobby.scenario_id == scenario_id
+            for lobby in self.by_session.values()
+        ):
             raise ValueError("Tým s tímto názvem už existuje. Zvolte jiný název.")
         session_id = uuid.uuid4().hex
         join_code = self._new_join_code() if mode == "team" else None
-        lobby = Lobby(session_id=session_id, mode=mode, creator_id=client_id, team_name=clean_team_name, join_code=join_code)
+        lobby = Lobby(session_id=session_id, mode=mode, creator_id=client_id, team_name=clean_team_name,
+                      join_code=join_code, lobby_type=lobby_type, scenario_id=scenario_id)
         lobby.add_player(client_id, name)
         if mode == "solo":
             lobby.started = True
@@ -174,6 +189,8 @@ class LobbyRegistry:
                 players=dict(item.get("players", {})),
                 max_players=int(item.get("max_players", 0)),
                 applied_score_adjustment=int(item.get("applied_score_adjustment", 0)),
+                lobby_type=str(item.get("lobby_type", "on_site_qr")),
+                scenario_id=str(item.get("scenario_id", "hotel_kraskov")),
             )
             self.by_session[lobby.session_id] = lobby
             if lobby.join_code:

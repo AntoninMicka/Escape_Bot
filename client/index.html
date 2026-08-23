@@ -544,6 +544,8 @@
         .admin-detail summary { cursor: pointer; color: #0cc; }
         .admin-detail-list { max-height: none; overflow: visible; padding-left: 20px; }
         .admin-detail-list li { margin: 4px 0; }
+        .scenario-editor-grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+        .scenario-editor-grid textarea { width:100%; min-height:55vh; box-sizing:border-box; font:12px/1.4 monospace; }
         .recovery-dialog { max-width: 430px; border: 2px solid #0cc; background: #001416; color: #dfffff; padding: 20px; text-align: center; }
         .recovery-dialog::backdrop { background: #000c; }
         .admin-node-actions { display: flex; flex-wrap: wrap; gap: 5px; margin: 4px 0 9px 20px; }
@@ -568,7 +570,7 @@
         }
         @media (max-width: 700px) {
             body { padding: 6px 8px max(6px, env(safe-area-inset-bottom)); height: 100vh; height: 100dvh; }
-            .lobby-modes { grid-template-columns: 1fr; }
+            .lobby-modes, .scenario-editor-grid { grid-template-columns: 1fr; }
             .tabs { top: 0; margin: -6px -8px 6px; padding: max(6px, env(safe-area-inset-top)) 8px 6px; max-width: calc(100vw + 0px); min-height: 48px; }
             .admin-spectator-bar { margin: -6px -8px 6px; padding-top: max(8px, env(safe-area-inset-top)); }
             .tab-button { padding: 8px 10px; white-space: nowrap; flex: 0 0 auto; }
@@ -612,11 +614,12 @@
             <button type="button" onclick="showAdminAccessQr()">QR PRO ADMINISTRACI</button>
             <span id="admin-status">Čekám na spojení…</span>
         </div>
-        <nav class="admin-nav"><button class="active" onclick="openAdminTab('teams',this)">TÝMY</button><button onclick="openAdminTab('analytics',this)">ANALYTIKA</button><button id="admin-chats-tab-button" onclick="openAdminTab('chats',this)">CHATY <span id="admin-chat-unread" class="unread-badge"></span></button><button onclick="openAdminTab('leaderboard',this)">SÍŇ SLÁVY</button><button onclick="openAdminTab('tools',this)">NÁSTROJE</button></nav>
+        <nav class="admin-nav"><button class="active" onclick="openAdminTab('teams',this)">TÝMY</button><button onclick="openAdminTab('analytics',this)">ANALYTIKA</button><button id="admin-chats-tab-button" onclick="openAdminTab('chats',this)">CHATY <span id="admin-chat-unread" class="unread-badge"></span></button><button onclick="openAdminTab('leaderboard',this)">SÍŇ SLÁVY</button><button onclick="openAdminTab('scenarios',this)">EDITOR HER</button><button onclick="openAdminTab('tools',this)">NÁSTROJE</button></nav>
         <section id="admin-tab-teams" class="admin-section"><div id="admin-summary" class="admin-summary"></div><div class="admin-filters"><input id="admin-team-search" type="search" placeholder="Hledat tým, hráče nebo kód…" oninput="applyAdminFilters()"><select id="admin-activity-filter" onchange="applyAdminFilters()"><option value="ongoing" selected>Neukončené týmy</option><option value="all">Všechny stavy</option><option value="active">Aktivní</option><option value="suspicious">Podezřelé</option><option value="abandoned">Opuštěné</option><option value="completed">Dokončené</option><option value="ended">Ukončené bez dokončení</option></select><select id="admin-online-filter" onchange="applyAdminFilters()"><option value="all">Online i offline</option><option value="online">Alespoň jeden online</option><option value="offline">Všichni offline</option></select></div><div id="admin-team-grid" class="admin-grid"></div></section>
         <section id="admin-tab-analytics" class="admin-section admin-analytics hidden"><h2>[ TELEMETRIE OBTÍŽNOSTI ]</h2><div class="admin-toolbar"><label>OBDOBÍ <select id="analytics-period" onchange="renderAdminAnalytics()"><option value="all">Celá historie</option><option value="1">Posledních 24 hodin</option><option value="7">Posledních 7 dní</option><option value="30">Posledních 30 dní</option></select></label><button onclick="exportTelemetryCsv(true)">ANONYMIZOVANÉ CSV</button><button onclick="exportTelemetryCsv(false)">INTERNÍ CSV</button></div><div id="admin-analytics-summary" class="admin-summary"></div><div id="admin-analytics-content"></div></section>
         <section id="admin-tab-chats" class="admin-section hidden"><h2>[ PODPORA TÝMŮ ]</h2><div id="admin-chat-grid" class="admin-grid"></div></section>
         <section id="admin-tab-leaderboard" class="admin-section admin-leaderboard hidden"><h2>[ SPRÁVA SÍNĚ SLÁVY ]</h2><div id="admin-leaderboard"></div></section>
+        <section id="admin-tab-scenarios" class="admin-section hidden"><h2>[ EDITOR HER — NÁHLED A VALIDACE ]</h2><div class="admin-toolbar"><select id="scenario-editor-select"></select><button onclick="loadScenarioEditor()">NAČÍST</button><button onclick="validateScenarioEditor()">OVĚŘIT</button></div><p id="scenario-editor-status">Editor zatím provádí bezpečnou validaci bez zápisu na disk.</p><div class="scenario-editor-grid"><label>ŠABLONA<textarea id="scenario-template-editor" spellcheck="false"></textarea></label><label>REALIZACE<textarea id="scenario-realization-editor" spellcheck="false"></textarea></label></div><h3>NEPLATNÉ / VYŘAZENÉ SCÉNÁŘE</h3><div id="scenario-editor-errors"></div></section>
         <section id="admin-tab-tools" class="admin-section hidden"><h2>[ PROVOZ HRY ]</h2><button id="admin-operations-toggle" onclick="toggleAdminOperations()" style="width:100%;padding:22px;font-size:1.35rem">NAČÍTÁM STAV…</button><div class="admin-actions" style="margin:16px 0"><label>Max. týmů<input id="schedule-max-teams" type="number" min="1" max="100"></label><label>Rozestup startů (min)<input id="schedule-interval" type="number" min="0" max="240"></label><label>Délka hry (min)<input id="schedule-duration" type="number" min="15" max="720"></label><label>Postih za nedokončení<input id="schedule-deadline-penalty" type="number" min="0" max="1000"></label><label>Postih za opuštění<input id="schedule-abandonment-penalty" type="number" min="0" max="1000"></label><label>Bonus za dokončení<input id="schedule-completion-bonus" type="number" min="0" max="1000"></label><label>Otevření<input id="schedule-opening" type="time"></label><label>Uzavření<input id="schedule-closing" type="time"></label><label>Časová zóna<input id="schedule-timezone" value="Europe/Prague"></label><button onclick="saveScheduleSettings()">ULOŽIT PROVOZNÍ NASTAVENÍ</button></div><p id="admin-schedule-status"></p><h2>[ NÁSTROJE GAME MASTERA ]</h2><div class="admin-toolbar"><button onclick="requestAdminQrSet()">PŘIPRAVIT QR SADU</button><button onclick="exportAdminCsv()">EXPORT UDÁLOSTÍ A STATISTIK (CSV)</button><button id="admin-online-toggle" onclick="toggleAdminOnlineMode()">ONLINE REŽIM: ?</button></div></section>
     </section>
     <div id="admin-spectator-bar" class="admin-spectator-bar hidden"><strong id="admin-spectator-label">NÁHLED HRY</strong><button onclick="stopAdminSpectate()">ZPĚT DO ADMINISTRACE</button></div>
@@ -627,11 +630,19 @@
         <div class="lobby-card">
             <h1>[ CHRONOTERMINÁL: NOVÁ MISE ]</h1>
             <p id="lobby-intro">Zvolte způsob připojení. V týmovém režimu založí první hráč společnou relaci a ostatní načtou jeho unikátní QR.</p>
+            <div id="lobby-hubs" class="lobby-modes">
+                <button onclick="chooseLobbyType('online_doom')">ONLINE — DOOM<br><small>čistě online hry bez fyzické trasy</small></button>
+                <button onclick="chooseLobbyType('on_site_qr')">NA MÍSTĚ — QR<br><small>checkpointy umístěné v lokalitě</small></button>
+                <button onclick="chooseLobbyType('geo')">OSM / GEO / GNSS<br><small>úkoly odemykané polohou</small></button>
+            </div>
+            <label id="lobby-game-label" class="hidden" for="lobby-game-select">Konkrétní hra</label>
+            <select id="lobby-game-select" class="hidden" style="width:100%;box-sizing:border-box;margin:6px 0 12px"></select>
             <label for="lobby-team-name">Název týmu</label>
             <input id="lobby-team-name" maxlength="32" placeholder="Např. Chrononauti" style="width:100%; box-sizing:border-box; margin:6px 0 12px">
             <label for="lobby-player-name">Jméno hráče</label>
             <input id="lobby-player-name" maxlength="24" placeholder="Např. Antonín" style="width:100%; box-sizing:border-box; margin-top:6px">
-            <div id="lobby-modes" class="lobby-modes">
+            <div id="lobby-modes" class="lobby-modes" style="display:none">
+                <button onclick="returnToLobbyHubs()">← JINÝ TYP HRY</button>
                 <button onclick="chooseSoloMode()">SÓLO<br><small>vše na jednom zařízení · +20 bodů</small></button>
                 <button onclick="createTeamMode()">ZALOŽIT TÝM<br><small>ideálně 3 hráči</small></button>
                 <button onclick="showJoinTeamPanel()">PŘIPOJIT SE K TÝMU<br><small>zadat kód týmu</small></button>
@@ -847,6 +858,7 @@
         let onlineModeEnabled = false;
         let operationsEnabled = true;
         let runtimeAvailability = null;
+        let runtimeGames = [];
         let runtimeCheckpoints = [];
         let latestScenarioProgress = null;
         let deviceRole = localStorage.getItem('escapeBotDeviceRole') || 'free';
@@ -1432,6 +1444,7 @@
         let savedLobby = null;
         let lobbySyncTimer = null;
         let reconnectTimer = null;
+        let selectedLobbyType = '';
         try { savedLobby = JSON.parse(localStorage.getItem('escapeBotLobby') || 'null'); } catch (_) { savedLobby = null; }
 
         function lobbyPlayerName() {
@@ -1872,6 +1885,7 @@
             updateAdminChatNotifications(allTeams);
             renderAdminChats(allTeams);
             renderAdminAnalytics();
+            renderScenarioEditorCatalog();
             if (!teams.length) {
                 grid.innerHTML = `<p>${allTeams.length ? 'Filtrům neodpovídá žádný tým.' : 'Nejsou evidované žádné týmy.'}</p>`;
                 return;
@@ -1922,7 +1936,7 @@
                 return `<article class="admin-team ${online ? '' : 'offline'} ${escapeHtml(team.activity_status)}">
                     <h2>${escapeHtml(team.team_name)}</h2>
                     <p><strong class="admin-activity ${escapeHtml(team.activity_status)}">${activityText}</strong> · bez aktivity ${inactivityLabel(team.inactive_seconds)}</p>
-                    <p><strong>${team.mode === 'solo' ? 'SÓLO' : 'TÝM'}</strong> · ${size} hráčů · ${online} online · ${team.started ? 'hra spuštěna' : 'lobby'}</p>
+                    <p><strong>${team.mode === 'solo' ? 'SÓLO' : 'TÝM'}</strong> · ${escapeHtml(team.lobby_type || 'on_site_qr')} · ${escapeHtml(team.scenario_id || '')} · ${size} hráčů · ${online} online · ${team.started ? 'hra spuštěna' : 'lobby'}</p>
                     <p>Hráči: ${players || '—'}</p>
                     <p>Fáze: <strong>${escapeHtml(team.phase)}</strong> · skóre: <strong>${Number(team.score)}</strong></p>
                     <div class="admin-progress"><span style="width:${percent}%"></span></div>
@@ -1958,6 +1972,37 @@
             }
         }
 
+        function renderScenarioEditorCatalog() {
+            if (!latestAdminPayload) return;
+            const select = document.getElementById('scenario-editor-select');
+            const previous = select.value;
+            select.innerHTML = (latestAdminPayload.scenario_catalog || []).map(item =>
+                `<option value="${escapeHtml(item.id)}">${escapeHtml(item.title)} · ${escapeHtml(item.id)}</option>`
+            ).join('');
+            if ([...select.options].some(option => option.value === previous)) select.value = previous;
+            const errors = latestAdminPayload.scenario_errors || [];
+            document.getElementById('scenario-editor-errors').innerHTML = errors.length
+                ? `<ul>${errors.map(item => `<li><strong>${escapeHtml(item.path)}</strong>: ${escapeHtml(item.message)}</li>`).join('')}</ul>`
+                : '<p>Všechny nalezené scénáře jsou platné.</p>';
+        }
+
+        function loadScenarioEditor() {
+            const scenarioId = document.getElementById('scenario-editor-select').value;
+            if (!scenarioId) { showNotification('V katalogu není žádný platný scénář.', 'error'); return; }
+            sendAdmin('admin.scenario_source', {scenario_id:scenarioId});
+        }
+
+        function validateScenarioEditor() {
+            try {
+                const template = JSON.parse(document.getElementById('scenario-template-editor').value);
+                const realization = JSON.parse(document.getElementById('scenario-realization-editor').value);
+                document.getElementById('scenario-editor-status').textContent = 'Ověřuji…';
+                sendAdmin('admin.scenario_validate', {template, realization});
+            } catch (error) {
+                document.getElementById('scenario-editor-status').textContent = `Neplatný JSON: ${error.message}`;
+            }
+        }
+
         function lobbyTeamName() {
             return document.getElementById('lobby-team-name').value.trim();
         }
@@ -1974,13 +2019,35 @@
             if (!ws || ws.readyState !== WebSocket.OPEN) return;
             if (type !== 'lobby.resume' && !requireLobbyName('lobby-player-name', 'Zadejte jméno hráče.')) return;
             if ((type === 'lobby.solo' || type === 'lobby.create') && !requireLobbyName('lobby-team-name', 'Zadejte název týmu.')) return;
-            ws.send(JSON.stringify({type, payload:{client_id:clientId, name:lobbyPlayerName(), team_name:lobbyTeamName(), demo_mode:demoModeRequested, ...extra}}));
+            const scenarioId = document.getElementById('lobby-game-select').value;
+            ws.send(JSON.stringify({type, payload:{client_id:clientId, name:lobbyPlayerName(), team_name:lobbyTeamName(), demo_mode:demoModeRequested, lobby_type:selectedLobbyType || 'on_site_qr', scenario_id:scenarioId, ...extra}}));
             document.getElementById('lobby-status').textContent = 'Navazuji týmovou relaci…';
         }
 
         function chooseSoloMode() { sendLobby('lobby.solo'); }
         function createTeamMode() { sendLobby('lobby.create'); }
         function startTeamGame() { sendLobby('lobby.start'); }
+        function chooseLobbyType(type) {
+            selectedLobbyType = type;
+            const games = runtimeGames.filter(game => (game.lobby_types || []).includes(type));
+            const select = document.getElementById('lobby-game-select');
+            select.innerHTML = games.map(game => `<option value="${escapeHtml(game.id)}">${escapeHtml(game.title)}</option>`).join('');
+            document.getElementById('lobby-hubs').style.display = 'none';
+            document.getElementById('lobby-game-label').classList.remove('hidden');
+            select.classList.remove('hidden');
+            document.getElementById('lobby-modes').style.display = games.length ? 'grid' : 'none';
+            document.getElementById('lobby-status').textContent = games.length
+                ? 'Vyberte konkrétní hru a způsob účasti.'
+                : 'V tomto režimu zatím není publikovaná žádná platná hra.';
+        }
+        function returnToLobbyHubs() {
+            selectedLobbyType = '';
+            document.getElementById('lobby-hubs').style.display = 'grid';
+            document.getElementById('lobby-game-label').classList.add('hidden');
+            document.getElementById('lobby-game-select').classList.add('hidden');
+            document.getElementById('lobby-modes').style.display = 'none';
+            document.getElementById('lobby-status').textContent = 'Vyberte typ hry.';
+        }
         function showPlayerIdentity() {
             if (!requireLobbyName('lobby-player-name', 'Před zobrazením QR zadejte jméno hráče.')) return;
             document.getElementById('lobby-modes').style.display = 'none';
@@ -2053,7 +2120,7 @@
             } else if (savedLobby && savedLobby.session_id) {
                 sendLobby('lobby.resume', {session_id:savedLobby.session_id});
             } else {
-                document.getElementById('lobby-status').textContent = 'Vyberte sólo, nebo založte tým.';
+                document.getElementById('lobby-status').textContent = 'Vyberte Online Doom, hru na místě s QR, nebo GEO hru.';
                 if (new URLSearchParams(window.location.search).get('team') === '1') createTeamMode();
             }
         }
@@ -2369,6 +2436,15 @@
                 else if (msg.type === 'admin.qr_set') {
                     renderAdminQrSet(msg.payload);
                 }
+                else if (msg.type === 'admin.scenario_source') {
+                    document.getElementById('scenario-template-editor').value = JSON.stringify(msg.payload.template, null, 2);
+                    document.getElementById('scenario-realization-editor').value = JSON.stringify(msg.payload.realization, null, 2);
+                    document.getElementById('scenario-editor-status').textContent = `Načten scénář ${msg.payload.scenario_id}. Změny jsou zatím pouze lokální.`;
+                }
+                else if (msg.type === 'admin.scenario_validation') {
+                    document.getElementById('scenario-editor-status').textContent = `✓ Platný scénář: ${msg.payload.title} (${msg.payload.scenario_id})`;
+                    showNotification('Šablona a realizace jsou platné.', 'success');
+                }
                 else if (msg.type === 'admin.player_recovery') {
                     renderPlayerRecovery(msg.payload);
                 }
@@ -2390,6 +2466,7 @@
                     operationsEnabled = Boolean(msg.payload.gameplay_enabled);
                     runtimeAvailability = msg.payload.availability || null;
                     runtimeCheckpoints = msg.payload.checkpoints || [];
+                    runtimeGames = msg.payload.games || [];
                     const toggle = document.getElementById('admin-online-toggle');
                     if (toggle) toggle.textContent = `ONLINE REŽIM: ${onlineModeEnabled ? 'ZAPNUT' : 'VYPNUT'}`;
                     const operations = document.getElementById('admin-operations-toggle');
@@ -2424,6 +2501,7 @@
                 }
                 else if (msg.type === 'admin.error') {
                     document.getElementById('admin-status').textContent = msg.payload.message || 'Chyba administrace.';
+                    if (activeAdminTab === 'scenarios') document.getElementById('scenario-editor-status').textContent = `✗ ${msg.payload.message || 'Chyba validace.'}`;
                     showNotification(msg.payload.message || 'Chyba administrace.', 'error');
                 }
                 else if (msg.type === 'admin.session_removed') {

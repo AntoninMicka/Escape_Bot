@@ -67,8 +67,33 @@ PYTHONPATH=backend python3 -m escape_bot.scenario_composer \
 ```
 
 Volba `--output cesta.json` výsledek uloží. Server podporuje výběr jiné dvojice přes
-`ESCAPEBOT_SCENARIO_TEMPLATE` a `ESCAPEBOT_SCENARIO_REALIZATION`. V produkci se vždy
-ověří úplnost vazeb, schopnosti a návaznost checkpointů ještě před spuštěním hry.
+adresáře `ESCAPEBOT_TEMPLATE_DIR` a `ESCAPEBOT_REALIZATION_DIR` a výchozí realizaci
+`ESCAPEBOT_SCENARIO_ID`. V produkci se vždy ověří úplnost vazeb, schopnosti a
+návaznost checkpointů ještě před zpřístupněním hry.
+
+## Katalog a odolnost serveru
+
+Server načítá každou realizaci samostatně. Chyba JSON, chybějící šablona, neplatná
+proměnná nebo porušená trasa vyřadí pouze dotčenou realizaci. Ostatní hry i
+administrace zůstanou dostupné. Pokud není platná žádná hra, server nastartuje v
+servisním režimu a odmítne pouze pokus o zahájení herní relace.
+
+Každá realizace deklaruje podporované `modes`. Lobby je rozděluje do tří nezávislých
+větví:
+
+- `online_doom` pro čistě online hry;
+- `on_site_qr` pro hry na místě s QR checkpointy;
+- `geo` pro OSM/GEO/GNSS hry odemykané polohou.
+
+Jedna větev může nabídnout více realizací, včetně více her ve stejné lokalitě.
+Konkrétní `scenario_id` i typ lobby se ukládají do relace a zachovají se po restartu.
+
+## První verze editoru
+
+Administrace obsahuje kartu **Editor her**. Z katalogu načte zdrojovou šablonu a
+realizaci, umožní je upravit jako JSON a spustí stejnou serverovou validaci jako při
+startu. V této fázi editor záměrně nezapisuje na disk; slouží k bezpečné přípravě a
+ověření datového modelu před doplněním verzovaného publikování.
 
 Toto je základ pro editor: šablonový editor bude upravovat herní logiku a deklarace
 proměnných, zatímco editor realizace nabídne formulář vygenerovaný z
