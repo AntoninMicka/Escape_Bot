@@ -24,6 +24,28 @@
       "front_normal_deg": 210,
       "floors": 6,
       "repeat_x": 1
+    },
+    {
+      "osm_id": 45818106,
+      "name": "Zelená brána – východní věž",
+      "asset": "/assets/textures/pardubice/zelenabrana-tower-east-v1.png",
+      "status": "prototype",
+      "source": "Derived architectural study based on a Wikimedia Commons photograph",
+      "reference_url": "https://commons.wikimedia.org/wiki/File:Pardubice_-_Pern%C5%A1t%C3%BDnsk%C3%A9_n%C3%A1m%C4%9Bst%C3%AD_-_View_WSW_through_Zelenobransk%C3%A1_towards_Zelen%C3%A1_br%C3%A1na_-_Green_Gate_1538_-_Renaissance_architecture.jpg",
+      "reference_author": "Txllxt TxllxT",
+      "license": "CC BY-SA 4.0",
+      "modified": true,
+      "facade_width_m": 8,
+      "facade_height_m": 59,
+      "render_mode": "landmark_sprite",
+      "render_width_m": 7.5,
+      "render_height_m": 23,
+      "projection_scale": 0.55,
+      "facade_center_m": [3.26, 3.06],
+      "facade_axis_deg": 120,
+      "front_normal_deg": 30,
+      "floors": 8,
+      "repeat_x": 1
     }
   ]
 }
