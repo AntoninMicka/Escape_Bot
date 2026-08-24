@@ -36,5 +36,24 @@
     "applied_score_adjustment": 20,
     "lobby_type": "online_doom",
     "scenario_id": "pardubice_jury_doom"
+  },
+  {
+    "session_id": "0dd9c001c7da4bb0baa1c51dcbf99754",
+    "mode": "solo",
+    "creator_id": "46c4b312-8a98-4aea-abca-527300ba58e5",
+    "team_name": "Pokus3",
+    "join_code": null,
+    "started": true,
+    "players": {
+      "46c4b312-8a98-4aea-abca-527300ba58e5": {
+        "id": "46c4b312-8a98-4aea-abca-527300ba58e5",
+        "name": "PC",
+        "joined_at": "2026-08-23T23:52:40.250762+00:00"
+      }
+    },
+    "max_players": 1,
+    "applied_score_adjustment": 0,
+    "lobby_type": "online_doom",
+    "scenario_id": "pardubice_jury_doom"
   }
 ]
