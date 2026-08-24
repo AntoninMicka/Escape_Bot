@@ -1,4 +1,4 @@
-const CACHE_NAME = 'escape-bot-v88';
+const CACHE_NAME = 'escape-bot-v89';
 const ASSETS_TO_CACHE = [
     './',
     './index.html',
@@ -43,6 +43,12 @@ self.addEventListener('activate', (event) => {
         })
     );
     self.clients.claim();
+});
+
+self.addEventListener('message', (event) => {
+    if (event.data?.type === 'GET_BUILD_VERSION') {
+        event.source?.postMessage({type: 'BUILD_VERSION', version: CACHE_NAME.replace('escape-bot-', '')});
+    }
 });
 
 self.addEventListener('fetch', (event) => {
