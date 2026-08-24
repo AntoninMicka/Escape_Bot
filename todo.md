@@ -4,6 +4,8 @@
 
 > **Budoucí vývojová větev 2026-08-23:** Pro samostatnou větev budoucího vývoje tvoří společný aktivní plán oddíly 15, 17, 18, 19 a 20: Doom modul, rozdělení scénáře na šablonu a realizaci, geo/mapový režim a editor. Pořadí implementace určuje oddíl 20; produkční větev Kraskova se tím automaticky nemění.
 
+> **Aktualizace směru 2026-08-24:** OSM/Pardubice 3D experiment je pozastaven po ověření technické cesty; nekonzistentní mapová data by vyžadovala ruční audit objekt po objektu. Dalším 3D milníkem bude samostatná online varianta příběhu „Ztracená“ ve zcela autorském virtuálním území. Bez fyzicky sdílených stanovišť nemají online hry produktový limit souběžných relací v check-inu; omezení budou pouze technická a měřená. Pracovní obchodní název platformy je `utecmi.cz`, před veřejným použitím je nutné ověřit doménu, ochranné známky a kolizi značky.
+
 ## Aktuální milník – Kraskov do konce září 2026
 
 **Cíl:** první verzi hry opakovaně projít v reálných podmínkách, odstranit technická a herní třecí místa a připravit ji k bezpečnému provozu. Nové platformní směry z oddílů 14–17 se do tohoto milníku nepřidávají, pokud neřeší konkrétní blokující problém Kraskova.
@@ -661,13 +663,16 @@ Původní stručný záměr je rozpracován v oddílu 19. Editor nemá být svá
 - [ ] Připravit DNS, reverzní proxy, bezpečnostní hlavičky, rate limiting a plán rollbacku.
 - [ ] Provést zkušební migraci kopií lokálních dat, ověřit počty relací a Síň slávy a teprve potom přepnout produkční DNS.
 
-## 15. Volitelný modul „Doomovka“ – sdílený alternativní svět (odloženo po Kraskovu)
+## 15. Online 3D varianta „Ztracená“ – sdílený autorský svět (další 3D milník)
 
-**Vize:** hráči vstoupí z komunikátoru do stylizovaného prostoru vykresleného přímo v prohlížeči, vidí avatary ostatních členů týmu, společně se pohybují a aktivují úkoly. První verze má ověřit zábavu, ovládání a synchronizaci na běžných telefonech; nemá nahrazovat hlavní scénář ani z něj dělat akční střílečku. Do budoucna může stejný modul představovat jinou časovou vrstvu hotelu nebo samostatný alternativní svět.
+**Vize:** samostatná online hra převede původní námět „Ztracená v jiné dimenzi“ do stylizovaného prostoru vykresleného přímo v prohlížeči. Hráči vidí avatary členů týmu, společně se pohybují a pomáhají Ztracené uniknout z autorského území. Svět nebude odvozen z OSM ani svázán se skutečným městem; geometrie, měřítko, průchody, orientační body i herní pravidla budou navrženy pro hru. První verze má ověřit zábavu, ovládání, dashboard a synchronizaci na běžných telefonech; nemá z příběhu dělat akční střílečku.
 
 ### 15.1 Hranice modulu a technický prototyp
 
-- [ ] Sepsat krátký design prototypu: příběhový vstup, cílová délka 5–10 minut, počet hráčů, jeden společný úkol a podmínka návratu do komunikátoru.
+- [ ] Sepsat nový krátký design „Ztracené“ jako samostatného online titulu: premisa, kapitoly, role Kapitánky a Ztracené, cílová délka, počet hráčů, podmínky vítězství a sólo varianta.
+- [ ] Navrhnout malé vlastní území bez závislosti na OSM: výrazná silueta, 3–5 zón, bezpečné hranice, portály, orientační body a prostor pro postupné odemykání cest.
+- [ ] Vybrat open-source WebGL/WebGPU engine samostatným technickým spike: předběžní kandidáti PlayCanvas Engine, Babylon.js a Three.js; porovnat mobilní výkon, glTF/GLB workflow, fyziku/kolize, velikost bundlu a integraci do stávající PWA.
+- [ ] Vymezit první technický vertikální řez na 5–10 minut: jedna zóna, jeden společný úkol, nalezení první stopy Ztracené a bezpečný návrat do komunikátoru.
 - [ ] Implementovat modul jako samostatnou obrazovku PWA načítanou pouze po odemčení scénářem; zachovat běžný interkom, mapu i fyzickou trasu beze změny.
 - [ ] Zvolit styl první verze: jednoduchý 2.5D raycasting ve stylu raných FPS, nebo nízkopolygonové WebGL 3D. Předběžně preferovat WebGL 3D s lokálně uloženou knihovnou a bez CDN, pokud test na cílových telefonech potvrdí stabilní výkon.
 - [ ] Vykreslovat svět kompletně na zařízení hráče; neposílat obraz ze serveru ani mezi hráči.
@@ -686,6 +691,7 @@ Původní stručný záměr je rozpracován v oddílu 19. Editor nemá být svá
 
 ### 15.3 Multiplayer – hráči se navzájem vidí
 
+- [ ] Opravit dashboard tak, aby u každé online relace zobrazoval všechny připojené i dočasně odpojené hráče, jejich `player_id`, jméno, zařízení, stav spojení, poslední aktivitu a aktuální 3D zónu; ověřit shodu po reconnectu a restartu backendu.
 - [ ] Rozšířit identitu existující týmové relace o `player_id`, zobrazované jméno, barvu a jednoduchý avatar; nepřidávat druhé paralelní lobby.
 - [ ] Definovat oddělené zprávy `world.join`, `world.input`, `world.snapshot`, `world.event`, `world.interact` a `world.leave` s verzí protokolu a `request_id` pro idempotentní interakce.
 - [ ] Nechat server autoritativně řídit místnost, pozice, rychlost, kolize, interakce a stav úkolů. Klient posílá vstupy, nikoli důvěryhodnou výslednou pozici.
@@ -745,6 +751,8 @@ Původní stručný záměr je rozpracován v oddílu 19. Editor nemá být svá
 
 ### 16.2 Ověření souběžného provozu
 
+- [ ] Rozdělit kapacitní politiku podle typu realizace: fyzické hry mohou blokovat check-in podle termínu a sdílených zdrojů; čistě online hry nesmějí mít produktový limit počtu současně spuštěných relací ani se navzájem blokovat v check-inu.
+- [ ] U online her nahradit pevný limit technickými ochrannými mechanismy: rate limiting založení relací, monitoring CPU/RAM/WebSocketů, měkké varování při naměřené kapacitě a horizontální škálování; případné odmítnutí musí vycházet z reálného přetížení, ne z obchodního slotu.
 - [ ] Doplnit integrační test, který současně založí několik týmů ve dvou různých hrách, provede v nich odlišné akce a ověří úplnou izolaci stavu, chatu, skóre, inventáře a leaderboardu.
 - [ ] Otestovat dva termíny stejné hry nad různými verzemi scénáře a potvrdit, že publikace nové verze neovlivní již vytvořený ani rozehraný termín.
 - [ ] Otestovat souběžné WebSocket broadcasty, reconnect, restart backendu, administrátorský dohled a ukončení jedné hry bez dopadu na ostatní.
@@ -1084,7 +1092,7 @@ Původní stručný záměr je rozpracován v oddílu 19. Editor nemá být svá
 
 ### Rozpracovaný experiment – OSM Doom a fasády Mapillary (handoff 2026-08-23)
 
-**Stav na větvi `develop`:** raycastovaná mapa Pardubic má opravený rozjezd z kolizního překryvu, oddělenou pohybovou a kreslicí smyčku, lokální prostorové filtrování geometrie, procedurální střechy a okna. Volitelná integrace Mapillary umí najít snímek poblíž hráče a experimentálně jej promítnout na nejbližší OSM budovu. Veřejný klientský token je pouze v ignorovaném `.env.local` s oprávněním `600`; nikdy jej necommitovat. Přímé zobrazení samostatné uliční fotografie bylo vyhodnoceno jako slepá cesta.
+**Stav na větvi `develop`:** technická cesta byla potvrzena raycastovanou mapou Pardubic, lokálními fasádními atlasy, Zelenou bránou a opravami OSM multipolygonů. Současně se potvrdilo, že veřejná OSM geometrie obsahuje pro herní 3D pohled nekonzistentní výšky, dvory, průchody a seskupení budov, které vyžadují ruční kontrolu. Experiment je proto pozastaven; zůstává výzkumným prototypem a zdrojem rendererových postupů, nikoli základem nejbližšího produktu. Další vývoj se přesouvá k autorskému světu „Ztracené“ z oddílu 15.
 
 - [x] Ověřit přístup k Mapillary API a vykreslení vzdálené fotografie jako prototypu fasádní textury.
 - [x] Doplnit stabilní souřadnici zásahu paprsku po hraně budovy, aby textura při pohybu neplavala.
