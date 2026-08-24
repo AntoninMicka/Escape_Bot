@@ -18,6 +18,7 @@ Escape Bot je lokální ARG/escape-room systém s odlehčeným webovým frontend
 Escape_Bot/
   backend/          Python webserver, WebSocket protokol, orchestrátor a stav hry
   client/           HTML/JS/CSS webová aplikace interkomu a rébusů
+  godot/            3D prototyp výzkumného ústavu CHRONOS
   docs/             Návrh protokolu a architektonické poznámky
   ai/               Adaptéry pro Ollama a ComfyUI
   arg/              Definice fyzických objevů a rébusů
@@ -29,6 +30,10 @@ Návrh přenosné lokální infrastruktury, včetně centralizované varianty Mi
 Nativní administrační wrapper s vloženým webovým adminem a podporou vytvoření Wi-Fi AP na Linuxu je v adresáři [`desktop/`](desktop/README.md).
 
 Wrapper lze sestavit a rovnou spustit příkazem `./build_and_run_desktop.sh`.
+
+První průchozí 3D prototyp scénáře „Ztracená online“ je v adresáři
+[`godot/`](godot/README.md). Godot klient používá stejný WebSocket protokol jako
+webový klient a může proto běžet vedle stávajícího rozhraní bez změny backendu.
 
 ## Cloudové nasazení
 

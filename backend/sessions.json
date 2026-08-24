@@ -3051,5 +3051,49 @@
     ],
     "game_exclusions": {},
     "game_results": {}
+  },
+  "ac3e311ecc8b40ad99f86b08ece44c0e": {
+    "phase": "boot",
+    "unlocked_discoveries": [],
+    "inventory": [],
+    "flags": {},
+    "chat_history": [
+      {
+        "role": "player",
+        "channel": "captain",
+        "text": "ok"
+      },
+      {
+        "role": "bot",
+        "channel": "general",
+        "text": ""
+      }
+    ],
+    "score": 1000,
+    "hints_used": {},
+    "checkpoint_states": {},
+    "unlocked_cipher_tools": [
+      "a1z26",
+      "morse"
+    ],
+    "paid_cipher_tools": [],
+    "puzzle_attempts": {},
+    "interactive_games": {},
+    "sokoban_games": {},
+    "karel_games": {},
+    "last_activity_at": "2026-08-24T18:44:35.263258+00:00",
+    "triad_games": {},
+    "archive_games": {},
+    "event_history": [
+      {
+        "at": "2026-08-24T18:44:35.263258+00:00",
+        "type": "player.message",
+        "details": {
+          "channel": "captain"
+        }
+      }
+    ],
+    "game_exclusions": {},
+    "game_results": {}
   }
 }
