@@ -1,6 +1,7 @@
 import * as pc from 'playcanvas';
 
 (async()=>{
+if(window.parent!==window)document.documentElement.classList.add('embedded');
 const world=await fetch('./worlds/chronos-institute.json',{cache:'no-store'}).then(response=>{
   if(!response.ok)throw new Error(`Mapa areálu se nenačetla (${response.status}).`);
   return response.json();
@@ -142,10 +143,15 @@ function buildTerraceAndOutdoors(){
 
 function buildCheckpoints(){
   for(const point of world.checkpoints){
-    const color=checkpointColors[point.color]||C.cyan,entity=box(point.label,point.position,[1.25,2,.55],color,{emissive:true,collide:true});
+    const color=checkpointColors[point.color]||C.cyan,[x,y,z]=point.position;
+    box(`${point.label} · skříň`,[x,y-.08,z],[1.45,1.75,.72],C.dark,{collide:true});
+    box(`${point.label} · konzole`,[x,y+.72,z],[1.7,.18,.92],C.concrete);
+    const entity=box(`${point.label} · obrazovka`,[x,y+.22,z-.4],[1.08,.58,.08],color,{emissive:true});
     checkpointEntities.set(point.id,{...point,entity,baseColor:color});
   }
-  const room=world.optional_room,entity=box(room.label,room.position,[1.4,2,.5],C.violet,{emissive:true,collide:true});
+  const room=world.optional_room,[x,y,z]=room.position;
+  box(`${room.label} · dveře`,[x,y,z],[1.5,2,.45],C.dark,{collide:true});
+  const entity=box(`${room.label} · panel`,[x+.5,y+.15,z-.26],[.32,.52,.08],C.violet,{emissive:true});
   checkpointEntities.set(room.id,{...room,entity,baseColor:C.violet,interaction:'room'});
 }
 
@@ -157,7 +163,7 @@ const sun=new pc.Entity('sun');sun.addComponent('light',{type:'directional',colo
 for(const [x,y,z,color] of [[0,3,7,C.cyan],[-27,3,0,C.amber],[0,-2,0,C.cyan],[8,-7,-2,C.violet],[28,7,8,C.amber]]){const light=new pc.Entity('zónové světlo');light.addComponent('light',{type:'omni',color,intensity:1.2,range:15,castShadows:false});light.setPosition(x,y,z);app.root.addChild(light);}
 app.start();
 
-let currentLevel=Number(world.spawn.level),futureLayer=false;
+let currentLevel=Number(world.spawn.level),futureLayer=false,paused=false;
 const held=new Set(),initialView=camera.getEulerAngles();let yaw=initialView.y,pitch=initialView.x;
 const keyMap={KeyW:'forward',ArrowUp:'forward',KeyS:'backward',ArrowDown:'backward',KeyA:'left',KeyD:'right',ArrowLeft:'turn-left',ArrowRight:'turn-right'};
 
@@ -204,25 +210,44 @@ function interact(){
   if(window.parent===window){statusById[point.id]='complete';const index=world.checkpoints.findIndex(item=>item.id===point.id);if(world.checkpoints[index+1])statusById[world.checkpoints[index+1].id]='available';updateCheckpointMaterials();}
 }
 function toggleLayer(){futureLayer=!futureLayer;app.scene.ambientLight=futureLayer?new pc.Color(.22,.5,.48):new pc.Color(.48,.54,.56);camera.camera.clearColor=futureLayer?new pc.Color(.04,.2,.22):new pc.Color(.09,.18,.22);updateCheckpointMaterials();showTransient(`Časová vrstva: ${futureLayer?'BUDOUCNOST':'PŘÍTOMNOST'}.`);}
+function openParentGadget(gadget){
+  if(window.parent===window){showTransient('Gadgety jsou dostupné po otevření hry v Chronoterminálu.');return;}
+  document.exitPointerLock?.();held.clear();paused=true;window.parent.postMessage({type:'chronos.webgl.gadget',gadget},location.origin);
+}
 
-window.addEventListener('keydown',event=>{const action=keyMap[event.code];if(action){event.preventDefault();held.add(action);}if(event.code==='KeyE'){event.preventDefault();interact();}if(event.code==='KeyT'){event.preventDefault();toggleLayer();}});
+window.addEventListener('keydown',event=>{
+  const gadget={KeyI:'intercom',KeyB:'puzzles',KeyC:'cipher',KeyM:'map'}[event.code];
+  if(gadget){event.preventDefault();openParentGadget(gadget);return;}
+  if(paused)return;
+  const action=keyMap[event.code];if(action){event.preventDefault();held.add(action);}
+  if(event.code==='KeyE'){event.preventDefault();interact();}if(event.code==='KeyT'){event.preventDefault();toggleLayer();}
+});
 window.addEventListener('keyup',event=>{const action=keyMap[event.code];if(action)held.delete(action);});window.addEventListener('blur',()=>held.clear());
-canvas.addEventListener('click',()=>canvas.requestPointerLock?.());
+canvas.addEventListener('click',()=>{if(!paused)canvas.requestPointerLock?.();});
 document.addEventListener('mousemove',event=>{if(document.pointerLockElement!==canvas)return;yaw-=event.movementX*.12;pitch=Math.max(-75,Math.min(75,pitch-event.movementY*.1));});
 document.querySelectorAll('[data-move]').forEach(button=>{const action=button.dataset.move;button.addEventListener('pointerdown',event=>{event.preventDefault();held.add(action);});for(const type of ['pointerup','pointercancel','pointerleave'])button.addEventListener(type,()=>held.delete(action));});
 document.getElementById('interact').addEventListener('click',interact);document.getElementById('exit').addEventListener('click',()=>window.parent?.postMessage({type:'chronos.webgl.exit'},location.origin));
 
 window.addEventListener('message',event=>{
-  if(event.origin!==location.origin||event.data?.type!=='chronos.progress')return;
-  for(const id of Object.keys(statusById))delete statusById[id];
-  for(const node of event.data.progress?.nodes||[])statusById[node.id]=node.status;
-  updateCheckpointMaterials();
+  if(event.origin!==location.origin||event.source!==window.parent)return;
+  if(event.data?.type==='chronos.pause'){
+    paused=true;held.clear();document.exitPointerLock?.();showTransient('GADGET AKTIVNÍ · svět pozastaven',60000);return;
+  }
+  if(event.data?.type==='chronos.resume'){
+    paused=false;transientUntil=0;showTransient('GADGET ULOŽEN · kliknutím obnovíte ovládání',1800);return;
+  }
+  if(event.data?.type==='chronos.progress'){
+    for(const id of Object.keys(statusById))delete statusById[id];
+    for(const node of event.data.progress?.nodes||[])statusById[node.id]=node.status;
+    updateCheckpointMaterials();
+  }
 });
 if(window.parent===window)statusById.reception_archive='available';
 window.parent?.postMessage({type:'chronos.webgl.ready'},location.origin);
 updateCheckpointMaterials();
 
 app.on('update',dt=>{
+  if(paused){document.getElementById('prompt').textContent='GADGET OTEVŘEN · svět čeká';return;}
   const movementDelta=Math.min(dt,.05);
   yaw+=((held.has('turn-left')?1:0)-(held.has('turn-right')?1:0))*95*movementDelta;camera.setEulerAngles(pitch,yaw,0);
   const forward=(held.has('forward')?1:0)-(held.has('backward')?1:0),side=(held.has('right')?1:0)-(held.has('left')?1:0);
@@ -233,7 +258,7 @@ app.on('update',dt=>{
     updateStairLevel(x,z);height=groundHeight(x,z);camera.setPosition(x,height+1.7,z);
   }
   const near=nearestCheckpoint(),target=activeTarget();
-  document.getElementById('prompt').textContent=near?.distance<=3?`E · ${near.label}`:(document.pointerLockElement===canvas?'WASD pohyb · E kotva · T časová vrstva':'Kliknutím aktivujte myš · WASD pohyb');
+  document.getElementById('prompt').textContent=near?.distance<=3?`E · POUŽÍT ${near.label}`:(document.pointerLockElement===canvas?'WASD · E zařízení · I/B/C/M gadgety':'Klikněte do světa · WASD · I/B/C/M gadgety');
   if(performance.now()>=transientUntil)document.getElementById('story').textContent=target?`AKTIVNÍ CÍL: ${target.label} · ${target.level===currentLevel?`${camera.getPosition().distance(new pc.Vec3(...target.position)).toFixed(0)} m`:world.levels.find(level=>level.id===target.level)?.name}`:'Prozkoumejte areál a čekejte na další pokyn interkomu.';
 });
 

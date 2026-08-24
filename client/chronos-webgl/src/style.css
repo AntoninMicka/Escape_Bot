@@ -8,6 +8,8 @@ header span { max-width:70%; overflow:hidden; text-overflow:ellipsis; white-spac
 #story { top:58px; }
 #fatal { position:fixed; z-index:20; left:50%; top:50%; translate:-50% -50%; width:min(82vw,680px); padding:18px; border:2px solid #f55; background:#210b0bf2; color:#fff; white-space:pre-wrap; }
 #exit { position:fixed; right:12px; bottom:12px; }
+.embedded #exit { display:none; }
+.embedded #story { display:none; }
 #touch { position:fixed; left:12px; bottom:12px; display:grid; grid-template-columns:repeat(3,52px); gap:5px; }
 button { min-height:40px; border:1px solid #099; background:#06252aee; color:#dff; font:bold 14px monospace; }
 #interact { grid-column:1/4; }

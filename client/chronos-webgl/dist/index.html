@@ -11,7 +11,7 @@
   <canvas id="chronos-webgl" aria-label="WebGL prostor Ústavu CHRONOS"></canvas>
   <header><strong>VÝZKUMNÝ ÚSTAV CHRONOS // 3D AREÁL</strong><span id="zone">PŘÍZEMÍ · RECEPCE</span></header>
   <div id="reticle" aria-hidden="true">+</div>
-  <section id="prompt" role="status">Kliknutím vstoupíte do 3D prostoru</section>
+  <section id="prompt" role="status">Klikněte do světa · WASD · E zařízení · I/B/C/M gadgety</section>
   <section id="story" role="status">Najděte a aktivujte recepční archiv.</section>
   <section id="fatal" role="alert" hidden></section>
   <div id="touch" aria-label="Dotykové ovládání">
@@ -19,7 +19,7 @@
     <button data-move="turn-left">↶</button><button data-move="backward">▼</button><button data-move="turn-right">↷</button>
     <button id="interact">E · INTERAKCE</button>
   </div>
-  <button id="exit">ZPĚT DO KOMUNIKÁTORU</button>
+  <button id="exit">I · INTERKOM</button>
   <script>
     const showFatal = message => {
       const panel = document.getElementById('fatal');

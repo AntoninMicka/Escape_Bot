@@ -8,7 +8,7 @@
     <meta name="theme-color" content="#002200">
     <link rel="icon" href="icon.svg" type="image/svg+xml">
     <link rel="apple-touch-icon" href="icon.svg">
-    <title>Chronoterminál – Hotel Kraskov</title>
+    <title>Escape Bot · Chronoterminál</title>
     <style>
         * { box-sizing: border-box; }
         html, body { margin: 0; width: 100%; height: 100%; overflow: hidden; }
@@ -588,6 +588,51 @@
         .chronos3d-directory { display:grid; grid-template-columns:repeat(3,1fr); gap:6px; margin:8px 0; color:#9bb; font-size:.86rem; }
         .chronos3d-directory span { border:1px solid #355; padding:6px 9px; background:#061012; }
         .chronos-webgl-frame { display:block; width:100%; height:max(520px,calc(100dvh - 210px)); border:1px solid #0aa; background:#020707; }
+        .chronos-game-stage { position:relative; }
+        .chronos-game-dock {
+            position:absolute; z-index:12; top:145px; right:12px;
+            display:flex; flex-direction:column; gap:6px; width:min(190px,30vw);
+            pointer-events:auto;
+        }
+        .chronos-game-dock button { min-height:42px; padding:8px 12px; border:1px solid #099; background:#00181de8; color:#dff; box-shadow:0 3px 14px #000b; }
+        .chronos-game-dock button:hover:not(:disabled) { background:#0aa; color:#001012; }
+        .chronos-game-dock button:disabled { opacity:.45; }
+        .chronos-game-dock .leave { border-color:#765; color:#dba; }
+        .chronos-game-badge { display:none; min-width:18px; margin-left:5px; padding:1px 5px; border-radius:10px; background:#ffb000; color:#000; }
+        .chronos-game-badge.visible { display:inline-block; }
+        .chronos-game-objective {
+            position:absolute; z-index:11; top:58px; left:50%; translate:-50% 0; width:min(86%,760px);
+            padding:7px 12px; border:1px solid #077; background:#001012d9; color:#bff; text-align:center; pointer-events:none;
+        }
+        .chronos-gadget-backdrop { display:none; position:fixed; z-index:1280; inset:0; background:#0009; backdrop-filter:blur(3px); }
+        .chronos-gadget-close { display:none; position:fixed; z-index:1320; top:max(12px,env(safe-area-inset-top)); right:18px; min-height:42px; border-color:#0cc; background:#00242a; color:#dff; }
+        .chronos-gadget-context { display:none; position:fixed; z-index:1320; top:max(14px,env(safe-area-inset-top)); left:22px; max-width:calc(100vw - 250px); padding:8px 12px; color:#8ff; background:#00161bd9; border:1px solid #077; }
+        body.chronos-primary-mode { padding:0 !important; background:#020707; }
+        body.chronos-primary-mode > .tabs { display:none; }
+        body.chronos-primary-mode #tab-chronos-webgl {
+            display:flex !important; position:fixed; z-index:1000; inset:0; overflow:hidden; background:#020707;
+        }
+        body.chronos-primary-mode #tab-chronos-webgl .chronos-game-stage { width:100%; height:100%; max-width:none; margin:0; }
+        body.chronos-primary-mode #tab-chronos-webgl .chronos-webgl-frame { width:100%; height:100%; border:0; }
+        body.chronos-primary-mode.chronos-gadget-active .chronos-gadget-backdrop,
+        body.chronos-primary-mode.chronos-gadget-active .chronos-gadget-close,
+        body.chronos-primary-mode.chronos-gadget-active .chronos-gadget-context { display:block; }
+        body.chronos-primary-mode .tab-content.chronos-gadget-open {
+            display:flex !important; position:fixed; z-index:1300; inset:7vh max(4vw,18px); min-height:0;
+            padding:16px; border:2px solid #0aa; background:#001012f7; box-shadow:0 0 36px #0aa6; overflow:auto;
+        }
+        body.chronos-primary-mode #tab-intercom.chronos-gadget-open { overflow:hidden; }
+        body.chronos-primary-mode #cipher-panel { z-index:1300; top:7vh; right:max(4vw,18px); max-height:86vh; }
+        body.chronos-primary-mode #build-version { z-index:1400; }
+        @media (max-width:700px) {
+            .chronos-game-objective { top:56px; font-size:.75rem; }
+            .chronos-game-dock { top:138px; right:6px; gap:3px; width:min(132px,38vw); }
+            .chronos-game-dock button { min-height:38px; padding:6px 8px; font-size:.72rem; }
+            body.chronos-primary-mode .tab-content.chronos-gadget-open { inset:6px; padding:10px; padding-top:48px; }
+            body.chronos-primary-mode #cipher-panel { top:6px; right:6px; width:calc(100vw - 12px); max-height:calc(100dvh - 12px); }
+            .chronos-gadget-close { top:10px; right:12px; }
+            .chronos-gadget-context { top:12px; left:12px; max-width:calc(100vw - 185px); padding:7px 9px; font-size:.72rem; }
+        }
         @media (max-width:700px) { .chronos3d-directory { grid-template-columns:1fr; } }
         .scenario-editor-grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
         .scenario-editor-grid textarea { width:100%; min-height:55vh; box-sizing:border-box; font:12px/1.4 monospace; }
@@ -692,7 +737,7 @@
             <h1>[ CHRONOTERMINÁL: NOVÁ MISE ]</h1>
             <p id="lobby-intro">Zvolte způsob připojení. V týmovém režimu založí první hráč společnou relaci a ostatní načtou jeho unikátní QR.</p>
             <div id="lobby-hubs" class="lobby-modes">
-                <button onclick="chooseLobbyType('online_doom')">ONLINE — DOOM<br><small>čistě online hry bez fyzické trasy</small></button>
+                <button onclick="chooseLobbyType('online_doom')">ONLINE — 3D<br><small>online hry ve virtuálním prostoru</small></button>
                 <button onclick="chooseLobbyType('on_site_qr')">NA MÍSTĚ — QR<br><small>checkpointy umístěné v lokalitě</small></button>
                 <button onclick="chooseLobbyType('geo')">OSM / GEO / GNSS<br><small>úkoly odemykané polohou</small></button>
             </div>
@@ -784,6 +829,9 @@
             </section>
         </div>
     </aside>
+    <div id="chronos-gadget-backdrop" class="chronos-gadget-backdrop" onclick="closeChronosGadget()" aria-hidden="true"></div>
+    <div id="chronos-gadget-context" class="chronos-gadget-context">OSOBNÍ GADGET</div>
+    <button id="chronos-gadget-close" class="chronos-gadget-close" type="button" onclick="closeChronosGadget()">× ZAVŘÍT GADGET</button>
 
     <div id="tab-intercom" class="tab-content active">
         <h2>
@@ -876,10 +924,17 @@
     </div>
 
     <div id="tab-chronos-webgl" class="tab-content">
-        <section class="chronos3d-shell">
-            <h2>[ ZTRACENÁ ONLINE · VÝZKUMNÝ AREÁL CHRONOS ]</h2>
+        <section class="chronos3d-shell chronos-game-stage">
             <iframe class="chronos-webgl-frame" src="chronos-webgl/dist/index.html" title="Souvislý 3D areál Výzkumného ústavu CHRONOS" loading="lazy" allow="fullscreen"></iframe>
-            <p>Souvislý víceúrovňový prostor: WASD pohyb · myš rozhlížení · E interakce · T časová vrstva. Mezi zónami se chodí chodbami a po schodech.</p>
+            <div id="chronos-game-objective" class="chronos-game-objective">Čekám na cíl mise…</div>
+            <nav class="chronos-game-dock" aria-label="Gadgety hráče">
+                <button type="button" onclick="openChronosGadget('intercom')">I · INTERKOM <span id="chronos-intercom-badge" class="chronos-game-badge"></span></button>
+                <button id="chronos-puzzles-gadget" type="button" onclick="openChronosGadget('puzzles')" disabled>B · DESKA <span id="chronos-puzzle-count" class="chronos-game-badge"></span></button>
+                <button type="button" onclick="openChronosGadget('cipher')">C · ŠIFRY</button>
+                <button id="chronos-map-gadget" type="button" onclick="openChronosGadget('map')" disabled>M · CHRONOMAPA</button>
+                <button id="chronos-sound-toggle" type="button" onclick="toggleSound()" aria-label="Vypnout zvuk">🔊</button>
+                <button class="leave" type="button" onclick="leaveChronosPrimaryMode()">KLASICKÉ UI</button>
+            </nav>
         </section>
     </div>
 
@@ -924,10 +979,10 @@
         </div>
     </div>
 
-    <button id="build-version" class="build-version" type="button" title="Kliknutím zkontrolovat aktualizaci">BUILD v104 · SW …</button>
+    <button id="build-version" class="build-version" type="button" title="Kliknutím zkontrolovat aktualizaci">BUILD v105 · SW …</button>
 
     <script>
-        const APP_BUILD_VERSION = 'v104';
+        const APP_BUILD_VERSION = 'v105';
         let ws;
         const input = document.getElementById('msgInput');
         let currentChannel = 'general';
@@ -974,6 +1029,10 @@
         let doomRayBuildings = [];
         let runtimeCheckpoints = [];
         let latestScenarioProgress = null;
+        let chronosPrimaryDismissed = false;
+        let chronosActiveGadget = '';
+        let pendingChronosDevice = '';
+        let pendingChronosDeviceLabel = '';
         let deviceRole = localStorage.getItem('escapeBotDeviceRole') || 'free';
         const demoModeRequested = new URLSearchParams(window.location.search).get('demo') === '1';
         const adminModeRequested = new URLSearchParams(window.location.search).get('admin') === '1' || window.location.pathname.replace(/\/$/, '') === '/admin';
@@ -1433,6 +1492,10 @@
         function toggleCipherPanel(force) {
             const panel = document.getElementById('cipher-panel');
             const shouldOpen = typeof force === 'boolean' ? force : !panel.classList.contains('open');
+            if (document.body.classList.contains('chronos-primary-mode')) {
+                if (shouldOpen && chronosActiveGadget !== 'cipher') { openChronosGadget('cipher'); return; }
+                if (!shouldOpen && chronosActiveGadget === 'cipher') { closeChronosGadget(); return; }
+            }
             panel.classList.toggle('open', shouldOpen);
             panel.setAttribute('aria-hidden', String(!shouldOpen));
             if (shouldOpen) renderCipherTools();
@@ -2530,8 +2593,8 @@
 
         function persistSoundSettings() { localStorage.setItem('escapeBotSound', JSON.stringify(soundSettings)); }
         function renderSoundControls() {
-            const button = document.getElementById('sound-toggle'), slider = document.getElementById('sound-volume'), voiceSlider = document.getElementById('voice-volume');
-            if (button) { button.textContent = soundSettings.muted ? '🔇' : '🔊'; button.setAttribute('aria-label', soundSettings.muted ? 'Zapnout zvuk' : 'Vypnout zvuk'); }
+            const button = document.getElementById('sound-toggle'), gameButton = document.getElementById('chronos-sound-toggle'), slider = document.getElementById('sound-volume'), voiceSlider = document.getElementById('voice-volume');
+            for (const control of [button,gameButton]) if (control) { control.textContent = soundSettings.muted ? '🔇' : '🔊'; control.setAttribute('aria-label', soundSettings.muted ? 'Zapnout zvuk' : 'Vypnout zvuk'); }
             if (slider) slider.value = String(Math.round(Number(soundSettings.volume) * 100));
             if (voiceSlider) voiceSlider.value = String(Math.round(Number(soundSettings.voiceVolume) * 100));
         }
@@ -2922,6 +2985,8 @@
                         chronomapButton.disabled = false;
                         chronomapButton.textContent = 'CHRONOMAPA';
                     }
+                    const chronosMapGadget = document.getElementById('chronos-map-gadget');
+                    if (chronosMapGadget) chronosMapGadget.disabled = !flags.chronomap_unlocked;
                 }
                 else if (msg.type === 'cipher_tool.result') {
                     if (msg.payload.success) {
@@ -2933,13 +2998,25 @@
                 else if (msg.type === 'qr.result') {
                     if (!msg.payload.accepted) {
                         showNotification(msg.payload.reason || 'Časovou kotvu nelze aktivovat.', 'error');
+                        pendingChronosDevice = '';
+                        pendingChronosDeviceLabel = '';
                     } else if (msg.payload.duplicate) {
                         showNotification('Tato časová kotva už byla zaznamenána.', 'info');
+                        pendingChronosDevice = '';
+                        pendingChronosDeviceLabel = '';
                     } else {
                         showNotification(`Časová kotva aktivována: ${msg.payload.checkpoint_id}`, 'success', 'checkpoint');
                         document.body.classList.add('checkpoint-unlock');
                         setTimeout(() => document.body.classList.remove('checkpoint-unlock'), 850);
-                        if (msg.payload.puzzle_id) showNotification('V archivu byla zpřístupněna nová hádanka.', 'success', null);
+                        if (msg.payload.puzzle_id) {
+                            showNotification('V zařízení byla zpřístupněna nová hádanka.', 'success', null);
+                            if (pendingChronosDevice && document.body.classList.contains('chronos-primary-mode')) {
+                                const deviceLabel = pendingChronosDeviceLabel;
+                                setTimeout(() => openChronosGadget('puzzles', deviceLabel), 180);
+                            }
+                        }
+                        pendingChronosDevice = '';
+                        pendingChronosDeviceLabel = '';
                     }
                 }
                 else if (msg.type === 'geo.result') {
@@ -3152,7 +3229,8 @@
         }
 
         function isChannelVisible(channel) {
-            return currentChannel === channel && document.getElementById('tab-intercom').classList.contains('active');
+            const intercom = document.getElementById('tab-intercom');
+            return currentChannel === channel && (intercom.classList.contains('active') || intercom.classList.contains('chronos-gadget-open'));
         }
 
         function markChannelUnread(channel) {
@@ -3183,6 +3261,11 @@
             badge.textContent = total > 99 ? '99+' : String(total);
             badge.classList.toggle('visible', total > 0);
             button.classList.toggle('has-unread', total > 0);
+            const gameBadge = document.getElementById('chronos-intercom-badge');
+            if (gameBadge) {
+                gameBadge.textContent = total > 99 ? '99+' : String(total);
+                gameBadge.classList.toggle('visible', total > 0);
+            }
         }
 
         function renderHintButtons(puzzle) {
@@ -3225,6 +3308,13 @@
             const visible = puzzlesState.filter(puzzle => puzzle.status === 'found');
             tabButton.disabled = visible.length === 0;
             tabButton.textContent = `HÁDANKY [${visible.length}]`;
+            const gadgetButton = document.getElementById('chronos-puzzles-gadget');
+            const gadgetCount = document.getElementById('chronos-puzzle-count');
+            if (gadgetButton) gadgetButton.disabled = visible.length === 0;
+            if (gadgetCount) {
+                gadgetCount.textContent = String(visible.length);
+                gadgetCount.classList.toggle('visible', visible.length > 0);
+            }
             if (!visible.length) {
                 container.innerHTML = '<p>Momentálně není rozehraná žádná hádanka.</p>';
                 updateTeamSokobanIntercomControls();
@@ -3820,6 +3910,7 @@
         function renderScenarioProgress(progress) {
             latestScenarioProgress = progress;
             window.chronosWeb3D?.update(progress);
+            syncChronosPrimaryMode(progress);
             postChronosWebglProgress(progress);
             renderOnlineMapActions();
             renderWorldMap(progress);
@@ -4458,7 +4549,103 @@
         }
         // --------------------------------
 
+        function sendChronosWebglControl(type, payload = {}) {
+            document.querySelector('.chronos-webgl-frame')?.contentWindow?.postMessage({type, ...payload}, location.origin);
+        }
+
+        function enterChronosPrimaryMode(force = true) {
+            if (adminModeRequested || (typeof adminSpectatingSession !== 'undefined' && adminSpectatingSession)) return;
+            if (!force && chronosPrimaryDismissed) return;
+            if (force) chronosPrimaryDismissed = false;
+            closeChronosGadget(false);
+            document.body.classList.add('chronos-primary-mode');
+            document.querySelectorAll('.tab-content').forEach(tab => tab.classList.remove('active'));
+            document.querySelectorAll('.tab-button').forEach(button => button.classList.remove('active'));
+            document.getElementById('tab-chronos-webgl').classList.add('active');
+            document.getElementById('chronos-webgl-tab-button')?.classList.add('active');
+            stopScanner();
+            sendChronosWebglControl('chronos.resume');
+        }
+
+        function syncChronosPrimaryMode(progress) {
+            if (progress?.world?.mode !== 'webgl') return;
+            const active = (progress.nodes || []).find(node => node.status === 'active')
+                || (progress.nodes || []).find(node => node.status === 'available');
+            const objective = document.getElementById('chronos-game-objective');
+            if (objective) {
+                objective.innerHTML = active
+                    ? `AKTIVNÍ CÍL · <strong>${escapeHtml(active.label)}</strong> · ${progress.completed_nodes}/${progress.total_nodes}`
+                    : `MISE · ${progress.completed_nodes}/${progress.total_nodes} UZLŮ DOKONČENO`;
+            }
+            if (!document.body.classList.contains('chronos-primary-mode')) enterChronosPrimaryMode(false);
+        }
+
+        function openChronosGadget(kind, deviceContext = '') {
+            const panels = {intercom:'tab-intercom', puzzles:'tab-puzzles', map:'tab-map'};
+            if (!document.body.classList.contains('chronos-primary-mode')) {
+                if (kind === 'cipher') { toggleCipherPanel(true); return; }
+                const panelId = panels[kind];
+                if (panelId) openTab(panelId, document.querySelector(`.tab-button[onclick*="${panelId}"]`));
+                return;
+            }
+            if (kind === 'puzzles' && document.getElementById('chronos-puzzles-gadget')?.disabled) {
+                showNotification('Deska zatím neobsahuje žádnou aktivní hádanku.', 'info');
+                sendChronosWebglControl('chronos.resume');
+                return;
+            }
+            if (kind === 'map' && document.getElementById('chronos-map-gadget')?.disabled) {
+                showNotification('CHRONOMAPA zatím není odemčená.', 'info');
+                sendChronosWebglControl('chronos.resume');
+                return;
+            }
+            document.querySelectorAll('.tab-content.chronos-gadget-open').forEach(panel => panel.classList.remove('chronos-gadget-open'));
+            const cipher = document.getElementById('cipher-panel');
+            cipher.classList.toggle('open', kind === 'cipher');
+            cipher.setAttribute('aria-hidden', String(kind !== 'cipher'));
+            if (kind !== 'cipher') document.getElementById(panels[kind])?.classList.add('chronos-gadget-open');
+            chronosActiveGadget = kind;
+            document.body.classList.add('chronos-gadget-active');
+            document.getElementById('chronos-gadget-backdrop').setAttribute('aria-hidden', 'false');
+            const contextLabels = {intercom:'OSOBNÍ INTERKOM',puzzles:'VYŠETŘOVACÍ DESKA',map:'CHRONOMAPA',cipher:'ŠIFROVACÍ MODUL'};
+            document.getElementById('chronos-gadget-context').textContent = deviceContext ? `PŘIPOJENO · ${deviceContext}` : contextLabels[kind];
+            document.getElementById('chronos-gadget-close').textContent = `× ZAVŘÍT ${kind === 'intercom' ? 'INTERKOM' : kind === 'puzzles' ? 'DESKU' : kind === 'map' ? 'MAPU' : 'ŠIFRY'}`;
+            sendChronosWebglControl('chronos.pause');
+            if (kind === 'intercom') clearChannelUnread(currentChannel);
+            if (kind === 'puzzles') renderPuzzles();
+            if (kind === 'cipher') renderCipherTools();
+        }
+
+        function closeChronosGadget(resumeWorld = true) {
+            document.querySelectorAll('.tab-content.chronos-gadget-open').forEach(panel => panel.classList.remove('chronos-gadget-open'));
+            const cipher = document.getElementById('cipher-panel');
+            cipher?.classList.remove('open');
+            cipher?.setAttribute('aria-hidden', 'true');
+            document.body.classList.remove('chronos-gadget-active');
+            document.getElementById('chronos-gadget-backdrop')?.setAttribute('aria-hidden', 'true');
+            chronosActiveGadget = '';
+            if (resumeWorld && document.body.classList.contains('chronos-primary-mode')) {
+                sendChronosWebglControl('chronos.resume');
+                document.querySelector('.chronos-webgl-frame')?.focus({preventScroll:true});
+            }
+        }
+
+        function leaveChronosPrimaryMode() {
+            closeChronosGadget(false);
+            chronosPrimaryDismissed = true;
+            document.body.classList.remove('chronos-primary-mode');
+            sendChronosWebglControl('chronos.pause');
+            openTab('tab-intercom', document.getElementById('intercom-tab-button'));
+        }
+
         function openTab(tabId, btnElement) {
+            if (tabId === 'tab-chronos-webgl' && latestScenarioProgress?.world?.mode === 'webgl') {
+                enterChronosPrimaryMode(true);
+                return;
+            }
+            if (document.body.classList.contains('chronos-primary-mode')) {
+                const gadget = {'tab-intercom':'intercom','tab-puzzles':'puzzles','tab-map':'map'}[tabId];
+                if (gadget) { openChronosGadget(gadget); return; }
+            }
             document.querySelectorAll('.tab-content').forEach(tab => tab.classList.remove('active'));
             document.querySelectorAll('.tab-button').forEach(btn => btn.classList.remove('active'));
             
@@ -4482,6 +4669,18 @@
             }
             if (tabId === 'tab-chronos3d') window.chronosWeb3D?.activate();
         }
+
+        window.addEventListener('keydown', event => {
+            if (!document.body.classList.contains('chronos-primary-mode')) return;
+            const tag = event.target?.tagName?.toLowerCase();
+            const typing = ['input','textarea','select'].includes(tag) || event.target?.isContentEditable;
+            if (event.code === 'Escape' && chronosActiveGadget) {
+                event.preventDefault();closeChronosGadget();return;
+            }
+            if (typing) return;
+            const gadget = {KeyI:'intercom',KeyB:'puzzles',KeyC:'cipher',KeyM:'map'}[event.code];
+            if (gadget) { event.preventDefault();openChronosGadget(gadget); }
+        });
         
         function switchChannel(channelId, btnElement) {
             currentChannel = channelId;
@@ -4561,6 +4760,11 @@
             const type = event.data?.type;
             if (type === 'chronos.webgl.ready') {
                 postChronosWebglProgress();
+                sendChronosWebglControl(chronosActiveGadget ? 'chronos.pause' : 'chronos.resume');
+                return;
+            }
+            if (type === 'chronos.webgl.gadget') {
+                openChronosGadget(String(event.data.gadget || 'intercom'));
                 return;
             }
             if (type === 'chronos.webgl.checkpoint') {
@@ -4576,6 +4780,8 @@
                     showNotification('Kotva nemá platný aktivační token pro tuto relaci.', 'error');
                     return;
                 }
+                pendingChronosDevice = checkpointId;
+                pendingChronosDeviceLabel = node.label || event.data.label || checkpointId;
                 simulateQrScan(activationValue, node.label || event.data.label || checkpointId);
                 return;
             }
@@ -4586,12 +4792,13 @@
                     showNotification('Přístupový panel pokoje je zatím uzamčený.', 'error');
                     return;
                 }
-                document.getElementById('puzzles-tab-button')?.click();
+                openChronosGadget('puzzles', node.label || event.data.label || roomId);
                 showNotification(`Přístupový panel: ${node.label || event.data.label || roomId}`, 'info');
                 return;
             }
             if (!['chronos.webgl.exit','chronos.webgl.complete'].includes(type)) return;
-            document.getElementById('intercom-tab-button')?.click();
+            if (document.body.classList.contains('chronos-primary-mode')) openChronosGadget('intercom');
+            else document.getElementById('intercom-tab-button')?.click();
             if (type === 'chronos.webgl.complete') showNotification('Výzkumný areál CHRONOS dokončen.', 'success');
         });
     </script>
