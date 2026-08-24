@@ -46,6 +46,25 @@
       "front_normal_deg": 30,
       "floors": 8,
       "repeat_x": 1
+    },
+    {
+      "osm_ids": [45819513, 45819515, 45819516, 45819517, 45819518, 45819521, 45819522, 45819523, 45819524, 45819520, 45819519, 45819511, 45819526, 45819527, 45819530, 45819531, 45819528],
+      "name": "Pernštýnské náměstí – jihovýchodní fronta",
+      "asset": "/assets/textures/pardubice/pernstynske-se-frontage-v1.png",
+      "status": "prototype",
+      "source": "Rectified architectural atlas derived from a Wikimedia Commons panorama",
+      "reference_url": "https://commons.wikimedia.org/wiki/File:Pardubice_Pernstynske_namesti_jv_strana.jpg",
+      "reference_author": "Ludek",
+      "license": "CC BY-SA 3.0",
+      "modified": true,
+      "facade_width_m": 140,
+      "facade_height_m": 13,
+      "facade_center_m": [66.6, 19.4],
+      "facade_axis_deg": 22,
+      "front_normal_deg": 112,
+      "reverse_x": true,
+      "remove_edge_background": true,
+      "repeat_x": 1
     }
   ]
 }

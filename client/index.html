@@ -3846,15 +3846,30 @@
                         image.onerror = () => reject(new Error(`Asset ${entry.asset} se nenačetl`));
                         image.src = entry.asset;
                     });
-                    return [String(entry.osm_id), {...entry, image}];
+                    const preparedImage=entry.remove_edge_background?removeDoomImageEdgeBackground(image):image;
+                    const osmIds=entry.osm_ids||[entry.osm_id];
+                    return osmIds.map(osmId=>[String(osmId), {...entry,osm_id:osmId,image:preparedImage}]);
                 }));
                 doomFacadeTextures.clear();
-                loaded.forEach(([osmId, entry]) => doomFacadeTextures.set(osmId, entry));
+                loaded.flat().forEach(([osmId, entry]) => doomFacadeTextures.set(osmId, entry));
                 doomFacadeManifestUrl = url;
                 requestDoomRender(true);
             } catch (error) {
                 showNotification(`Lokální textury fasád se nenačetly: ${error.message}`, 'error');
             }
+        }
+
+        function removeDoomImageEdgeBackground(image){
+            const canvas=document.createElement('canvas');canvas.width=image.naturalWidth;canvas.height=image.naturalHeight;
+            const context=canvas.getContext('2d',{willReadFrequently:true});context.drawImage(image,0,0);
+            const frame=context.getImageData(0,0,canvas.width,canvas.height),pixels=frame.data,width=canvas.width,height=canvas.height;
+            const visited=new Uint8Array(width*height),queue=new Int32Array(width*height);let head=0,tail=0;
+            const background=index=>pixels[index*4]>245&&pixels[index*4+1]>245&&pixels[index*4+2]>245;
+            const enqueue=index=>{if(index>=0&&index<visited.length&&!visited[index]&&background(index)){visited[index]=1;queue[tail++]=index}};
+            for(let x=0;x<width;x++){enqueue(x);enqueue((height-1)*width+x)}
+            for(let y=1;y<height-1;y++){enqueue(y*width);enqueue(y*width+width-1)}
+            while(head<tail){const index=queue[head++],x=index%width;pixels[index*4+3]=0;if(x)enqueue(index-1);if(x<width-1)enqueue(index+1);enqueue(index-width);enqueue(index+width)}
+            context.putImageData(frame,0,0);return canvas;
         }
 
         async function toggleDoomFullscreen() {
@@ -4130,25 +4145,26 @@
             if(hit.kind==='passage'){
                 ctx.fillStyle=`rgb(${Math.round(light*.28)},${Math.round(light*.7)},${Math.round(light*.82)})`;ctx.fillRect(x,top,width,height);return;
             }
-            const variation=1+Math.sin(x*.31+hit.distance*.17)*.09,roofHeight=Math.max(3,Math.min(height*.18,26));
-            const roofPalette={maroon:'#542a2c',red:'#71342d',brown:'#50372b',gray:'#42464b',grey:'#42464b',black:'#202428',teal:'#285154',green:'#304d35'};
-            ctx.fillStyle=roofPalette[String(hit.roofColor).toLowerCase()]||'#5b302d';ctx.fillRect(x,top,width,roofHeight);
-            if(hit.roofShape!=='flat'){ctx.fillStyle='rgba(255,205,150,.18)';ctx.fillRect(x,top+roofHeight-2,width,2)}
-            const wallTop=top+roofHeight,wallHeight=Math.max(0,height-roofHeight);
-            ctx.fillStyle=`rgb(${Math.round(light*variation)},${Math.round(light*.72*variation)},${Math.round(light*.49*variation)})`;ctx.fillRect(x,wallTop,width,wallHeight);
             const facade=doomFacadeTexture?.buildingId===hit.buildingId?doomFacadeTexture:doomFacadeTextures.get(String(hit.buildingId));
-            if(facade?.render_mode!=='landmark_sprite'&&facade?.image.complete){
+            if(facade?.render_mode!=='landmark_sprite'&&facade?.image?.width&&doomLandmarkFacesPlayer(facade)){
                 const texture=facade.image,repeat=Math.max(1,Number(facade.repeat_x||1));
                 let u=Number(hit.facadeU||0);
                 if(facade.facade_center_m&&hit.hitPoint){
                     const axis=Number(facade.facade_axis_deg||0)*Math.PI/180,center=facade.facade_center_m,widthMeters=Math.max(1,Number(facade.facade_width_m||1));
                     u=.5+((hit.hitPoint.x_m-Number(center[0]))*Math.cos(axis)+(hit.hitPoint.y_m-Number(center[1]))*Math.sin(axis))/widthMeters;
                 }
+                if(facade.reverse_x)u=1-u;
                 u=((u*repeat)%1+1)%1;
-                const sliceWidth=Math.max(1,texture.naturalWidth/180),sourceX=Math.max(0,Math.min(texture.naturalWidth-sliceWidth,u*(texture.naturalWidth-sliceWidth)));
-                ctx.drawImage(texture,sourceX,0,sliceWidth,texture.naturalHeight,x,wallTop,width,wallHeight);
-                ctx.fillStyle=`rgba(8,10,12,${Math.max(.08,Math.min(.62,hit.distance/180))})`;ctx.fillRect(x,wallTop,width,wallHeight);
+                const sliceWidth=Math.max(1,texture.width/240),sourceX=Math.max(0,Math.min(texture.width-sliceWidth,u*(texture.width-sliceWidth)));
+                ctx.drawImage(texture,sourceX,0,sliceWidth,texture.height,x,top,width,height);
+                ctx.fillStyle=`rgba(8,10,12,${Math.max(.06,Math.min(.58,hit.distance/190))})`;ctx.fillRect(x,top,width,height);return;
             }
+            const variation=1+Math.sin(x*.31+hit.distance*.17)*.09,roofHeight=Math.max(3,Math.min(height*.18,26));
+            const roofPalette={maroon:'#542a2c',red:'#71342d',brown:'#50372b',gray:'#42464b',grey:'#42464b',black:'#202428',teal:'#285154',green:'#304d35'};
+            ctx.fillStyle=roofPalette[String(hit.roofColor).toLowerCase()]||'#5b302d';ctx.fillRect(x,top,width,roofHeight);
+            if(hit.roofShape!=='flat'){ctx.fillStyle='rgba(255,205,150,.18)';ctx.fillRect(x,top+roofHeight-2,width,2)}
+            const wallTop=top+roofHeight,wallHeight=Math.max(0,height-roofHeight);
+            ctx.fillStyle=`rgb(${Math.round(light*variation)},${Math.round(light*.72*variation)},${Math.round(light*.49*variation)})`;ctx.fillRect(x,wallTop,width,wallHeight);
             const course=Math.max(7,Math.min(24,height/9)),offset=Math.floor(hit.distance*1.7)%Math.round(course);
             ctx.fillStyle='rgba(35,24,19,.32)';
             for(let y=wallTop+offset;y<top+height;y+=course)ctx.fillRect(x,y,width,1);
