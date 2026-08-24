@@ -4040,7 +4040,11 @@
                 const landmark=doomFacadeTextures.get(String(building.osm_id));
                 if(landmark?.render_mode==='landmark_sprite'&&doomLandmarkFacesPlayer(landmark))continue;
                 let buildingHit=null;
-                for(const polygon of [building.polygon_m||[],...(building.holes_m||[])]){
+                // Courtyard rings are real walls only for a player standing inside
+                // that courtyard. Rendering them from the street makes rear wings
+                // rise through the front facade and produces bridge-like blocks.
+                const visibleCourtyards=(building.holes_m||[]).filter(hole=>pointInPolygon(origin,hole));
+                for(const polygon of [building.polygon_m||[],...visibleCourtyards]){
                     for(let index=1;index<polygon.length;index++){
                         const intersection=raySegmentHit(origin,angle,polygon[index-1],polygon[index]),distance=intersection?.distance??null;
                         const hitPoint=distance===null?null:{x_m:origin.x_m+Math.cos(angle)*distance,y_m:origin.y_m+Math.sin(angle)*distance};
