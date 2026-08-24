@@ -708,7 +708,7 @@ async def world_geometry(geometry_id: str) -> Response:
         return JSONResponse({"error": "Geometrie mapy není dostupná."}, status_code=404)
     with open(path, "r", encoding="utf-8") as source:
         content = source.read()
-    return Response(content=content, media_type="application/json", headers={"Cache-Control": "public, max-age=3600"})
+    return Response(content=content, media_type="application/json", headers={"Cache-Control": "no-store"})
 
 
 @app.get("/admin")

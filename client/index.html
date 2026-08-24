@@ -3816,13 +3816,17 @@
         }
 
         async function loadDoomGeometry(url) {
-            if (!url || (doomGeometry && doomGeometryUrl === url)) return;
+            if (!url) return;
+            const requestUrl=new URL(url,window.location.origin);
+            requestUrl.searchParams.set('revision','multipolygon-v1');
+            const resolvedUrl=requestUrl.toString();
+            if (doomGeometry && doomGeometryUrl === resolvedUrl) return;
             try {
-                doomGeometry = await fetch(url).then(response => {
+                doomGeometry = await fetch(resolvedUrl,{cache:'no-store'}).then(response => {
                     if (!response.ok) throw new Error(`HTTP ${response.status}`);
                     return response.json();
                 });
-                doomGeometryUrl = url; drawDoomMap();
+                doomGeometryUrl = resolvedUrl; drawDoomMap();
             } catch (error) {
                 showNotification(`OSM geometrie se nenačetla: ${error.message}`, 'error');
             }

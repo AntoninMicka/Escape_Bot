@@ -1,4 +1,4 @@
-const CACHE_NAME = 'escape-bot-v84';
+const CACHE_NAME = 'escape-bot-v85';
 const ASSETS_TO_CACHE = [
     './',
     './index.html',
@@ -44,12 +44,18 @@ self.addEventListener('activate', (event) => {
 });
 
 self.addEventListener('fetch', (event) => {
-    // Vyhneme se cachování WebSocket spojení a backendových API (pokud nějaké budou)
+    const requestUrl = new URL(event.request.url);
+    // Dynamický backendový stav a mapová geometrie nesmí uvíznout ve statické
+    // cache aplikace. Pro API vždy preferujeme přímo síťovou odpověď.
+    if (requestUrl.pathname.startsWith('/api/')) {
+        event.respondWith(fetch(event.request));
+        return;
+    }
     if (event.request.url.includes('/ws') || event.request.method !== 'GET') return;
 
     // HTML musí být po nasazení kompatibilní s aktuálním backendem. Při
     // navigaci proto preferujeme síť a cache používáme pouze při výpadku.
-    if (event.request.mode === 'navigate' || new URL(event.request.url).pathname.endsWith('/index.html')) {
+    if (event.request.mode === 'navigate' || requestUrl.pathname.endsWith('/index.html')) {
         event.respondWith(
             fetch(event.request)
                 .then((response) => {
