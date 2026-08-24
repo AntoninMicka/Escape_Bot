@@ -576,6 +576,18 @@
         .doom-streetview { position:relative; margin:8px 0; border:1px solid #0aa; background:#061012; }
         .doom-streetview img { display:block; width:100%; max-height:70vh; object-fit:contain; }
         .doom-streetview-bar { display:flex; justify-content:space-between; align-items:center; gap:8px; padding:6px 8px; color:#9dd; }
+        .chronos3d-shell { max-width:1180px; margin:0 auto; }
+        .chronos3d-shell canvas { display:block; width:100%; height:min(64vh,620px); min-height:320px; border:1px solid #0aa; background:#020707; }
+        .chronos3d-shell canvas:focus { outline:2px solid #0ff; outline-offset:2px; }
+        .chronos3d-hud { display:flex; flex-wrap:wrap; justify-content:space-between; gap:8px 18px; padding:8px 0; color:#9dd; }
+        .chronos3d-hud strong { color:#fff; }
+        .chronos3d-actions { display:flex; flex-wrap:wrap; justify-content:center; gap:6px; margin:7px 0; touch-action:none; user-select:none; }
+        .chronos3d-actions button { min-width:54px; min-height:42px; font-size:1.05rem; }
+        .chronos3d-actions .wide { min-width:118px; }
+        .chronos3d-message { min-height:1.5em; text-align:center; color:#ffcf5a; }
+        .chronos3d-directory { display:grid; grid-template-columns:repeat(3,1fr); gap:6px; margin:8px 0; color:#9bb; font-size:.86rem; }
+        .chronos3d-directory span { border:1px solid #355; padding:6px 9px; background:#061012; }
+        @media (max-width:700px) { .chronos3d-directory { grid-template-columns:1fr; } }
         .scenario-editor-grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
         .scenario-editor-grid textarea { width:100%; min-height:55vh; box-sizing:border-box; font:12px/1.4 monospace; }
         .scenario-variable-form { border:1px solid #066; padding:12px; margin:12px 0; }
@@ -750,6 +762,7 @@
         <span id="team-status" style="align-self:center; color:#0aa; white-space:nowrap"></span>
         <span id="device-role" class="device-role"><small>ZAŘÍZENÍ:</small><button id="role-observer" onclick="setDeviceRole('observer')">MAPA</button><button id="role-navigator" onclick="setDeviceRole('navigator')">INTERKOM</button><button id="role-free" onclick="setDeviceRole('free')">VOLNĚ</button></span>
         <button id="chronomap-tab-button" class="tab-button" onclick="openTab('tab-map', this)" disabled>CHRONOMAPA [OFFLINE]</button>
+        <button id="chronos3d-tab-button" class="tab-button" onclick="openTab('tab-chronos3d', this)">ÚSTAV 3D</button>
         <button id="puzzles-tab-button" class="tab-button" onclick="openTab('tab-puzzles', this)" disabled>HÁDANKY [0]</button>
         <button class="tab-button" onclick="openTab('tab-scanner', this)">SKENER (Kamera)</button>
         <button class="tab-button" onclick="openTab('tab-leaderboard', this)">SÍŇ SLÁVY</button>
@@ -844,6 +857,22 @@
         </div>
     </div>
 
+    <div id="tab-chronos3d" class="tab-content">
+        <section class="chronos3d-shell">
+            <h2>[ VIRTUÁLNÍ ÚSTAV CHRONOS ]</h2>
+            <canvas id="chronos3d-canvas" width="1100" height="620" tabindex="0" aria-label="Virtuální výzkumný ústav z pohledu hráče"></canvas>
+            <div class="chronos3d-hud"><span id="chronos3d-zone">ZÓNA —</span><span id="chronos3d-target">CÍL —</span><span id="chronos3d-layer">VRSTVA PŘÍTOMNOST</span></div>
+            <div class="chronos3d-directory" aria-label="Přehled podlaží"><span><strong>−1 PODZEMÍ</strong> · laboratoře</span><span><strong>0 PŘÍZEMÍ</strong> · recepce, terasa, sportovní areál, bowling</span><span><strong>1 PATRO</strong> · ubikace</span></div>
+            <div class="chronos3d-actions" aria-label="Dotykové ovládání Ústavu CHRONOS">
+                <button data-chronos-control="left">↶</button><button data-chronos-control="forward">▲</button><button data-chronos-control="right">↷</button>
+                <button data-chronos-control="strafe-left">◀</button><button data-chronos-control="backward">▼</button><button data-chronos-control="strafe-right">▶</button>
+                <button class="wide" data-chronos-action="interact">E · AKTIVOVAT</button><button class="wide" data-chronos-action="layer">T · ČASOVÁ VRSTVA</button>
+            </div>
+            <p id="chronos3d-message" class="chronos3d-message">Čekám na stav herní relace…</p>
+            <p>WASD: pohyb · šipky: otáčení · E: terminál / schodiště / výtah · T: časová vrstva · R: návrat na recepci</p>
+        </section>
+    </div>
+
     <div id="tab-scanner" class="tab-content">
         <h2>[ OPTICKÝ SKENER ] <span id="demo-scanner-badge" class="demo-badge" style="display:none">DEMO</span></h2>
         <section id="scenario-progress" class="scenario-progress">
@@ -885,10 +914,10 @@
         </div>
     </div>
 
-    <button id="build-version" class="build-version" type="button" title="Kliknutím zkontrolovat aktualizaci">BUILD v89 · SW …</button>
+    <button id="build-version" class="build-version" type="button" title="Kliknutím zkontrolovat aktualizaci">BUILD v90 · SW …</button>
 
     <script>
-        const APP_BUILD_VERSION = 'v89';
+        const APP_BUILD_VERSION = 'v90';
         let ws;
         const input = document.getElementById('msgInput');
         let currentChannel = 'general';
@@ -3780,6 +3809,7 @@
 
         function renderScenarioProgress(progress) {
             latestScenarioProgress = progress;
+            window.chronosWeb3D?.update(progress);
             renderOnlineMapActions();
             renderWorldMap(progress);
             const panel = document.getElementById('scenario-progress');
@@ -4433,6 +4463,7 @@
             if (tabId === 'tab-intercom') {
                 clearChannelUnread(currentChannel);
             }
+            if (tabId === 'tab-chronos3d') window.chronosWeb3D?.activate();
         }
         
         function switchChannel(channelId, btnElement) {
@@ -4501,5 +4532,6 @@
             });
         }
     </script>
+    <script src="chronos3d.js"></script>
 </body>
 </html>

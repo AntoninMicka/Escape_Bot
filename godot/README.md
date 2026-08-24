@@ -26,3 +26,9 @@ terminály fungují v lokálním prezentačním režimu.
 Geometrie je záměrně generovaná ve `scripts/main.gd`. Díky tomu lze v této rané
 fázi rychle měnit dispozici; po ověření měřítka se jednotlivé zóny převedou na
 samostatné scény a nahradí finálními modely.
+
+## Webová varianta
+
+Stejný Ústav CHRONOS je dostupný také bez Godotu přímo v hlavním webovém klientu
+na záložce **ÚSTAV 3D**. Canvasový renderer je v `client/chronos3d.js`, sdílí
+aktuální týmovou relaci a aktivuje checkpointy přes stejný WebSocket jako skener.
