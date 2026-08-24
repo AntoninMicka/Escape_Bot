@@ -1104,3 +1104,121 @@ Původní stručný záměr je rozpracován v oddílu 19. Editor nemá být svá
 - [ ] Ověřit vzhled z více úhlů, rozměry oken a dveří, paměť, FPS na slabším telefonu a offline chod bez Mapillary.
 - [ ] Teprve po schválení referenční budovy zpracovat přibližně 10–20 orientačních budov kolem checkpointů; zbytek ponechat procedurální.
 - [ ] Po dokončení lokálních assetů odstranit nebo skrýt experimentální tlačítko `TEXTURA FASÁDY` a ponechat Mapillary integraci pouze jako vývojový nástroj.
+
+## 21. Technologické rozhodnutí pro webové 3D a mapová data
+
+**Stav odpovědí k 2026-08-24:** WebGL/WebGPU runtime nemusíme vyvíjet od nuly. Engine a mapová data jsou dvě oddělená rozhodnutí: open-source engine může být bez licenčního poplatku, zatímco streamovaná fotorealistická data se účtují podle poskytovatele a provozu. Ceny a podmínky před nasazením znovu ověřit v aktuálních cenících.
+
+### 21.1 Kandidáti na open-source engine
+
+- [ ] Ověřit PlayCanvas Engine jako prvního kandidáta pro online „Ztracenou“: MIT licence, WebGL2/WebGPU, glTF/GLB, malý webový runtime a možnost provozu bez placené cloudové služby PlayCanvas.
+- [ ] Připravit srovnávací scénu v Babylon.js: Apache 2.0, širší hotová herní výbava, fyzika, kolize, WebXR a robustní nástroje za cenu většího frameworku.
+- [ ] Three.js ponechat jako nízkoúrovňovou MIT alternativu pro případ, že budeme chtít maximální kontrolu a přijmeme vlastní implementaci herní vrstvy, kolizí a editorových vazeb.
+- [ ] Na stejném slabším telefonu porovnat dobu prvního načtení, velikost bundlu, FPS, spotřebu paměti, glTF workflow, kolize, dotykové ovládání a napojení na stávající WebSocket protokol.
+- [ ] Pro první spike předběžně preferovat PlayCanvas Engine; finální volbu udělat až podle měření, nikoli podle ukázek na desktopu.
+
+### 21.2 Komerční a otevřená 3D mapová data
+
+- [ ] Pro autorský svět „Ztracené“ nepoužívat mapového poskytovatele: vlastní geometrie a lokální assety odstraní průběžné poplatky, závislost na síti, nejistotu reálných dat a omezení herního designu.
+- [ ] Google Photorealistic 3D Tiles evidovat jako preferovanou technologii pro budoucí fotorealistické realizace skutečných měst. K 2026-08-24 uvádí Google 1 000 událostí měsíčně zdarma a následně přibližně 6 USD za 1 000 událostí v prvním globálním pásmu; účtovanou událostí je požadavek vracející 3D tile/root tileset podle aktuální dokumentace.
+- [ ] Před prototypem Google 3D Tiles ověřit pokrytí konkrétního českého území, vizuální kvalitu v potřebné výšce, skutečný počet účtovaných událostí na herní relaci, limity session tokenu, podmínky atribuce, zákaz či omezení ukládání a možnost kombinace s vlastním herním obsahem.
+- [ ] CesiumJS posuzovat odděleně od Cesium ion: open-source renderer lze použít samostatně, zatímco ion je placená hostingová/streamovací služba. Orientační tarify ion k 2026-08-24 začínají na 149 USD měsíčně pro komerčního jednotlivce a 524 USD pro tým; vyšší tarify začínají na 499/874 USD.
+- [ ] Mapbox chápat primárně jako vektorovou mapu s extrudovanými budovami, nikoli náhradu fotogrammetrických Google 3D Tiles. K 2026-08-24 má Vector Tiles API prvních 200 000 požadavků měsíčně zdarma a další pásmo přibližně 0,25 USD za 1 000 požadavků.
+- [ ] OSM, vlastní modely a otevřené datasety používat tam, kde potřebujeme editovatelnost a offline provoz; počítat s ruční kontrolou topologie, výšek, průchodů, multipolygonů a licenční atribuce.
+- [ ] Udělat samostatný Google Photorealistic 3D Tiles spike mimo „Ztracenou“: jedna podporovaná lokalita, omezená kamera, měření přenosu a ceny deseti typických relací, bez závazku k produkčnímu použití.
+
+### 21.3 Pracovní závěr
+
+- [ ] Pro „Ztracenou“ vytvořit vlastní stylizovaný svět v open-source enginu.
+- [ ] Google Photorealistic 3D Tiles ponechat jako preferovanou variantu pro budoucí hru pevně svázanou se skutečným městem, pokud projde licenčním, cenovým a výkonovým ověřením.
+- [ ] Nekombinovat výběr enginu s výběrem dat: PlayCanvas/Babylon/Three mohou vykreslovat vlastní obsah; CesiumJS je přirozenější kandidát pro rozsáhlá geodata a 3D Tiles.
+
+### 21.4 Referenční zdroje pro další ověření
+
+- [PlayCanvas Engine – open-source MIT runtime](https://playcanvas.com/products/engine)
+- [Babylon.js – oficiální repozitář a licence Apache 2.0](https://github.com/BabylonJS/Babylon.js)
+- [Three.js – oficiální repozitář a licence MIT](https://github.com/mrdoob/three.js/)
+- [Google Maps Platform – aktuální ceník Photorealistic 3D Tiles](https://developers.google.com/maps/billing-and-pricing/pricing)
+- [Google Map Tiles API – způsob účtování a session tokeny](https://developers.google.com/maps/documentation/tile/usage-and-billing)
+- [Cesium ion – aktuální tarify a kvóty](https://cesium.com/platform/cesium-ion/pricing/)
+- [Mapbox – aktuální ceny map a tile API](https://www.mapbox.com/pricing)
+
+## 22. Značka a doména `UTEČ MI` / `utecmi.cz`
+
+**Pracovní plán, nikoli právní stanovisko:** konkrétní dostupnost domény, kolize označení, rozlišovací způsobilost a konečné znění výrobků a služeb je nutné ověřit bezprostředně před podáním v aktuálních rejstřících, TMclass a ideálně s patentovým zástupcem či advokátem.
+
+### 22.1 Zaregistrovat doménu `utecmi.cz`
+
+- [ ] Ověřit aktuální stav v CZ.NIC WHOIS.
+- [ ] Pokud je volná, registrovat ji ještě před zveřejněním přihlášky ochranné známky.
+- [ ] Zvážit i obranné registrace blízkých variant, pokud dávají obchodní smysl.
+
+### 22.2 Provést finální rešerši ochranných známek
+
+- [ ] Prověřit přesné varianty `UTEČ MI`, `UTEČMI`, `UTEC MI`, `UTECMI`.
+- [ ] Prověřit podobná označení: `UTEČ`, `UTEK`, `ÚTĚK`, `UTEČTE`, `ESCAPE ME` a další významově či foneticky podobné varianty.
+- [ ] Zaměřit rešerši především na Nice třídy 9, 41 a 42.
+- [ ] Prověřit české známky ÚPV, ochranné známky EUIPO a relevantní mezinárodní známky WIPO.
+- [ ] Zkontrolovat také případné starší nezapsané značky používané v oblasti únikových a interaktivních her.
+
+### 22.3 Připravit slovní ochrannou známku `UTEČ MI`
+
+- [ ] Preferovat slovní známku před samotným logem.
+- [ ] Podat ji jako zastřešující značku/platformu, nikoli jen jako název jedné escape room.
+- [ ] Počítat s možností, že ÚPV bude posuzovat vztah slova „uteč“ k únikovým hrám z hlediska rozlišovací způsobilosti.
+
+### 22.4 Připravit třídu 41 – hry a zábava
+
+- [ ] Pokrýt poskytování interaktivních her a online herních služeb.
+- [ ] Pokrýt organizování a provozování dobrodružných a únikových her.
+- [ ] Pokrýt geolokační, checkpointové a venkovní hry.
+- [ ] Pokrýt živé/on-site hry a herní akce.
+- [ ] Neomezovat formulaci zbytečně pouze na pojem „úniková hra“.
+
+### 22.5 Připravit třídu 9 – software
+
+- [ ] Pokrýt stažitelný herní software a mobilní aplikace.
+- [ ] Pokrýt klientský software pro online hry.
+- [ ] Pokrýt aplikace využívající GPS/geolokaci a checkpointy.
+
+### 22.6 Připravit třídu 42 – herní platforma
+
+- [ ] Pokrýt provoz webové herní platformy a SaaS pro poskytování her.
+- [ ] Pokrýt serverovou část online a geolokačních her.
+- [ ] Formulovat tuto třídu zejména pro případ, že `utecmi.cz` bude společná technologická platforma pro více her.
+
+### 22.7 Rozhodnout, zda je potřeba třída 35
+
+- [ ] Přidat ji, pokud bude `utecmi.cz` nabízet nebo zprostředkovávat hry jiných provozovatelů.
+- [ ] Zvážit ji pro marketplace, rezervace nebo obchodní zprostředkování.
+- [ ] Pokud budou přes platformu dostupné pouze vlastní hry, zatím ji vynechat.
+
+### 22.8 Zkontrolovat konečný seznam výrobků a služeb
+
+- [ ] Použít formulace odpovídající terminologii Nice/TMclass.
+- [ ] Zajistit dostatečně široké pokrytí budoucích variant projektu.
+- [ ] Současně se vyhnout službám, které reálně nejsou plánované.
+
+### 22.9 Podat českou přihlášku ochranné známky
+
+- [ ] Primárně podat slovní označení `UTEČ MI`.
+- [ ] Ideálně využít společně třídy 9, 41 a 42 podle výsledku rešerše a finálního seznamu služeb.
+- [ ] Po podání sledovat průběh řízení a případné námitky třetích stran.
+
+### 22.10 Připravit logo jako druhou fázi ochrany
+
+- [ ] Navrhnout jednotnou vizuální identitu `UTEČ MI`.
+- [ ] Logo případně přihlásit jako samostatnou obrazovou/kombinovanou známku.
+- [ ] Použít grafickou známku také jako záložní variantu, pokud by byla slovní známka problematická.
+
+### 22.11 Budovat `UTEČ MI` jako zastřešující značku
+
+- [ ] Zahrnout online hry, GPS/geolokační hry a venkovní hry.
+- [ ] Zahrnout hry s fyzickými checkpointy, hry v hotelech, budovách a areálech a klasické on-site escape hry.
+- [ ] Směřovat k jednotné platformě a účtu hráče napříč jednotlivými typy her.
+
+### 22.12 Po rozjezdu projektu přehodnotit rozsah ochrany
+
+- [ ] Zvážit ochrannou známku EU, pokud se projekt začne používat mimo ČR.
+- [ ] Zvážit další třídy podle nových služeb.
+- [ ] Průběžně sledovat nové podobné ochranné známky a domény.
