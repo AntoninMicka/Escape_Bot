@@ -563,7 +563,10 @@ def admin_overview(watched_sessions: set[str] | None = None) -> list[dict[str, o
             "timeline": timeline,
             "hints_used": dict(state.get("hints_used", {})),
             "puzzle_attempts": dict(state.get("puzzle_attempts", {})),
-            "puzzle_telemetry": build_puzzle_telemetry(machine.scenario, state),
+            # A lobby can survive while its session snapshot is missing (for
+            # example after an interrupted development reset). Keep it visible
+            # to the administrator instead of failing the entire overview.
+            "puzzle_telemetry": build_puzzle_telemetry(machine.scenario, state) if machine else [],
             "recent_messages": list(state.get("chat_history", []))[-8:],
             "support_chat": [item for item in state.get("chat_history", []) if item.get("channel") == "support"],
             "admin_support_joined": lobby.session_id in (watched_sessions or set()),
