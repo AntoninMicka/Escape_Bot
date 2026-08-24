@@ -587,6 +587,7 @@
         .chronos3d-message { min-height:1.5em; text-align:center; color:#ffcf5a; }
         .chronos3d-directory { display:grid; grid-template-columns:repeat(3,1fr); gap:6px; margin:8px 0; color:#9bb; font-size:.86rem; }
         .chronos3d-directory span { border:1px solid #355; padding:6px 9px; background:#061012; }
+        .chronos-webgl-frame { display:block; width:100%; height:max(520px,calc(100dvh - 210px)); border:1px solid #0aa; background:#020707; }
         @media (max-width:700px) { .chronos3d-directory { grid-template-columns:1fr; } }
         .scenario-editor-grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
         .scenario-editor-grid textarea { width:100%; min-height:55vh; box-sizing:border-box; font:12px/1.4 monospace; }
@@ -763,6 +764,7 @@
         <span id="device-role" class="device-role"><small>ZAŘÍZENÍ:</small><button id="role-observer" onclick="setDeviceRole('observer')">MAPA</button><button id="role-navigator" onclick="setDeviceRole('navigator')">INTERKOM</button><button id="role-free" onclick="setDeviceRole('free')">VOLNĚ</button></span>
         <button id="chronomap-tab-button" class="tab-button" onclick="openTab('tab-map', this)" disabled>CHRONOMAPA [OFFLINE]</button>
         <button id="chronos3d-tab-button" class="tab-button" onclick="openTab('tab-chronos3d', this)">ÚSTAV 3D</button>
+        <button id="chronos-webgl-tab-button" class="tab-button" onclick="openTab('tab-chronos-webgl', this)">ÚSTAV WEBGL [SPIKE]</button>
         <button id="puzzles-tab-button" class="tab-button" onclick="openTab('tab-puzzles', this)" disabled>HÁDANKY [0]</button>
         <button class="tab-button" onclick="openTab('tab-scanner', this)">SKENER (Kamera)</button>
         <button class="tab-button" onclick="openTab('tab-leaderboard', this)">SÍŇ SLÁVY</button>
@@ -870,6 +872,14 @@
             </div>
             <p id="chronos3d-message" class="chronos3d-message">Čekám na stav herní relace…</p>
             <p>WASD: pohyb · šipky: otáčení · E: terminál / schodiště / výtah · T: časová vrstva · R: návrat na recepci</p>
+        </section>
+    </div>
+
+    <div id="tab-chronos-webgl" class="tab-content">
+        <section class="chronos3d-shell">
+            <h2>[ ZTRACENÁ ONLINE · WEBGL VERTIKÁLNÍ ŘEZ ]</h2>
+            <iframe class="chronos-webgl-frame" src="chronos-webgl/dist/index.html" title="WebGL vertikální řez Ústavu CHRONOS" loading="lazy" allow="fullscreen"></iframe>
+            <p>Technický prototyp skutečného 3D. Původní záložka ÚSTAV 3D zůstává bezpečným fallbackem.</p>
         </section>
     </div>
 
@@ -4531,6 +4541,13 @@
                 });
             });
         }
+    </script>
+    <script>
+        window.addEventListener('message', event => {
+            if (event.origin !== location.origin || !['chronos.webgl.exit','chronos.webgl.complete'].includes(event.data?.type)) return;
+            document.getElementById('intercom-tab-button')?.click();
+            if (event.data.type === 'chronos.webgl.complete') showNotification('WebGL vertikální řez dokončen.', 'success');
+        });
     </script>
     <script src="chronos3d.js"></script>
 </body>

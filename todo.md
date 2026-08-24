@@ -669,14 +669,14 @@ Původní stručný záměr je rozpracován v oddílu 19. Editor nemá být svá
 
 ### 15.1 Hranice modulu a technický prototyp
 
-- [ ] Sepsat nový krátký design „Ztracené“ jako samostatného online titulu: premisa, kapitoly, role Kapitánky a Ztracené, cílová délka, počet hráčů, podmínky vítězství a sólo varianta.
+- [x] Sepsat první krátký design „Ztracené“ jako samostatného online titulu a vymezit 5–10minutový vertikální řez; další kapitoly, plný rozsah rolí a cílovou délku celé hry doplnit po jeho testu.
 - [ ] Navrhnout malé vlastní území bez závislosti na OSM: výrazná silueta, 3–5 zón, bezpečné hranice, portály, orientační body a prostor pro postupné odemykání cest.
 - [ ] Vybrat open-source WebGL/WebGPU engine samostatným technickým spike: předběžní kandidáti PlayCanvas Engine, Babylon.js a Three.js; porovnat mobilní výkon, glTF/GLB workflow, fyziku/kolize, velikost bundlu a integraci do stávající PWA.
-- [ ] Vymezit první technický vertikální řez na 5–10 minut: jedna zóna, jeden společný úkol, nalezení první stopy Ztracené a bezpečný návrat do komunikátoru.
-- [ ] Implementovat modul jako samostatnou obrazovku PWA načítanou pouze po odemčení scénářem; zachovat běžný interkom, mapu i fyzickou trasu beze změny.
+- [x] Vymezit první technický vertikální řez na 5–10 minut: recepce, výtah, laboratoř, nalezení první stopy Elary a bezpečný návrat do komunikátoru.
+- [ ] Implementovat modul jako samostatnou obrazovku PWA načítanou pouze po odemčení scénářem; samostatná lazy-load obrazovka je hotová, zbývá scénářové odemčení.
 - [ ] Zvolit styl první verze: jednoduchý 2.5D raycasting ve stylu raných FPS, nebo nízkopolygonové WebGL 3D. Předběžně preferovat WebGL 3D s lokálně uloženou knihovnou a bez CDN, pokud test na cílových telefonech potvrdí stabilní výkon.
-- [ ] Vykreslovat svět kompletně na zařízení hráče; neposílat obraz ze serveru ani mezi hráči.
-- [ ] Připravit jednu malou testovací mapu se starty, stěnami, dveřmi, jedním interaktivním objektem a návratovým portálem.
+- [x] Vykreslovat svět kompletně na zařízení hráče; neposílat obraz ze serveru ani mezi hráči.
+- [x] Připravit jednu malou testovací mapu s recepcí, laboratoří, startem, stěnami, uzamčeným výtahem, interaktivním záznamem a návratovým portálem.
 - [ ] Definovat rozpočty pro cílové zařízení: velikost assetů, počet trojúhelníků a světel, maximální počet avatarů a minimální stabilní snímkovou frekvenci.
 - [ ] Přidat detekci nepodporovaného nebo pomalého zařízení a bezpečný 2D/mapový fallback, aby modul nikdy nezablokoval hlavní herní průchod.
 

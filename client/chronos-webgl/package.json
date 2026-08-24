@@ -1,0 +1,16 @@
+{
+  "name": "escape-bot-chronos-webgl",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "check": "vite build"
+  },
+  "devDependencies": {
+    "playcanvas": "^2.10.2",
+    "vite": "^7.1.3"
+  }
+}
+

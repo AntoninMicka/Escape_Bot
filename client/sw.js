@@ -1,8 +1,11 @@
-const CACHE_NAME = 'escape-bot-v91';
+const CACHE_NAME = 'escape-bot-v92';
 const ASSETS_TO_CACHE = [
     './',
     './index.html',
     './chronos3d.js',
+    './chronos-webgl/dist/index.html',
+    './chronos-webgl/dist/assets/chronos.js',
+    './chronos-webgl/dist/assets/index.css',
     './manifest.json',
     './icon.svg',
     './assets/puzzles/elara-clock-gallery.png',
