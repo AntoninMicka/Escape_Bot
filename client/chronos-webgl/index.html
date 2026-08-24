@@ -12,13 +12,22 @@
   <div id="reticle" aria-hidden="true">+</div>
   <section id="prompt" role="status">Kliknutím vstoupíte do 3D prostoru</section>
   <section id="story" role="status">Obnovte napájení výtahu na recepčním terminálu.</section>
+  <section id="fatal" role="alert" hidden></section>
   <div id="touch" aria-label="Dotykové ovládání">
     <button data-move="left">◀</button><button data-move="forward">▲</button><button data-move="right">▶</button>
     <button data-move="turn-left">↶</button><button data-move="backward">▼</button><button data-move="turn-right">↷</button>
     <button id="interact">E · INTERAKCE</button>
   </div>
   <button id="exit">ZPĚT DO KOMUNIKÁTORU</button>
+  <script>
+    const showFatal = message => {
+      const panel = document.getElementById('fatal');
+      panel.hidden = false;
+      panel.textContent = `WEBGL CHYBA: ${message}`;
+    };
+    window.addEventListener('error', event => showFatal(event.message || 'Inicializace selhala.'));
+    window.addEventListener('unhandledrejection', event => showFatal(event.reason?.message || String(event.reason)));
+  </script>
   <script type="module" src="/src/main.js"></script>
 </body>
 </html>
-
