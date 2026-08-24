@@ -10,6 +10,7 @@ from typing import Any
 
 BACKEND = Path(__file__).resolve().parents[1]
 SOURCE = BACKEND / "content" / "maps" / "pardubice_center.osm.json"
+RELATION_SOURCE = BACKEND / "content" / "maps" / "pardubice_center.relations.osm.json"
 TARGET = BACKEND / "content" / "maps" / "pardubice_center.geometry.json"
 ORIGIN_LAT = 50.0379962
 ORIGIN_LON = 15.7779363
@@ -52,7 +53,7 @@ def main() -> None:
         if tags.get("building"):
             if points[0] != points[-1]: points.append(points[0])
             buildings.append({
-                "osm_id": element.get("id"), "polygon_m": points,
+                "osm_id": element.get("id"), "osm_type": "way", "polygon_m": points, "holes_m": [],
                 "height_m": numeric_height(tags), "kind": tags.get("building", "yes"),
                 "material": tags.get("building:material", "masonry"),
                 "roof_color": tags.get("roof:colour", tags.get("roof:color", "")),
@@ -75,6 +76,25 @@ def main() -> None:
                 "kind": "water" if tags.get("natural") == "water" else "park",
                 "name": tags.get("name", ""),
             })
+    if RELATION_SOURCE.exists():
+        relations = json.loads(RELATION_SOURCE.read_text(encoding="utf-8"))
+        for element in relations.get("elements", []):
+            tags = element.get("tags", {})
+            if not tags.get("building"):
+                continue
+            outer_rings = [geometry(member) for member in element.get("members", []) if member.get("role") == "outer"]
+            inner_rings = [geometry(member) for member in element.get("members", []) if member.get("role") == "inner"]
+            outer_rings = [ring + ([] if ring and ring[0] == ring[-1] else ring[:1]) for ring in outer_rings if len(ring) >= 3]
+            inner_rings = [ring + ([] if ring and ring[0] == ring[-1] else ring[:1]) for ring in inner_rings if len(ring) >= 3]
+            for index, ring in enumerate(outer_rings):
+                buildings.append({
+                    "osm_id": element.get("id"), "osm_type": "relation", "part_index": index,
+                    "polygon_m": ring, "holes_m": inner_rings if len(outer_rings) == 1 else [],
+                    "height_m": numeric_height(tags), "kind": tags.get("building", "yes"),
+                    "material": tags.get("building:material", "masonry"),
+                    "roof_color": tags.get("roof:colour", tags.get("roof:color", "")),
+                    "roof_shape": tags.get("roof:shape", "pitched"), "name": tags.get("name", ""),
+                })
     result = {
         "schema_version": 1,
         "id": "pardubice_center_osm_2026_08_23",

@@ -3938,6 +3938,14 @@
             ctx.beginPath(); polygon.forEach(([x,y],index)=>{const [px,py]=project({x_m:x,y_m:y});index?ctx.lineTo(px,py):ctx.moveTo(px,py)});ctx.closePath();
         }
 
+        function traceDoomBuilding(ctx,building,project){
+            ctx.beginPath();
+            for(const polygon of [building.polygon_m||[],...(building.holes_m||[])]){
+                polygon.forEach(([x,y],index)=>{const [px,py]=project({x_m:x,y_m:y});index?ctx.lineTo(px,py):ctx.moveTo(px,py)});
+                ctx.closePath();
+            }
+        }
+
         function pointInPolygon(point, polygon) {
             let inside=false;
             for(let i=0,j=polygon.length-1;i<polygon.length;j=i++){
@@ -3945,6 +3953,10 @@
                 if(((yi>point.y_m)!==(yj>point.y_m))&&(point.x_m<(xj-xi)*(point.y_m-yi)/(yj-yi)+xi)) inside=!inside;
             }
             return inside;
+        }
+
+        function pointInDoomBuilding(point,building){
+            return pointInPolygon(point,building.polygon_m||[])&&!(building.holes_m||[]).some(hole=>pointInPolygon(point,hole));
         }
 
         function pointSegmentDistance(point,start,end) {
@@ -3972,10 +3984,10 @@
             const radius=.7;
             const collisions=point=>{
                 if(doomPointInPassage(point,0,doomNearbyPassages))return 0;
-                let count=buildings.some(building=>pointInPolygon(point,building.polygon_m))?8:0;
+                let count=buildings.some(building=>pointInDoomBuilding(point,building))?8:0;
                 for(let index=0;index<8;index++){
                     const angle=index*Math.PI/4,sample={x_m:point.x_m+Math.cos(angle)*radius,y_m:point.y_m+Math.sin(angle)*radius};
-                    if(buildings.some(building=>pointInPolygon(sample,building.polygon_m)))count++;
+                    if(buildings.some(building=>pointInDoomBuilding(sample,building)))count++;
                 }
                 return count;
             };
@@ -4008,12 +4020,13 @@
             for(const building of doomRayBuildings){
                 const landmark=doomFacadeTextures.get(String(building.osm_id));
                 if(landmark?.render_mode==='landmark_sprite'&&doomLandmarkFacesPlayer(landmark))continue;
-                const polygon=building.polygon_m||[];
                 let buildingHit=null;
-                for(let index=1;index<polygon.length;index++){
-                    const intersection=raySegmentHit(origin,angle,polygon[index-1],polygon[index]),distance=intersection?.distance??null;
-                    const hitPoint=distance===null?null:{x_m:origin.x_m+Math.cos(angle)*distance,y_m:origin.y_m+Math.sin(angle)*distance};
-                    if(distance!==null&&!doomPointInPassage(hitPoint,.25,doomNearbyPassages)&&distance<maxDistance&&(!buildingHit||distance<buildingHit.distance)) buildingHit={distance,height:Number(building.height_m||9),kind:building.kind||'building',buildingId:building.osm_id,hitPoint,facadeU:intersection.along,roofColor:building.roof_color||'',roofShape:building.roof_shape||'pitched'};
+                for(const polygon of [building.polygon_m||[],...(building.holes_m||[])]){
+                    for(let index=1;index<polygon.length;index++){
+                        const intersection=raySegmentHit(origin,angle,polygon[index-1],polygon[index]),distance=intersection?.distance??null;
+                        const hitPoint=distance===null?null:{x_m:origin.x_m+Math.cos(angle)*distance,y_m:origin.y_m+Math.sin(angle)*distance};
+                        if(distance!==null&&!doomPointInPassage(hitPoint,.25,doomNearbyPassages)&&distance<maxDistance&&(!buildingHit||distance<buildingHit.distance)) buildingHit={distance,height:Number(building.height_m||9),kind:building.kind||'building',buildingId:building.osm_id,hitPoint,facadeU:intersection.along,roofColor:building.roof_color||'',roofShape:building.roof_shape||'pitched'};
+                    }
                 }
                 if(buildingHit)hits.push(buildingHit);
             }
@@ -4150,7 +4163,7 @@
             const localPaths=(doomGeometry?.paths||[]).filter(path=>visible(path.line_m));
             for(const surface of (doomGeometry?.surfaces||[]).filter(surface=>visible(surface.polygon_m))){tracePolygon(ctx,surface.polygon_m,project);ctx.fillStyle=surface.kind==='water'?'#176b8b':surface.kind==='park'?'#477c43':'#718758';ctx.fill()}
             for(const path of localPaths){if(path.passage)continue;ctx.beginPath();path.line_m.forEach(([x,y],index)=>{const p=project({x_m:x,y_m:y});index?ctx.lineTo(...p):ctx.moveTo(...p)});ctx.strokeStyle=path.surface==='asphalt'?'#555b5c':'#e3d6b8';ctx.lineWidth=Math.max(1,Math.min(5,Number(path.width_m||3)*scale));ctx.stroke()}
-            for(const building of doomNearbyBuildings.filter(building=>visible(building.polygon_m))){tracePolygon(ctx,building.polygon_m,project);ctx.fillStyle='#392b29';ctx.fill();ctx.strokeStyle='#f2b36f';ctx.lineWidth=1;ctx.stroke()}
+            for(const building of doomNearbyBuildings.filter(building=>visible(building.polygon_m))){traceDoomBuilding(ctx,building,project);ctx.fillStyle='#392b29';ctx.fill('evenodd');ctx.strokeStyle='#f2b36f';ctx.lineWidth=1;ctx.stroke()}
             for(const path of localPaths){if(!path.passage)continue;ctx.beginPath();path.line_m.forEach(([x,y],index)=>{const p=project({x_m:x,y_m:y});index?ctx.lineTo(...p):ctx.moveTo(...p)});ctx.strokeStyle='#00191d';ctx.lineWidth=Math.max(5,Number(path.width_m||3)*scale+3);ctx.stroke();ctx.strokeStyle='#72e7ff';ctx.lineWidth=Math.max(3,Number(path.width_m||3)*scale);ctx.stroke()}
             points.forEach(point=>{const [x,y]=project(point),status=statuses[point.node_id]||'locked';ctx.fillStyle=status==='complete'?'#0f8':status==='available'?'#ff0':'#555';ctx.beginPath();ctx.arc(x,y,4,0,Math.PI*2);ctx.fill()});
             ctx.translate(left+size/2,top+size/2);ctx.rotate(-heading);ctx.fillStyle='#0ff';ctx.beginPath();ctx.moveTo(10,0);ctx.lineTo(-7,-6);ctx.lineTo(-7,6);ctx.closePath();ctx.fill();ctx.restore();

@@ -51,6 +51,12 @@ class OsmGeometryTest(unittest.TestCase):
         self.assertTrue(any(path.get("name") == "Zelenobranská" for path in passages))
         self.assertTrue(any(path.get("name") == "Příhrádek" for path in passages))
 
+    def test_building_relations_preserve_multipolygon_courtyards(self) -> None:
+        magistrate = next(item for item in self.geometry["buildings"] if item.get("osm_id") == 358244)
+        self.assertEqual(magistrate["osm_type"], "relation")
+        self.assertEqual(magistrate["name"], "Magistrát města Pardubic")
+        self.assertEqual(len(magistrate["holes_m"]), 1)
+
 
 if __name__ == "__main__":
     unittest.main()
