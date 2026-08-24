@@ -1,0 +1,47 @@
+{
+  "schema_version": 1,
+  "id": "chronos_institute",
+  "title": "Výzkumný areál Ústavu CHRONOS",
+  "spawn": {"x": 0, "y": 1.7, "z": 10, "level": 0, "look_at": [0, 1.3, 3]},
+  "levels": [
+    {"id": -2, "name": "B2 · CHRONÁLNÍ HALA", "height": -9},
+    {"id": -1, "name": "B1 · PODZEMNÍ LABORATOŘE", "height": -5},
+    {"id": 0, "name": "PŘÍZEMÍ · VEŘEJNÝ AREÁL", "height": 0},
+    {"id": 1, "name": "1. PATRO · UBIKACE A TERASA", "height": 4},
+    {"id": 2, "name": "2. PATRO · HOSTOVSKÉ POKOJE", "height": 8}
+  ],
+  "zones": [
+    {"id": "reception", "name": "RECEPCE A ATRIUM", "level": 0, "bounds": [-9, 9, 3, 14]},
+    {"id": "bowling", "name": "BOWLINGOVÉ KŘÍDLO", "level": 0, "bounds": [-36, -17, -10, 11]},
+    {"id": "ground_hall", "name": "CENTRÁLNÍ HALA", "level": 0, "bounds": [-17, 17, -12, 3]},
+    {"id": "outdoor", "name": "VENKOVNÍ AREÁL", "level": 0, "bounds": [-18, 48, -44, -13]},
+    {"id": "sports", "name": "SPORTOVNÍ HŘIŠTĚ", "level": 0, "bounds": [14, 42, -19, -4]},
+    {"id": "pond", "name": "RYBNÍK A SERVISNÍ MOLO", "level": 0, "bounds": [22, 46, -40, -20]},
+    {"id": "time_hall", "name": "FINÁLNÍ CHRONÁLNÍ LABORATOŘ", "level": -2, "bounds": [-17, 17, -12, 14]},
+    {"id": "labs", "name": "CHRONÁLNÍ LABORATOŘE", "level": -1, "bounds": [-17, 17, -12, 14]},
+    {"id": "quarters", "name": "UBIKACE VÝZKUMNÍKŮ", "level": 1, "bounds": [-17, 17, -12, 14]},
+    {"id": "terrace", "name": "VYHLÍDKOVÁ TERASA", "level": 1, "bounds": [17, 38, 3, 14]},
+    {"id": "guest_rooms", "name": "HOSTOVSKÉ POKOJE", "level": 2, "bounds": [-17, 17, -12, 14]}
+  ],
+  "stairs": [
+    {"id": "stairs_labs", "name": "SCHODY DO LABORATOŘÍ", "x1": -14, "x2": -10, "z_from": 6, "z_to": -4, "from_level": 0, "to_level": -1},
+    {"id": "stairs_time_hall", "name": "BEZPEČNOSTNÍ SCHODY DO B2", "x1": 10, "x2": 14, "z_from": 6, "z_to": -4, "from_level": -1, "to_level": -2},
+    {"id": "stairs_quarters", "name": "HLAVNÍ SCHODIŠTĚ", "x1": 10, "x2": 14, "z_from": 6, "z_to": -4, "from_level": 0, "to_level": 1},
+    {"id": "stairs_rooms", "name": "SCHODIŠTĚ K POKOJŮM", "x1": -2, "x2": 2, "z_from": 6, "z_to": -4, "from_level": 1, "to_level": 2},
+    {"id": "stairs_terrace", "name": "VENKOVNÍ SCHODY Z TERASY", "x1": 33, "x2": 37, "z_from": 3, "z_to": -9, "from_level": 1, "to_level": 0}
+  ],
+  "checkpoints": [
+    {"id": "reception_archive", "label": "RECEPČNÍ ARCHIV", "level": 0, "position": [0, 1, 7], "color": "cyan"},
+    {"id": "staircase_signal", "label": "SCHODIŠŤOVÝ CHRONOSIGNÁL", "level": 1, "position": [12, 5, -5], "color": "cyan"},
+    {"id": "courtyard_minefield", "label": "NESTABILNÍ SERVISNÍ DVŮR", "level": 0, "position": [7, 1, -18], "color": "amber"},
+    {"id": "bowling_diagnostics", "label": "DIAGNOSTIKA BOWLINGU", "level": 0, "position": [-30, 1, -5], "color": "cyan"},
+    {"id": "timeline_calibration", "label": "KALIBRACE U DRAH", "level": 0, "position": [-24, 1, 7], "color": "amber"},
+    {"id": "terrace_echo", "label": "OZVĚNA NA TERASE", "level": 1, "position": [29, 5, 9], "color": "cyan"},
+    {"id": "courtyard_alignment", "label": "ZAROVNÁNÍ HŘIŠTĚ", "level": 0, "position": [31, 1, -10], "color": "amber"},
+    {"id": "sports_archive", "label": "SPORTOVNÍ ARCHIV", "level": 0, "position": [40, 1, -15], "color": "cyan"},
+    {"id": "sports_cipher", "label": "ŠIFROVACÍ KOTVA U RYBNÍKA", "level": 0, "position": [34, 1, -24], "color": "amber"},
+    {"id": "future_archive", "label": "ARCHIV BUDOUCNOSTI", "level": -1, "position": [-8, -4, 2], "color": "violet"},
+    {"id": "time_machine_console", "label": "FINÁLNÍ KONZOLE CHRONOS", "level": -2, "position": [8, -8, 9], "color": "amber"}
+  ],
+  "optional_room": {"id": "room_104", "label": "ARCHIVNÍ POKOJ 104", "level": 1, "position": [-12, 5, 8]}
+}

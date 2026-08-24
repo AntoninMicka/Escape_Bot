@@ -369,6 +369,8 @@ class StateMachineCheckpointTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(statuses["navigating"], "active")
         self.assertEqual(statuses["reception_archive"], "available")
         self.assertEqual(statuses["staircase_signal"], "locked")
+        nodes = {node["id"]: node for node in progress["nodes"]}
+        self.assertTrue(nodes["reception_archive"]["activation_value"].startswith("escapebot://checkpoint/"))
         solutions = {node["id"]: node["solution"] for node in progress["nodes"]}
         self.assertEqual(solutions["searching_lost"], "734")
         self.assertIn("2147", solutions["reception_archive"])

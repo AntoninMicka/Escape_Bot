@@ -1,4 +1,4 @@
-const CACHE_NAME = 'escape-bot-v101';
+const CACHE_NAME = 'escape-bot-v104';
 const ASSETS_TO_CACHE = [
     './',
     './index.html',
@@ -6,6 +6,7 @@ const ASSETS_TO_CACHE = [
     './chronos-webgl/dist/index.html',
     './chronos-webgl/dist/assets/chronos.js',
     './chronos-webgl/dist/assets/index.css',
+    './chronos-webgl/dist/worlds/chronos-institute.json',
     './manifest.json',
     './icon.svg',
     './assets/puzzles/elara-clock-gallery.png',

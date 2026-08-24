@@ -76,6 +76,36 @@ class ScenarioComposerTest(unittest.TestCase):
 
         self.assertEqual(compiled.data["kraskov_time_rescue-extension"], {"enabled": True, "items": [1, 2]})
 
+    def test_realization_can_replace_runtime_values_without_changing_template(self) -> None:
+        realization = deepcopy(self.realization)
+        realization["runtime_patches"] = [{
+            "op": "replace",
+            "path": "/time_travel_rules/1",
+            "value": "Pravidlo pro ${location.name}.",
+        }]
+
+        compiled = compose_documents(self.template, realization)
+
+        self.assertEqual(compiled.data["time_travel_rules"][1], "Pravidlo pro Hotel Kraskov.")
+        self.assertIn("Poloha v hotelu", self.template["runtime"]["time_travel_rules"][1])
+
+    def test_rejects_runtime_patch_to_unknown_path(self) -> None:
+        realization = deepcopy(self.realization)
+        realization["runtime_patches"] = [{"op": "replace", "path": "/missing/value", "value": "x"}]
+
+        with self.assertRaisesRegex(ScenarioCompositionError, "neexistující cestu"):
+            compose_documents(self.template, realization)
+
+    def test_realization_can_add_runtime_metadata(self) -> None:
+        realization = deepcopy(self.realization)
+        realization["runtime_patches"] = [{
+            "op": "add", "path": "/world", "value": {"mode": "webgl", "title": "${location.name}"},
+        }]
+
+        compiled = compose_documents(self.template, realization)
+
+        self.assertEqual(compiled.data["world"], {"mode": "webgl", "title": "Hotel Kraskov"})
+
     def test_rejects_transition_to_unknown_phase(self) -> None:
         compiled = compose_documents(self.template, self.realization)
         compiled.data["phase_engine"]["transitions"]["searching_lost"]["next_phase"] = "missing"

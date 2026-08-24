@@ -235,7 +235,7 @@ def build_scenario_progress(scenario: Scenario, state: dict[str, Any]) -> dict[s
             "puzzle_type": puzzle.get("type") if puzzle else None,
             "activation_value": (
                 f"escapebot://checkpoint/{scenario.data.get('checkpoints', {}).get(node_id, {}).get('token', '')}"
-                if scenario.data.get("world", {}).get("mode") == "doom" and kind == "checkpoint" else ""
+                if kind == "checkpoint" else ""
             ),
         })
 

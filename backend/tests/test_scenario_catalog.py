@@ -10,6 +10,19 @@ BACKEND_DIR = Path(__file__).resolve().parents[1]
 
 
 class ScenarioCatalogTest(unittest.TestCase):
+    def test_chronos_online_compiles_as_selectable_webgl_game(self) -> None:
+        catalog = load_scenario_catalog(
+            BACKEND_DIR / "content" / "templates",
+            BACKEND_DIR / "content" / "realizations",
+        )
+
+        entry = catalog.entries["chronos_online"]
+        self.assertIn("online_doom", entry.modes)
+        self.assertEqual(entry.realization_version, "0.2.0")
+        self.assertEqual(entry.scenario.data["world"]["mode"], "webgl")
+        self.assertIn("104", entry.scenario.data["rooms"])
+        self.assertEqual(entry.scenario.data["rooms"]["104"]["pin"], "1104")
+
     def test_invalid_realization_does_not_hide_valid_game(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

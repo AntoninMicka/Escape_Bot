@@ -2,8 +2,8 @@
   "schema_version": 1,
   "kind": "realization",
   "id": "chronos_online",
-  "version": "0.1.0",
-  "title": "Ztracená online — Ústav CHRONOS",
+  "version": "0.2.0",
+  "title": "Ztracená online — Výzkumný ústav CHRONOS",
   "template": {
     "id": "lost_in_time",
     "version": "1.1.0"
@@ -17,84 +17,191 @@
       "id": "chronos_online_rescue"
     },
     "location": {
-      "name": "Virtuální ústav CHRONOS",
-      "name_locative": "Ústavu CHRONOS",
-      "knowledge_base": "Děj se odehrává v autorském virtuálním areálu Ústavu CHRONOS. Doktorka Elara při havárii prototypu stroje času uvízla v budoucí časové vrstvě stejného ústavu. Hráči procházejí recepcí, ubikacemi, bowlingem, terasou, sportovním areálem a podzemními laboratořemi. Interkom přenáší zvuk a data mezi oběma časy. Časové kotvy vytvářejí krátká stabilní spojení mezi shodnými místy. Havárie vytrhla do přítomnosti Temporální motor, Fázový stabilizátor a Krystal časové kotvy. Aktivované kotvy a všechny tři díly jsou nutné k jedinému bezpečnému návratu Elary. Již stabilizované události se nepřepisují a nevznikají duplikáty osob."
+      "name": "Výzkumný ústav CHRONOS",
+      "name_locative": "areálu Výzkumného ústavu CHRONOS",
+      "knowledge_base": "Děj se odehrává v souvislém areálu Výzkumného ústavu CHRONOS. Doktorka Elara při havárii prototypu stroje času uvízla v budoucí časové vrstvě stejného ústavu. Přízemí tvoří recepční atrium, centrální hala a bowling; v prvním a druhém patře jsou ubikace, pokoj 104, galerie a vyhlídková terasa. Venku leží servisní dvůr, sportovní hřiště, pavilon a rybník s molem. Podzemí B1 obsahuje laboratoře a Archiv budoucnosti, podzemí B2 stíněnou chronální halu s finální konzolí. Všechna místa spojují fyzické chodby a schodiště, nikoli teleporty. Interkom přenáší zvuk a data mezi oběma časy. Časové kotvy vytvářejí krátká stabilní spojení mezi shodnými místy. Havárie vytrhla do přítomnosti Temporální motor, Fázový stabilizátor a Krystal časové kotvy. Aktivované kotvy a všechny tři díly jsou nutné k jedinému bezpečnému návratu Elary. Již stabilizované události se nepřepisují a nevznikají duplikáty osob."
     },
     "checkpoints": {
       "public_archive": {
         "id": "reception_archive",
-        "name": "Archiv virtuální recepce",
-        "route_name": "Recepce Ústavu CHRONOS",
+        "name": "Recepční archiv CHRONOS",
+        "route_name": "Přízemí · recepční atrium",
         "token": "4ec67b900c4a491ba180c8a48d5309f2"
       },
       "signal_transition": {
         "id": "staircase_signal",
-        "name": "Chronosignál v patře ubikací",
-        "route_name": "Schodiště k ubikacím",
+        "name": "Chronosignál hlavního schodiště",
+        "route_name": "1. patro · schodišťová galerie",
         "token": "74c67eaf38ef4b72b22f5c971b7bb7bd"
       },
       "hazard_navigation": {
         "id": "courtyard_minefield",
-        "name": "Nestabilní sportovní areál",
-        "route_name": "Sportovní areál",
+        "name": "Nestabilní servisní dvůr",
+        "route_name": "Servisní dvůr mezi křídly",
         "token": "6b0f716a2a264cc783d182b93f99a531"
       },
       "machine_part_one": {
         "id": "bowling_diagnostics",
         "name": "Binární diagnostika bowlingu",
-        "route_name": "Bowling",
+        "route_name": "Přízemí · bowling",
         "token": "a9dc930b787a4be6a5344e524d56073b"
       },
       "timeline_calibration": {
         "id": "timeline_calibration",
-        "name": "Kalibrační terminál bowlingu",
-        "route_name": "Kalibrace časové osy",
+        "name": "Kalibrační konzole bowlingu",
+        "route_name": "Přízemí · režie bowlingu",
         "token": "9c6fa028b7614a669c9c43def9df1ba8"
       },
       "machine_part_two": {
         "id": "terrace_echo",
-        "name": "Chronální ozvěna terasy",
-        "route_name": "Terasa",
+        "name": "Chronální ozvěna vyhlídkové terasy",
+        "route_name": "1. patro · terasa nad rybníkem",
         "token": "8fd7cd0a5c844702bc384665e864d335"
       },
       "alignment_game": {
         "id": "courtyard_alignment",
-        "name": "Zarovnání sportovních uzlů",
-        "route_name": "Sportovní areál",
+        "name": "Zarovnání uzlů hřiště",
+        "route_name": "Venkovní sportovní hřiště",
         "token": "cb2ee52d5ae74fa6b68f94f59db75d63"
       },
       "spatial_archive": {
         "id": "sports_archive",
-        "name": "Archiv sportovního areálu",
-        "route_name": "Sportovní archiv",
+        "name": "Servisní archiv sportovního pavilonu",
+        "route_name": "Pavilon u hřiště",
         "token": "de724be50829411287a0536095cc9148"
       },
       "machine_part_three": {
         "id": "sports_cipher",
-        "name": "Sportovní šifrovací kotva",
-        "route_name": "Šifrovací kotva",
+        "name": "Šifrovací kotva měřicí časomíry",
+        "route_name": "Molo u rybníka · měřicí časomíra",
         "token": "fbc646e76f0247d69589de21ea645f95"
       },
       "return_archive": {
         "id": "future_archive",
-        "name": "Archiv budoucnosti v podzemí",
-        "route_name": "Podzemní laboratoře",
+        "name": "Chronální archiv budoucnosti",
+        "route_name": "Podzemí B1 · datový archiv",
         "token": "4dc33e89b217a3a439dbb96e31c59ea4"
       },
       "final_console": {
         "id": "time_machine_console",
-        "name": "Finální konzole laboratoře",
-        "route_name": "Chronální laboratoř",
+        "name": "Finální konzole projektu CHRONOS",
+        "route_name": "Podzemí B2 · chronální hala",
         "token": "b9ae752e80e5d4d85965e805bbc4b62f"
       }
     },
     "rooms": {
       "optional_archive": {
         "node_id": "room_104",
-        "number": "A-104",
+        "number": "104",
         "pin": "1104"
       }
     }
-  }
+  },
+  "runtime_patches": [
+    {
+      "op": "replace",
+      "path": "/time_travel_rules/1",
+      "value": "Elara i tým zůstávají v ${location.name_locative}, každý v jiném čase. Poloha v areálu se mezi vrstvami prostorově shoduje."
+    },
+    {
+      "op": "replace",
+      "path": "/story_timeline/1/text",
+      "value": "Při první plné aktivaci se rozladí fázový stabilizátor. Elara je odtržena do budoucí vrstvy výzkumného areálu a tři součásti stroje jsou vymrštěny do přítomnosti."
+    },
+    {
+      "op": "replace",
+      "path": "/story_timeline/4/text",
+      "value": "Tým v přítomnosti aktivuje kotvy od recepce přes patra ústavu, venkovní areál a laboratoře; Elara se pohybuje po stejných místech ve své časové vrstvě."
+    },
+    {
+      "op": "replace",
+      "path": "/characters/lost/avatar_prompt",
+      "value": "scared young scientist portrait, dirty face, abandoned futuristic research institute background, flashlight lighting, realistic"
+    },
+    {
+      "op": "replace",
+      "path": "/scenario_flow/2/solution",
+      "value": "Aktivovat recepční terminál v 3D areálu"
+    },
+    {
+      "op": "replace",
+      "path": "/scenario_flow/14/label",
+      "value": "Archivní pokoj 104"
+    },
+    {
+      "op": "replace",
+      "path": "/phases/searching_lost/success_messages/1/text",
+      "value": "Haló? Tady doktorka Elara. Jsem pořád v Ústavu CHRONOS, ale areál vypadá, jako by tu nikdo nebyl celá desetiletí. Stroj se rozpadl při přenosu. Slyšíte mě?"
+    },
+    {
+      "op": "replace",
+      "path": "/phases/searching_lost/success_messages/2/text",
+      "value": "Jsme ve stejném ústavu, ale já jsem uvázla v jeho budoucí časové vrstvě. Interkom přenese jen hlas a data; ven mě dostane až stabilní koridor. Havárie vymrštila tři součásti stroje do vašeho času. CHRONOMAPA je online — najděte její první stabilní bod u recepčního archivu."
+    },
+    {
+      "op": "replace",
+      "path": "/phases/navigating/ai_system_prompt",
+      "value": "Jsi doktorka Elara, vědkyně uvězněná v budoucí časové vrstvě ${location.name_locative} po havárii stroje času. Hráči jsou v přítomnosti téhož výzkumného areálu. Interkom přenáší jen zvuk a data. Odpovídej vždy česky, krátce (max 2-3 věty), napjatě, ale jako schopná vědkyně. Dodržuj znalostní bázi, nevymýšlej nové lokace, paralelní dimenze, cestování před havárii ani řešení hádanek."
+    },
+    {
+      "op": "replace",
+      "path": "/puzzles/courtyard_karel/success_message/text",
+      "value": "Jsem na druhé straně. Trasa servisním dvorem je stabilní a boční přístup do bowlingu se otevřel."
+    },
+    {
+      "op": "replace",
+      "path": "/puzzles/sports_pigpen/hints/1/text",
+      "value": "Jde o malý polský kříž. Čtěte znaky zleva doprava; výsledkem je objekt v areálu, který ukazuje čas."
+    },
+    {
+      "op": "replace",
+      "path": "/puzzles/time_machine_finale/instructions",
+      "value": "Vložte všechny tři nalezené chronální moduly do základny. Potom zadejte návratový rok, čas a přesné pořadí modulů získané v Archivu budoucnosti."
+    },
+    {
+      "op": "replace",
+      "path": "/puzzles/time_machine_finale/success_messages/1/text",
+      "value": "Vidím vás! Časové vrstvy se překrývají… motor drží… jsem zpátky v Ústavu CHRONOS!"
+    },
+    {
+      "op": "replace",
+      "path": "/checkpoints/reception_archive/navigation_message/text",
+      "value": "Než opustíte recepci, použijte obnovený servisní otisk k odemčení pokoje 104 v prvním patře. Potom pokračujte k hlavnímu schodišti; na podestě leží další časová kotva."
+    },
+    {
+      "op": "replace",
+      "path": "/checkpoints/staircase_signal/warning_if_missing_flag/message/text",
+      "value": "Schodišťová kotva reaguje, ale pokoj 104 jste nechali zamčený. Než se dostanete k finále, vraťte se k panelu jeho dveří a použijte servisní otisk z recepce."
+    },
+    {
+      "op": "replace",
+      "path": "/checkpoints/bowling_diagnostics/navigation_message/text",
+      "value": "Motor máme. Zůstaňte v bowlingovém křídle a přesuňte se ke křesílkům u drah. Aktivujte konzoli KALIBRACE ČASOVÉ OSY a potom otevřete záložku HÁDANKY."
+    },
+    {
+      "op": "replace",
+      "path": "/checkpoints/future_archive/navigation_message/text",
+      "value": "Vektor je kompletní. Sejděte po bezpečnostním schodišti z B1 do chronální haly B2 a aktivujte finální konzoli stroje času."
+    },
+    {
+      "op": "add",
+      "path": "/world",
+      "value": {
+        "mode": "webgl",
+        "title": "Výzkumný areál Ústavu CHRONOS",
+        "asset": "chronos-webgl/dist/index.html",
+        "map_source": {
+          "attribution": "Autorský víceúrovňový areál volně inspirovaný rekreačním komplexem Hotel Kraskov"
+        },
+        "levels": [
+          {"id": "B2", "name": "Chronální hala", "contents": "reaktor a finální konzole"},
+          {"id": "B1", "name": "Podzemní laboratoře", "contents": "výzkumné sekce a Archiv budoucnosti"},
+          {"id": "0", "name": "Přízemí", "contents": "recepce, atrium a bowling"},
+          {"id": "1", "name": "První patro", "contents": "ubikace, pokoj 104 a terasa"},
+          {"id": "2", "name": "Druhé patro", "contents": "další pokoje a galerie"},
+          {"id": "VENKU", "name": "Venkovní areál", "contents": "servisní dvůr, hřiště, pavilon, rybník a molo"}
+        ]
+      }
+    }
+  ]
 }

@@ -117,6 +117,56 @@ def _validate_variables(schema: dict[str, Any], variables: dict[str, Any]) -> No
             raise ScenarioCompositionError(f"Proměnná {path} musí mít typ {expected}.")
 
 
+def _pointer_part(value: str) -> str:
+    return value.replace("~1", "/").replace("~0", "~")
+
+
+def _apply_runtime_patches(runtime: dict[str, Any], patches: Any, variables: dict[str, Any]) -> None:
+    """Apply realization-owned replacements without mutating the shared template."""
+    if patches is None:
+        return
+    if not isinstance(patches, list):
+        raise ScenarioCompositionError("runtime_patches musí být pole.")
+    for patch_index, patch in enumerate(patches):
+        if not isinstance(patch, dict):
+            raise ScenarioCompositionError(f"runtime_patches[{patch_index}] musí být objekt.")
+        operation = patch.get("op")
+        if operation not in {"add", "replace"}:
+            raise ScenarioCompositionError(f"runtime_patches[{patch_index}] podporuje pouze operace add a replace.")
+        if "value" not in patch:
+            raise ScenarioCompositionError(f"runtime_patches[{patch_index}] neobsahuje hodnotu value.")
+        path = patch.get("path")
+        if not isinstance(path, str) or not path.startswith("/") or path == "/":
+            raise ScenarioCompositionError(f"runtime_patches[{patch_index}] nemá platnou JSON Pointer cestu.")
+        parts = [_pointer_part(part) for part in _render_string(path, variables)[1:].split("/")]
+        target: Any = runtime
+        for part in parts[:-1]:
+            if isinstance(target, dict):
+                if part not in target:
+                    raise ScenarioCompositionError(f"runtime_patches[{patch_index}] míří na neexistující cestu {path}.")
+                target = target[part]
+            elif isinstance(target, list):
+                if not part.isdigit() or int(part) >= len(target):
+                    raise ScenarioCompositionError(f"runtime_patches[{patch_index}] míří na neexistující cestu {path}.") from None
+                target = target[int(part)]
+            else:
+                raise ScenarioCompositionError(f"runtime_patches[{patch_index}] míří na neexistující cestu {path}.")
+        replacement = _render(patch.get("value"), variables)
+        last = parts[-1]
+        if isinstance(target, dict):
+            if operation == "replace" and last not in target:
+                raise ScenarioCompositionError(f"runtime_patches[{patch_index}] míří na neexistující cestu {path}.")
+            if operation == "add" and last in target:
+                raise ScenarioCompositionError(f"runtime_patches[{patch_index}] nemůže přidat existující cestu {path}.")
+            target[last] = replacement
+        elif isinstance(target, list):
+            if operation != "replace" or not last.isdigit() or int(last) >= len(target):
+                raise ScenarioCompositionError(f"runtime_patches[{patch_index}] míří na neexistující cestu {path}.") from None
+            target[int(last)] = replacement
+        else:
+            raise ScenarioCompositionError(f"runtime_patches[{patch_index}] míří na neexistující cestu {path}.")
+
+
 def compose_documents(template: dict[str, Any], realization: dict[str, Any]) -> CompiledScenario:
     _require_document(template, "story_template", "story_template")
     _require_document(realization, "realization", "realization")
@@ -145,6 +195,7 @@ def compose_documents(template: dict[str, Any], realization: dict[str, Any]) -> 
         raise ScenarioCompositionError("Neúplné mapování realizace; " + "; ".join(details))
 
     runtime = _render(template["runtime"], variables)
+    _apply_runtime_patches(runtime, realization.get("runtime_patches"), variables)
     flow_items = runtime.get("scenario_flow", [])
     if not isinstance(flow_items, list):
         raise ScenarioCompositionError("Složený runtime musí obsahovat pole scenario_flow.")

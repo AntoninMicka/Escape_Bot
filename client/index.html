@@ -763,8 +763,8 @@
         <span id="team-status" style="align-self:center; color:#0aa; white-space:nowrap"></span>
         <span id="device-role" class="device-role"><small>ZAŘÍZENÍ:</small><button id="role-observer" onclick="setDeviceRole('observer')">MAPA</button><button id="role-navigator" onclick="setDeviceRole('navigator')">INTERKOM</button><button id="role-free" onclick="setDeviceRole('free')">VOLNĚ</button></span>
         <button id="chronomap-tab-button" class="tab-button" onclick="openTab('tab-map', this)" disabled>CHRONOMAPA [OFFLINE]</button>
-        <button id="chronos3d-tab-button" class="tab-button" onclick="openTab('tab-chronos3d', this)">ÚSTAV 3D</button>
-        <button id="chronos-webgl-tab-button" class="tab-button" onclick="openTab('tab-chronos-webgl', this)">ÚSTAV WEBGL [SPIKE]</button>
+        <button id="chronos3d-tab-button" class="tab-button" onclick="openTab('tab-chronos3d', this)">ÚSTAV 2.5D [FALLBACK]</button>
+        <button id="chronos-webgl-tab-button" class="tab-button" onclick="openTab('tab-chronos-webgl', this)">ÚSTAV 3D [WEBGL]</button>
         <button id="puzzles-tab-button" class="tab-button" onclick="openTab('tab-puzzles', this)" disabled>HÁDANKY [0]</button>
         <button class="tab-button" onclick="openTab('tab-scanner', this)">SKENER (Kamera)</button>
         <button class="tab-button" onclick="openTab('tab-leaderboard', this)">SÍŇ SLÁVY</button>
@@ -877,9 +877,9 @@
 
     <div id="tab-chronos-webgl" class="tab-content">
         <section class="chronos3d-shell">
-            <h2>[ ZTRACENÁ ONLINE · WEBGL VERTIKÁLNÍ ŘEZ ]</h2>
-            <iframe class="chronos-webgl-frame" src="chronos-webgl/dist/index.html" title="WebGL vertikální řez Ústavu CHRONOS" loading="lazy" allow="fullscreen"></iframe>
-            <p>Technický prototyp skutečného 3D. Původní záložka ÚSTAV 3D zůstává bezpečným fallbackem.</p>
+            <h2>[ ZTRACENÁ ONLINE · VÝZKUMNÝ AREÁL CHRONOS ]</h2>
+            <iframe class="chronos-webgl-frame" src="chronos-webgl/dist/index.html" title="Souvislý 3D areál Výzkumného ústavu CHRONOS" loading="lazy" allow="fullscreen"></iframe>
+            <p>Souvislý víceúrovňový prostor: WASD pohyb · myš rozhlížení · E interakce · T časová vrstva. Mezi zónami se chodí chodbami a po schodech.</p>
         </section>
     </div>
 
@@ -924,10 +924,10 @@
         </div>
     </div>
 
-    <button id="build-version" class="build-version" type="button" title="Kliknutím zkontrolovat aktualizaci">BUILD v101 · SW …</button>
+    <button id="build-version" class="build-version" type="button" title="Kliknutím zkontrolovat aktualizaci">BUILD v104 · SW …</button>
 
     <script>
-        const APP_BUILD_VERSION = 'v101';
+        const APP_BUILD_VERSION = 'v104';
         let ws;
         const input = document.getElementById('msgInput');
         let currentChannel = 'general';
@@ -3820,6 +3820,7 @@
         function renderScenarioProgress(progress) {
             latestScenarioProgress = progress;
             window.chronosWeb3D?.update(progress);
+            postChronosWebglProgress(progress);
             renderOnlineMapActions();
             renderWorldMap(progress);
             const panel = document.getElementById('scenario-progress');
@@ -3853,6 +3854,12 @@
             document.getElementById('map-title').textContent = `[ MAPA: ${progress.title || 'HRA'} ]`;
             if (!world.mode) { panel.classList.add('hidden'); legacy.classList.remove('hidden'); return; }
             legacy.classList.add('hidden'); panel.classList.remove('hidden');
+            if (world.mode === 'webgl') {
+                const levels = (world.levels || []).map(level => `<li><strong>${escapeHtml(level.id)} · ${escapeHtml(level.name)}</strong> — ${escapeHtml(level.contents)}</li>`).join('');
+                const target = (progress.nodes || []).find(node => ['available','active'].includes(node.status));
+                panel.innerHTML = `<h3>[ 3D AREÁL · SOUVISLÁ TRASA ]</h3><p>${target ? `Aktuální cíl: <strong>${escapeHtml(target.label)}</strong>` : 'Čekám na další cíl interkomu.'}</p><button onclick="document.getElementById('chronos-webgl-tab-button').click()">VSTOUPIT DO ÚSTAVU 3D</button><ol>${levels}</ol><p>${escapeHtml(world.map_source?.attribution || '')}</p>`;
+                return;
+            }
             if (world.mode === 'geo') {
                 const bounds = world.bounds;
                 const bbox = `${bounds.west},${bounds.south},${bounds.east},${bounds.north}`;
@@ -4363,7 +4370,7 @@
         function renderOnlineMapActions() {
             const panel = document.getElementById('online-map-actions');
             if (!panel) return;
-            if (latestScenarioProgress?.world?.mode === 'doom') {
+            if (['doom','webgl'].includes(latestScenarioProgress?.world?.mode)) {
                 panel.classList.remove('active');
                 panel.innerHTML = '';
                 return;
@@ -4543,10 +4550,49 @@
         }
     </script>
     <script>
+        function postChronosWebglProgress(progress = latestScenarioProgress) {
+            if (!progress) return;
+            document.querySelector('.chronos-webgl-frame')?.contentWindow?.postMessage({type:'chronos.progress', progress}, location.origin);
+        }
+
         window.addEventListener('message', event => {
-            if (event.origin !== location.origin || !['chronos.webgl.exit','chronos.webgl.complete'].includes(event.data?.type)) return;
+            const frame = document.querySelector('.chronos-webgl-frame');
+            if (event.origin !== location.origin || !frame || event.source !== frame.contentWindow) return;
+            const type = event.data?.type;
+            if (type === 'chronos.webgl.ready') {
+                postChronosWebglProgress();
+                return;
+            }
+            if (type === 'chronos.webgl.checkpoint') {
+                const checkpointId = String(event.data.checkpoint_id || '');
+                const node = latestScenarioProgress?.nodes?.find(item => item.id === checkpointId);
+                if (!node || !['available','active'].includes(node.status)) {
+                    showNotification('Tato časová kotva zatím není dostupná.', 'error');
+                    return;
+                }
+                const catalogItem = runtimeCheckpoints.find(item => item.id === checkpointId);
+                const activationValue = node.activation_value || catalogItem?.value;
+                if (!activationValue) {
+                    showNotification('Kotva nemá platný aktivační token pro tuto relaci.', 'error');
+                    return;
+                }
+                simulateQrScan(activationValue, node.label || event.data.label || checkpointId);
+                return;
+            }
+            if (type === 'chronos.webgl.room') {
+                const roomId = String(event.data.room_id || '');
+                const node = latestScenarioProgress?.nodes?.find(item => item.id === roomId);
+                if (!node || !['available','active'].includes(node.status)) {
+                    showNotification('Přístupový panel pokoje je zatím uzamčený.', 'error');
+                    return;
+                }
+                document.getElementById('puzzles-tab-button')?.click();
+                showNotification(`Přístupový panel: ${node.label || event.data.label || roomId}`, 'info');
+                return;
+            }
+            if (!['chronos.webgl.exit','chronos.webgl.complete'].includes(type)) return;
             document.getElementById('intercom-tab-button')?.click();
-            if (event.data.type === 'chronos.webgl.complete') showNotification('WebGL vertikální řez dokončen.', 'success');
+            if (type === 'chronos.webgl.complete') showNotification('Výzkumný areál CHRONOS dokončen.', 'success');
         });
     </script>
     <script src="chronos3d.js"></script>
