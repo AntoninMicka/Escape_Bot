@@ -1,0 +1,100 @@
+{
+  "schema_version": 1,
+  "kind": "realization",
+  "id": "chronos_online",
+  "version": "0.1.0",
+  "title": "Ztracená online — Ústav CHRONOS",
+  "template": {
+    "id": "lost_in_time",
+    "version": "1.1.0"
+  },
+  "modes": [
+    "online_doom",
+    "online"
+  ],
+  "variables": {
+    "game": {
+      "id": "chronos_online_rescue"
+    },
+    "location": {
+      "name": "Virtuální ústav CHRONOS",
+      "name_locative": "Ústavu CHRONOS",
+      "knowledge_base": "Děj se odehrává v autorském virtuálním areálu Ústavu CHRONOS. Doktorka Elara při havárii prototypu stroje času uvízla v budoucí časové vrstvě stejného ústavu. Hráči procházejí recepcí, ubikacemi, bowlingem, terasou, sportovním areálem a podzemními laboratořemi. Interkom přenáší zvuk a data mezi oběma časy. Časové kotvy vytvářejí krátká stabilní spojení mezi shodnými místy. Havárie vytrhla do přítomnosti Temporální motor, Fázový stabilizátor a Krystal časové kotvy. Aktivované kotvy a všechny tři díly jsou nutné k jedinému bezpečnému návratu Elary. Již stabilizované události se nepřepisují a nevznikají duplikáty osob."
+    },
+    "checkpoints": {
+      "public_archive": {
+        "id": "reception_archive",
+        "name": "Archiv virtuální recepce",
+        "route_name": "Recepce Ústavu CHRONOS",
+        "token": "4ec67b900c4a491ba180c8a48d5309f2"
+      },
+      "signal_transition": {
+        "id": "staircase_signal",
+        "name": "Chronosignál v patře ubikací",
+        "route_name": "Schodiště k ubikacím",
+        "token": "74c67eaf38ef4b72b22f5c971b7bb7bd"
+      },
+      "hazard_navigation": {
+        "id": "courtyard_minefield",
+        "name": "Nestabilní sportovní areál",
+        "route_name": "Sportovní areál",
+        "token": "6b0f716a2a264cc783d182b93f99a531"
+      },
+      "machine_part_one": {
+        "id": "bowling_diagnostics",
+        "name": "Binární diagnostika bowlingu",
+        "route_name": "Bowling",
+        "token": "a9dc930b787a4be6a5344e524d56073b"
+      },
+      "timeline_calibration": {
+        "id": "timeline_calibration",
+        "name": "Kalibrační terminál bowlingu",
+        "route_name": "Kalibrace časové osy",
+        "token": "9c6fa028b7614a669c9c43def9df1ba8"
+      },
+      "machine_part_two": {
+        "id": "terrace_echo",
+        "name": "Chronální ozvěna terasy",
+        "route_name": "Terasa",
+        "token": "8fd7cd0a5c844702bc384665e864d335"
+      },
+      "alignment_game": {
+        "id": "courtyard_alignment",
+        "name": "Zarovnání sportovních uzlů",
+        "route_name": "Sportovní areál",
+        "token": "cb2ee52d5ae74fa6b68f94f59db75d63"
+      },
+      "spatial_archive": {
+        "id": "sports_archive",
+        "name": "Archiv sportovního areálu",
+        "route_name": "Sportovní archiv",
+        "token": "de724be50829411287a0536095cc9148"
+      },
+      "machine_part_three": {
+        "id": "sports_cipher",
+        "name": "Sportovní šifrovací kotva",
+        "route_name": "Šifrovací kotva",
+        "token": "fbc646e76f0247d69589de21ea645f95"
+      },
+      "return_archive": {
+        "id": "future_archive",
+        "name": "Archiv budoucnosti v podzemí",
+        "route_name": "Podzemní laboratoře",
+        "token": "4dc33e89b217a3a439dbb96e31c59ea4"
+      },
+      "final_console": {
+        "id": "time_machine_console",
+        "name": "Finální konzole laboratoře",
+        "route_name": "Chronální laboratoř",
+        "token": "b9ae752e80e5d4d85965e805bbc4b62f"
+      }
+    },
+    "rooms": {
+      "optional_archive": {
+        "node_id": "room_104",
+        "number": "A-104",
+        "pin": "1104"
+      }
+    }
+  }
+}

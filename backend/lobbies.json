@@ -1,1 +1,21 @@
-[]
+[
+  {
+    "session_id": "81d974f9d62d4ddf97100335d07df0f5",
+    "mode": "solo",
+    "creator_id": "5785acbb-6f28-4369-8b35-62622bffecc2",
+    "team_name": "test",
+    "join_code": null,
+    "started": true,
+    "players": {
+      "5785acbb-6f28-4369-8b35-62622bffecc2": {
+        "id": "5785acbb-6f28-4369-8b35-62622bffecc2",
+        "name": "tester",
+        "joined_at": "2026-08-24T20:33:25.600192+00:00"
+      }
+    },
+    "max_players": 1,
+    "applied_score_adjustment": 20,
+    "lobby_type": "online_doom",
+    "scenario_id": "chronos_online"
+  }
+]
