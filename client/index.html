@@ -4015,19 +4015,6 @@
                     if(distance!==null&&!doomPointInPassage(hitPoint,.25,doomNearbyPassages)&&distance<maxDistance&&(!hit||distance<hit.distance)) hit={distance,height:Number(building.height_m||9),kind:building.kind||'building',buildingId:building.osm_id,hitPoint,facadeU:intersection.along,roofColor:building.roof_color||'',roofShape:building.roof_shape||'pitched'};
                 }
             }
-            for(const path of doomNearbyPassages){
-                const line=path.line_m||[],halfWidth=Math.max(1.2,Number(path.width_m||3)/2);
-                for(let index=1;index<line.length;index++){
-                    const start=line[index-1],end=line[index],length=Math.hypot(end[0]-start[0],end[1]-start[1]);
-                    if(!length)continue;
-                    const nx=-(end[1]-start[1])/length*halfWidth,ny=(end[0]-start[0])/length*halfWidth;
-                    for(const side of [-1,1]){
-                        const a=[start[0]+nx*side,start[1]+ny*side],b=[end[0]+nx*side,end[1]+ny*side];
-                        const distance=raySegmentDistance(origin,angle,a,b);
-                        if(distance!==null&&distance<maxDistance&&(!hit||distance<hit.distance))hit={distance,height:3.4,kind:'passage'};
-                    }
-                }
-            }
             return hit;
         }
 
@@ -4065,7 +4052,6 @@
                 drawDoomWallSlice(ctx,x,columnWidth+1,horizon-height*.58,height,hit,light);
             }
             drawDoomLandmarks(ctx,heading,fov,horizon);
-            drawDoomPassages(ctx,heading,fov,horizon);
             const statuses=Object.fromEntries((latestScenarioProgress.nodes||[]).map(n=>[n.id,n.status]));
             points.forEach(point=>{
                 const dx=point.x_m-doomPlayer.x_m,dy=point.y_m-doomPlayer.y_m,distance=Math.hypot(dx,dy);
@@ -4152,20 +4138,6 @@
             if((windowColumn+windowRowOffset)%3!==0){
                 ctx.fillStyle=`rgba(${Math.round(light*.35)},${Math.round(light*.72)},${Math.round(light*.88)},.78)`;
                 for(let y=wallTop+windowBand*.55;y<top+height-windowBand*.35;y+=windowBand)ctx.fillRect(x,y,width,Math.max(2,windowBand*.38));
-            }
-        }
-
-        function drawDoomPassages(ctx,heading,fov,horizon) {
-            for(const path of doomGeometry?.paths||[]){
-                if(!path.passage||!path.line_m?.length)continue;
-                const middle=path.line_m[Math.floor(path.line_m.length/2)],dx=middle[0]-doomPlayer.x_m,dy=middle[1]-doomPlayer.y_m,distance=Math.hypot(dx,dy);
-                let angle=Math.atan2(dy,dx)-heading;while(angle>Math.PI)angle-=Math.PI*2;while(angle<-Math.PI)angle+=Math.PI*2;
-                if(distance>55||Math.abs(angle)>fov*.55)continue;
-                const x=ctx.canvas.width*(.5-angle/fov),height=Math.max(24,Math.min(150,520*3/distance)),width=Math.max(16,height*.58),top=horizon-height*.62;
-                ctx.strokeStyle='#62efff';ctx.lineWidth=Math.max(2,8-distance/10);ctx.strokeRect(x-width/2,top,width,height);
-                ctx.fillStyle='#183c42';ctx.fillRect(x-width*.62,top-height*.12,width*1.24,height*.16);
-                ctx.strokeStyle='#72e7ff';ctx.strokeRect(x-width*.62,top-height*.12,width*1.24,height*.16);
-                ctx.fillStyle='#d9fbff';ctx.font='bold 11px monospace';ctx.textAlign='center';ctx.fillText(path.name?`PRŮCHOD · ${path.name}`:'PRŮCHOD',x,horizon-height*.7);
             }
         }
 
