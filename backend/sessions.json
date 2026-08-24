@@ -2722,7 +2722,33 @@
       "chronomap_unlocked": true,
       "reception_archive_unlocked": true,
       "room_104_unlocked": true,
-      "bowling_route_unlocked": true
+      "bowling_route_unlocked": true,
+      "administratively_ended": true,
+      "administratively_ended_at": "2026-08-24T05:51:45.231515+00:00",
+      "administratively_ended_reason": "deadline",
+      "deadline_penalty_applied": true,
+      "admin_score_adjustments": [
+        {
+          "delta": -100,
+          "amount": 100,
+          "reason": "Nedokončení hry v časovém limitu",
+          "at": "2026-08-24T05:51:45.231515+00:00",
+          "score_before": 1020,
+          "score_after": 920,
+          "automatic": true
+        }
+      ],
+      "admin_penalties": [
+        {
+          "delta": -100,
+          "amount": 100,
+          "reason": "Nedokončení hry v časovém limitu",
+          "at": "2026-08-24T05:51:45.231515+00:00",
+          "score_before": 1020,
+          "score_after": 920,
+          "automatic": true
+        }
+      ]
     },
     "chat_history": [
       {
@@ -2808,7 +2834,7 @@
         "text": "Důkazní bod 3 potvrzen: Příhrádek."
       }
     ],
-    "score": 1020,
+    "score": 920,
     "hints_used": {},
     "checkpoint_states": {
       "jury_public_archive": {
@@ -2851,7 +2877,7 @@
         "total_moves": 0,
         "total_strikes": 0,
         "restarts": 0,
-        "status": "playing",
+        "status": "expired",
         "level_id": "field_a",
         "level_label": "Pole A",
         "rows": 7,
