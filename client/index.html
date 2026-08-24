@@ -4004,18 +4004,20 @@
         }
 
         function castDoomRay(origin, angle, maxDistance=240) {
-            let hit=null;
+            const hits=[];
             for(const building of doomRayBuildings){
                 const landmark=doomFacadeTextures.get(String(building.osm_id));
                 if(landmark?.render_mode==='landmark_sprite'&&doomLandmarkFacesPlayer(landmark))continue;
                 const polygon=building.polygon_m||[];
+                let buildingHit=null;
                 for(let index=1;index<polygon.length;index++){
                     const intersection=raySegmentHit(origin,angle,polygon[index-1],polygon[index]),distance=intersection?.distance??null;
                     const hitPoint=distance===null?null:{x_m:origin.x_m+Math.cos(angle)*distance,y_m:origin.y_m+Math.sin(angle)*distance};
-                    if(distance!==null&&!doomPointInPassage(hitPoint,.25,doomNearbyPassages)&&distance<maxDistance&&(!hit||distance<hit.distance)) hit={distance,height:Number(building.height_m||9),kind:building.kind||'building',buildingId:building.osm_id,hitPoint,facadeU:intersection.along,roofColor:building.roof_color||'',roofShape:building.roof_shape||'pitched'};
+                    if(distance!==null&&!doomPointInPassage(hitPoint,.25,doomNearbyPassages)&&distance<maxDistance&&(!buildingHit||distance<buildingHit.distance)) buildingHit={distance,height:Number(building.height_m||9),kind:building.kind||'building',buildingId:building.osm_id,hitPoint,facadeU:intersection.along,roofColor:building.roof_color||'',roofShape:building.roof_shape||'pitched'};
                 }
+                if(buildingHit)hits.push(buildingHit);
             }
-            return hit;
+            return hits.sort((a,b)=>b.distance-a.distance);
         }
 
         function startGeoTracking() {
@@ -4043,13 +4045,12 @@
             doomRayBuildings=doomNearbyBuildings;
             const fov=Math.PI/3,columnWidth=5;
             if(doomGeometry) for(let x=0;x<canvas.width;x+=columnWidth){
-                const offset=(x/canvas.width-.5)*fov,hit=castDoomRay(doomPlayer,heading-offset);
-                if(!hit)continue;
-                const corrected=Math.max(.2,hit.distance*Math.cos(offset));
+                const offset=(x/canvas.width-.5)*fov,hits=castDoomRay(doomPlayer,heading-offset);
                 const heightScale=Number(world.virtual_map?.building_height_scale||1);
-                const height=Math.min(canvas.height*1.9,canvas.height*Number(hit.height||9)*(hit.kind==='passage'?1:heightScale)/corrected);
-                const light=Math.max(16,Math.min(145,155-corrected*.55));
-                drawDoomWallSlice(ctx,x,columnWidth+1,horizon-height*.58,height,hit,light);
+                for(const hit of hits){
+                    const corrected=Math.max(.2,hit.distance*Math.cos(offset)),height=Math.min(canvas.height*1.9,canvas.height*Number(hit.height||9)*heightScale/corrected),light=Math.max(16,Math.min(145,155-corrected*.55));
+                    drawDoomWallSlice(ctx,x,columnWidth+1,horizon-height*.58,height,hit,light);
+                }
             }
             drawDoomLandmarks(ctx,heading,fov,horizon);
             const statuses=Object.fromEntries((latestScenarioProgress.nodes||[]).map(n=>[n.id,n.status]));
