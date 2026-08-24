@@ -381,7 +381,9 @@ app.add_middleware(TrustedHostMiddleware, allowed_hosts=allowed_hosts or ["*"])
 async def security_headers(request, call_next):
     response = await call_next(request)
     response.headers.setdefault("X-Content-Type-Options", "nosniff")
-    response.headers.setdefault("X-Frame-Options", "DENY")
+    # The WebGL vertical slice is embedded from this same origin. SAMEORIGIN
+    # keeps third-party framing blocked while allowing the local PWA iframe.
+    response.headers.setdefault("X-Frame-Options", "SAMEORIGIN")
     response.headers.setdefault("Referrer-Policy", "same-origin")
     response.headers.setdefault("Permissions-Policy", "geolocation=(self), microphone=()")
     if request.url.path in {"/", "/index.html", "/admin", "/sw.js"}:
