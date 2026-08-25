@@ -9,5 +9,7 @@
   "completion_bonus": 100,
   "opening_time": "00:00",
   "closing_time": "23:59",
-  "timezone": "Europe/Prague"
+  "timezone": "Europe/Prague",
+  "leaderboard_finalized": false,
+  "leaderboard_finalized_at": ""
 }

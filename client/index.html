@@ -970,8 +970,8 @@
         <h2>[ SÍŇ SLÁVY - ARCHIV ÚSPĚŠNÝCH ŘEŠITELŮ ]</h2>
         <div class="leaderboard-container">
             <div class="leaderboard-lists">
-                <section class="leaderboard-list"><h3>TÝMY</h3><table class="leaderboard-table"><thead><tr><th>#</th><th>NÁZEV TÝMU</th><th>HRÁČI</th><th>SKÓRE</th></tr></thead><tbody id="leaderboard-team-body"></tbody></table></section>
-                <section class="leaderboard-list"><h3>SOLO HRÁČI</h3><table class="leaderboard-table"><thead><tr><th>#</th><th>JMÉNO</th><th>SKÓRE</th></tr></thead><tbody id="leaderboard-solo-body"></tbody></table></section>
+                <section class="leaderboard-list"><h3>TÝMY</h3><table class="leaderboard-table"><thead><tr><th>#</th><th>NÁZEV TÝMU</th><th>HRÁČI</th><th>SKÓRE</th><th>ČAS</th></tr></thead><tbody id="leaderboard-team-body"></tbody></table></section>
+                <section class="leaderboard-list"><h3>SOLO HRÁČI</h3><table class="leaderboard-table"><thead><tr><th>#</th><th>JMÉNO</th><th>SKÓRE</th><th>ČAS</th></tr></thead><tbody id="leaderboard-solo-body"></tbody></table></section>
             </div>
             <div class="save-score-section">
                 <input type="text" id="team-name" placeholder="Zadejte název vašeho záchranného týmu..." maxlength="20" />
@@ -1006,6 +1006,7 @@
         const cipherReferenceTranscripts = {};
         let onlineModeEnabled = false;
         let operationsEnabled = true;
+        let leaderboardFinalized = false;
         let runtimeAvailability = null;
         let runtimeAvailabilityByLobbyType = {};
         let runtimeGames = [];
@@ -1775,6 +1776,10 @@
             if (!window.confirm(`${action}?`)) return;
             sendAdmin('admin.operations', {enabled:!operationsEnabled});
         }
+        function finalizeLeaderboard() {
+            if (!window.confirm('Definitivně uzavřít celkové pořadí? Tisk diplomů za 1.–3. místo se zpřístupní až po tomto kroku.')) return;
+            sendAdmin('admin.leaderboard_finalize');
+        }
         function saveScheduleSettings() {
             sendAdmin('admin.schedule_settings', {
                 max_active_teams:Number(document.getElementById('schedule-max-teams').value),
@@ -1964,18 +1969,26 @@
         }
 
         const leaderboardEntriesById = new Map();
-        function printDiploma(entryId,playerIndex) {
+        function formatLeaderboardDuration(seconds) {
+            const value=Math.max(0,Math.round(Number(seconds)||0));
+            if (!value) return 'nezaznamenán';
+            return `${String(Math.floor(value/3600)).padStart(2,'0')}:${String(Math.floor(value%3600/60)).padStart(2,'0')}:${String(value%60).padStart(2,'0')}`;
+        }
+        function printDiploma(entryId,playerIndex,placement=0) {
             const entry = leaderboardEntriesById.get(String(entryId));
             const player = (entry?.players || [])[Number(playerIndex)] || '';
             if (!entry || !player) { showNotification('Pro diplom chybí jméno hráče.', 'error'); return; }
             const safe = value => String(value ?? '').replace(/[&<>'"]/g, character => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[character]));
-            const teamLine = entry.mode === 'team' ? `<p class="team">z týmu <strong>${safe(entry.name)}</strong></p>` : '';
+            const teamLine = entry.mode === 'team' ? `<p class="label team-label">Tým</p><p class="team">${safe(entry.name)}</p>` : '';
             const completed = entry.completed_at ? new Date(entry.completed_at).toLocaleDateString('cs-CZ') : new Date().toLocaleDateString('cs-CZ');
+            const duration = formatLeaderboardDuration(entry.duration_seconds);
+            const placementBlock = placement ? `<p class="placement">${Number(placement)}. MÍSTO</p><p class="event">Podzimní celostátní setkání Mensy Česko<br>Kraskov 2026</p>` : '';
+            const intro = placement ? 'Diplom za celkové umístění v únikové hře' : 'Tento diplom potvrzuje úspěšné dokončení únikové hry';
             const popup = window.open('', '_blank', 'width=1120,height=820');
             if (!popup) { showNotification('Prohlížeč zablokoval okno pro tisk diplomu.', 'error'); return; }
             popup.document.write(`<!doctype html><html lang="cs"><head><meta charset="utf-8"><title>Diplom – ${safe(player)}</title><style>
-                @page{size:A4 landscape;margin:0}*{box-sizing:border-box}body{margin:0;background:#e8ebed;font-family:Montserrat,Arial,sans-serif;color:#393f44}.sheet{width:297mm;height:210mm;margin:auto;padding:12mm;background:#fff}.frame{height:100%;border:3px solid #0d4476;outline:1px solid #faaa01;outline-offset:-8px;padding:13mm 20mm;text-align:center;position:relative;overflow:hidden}.frame:before,.frame:after{content:'';position:absolute;width:85mm;height:85mm;border:18px solid #0d4476;border-radius:50%;opacity:.045}.frame:before{left:-42mm;top:-42mm}.frame:after{right:-42mm;bottom:-42mm}.logo{width:72mm;height:auto}.kicker{margin:6mm 0 1mm;color:#0d4476;font-size:11pt;letter-spacing:.22em;text-transform:uppercase}.title{margin:0;color:#0d4476;font-size:35pt;letter-spacing:.12em}.intro{margin:8mm 0 3mm;font-size:15pt}.name{margin:0;color:#0d4476;font-size:29pt;font-weight:600}.team{margin:2mm 0 0;font-size:17pt}.achievement{margin:8mm auto 2mm;max-width:190mm;font-size:15pt;line-height:1.5}.game{color:#0d4476;font-size:19pt;font-weight:600;letter-spacing:.08em}.footer{position:absolute;left:22mm;right:22mm;bottom:14mm;display:flex;justify-content:space-between;align-items:end;font-size:10pt}.line{display:inline-block;width:54mm;border-top:1px solid #393f44;padding-top:2mm;text-align:center}@media print{body{background:#fff}.sheet{margin:0}}
-            </style></head><body onload="setTimeout(()=>window.print(),300)"><main class="sheet"><section class="frame"><img class="logo" src="${new URL('assets/branding/mensa-cesko-logo.png',location.href).href}" alt="Mensa Česko"><p class="kicker">Výzkumný ústav Chronos</p><h1 class="title">DIPLOM</h1><p class="intro">za úspěšné vyřešení únikové hry se uděluje</p><p class="name">${safe(player)}</p>${teamLine}<p class="achievement">za bystrý úsudek, spolupráci a úspěšné dokončení mise</p><p class="game">ZTRACENI V ČASE</p><footer class="footer"><span>Datum dokončení: ${safe(completed)}</span><span class="line">podpis pořadatele</span></footer></section></main></body></html>`);
+                @page{size:A4 landscape;margin:0}*{box-sizing:border-box}body{margin:0;background:#e8ebed;font-family:Montserrat,Arial,sans-serif;color:#393f44}.sheet{width:297mm;height:210mm;margin:auto;padding:12mm;background:#fff}.frame{height:100%;border:3px solid #0d4476;outline:1px solid #faaa01;outline-offset:-8px;padding:11mm 20mm;text-align:center;position:relative;overflow:hidden}.frame:before,.frame:after{content:'';position:absolute;width:85mm;height:85mm;border:18px solid #0d4476;border-radius:50%;opacity:.045}.frame:before{left:-42mm;top:-42mm}.frame:after{right:-42mm;bottom:-42mm}.logo{width:68mm;height:auto}.kicker{margin:4mm 0 1mm;color:#0d4476;font-size:10pt;letter-spacing:.22em;text-transform:uppercase}.title{margin:0;color:#0d4476;font-size:32pt;letter-spacing:.12em}.intro{margin:4mm 0 1mm;font-size:13pt}.game{margin:0 0 3mm;color:#0d4476;font-size:18pt;font-weight:600;letter-spacing:.08em}.placement{margin:1mm 0;color:#f0a000;font-size:27pt;font-weight:700;letter-spacing:.08em}.event{margin:1mm 0 3mm;font-size:11pt;line-height:1.35}.label{margin:2mm 0 1mm;color:#697076;font-size:8pt;font-weight:600;letter-spacing:.18em;text-transform:uppercase}.name{margin:0;color:#0d4476;font-size:26pt;font-weight:600}.team-label{margin-top:2mm}.team{margin:0;font-size:15pt;font-weight:600}.achievement{margin:4mm auto 2mm;max-width:190mm;font-size:11pt;line-height:1.4}.footer{position:absolute;left:22mm;right:22mm;bottom:12mm;display:flex;justify-content:space-between;align-items:end;font-size:9pt}.line{display:inline-block;width:54mm;border-top:1px solid #393f44;padding-top:2mm;text-align:center}@media print{body{background:#fff}.sheet{margin:0}}
+            </style></head><body onload="setTimeout(()=>window.print(),300)"><main class="sheet"><section class="frame"><img class="logo" src="${new URL('assets/branding/mensa-cesko-logo.png',location.href).href}" alt="Mensa Česko"><p class="kicker">Výzkumný ústav Chronos</p><h1 class="title">DIPLOM</h1><p class="intro">${intro}</p><p class="game">ZTRACENI V ČASE</p>${placementBlock}<p class="label">Úspěšný řešitel</p><p class="name">${safe(player)}</p>${teamLine}<p class="achievement">${placement?'Ocenění za vynikající výsledek v celkovém pořadí.':'Ocenění za bystrý úsudek, vytrvalost a úspěšné splnění mise.'}</p><footer class="footer"><span>Datum: ${safe(completed)} · Čas řešení: ${safe(duration)}</span><span class="line">podpis pořadatele</span></footer></section></main></body></html>`);
             popup.document.close();
         }
 
@@ -2005,8 +2018,10 @@
             const container = document.getElementById('admin-leaderboard');
             if (!entries.length) { container.innerHTML = '<p>Síň slávy je prázdná.</p>'; return; }
             leaderboardEntriesById.clear();entries.forEach(entry => leaderboardEntriesById.set(String(entry.entry_id),entry));
-            const table = (mode,title) => { const rows=entries.filter(entry=>entry.mode===mode); return `<h3>${title}</h3><table><thead><tr><th>#</th><th>${mode==='solo'?'Hráč':'Tým'}</th><th>Hráči a diplomy</th><th>Skóre</th><th>Dokončeno</th><th>Akce</th></tr></thead><tbody>${rows.length?rows.map((entry,index)=>`<tr><td>${index+1}</td><td>${escapeHtml(mode==='solo'?(entry.players?.[0]||entry.name):entry.name)}</td><td>${(entry.players||[]).map((player,playerIndex)=>`${escapeHtml(player)} <button onclick="printDiploma('${entry.entry_id}',${playerIndex})">TISKNOUT DIPLOM</button>`).join('<br>')||'nezaznamenáno'}</td><td><strong>${Number(entry.score)}</strong></td><td>${entry.completed_at?new Date(entry.completed_at).toLocaleString('cs-CZ'):'starší záznam'}</td><td><button class="admin-delete" onclick="deleteLeaderboardEntry('${entry.entry_id}')">SMAZAT</button></td></tr>`).join(''):'<tr><td colspan="6">Zatím bez záznamů.</td></tr>'}</tbody></table>`; };
-            container.innerHTML = `<div class="leaderboard-lists"><section>${table('team','TÝMY')}</section><section>${table('solo','SOLO HRÁČI')}</section></div>`;
+            const overallRanks=new Map(entries.slice(0,3).map((entry,index)=>[String(entry.entry_id),index+1]));
+            const table = (mode,title) => { const rows=entries.filter(entry=>entry.mode===mode); return `<h3>${title}</h3><table><thead><tr><th>#</th><th>${mode==='solo'?'Hráč':'Tým'}</th><th>Hráči a diplomy</th><th>Skóre</th><th>Čas</th><th>Dokončeno</th><th>Akce</th></tr></thead><tbody>${rows.length?rows.map((entry,index)=>`<tr><td>${index+1}</td><td>${escapeHtml(mode==='solo'?(entry.players?.[0]||entry.name):entry.name)}</td><td>${(entry.players||[]).map((player,playerIndex)=>`${escapeHtml(player)} <button onclick="printDiploma('${entry.entry_id}',${playerIndex})">DIPLOM ŘEŠITELE</button>${leaderboardFinalized&&overallRanks.has(String(entry.entry_id))?` <button onclick="printDiploma('${entry.entry_id}',${playerIndex},${overallRanks.get(String(entry.entry_id))})">DIPLOM ZA ${overallRanks.get(String(entry.entry_id))}. MÍSTO</button>`:''}`).join('<br>')||'nezaznamenáno'}</td><td><strong>${Number(entry.score)}</strong></td><td>${formatLeaderboardDuration(entry.duration_seconds)}</td><td>${entry.completed_at?new Date(entry.completed_at).toLocaleString('cs-CZ'):'starší záznam'}</td><td><button class="admin-delete" onclick="deleteLeaderboardEntry('${entry.entry_id}')">SMAZAT</button></td></tr>`).join(''):'<tr><td colspan="7">Zatím bez záznamů.</td></tr>'}</tbody></table>`; };
+            const finalization = leaderboardFinalized ? '<p><strong>CELKOVÉ POŘADÍ JE ORGANIZAČNĚ UZAVŘENO.</strong> Diplomy za 1.–3. místo jsou dostupné.</p>' : `<p>Diplomy za celkové umístění jsou zamčené do ukončení akce.</p><button onclick="finalizeLeaderboard()" ${operationsEnabled?'disabled title="Nejprve zastavte herní provoz"':''}>ORGANIZAČNĚ UZAVŘÍT POŘADÍ</button>`;
+            container.innerHTML = `${finalization}<div class="leaderboard-lists"><section>${table('team','TÝMY')}</section><section>${table('solo','SOLO HRÁČI')}</section></div>`;
         }
 
         function requestPlayerRecovery(sessionId, playerId) {
@@ -2773,6 +2788,7 @@
                     onlineModeEnabled = Boolean(msg.payload.online_mode);
                     operationsEnabled = Boolean(msg.payload.gameplay_enabled);
                     mapillaryConfig = msg.payload.mapillary || {enabled:false,access_token:''};
+                    leaderboardFinalized = Boolean(msg.payload.leaderboard_finalized);
                     runtimeAvailability = msg.payload.availability || null;
                     runtimeAvailabilityByLobbyType = msg.payload.availability_by_lobby_type || {};
                     runtimeCheckpoints = msg.payload.checkpoints || [];
@@ -2784,6 +2800,7 @@
                     const settings = {"schedule-max-teams":msg.payload.max_active_teams,"schedule-interval":msg.payload.start_interval_minutes,"schedule-duration":msg.payload.game_duration_minutes,"schedule-deadline-penalty":msg.payload.deadline_penalty,"schedule-abandonment-penalty":msg.payload.abandonment_penalty,"schedule-completion-bonus":msg.payload.completion_bonus,"schedule-opening":msg.payload.opening_time,"schedule-closing":msg.payload.closing_time,"schedule-timezone":msg.payload.timezone};
                     Object.entries(settings).forEach(([id,value]) => { const field=document.getElementById(id); if (field && document.activeElement !== field) field.value=value ?? ''; });
                     const scheduleStatus = document.getElementById('admin-schedule-status'); if (scheduleStatus && runtimeAvailability) scheduleStatus.textContent = `${runtimeAvailability.active_teams}/${runtimeAvailability.max_active_teams} aktivních týmů · nejzazší start ${new Date(runtimeAvailability.latest_start_at).toLocaleTimeString('cs-CZ',{hour:'2-digit',minute:'2-digit'})}`;
+                    if (adminModeRequested && latestAdminPayload) renderAdminLeaderboard(latestAdminPayload.leaderboard || []);
                     renderLobbyAvailability();
                     renderOnlineMapActions();
                     const scannerContainer = document.getElementById('scanner-container');
@@ -2912,11 +2929,11 @@
                 }
                 const renderPublicList = (mode,bodyId) => {
                     const tbody=document.getElementById(bodyId),entries=lb.filter(entry=>entry.mode===mode).sort((a,b)=>b.score-a.score);tbody.innerHTML='';
-                    if (!entries.length) { tbody.innerHTML=`<tr><td colspan="${mode==='solo'?3:4}" style="text-align:center;color:#555;">Zatím bez výsledků.</td></tr>`; return; }
+                    if (!entries.length) { tbody.innerHTML=`<tr><td colspan="${mode==='solo'?4:5}" style="text-align:center;color:#555;">Zatím bez výsledků.</td></tr>`; return; }
                     entries.forEach((entry, idx) => {
                         let medal = '';
                         if (idx === 0) medal = '🥇 '; else if (idx === 1) medal = '🥈 '; else if (idx === 2) medal = '🥉 ';
-                        tbody.innerHTML += mode==='solo'?`<tr><td>${medal}#${idx+1}</td><td><b>${escapeHtml(entry.players?.[0]||entry.name)}</b></td><td style="color:#0aa;font-weight:bold">${Number(entry.score)}</td></tr>`:`<tr><td>${medal}#${idx+1}</td><td><b>${escapeHtml(entry.name)}</b></td><td>${(entry.players||[]).map(escapeHtml).join(', ')||'nezaznamenáno'}</td><td style="color:#0aa;font-weight:bold">${Number(entry.score)}</td></tr>`;
+                        tbody.innerHTML += mode==='solo'?`<tr><td>${medal}#${idx+1}</td><td><b>${escapeHtml(entry.players?.[0]||entry.name)}</b></td><td style="color:#0aa;font-weight:bold">${Number(entry.score)}</td><td>${formatLeaderboardDuration(entry.duration_seconds)}</td></tr>`:`<tr><td>${medal}#${idx+1}</td><td><b>${escapeHtml(entry.name)}</b></td><td>${(entry.players||[]).map(escapeHtml).join(', ')||'nezaznamenáno'}</td><td style="color:#0aa;font-weight:bold">${Number(entry.score)}</td><td>${formatLeaderboardDuration(entry.duration_seconds)}</td></tr>`;
                     });
                 };
                 renderPublicList('team','leaderboard-team-body');renderPublicList('solo','leaderboard-solo-body');
