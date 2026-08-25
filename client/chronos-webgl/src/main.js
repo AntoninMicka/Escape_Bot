@@ -168,6 +168,21 @@ function buildStairShaftGuards(){
   }
 }
 
+function buildLobbySeating(name,centerX,centerZ){
+  cylinder(`${name} · noha stolku`,[centerX,.42,centerZ],[.28,.75,.28],C.concrete,{collide:true});
+  cylinder(`${name} · kulatá deska`,[centerX,.82,centerZ],[1.45,.12,1.45],C.wood);
+  for(const [index,angle] of [0,120,240].entries()){
+    const radians=angle*Math.PI/180,x=centerX+Math.sin(radians)*2,z=centerZ+Math.cos(radians)*2;
+    box(`${name} · křeslo ${index+1} sedák`,[x,.48,z],[1.05,.45,1.05],C.violet,{collide:true});
+    const back=box(`${name} · křeslo ${index+1} opěradlo`,[x+Math.sin(radians)*.43,1.03,z+Math.cos(radians)*.43],[1.08,1.15,.2],C.violet);
+    back.setEulerAngles(0,angle,0);
+    for(const side of [-1,1]){
+      const arm=box(`${name} · křeslo ${index+1} područka`,[x+Math.cos(radians)*side*.5,.72,z-Math.sin(radians)*side*.5],[.16,.35,.9],C.violet);
+      arm.setEulerAngles(0,angle,0);
+    }
+  }
+}
+
 function buildMainShell(){
   // Přízemí se skutečnými otvory pro obě schodiště.
   slab('přízemí sever',0,0,10.5,36,9);
@@ -178,6 +193,8 @@ function buildMainShell(){
   wall('přízemí jižní stěna L',[-10.5,2,-13],[15,4,.35]);wall('přízemí jižní stěna P',[10.5,2,-13],[15,4,.35]);
   wall('přízemí východní stěna',[18,2,1],[.35,4,28]);
   wall('přízemí západ sever',[-18,2,9],[.35,4,12]);wall('přízemí západ jih',[-18,2,-8],[.35,4,10]);
+  buildLobbySeating('lobby západní posezení',-8,-8.5);
+  buildLobbySeating('lobby východní posezení',8,-8.5);
   wall('recepce přepážka L',[-5,1,6],[4,2,1],C.glass);wall('recepce přepážka P',[5,1,6],[4,2,1],C.glass);
   box('recepční pult',[0,.65,8],[7,1.3,1.3],C.glass,{collide:true});
   box('jídelna · výdejní pult',[0,.7,13.1],[12,1.4,1.25],C.concrete,{collide:true});
