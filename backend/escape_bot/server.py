@@ -260,6 +260,11 @@ def leaderboard_entries() -> list[dict[str, object]]:
             if lobby:
                 entry["players"] = [str(player.get("name", "")) for player in lobby.players.values() if player.get("name")]
         entry.setdefault("players", [])
+        lobby = lobby_registry.by_session.get(str(entry.get("session_id", "")))
+        if entry.get("mode") not in {"solo", "team"}:
+            # Starší záznamy režim neukládaly. Pokud už lobby není dostupná,
+            # jediné jméno je nejspolehlivější zpětně kompatibilní vodítko.
+            entry["mode"] = lobby.mode if lobby else ("solo" if len(entry["players"]) == 1 else "team")
         result.append(entry)
     return sorted(result, key=lambda item: int(item.get("score", 0)), reverse=True)
 
@@ -855,7 +860,8 @@ async def websocket_endpoint(websocket: WebSocket):
                             if not any(entry.get("session_id") == target_session for entry in global_leaderboard):
                                 global_leaderboard.append({"entry_id": secrets.token_hex(8), "session_id": target_session,
                                     "name": lobby.team_name, "players": [str(player.get("name", "")) for player in lobby.players.values()],
-                                    "score": machine.state.score, "completed_at": datetime.now(UTC).isoformat(), "administrative": True})
+                                    "mode": lobby.mode, "score": machine.state.score,
+                                    "completed_at": datetime.now(UTC).isoformat(), "administrative": True})
                                 save_leaderboard()
                             machine.state.flags["administratively_evaluated"] = True; save_sessions()
                             update = Message("leaderboard.update", {"entries": leaderboard_entries()})
@@ -1161,7 +1167,9 @@ async def websocket_endpoint(websocket: WebSocket):
                     name = lobby.team_name
                     score = machine.state.score
                     if not any(e.get("session_id") == session_id for e in global_leaderboard):
-                        global_leaderboard.append({"entry_id": secrets.token_hex(8), "session_id": session_id, "name": name, "players": [str(player.get("name", "")) for player in lobby.players.values() if player.get("name")], "score": score, "completed_at": machine.state.flags.get("completed_at", "")})
+                        global_leaderboard.append({"entry_id": secrets.token_hex(8), "session_id": session_id, "name": name,
+                            "players": [str(player.get("name", "")) for player in lobby.players.values() if player.get("name")],
+                            "mode": lobby.mode, "score": score, "completed_at": machine.state.flags.get("completed_at", "")})
                         save_leaderboard()
                     
                     update_msg = json.dumps(Message("leaderboard.update", {"entries": leaderboard_entries()}).to_json())
@@ -1243,6 +1251,7 @@ async def websocket_endpoint(websocket: WebSocket):
                                 "session_id": session_id,
                                 "name": completed_lobby.team_name,
                                 "players": [str(player.get("name", "")) for player in completed_lobby.players.values() if player.get("name")],
+                                "mode": completed_lobby.mode,
                                 "score": state_machine.state.score,
                                 "completed_at": state_machine.state.flags.get("completed_at", ""),
                             })
