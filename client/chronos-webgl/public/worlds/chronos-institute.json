@@ -11,7 +11,8 @@
     {"id": 2, "name": "2. PATRO · HOSTOVSKÉ POKOJE", "height": 8}
   ],
   "zones": [
-    {"id": "reception", "name": "RECEPCE A ATRIUM", "level": 0, "bounds": [-9, 9, 3, 14]},
+    {"id": "reception", "name": "RECEPCE A ATRIUM", "level": 0, "bounds": [-9, 9, 3, 8]},
+    {"id": "dining", "name": "JÍDELNA", "level": 0, "bounds": [-17, 17, 8, 14]},
     {"id": "bowling", "name": "BOWLINGOVÉ KŘÍDLO", "level": 0, "bounds": [-36, -17, -10, 11]},
     {"id": "ground_hall", "name": "CENTRÁLNÍ HALA", "level": 0, "bounds": [-17, 17, -12, 3]},
     {"id": "outdoor", "name": "VENKOVNÍ AREÁL", "level": 0, "bounds": [-41, 61, -57, -13]},
@@ -20,8 +21,10 @@
     {"id": "time_hall", "name": "FINÁLNÍ CHRONÁLNÍ LABORATOŘ", "level": -2, "bounds": [-17, 17, -12, 14]},
     {"id": "labs", "name": "CHRONÁLNÍ LABORATOŘE", "level": -1, "bounds": [-17, 17, -12, 14]},
     {"id": "quarters", "name": "UBIKACE VÝZKUMNÍKŮ", "level": 1, "bounds": [-17, 17, -12, 14]},
+    {"id": "lecture_hall_lower", "name": "PŘEDNÁŠKOVÁ HALA", "level": 1, "bounds": [-35, -18, -9, 10]},
     {"id": "terrace", "name": "VYHLÍDKOVÁ TERASA", "level": 1, "bounds": [17, 38, 3, 14]},
-    {"id": "guest_rooms", "name": "HOSTOVSKÉ POKOJE", "level": 2, "bounds": [-17, 17, -12, 14]}
+    {"id": "guest_rooms", "name": "HOSTOVSKÉ POKOJE", "level": 2, "bounds": [-17, 17, -12, 14]},
+    {"id": "lecture_hall_gallery", "name": "GALERIE PŘEDNÁŠKOVÉ HALY", "level": 2, "bounds": [-22.8, -18, -9, 10]}
   ],
   "stairs": [
     {"id": "stairs_labs", "name": "SCHODY DO LABORATOŘÍ", "x1": 13, "x2": 16, "z_from": 6, "z_to": -4, "from_level": 0, "to_level": -1},

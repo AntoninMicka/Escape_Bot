@@ -90,6 +90,19 @@ function windowedWallX(name,y,x,z1,z2,windows){
   if(cursor<z2)roomWall(`${name} krajní pilíř`,[x,y+2,(cursor+z2)/2],[.35,1.6,z2-cursor]);
 }
 
+function lectureAccessWall(name,y){
+  const x=-18,z1=-13,z2=15,door1=-1.3,door2=1.3;
+  for(const [start,end] of [[z1,-9.5],[-6.5,door1],[door2,6.5],[9.5,z2]]){
+    roomWall(`${name} plná část ${start}`,[x,y+2,(start+end)/2],[.35,4,end-start]);
+  }
+  for(const center of [-8,8]){
+    roomWall(`${name} okenní parapet ${center}`,[x,y+.6,center],[.35,1.2,3]);
+    roomWall(`${name} okenní nadpraží ${center}`,[x,y+3.4,center],[.35,1.2,3]);
+    wall(`${name} sklo ${center}`,[x,y+2,center],[.08,1.6,3],C.glass,{emissive:true});
+  }
+  roomWall(`${name} dveřní nadpraží`,[x,y+3.55,0],[.35,.9,door2-door1]);
+}
+
 function buildGuestFloor(y,prefix){
   const corridorWall=(z,label)=>{
     const doors=[-13,-5],gap=1.5;let cursor=-17.5;
@@ -167,6 +180,12 @@ function buildMainShell(){
   wall('přízemí západ sever',[-18,2,9],[.35,4,12]);wall('přízemí západ jih',[-18,2,-8],[.35,4,10]);
   wall('recepce přepážka L',[-5,1,6],[4,2,1],C.glass);wall('recepce přepážka P',[5,1,6],[4,2,1],C.glass);
   box('recepční pult',[0,.65,8],[7,1.3,1.3],C.glass,{collide:true});
+  box('jídelna · výdejní pult',[0,.7,13.1],[12,1.4,1.25],C.concrete,{collide:true});
+  box('jídelna · výdejní vitrína',[0,1.45,13.25],[11,.45,.35],C.glass,{emissive:true});
+  for(const [x,z] of [[-13,9.2],[-7,10.8],[7,10.8],[13,9.2]]){
+    box('jídelna · stůl',[x,.75,z],[3.2,.16,1.6],C.wood,{collide:true});
+    for(const dz of [-1.15,1.15])box('jídelna · židle',[x,.45,z+dz],[.65,.9,.65],C.room,{collide:true});
+  }
 
   // B1 · laboratoře a archiv. U bezpečnostního schodiště zůstává skutečný otvor do B2.
   slab('B1 sever',0,-5,10.5,36,9,C.dark);slab('B1 jih',0,-5,-8.5,36,9,C.dark);
@@ -204,7 +223,7 @@ function buildMainShell(){
   slab('1P sever',0,4,10.5,36,9,C.room);slab('1P jih',0,4,-8.5,36,9,C.room);
   slab('1P střed západ',-4.75,4,1,26.5,10,C.room);slab('1P střed východ',17.25,4,1,1.5,10,C.room);
   windowedWallZ('1P severní stěna',4,15,-18,18,[-13,-5,3.5,12]);windowedWallZ('1P jižní stěna',4,-13,-18,18,[-13,-5,3.5,12]);
-  windowedWallX('1P západní stěna',4,-18,-13,15,[-8,8]);
+  lectureAccessWall('1P západní stěna',4);
   roomWall('1P východ sever',[18,6,13.5],[.35,4,3]);roomWall('1P východ jih',[18,6,-3],[.35,4,18]);
   buildGuestFloor(4,'1P');
 
@@ -212,10 +231,10 @@ function buildMainShell(){
   slab('2P sever',0,8,10.5,36,9,C.room);slab('2P jih',0,8,-8.5,36,9,C.room);
   slab('2P střed západ',-4.75,8,1,26.5,10,C.room);slab('2P střed východ',17.25,8,1,1.5,10,C.room);
   windowedWallZ('2P sever',8,15,-18,18,[-13,-5,3.5,12]);windowedWallZ('2P jih',8,-13,-18,18,[-13,-5,3.5,12]);
-  windowedWallX('2P západ',8,-18,-13,15,[-8,8]);windowedWallX('2P východ',8,18,-13,15,[-8,8]);
+  lectureAccessWall('2P západ',8);windowedWallX('2P východ',8,18,-13,15,[-8,8]);
   buildGuestFloor(8,'2P');
   slab('hlavní střecha',0,12,1,36,28,C.dark);
-  slab('střecha bowlingu',-27,4,.5,18,21,C.dark);
+  slab('podlaha přednáškové haly',-27,4,.5,18,21,C.room);
 }
 
 function buildBowling(){
@@ -226,6 +245,21 @@ function buildBowling(){
     for(let pin=0;pin<3;pin++)cylinder('kuželka',[x+(pin-1)*.45,.45,-7+Math.abs(pin-1)*.4],[.22,.8,.22],C.white);
   }
   for(const x of [-31,-27,-23])box('bowlingové křeslo',[x,.55,8],[2,1.1,2],C.violet,{collide:true});
+}
+
+function buildLectureHall(){
+  roomWall('přednášková hala západ',[-36,8,.5],[.35,8,21]);
+  roomWall('přednášková hala sever',[-27,8,11],[18,8,.35]);
+  roomWall('přednášková hala jih',[-27,8,-10],[18,8,.35]);
+  slab('střecha přednáškové haly',-27,12,.5,18,21,C.dark);
+  slab('přednášková hala · horní galerie',-20.5,8,.5,5,21,C.room);
+  wall('přednášková hala · zábradlí galerie',[-23,8.75,.5],[.18,1.5,21],C.glass);
+  box('přednášková hala · pódium',[-32,4.25,.5],[5.5,.5,11],C.wood,{collide:true});
+  box('přednášková hala · projekční plocha',[-35.75,8,.5],[.12,4.8,8],C.white,{emissive:true});
+  box('přednášková hala · řečnický pult',[-30.8,5,3.5],[1.1,1.5,.9],C.concrete,{collide:true});
+  for(const x of [-28,-25,-21])for(const z of [-6,-3,0,3,6])box('přednášková hala · sedadlo',[x,4.55,z],[.8,1.1,.8],C.violet,{collide:true});
+  for(const z of [-7,-3.5,0,3.5,7])box('přednášková hala · sedadlo galerie',[-20.5,8.55,z],[.8,1.1,.8],C.violet,{collide:true});
+  for(const [y,label] of [[5.8,'1P'],[9.8,'2P']])box(`přednášková hala · označení ${label}`,[-17.78,y,0],[.08,.45,2.2],C.cyan,{emissive:true});
 }
 
 function buildTerraceAndOutdoors(){
@@ -314,7 +348,7 @@ function buildCheckpoints(){
   checkpointEntities.set(room.id,{...room,entity,baseColor:C.violet,interaction:'room'});
 }
 
-buildMainShell();buildBowling();buildTerraceAndOutdoors();world.stairs.forEach(buildStair);buildStairShaftGuards();buildCheckpoints();
+buildMainShell();buildBowling();buildLectureHall();buildTerraceAndOutdoors();world.stairs.forEach(buildStair);buildStairShaftGuards();buildCheckpoints();
 
 const camera=new pc.Entity('player');camera.addComponent('camera',{clearColor:new pc.Color(.09,.18,.22),nearClip:.08,farClip:150,fov:68});
 camera.setPosition(world.spawn.x,world.spawn.y,world.spawn.z);camera.lookAt(...world.spawn.look_at);app.root.addChild(camera);
@@ -344,8 +378,9 @@ function updateStairLevel(x,z){const stair=stairAt(x,z);if(!stair)return;if(Math
 function walkable(x,z){
   if(stairAt(x,z))return true;
   if(currentLevel===-1&&x>=-14.5&&x<=-9.5&&z>=-15&&z<=-12.5)return true;
-  if(currentLevel===-2||currentLevel===-1||currentLevel===2)return x>=-17.5&&x<=17.5&&z>=-12.5&&z<=14.5;
-  if(currentLevel===1)return x>=-17.5&&x<=38&&z>=-12.5&&z<=14.5&&(x<=18.5||z>=2.7);
+  if(currentLevel===-2||currentLevel===-1)return x>=-17.5&&x<=17.5&&z>=-12.5&&z<=14.5;
+  if(currentLevel===2)return (x>=-17.5&&x<=17.5&&z>=-12.5&&z<=14.5)||(x>=-22.8&&x<-17.5&&z>=-9.5&&z<=10.5);
+  if(currentLevel===1)return (x>=-35.5&&x<=18.5&&z>=-12.5&&z<=14.5)||(x>18.5&&x<=38&&z>=2.7&&z<=14.5);
   return x>=-41.5&&x<=61.5&&z>=-57.5&&z<=17.5;
 }
 function blocked(x,z,height){

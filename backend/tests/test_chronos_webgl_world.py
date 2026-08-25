@@ -91,6 +91,12 @@ class ChronosWebglWorldTest(unittest.TestCase):
         self.assertLess(spawn["z"], -48)
         self.assertLessEqual(abs(spawn["x"]), 4)
 
+    def test_dining_room_and_two_level_lecture_hall_have_zones(self) -> None:
+        zones = {(zone["id"], zone["level"]) for zone in self.world["zones"]}
+        self.assertIn(("dining", 0), zones)
+        self.assertIn(("lecture_hall_lower", 1), zones)
+        self.assertIn(("lecture_hall_gallery", 2), zones)
+
     def test_every_interaction_lies_inside_a_declared_zone(self) -> None:
         points = [*self.world["checkpoints"], self.world["optional_room"]]
         level_ids = {level["id"] for level in self.world["levels"]}
