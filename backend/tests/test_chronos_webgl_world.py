@@ -6,6 +6,8 @@ from pathlib import Path
 BACKEND_DIR = Path(__file__).resolve().parents[1]
 PROJECT_DIR = BACKEND_DIR.parent
 WORLD_PATH = PROJECT_DIR / "client" / "chronos-webgl" / "public" / "worlds" / "chronos-institute.json"
+HORIZON_PATH = PROJECT_DIR / "client" / "chronos-webgl" / "public" / "assets" / "textures" / "chronos-horizon-v3.webp"
+CLOUDS_PATH = PROJECT_DIR / "client" / "chronos-webgl" / "public" / "assets" / "textures" / "chronos-clouds-v1.png"
 REALIZATION_PATH = BACKEND_DIR / "content" / "realizations" / "chronos_online.json"
 
 
@@ -69,7 +71,25 @@ class ChronosWebglWorldTest(unittest.TestCase):
         emergency = next(stair for stair in self.world["stairs"] if stair["id"] == "stairs_emergency")
         self.assertEqual((emergency["from_level"], emergency["to_level"]), (-1, 0))
         self.assertTrue(emergency["exterior"])
-        self.assertLess(emergency["z_to"], -13)
+        self.assertLess(emergency["z_from"], -13)
+        self.assertLess(emergency["z_to"], emergency["z_from"])
+
+    def test_outdoor_layout_separates_terrace_stairs_and_sports_field(self) -> None:
+        terrace_stairs = next(stair for stair in self.world["stairs"] if stair["id"] == "stairs_terrace")
+        sports = next(zone for zone in self.world["zones"] if zone["id"] == "sports")
+        pond = next(zone for zone in self.world["zones"] if zone["id"] == "pond")
+
+        self.assertGreaterEqual(terrace_stairs["z_to"] - sports["bounds"][3], 1)
+        self.assertLess(pond["bounds"][3], sports["bounds"][2])
+        self.assertTrue(HORIZON_PATH.is_file())
+        self.assertTrue(CLOUDS_PATH.is_file())
+
+    def test_player_starts_inside_the_gate_next_to_the_car(self) -> None:
+        spawn = self.world["spawn"]
+        self.assertEqual(spawn["level"], 0)
+        self.assertGreater(spawn["z"], -58)
+        self.assertLess(spawn["z"], -48)
+        self.assertLessEqual(abs(spawn["x"]), 4)
 
     def test_every_interaction_lies_inside_a_declared_zone(self) -> None:
         points = [*self.world["checkpoints"], self.world["optional_room"]]
