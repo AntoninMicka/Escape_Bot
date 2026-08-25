@@ -1,6 +1,6 @@
 [
   {
-    "session_id": "fadeda43db4e4dababe164d56f95e3b9",
+    "session_id": "13c3fc7130a64328aa9393e9da139f09",
     "mode": "solo",
     "creator_id": "46c4b312-8a98-4aea-abca-527300ba58e5",
     "team_name": "Pokus4",
@@ -10,7 +10,7 @@
       "46c4b312-8a98-4aea-abca-527300ba58e5": {
         "id": "46c4b312-8a98-4aea-abca-527300ba58e5",
         "name": "PC",
-        "joined_at": "2026-08-25T06:13:00.548626+00:00"
+        "joined_at": "2026-08-25T06:19:24.998126+00:00"
       }
     },
     "max_players": 1,

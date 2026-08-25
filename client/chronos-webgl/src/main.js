@@ -117,7 +117,14 @@ function buildMainShell(){
   slab('B1 střed západ',-4.75,-5,1,26.5,10,C.dark);slab('B1 střed východ',17.25,-5,1,1.5,10,C.dark);
   wall('B1 sever',[0,-3,15],[36,4,.35],C.lab);wall('B1 jih krajní',[-17.75,-3,-13],[.5,4,.35],C.lab);wall('B1 jih',[2.25,-3,-13],[31.5,4,.35],C.lab);
   wall('B1 západ',[-18,-3,1],[.35,4,28],C.lab);wall('B1 východ',[18,-3,1],[.35,4,28],C.lab);
-  wall('B1 centrální přepážka L',[-4.75,-3,1],[26.5,4,.3],C.glass);wall('B1 centrální přepážka P',[17.25,-3,1],[1.5,4,.3],C.glass);
+  // Příčka odděluje laboratoře, ale samostatný průchod uprostřed propojuje
+  // severní a jižní polovinu B1 bez nutnosti vstupovat do schodišťové šachty.
+  wall('B1 centrální přepážka Z',[-9.875,-3,1],[16.25,4,.3],C.glass);
+  wall('B1 centrální přepážka V',[5.125,-3,1],[6.75,4,.3],C.glass);
+  wall('B1 centrální přepážka krajní',[17.25,-3,1],[1.5,4,.3],C.glass);
+  box('B1 průchod · levá zárubeň',[-1.75,-3,1],[.16,4,.42],C.cyan);
+  box('B1 průchod · pravá zárubeň',[1.75,-3,1],[.16,4,.42],C.cyan);
+  box('B1 průchod · označení',[0,-1.35,.78],[2.6,.35,.12],C.cyan,{emissive:true});
   for(const x of [-13,-7,7])box('laboratorní pult',[x,-4.35,-5],[4,1.3,2],C.glass,{collide:true});
 
   // B2 · stíněná chronální hala s finálním strojem času.
