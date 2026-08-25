@@ -7,5 +7,7 @@
   "deadline_penalty": 100,
   "opening_time": "00:00",
   "closing_time": "23:00",
-  "timezone": "Europe/Prague"
+  "timezone": "Europe/Prague",
+  "leaderboard_finalized": false,
+  "leaderboard_finalized_at": ""
 }

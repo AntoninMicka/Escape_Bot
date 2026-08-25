@@ -123,6 +123,11 @@ class StateMachineCheckpointTests(unittest.IsolatedAsyncioTestCase):
         finally:
             global_leaderboard.clear(); global_leaderboard.extend(original)
 
+    def test_result_duration_is_measured_from_operational_start(self) -> None:
+        from escape_bot.server import result_duration_seconds
+        self.machine.state.flags["operations_started_at"] = "2026-08-25T17:00:00+00:00"
+        self.assertEqual(result_duration_seconds(self.machine, "2026-08-25T18:12:34+00:00"), 4354)
+
     def test_deadline_closes_game_and_applies_penalty_only_once(self) -> None:
         from escape_bot.server import apply_deadline_end
         ended_at = datetime.now(UTC).isoformat()

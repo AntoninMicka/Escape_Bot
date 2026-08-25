@@ -33,6 +33,8 @@ def reset_event(storage: Storage, confirmation: str) -> None:
         raise ValueError(f"Reset vyžaduje potvrzení {RESET_CONFIRMATION}.")
     settings = storage.load_runtime_settings()
     settings["gameplay_enabled"] = False
+    settings["leaderboard_finalized"] = False
+    settings["leaderboard_finalized_at"] = ""
     storage.save_sessions({})
     storage.save_lobbies([])
     storage.save_leaderboard([])

@@ -1,1 +1,62 @@
-[]
+[
+  {
+    "entry_id": "demo-team-chrononauti",
+    "session_id": "demo-session-team-chrononauti",
+    "name": "Chrononauti",
+    "players": ["Anna Nováková", "Petr Dvořák", "Klára Veselá"],
+    "mode": "team",
+    "score": 1240,
+    "duration_seconds": 4218,
+    "completed_at": "2026-08-25T17:18:00+00:00"
+  },
+  {
+    "entry_id": "demo-team-sede-bunky",
+    "session_id": "demo-session-team-sede-bunky",
+    "name": "Šedé buňky",
+    "players": ["Martin Černý", "Lucie Horáková"],
+    "mode": "team",
+    "score": 1115,
+    "duration_seconds": 4896,
+    "completed_at": "2026-08-25T18:02:00+00:00"
+  },
+  {
+    "entry_id": "demo-team-casova-smycka",
+    "session_id": "demo-session-team-casova-smycka",
+    "name": "Časová smyčka",
+    "players": ["Eliška Procházková", "Tomáš Král", "Jan Bureš", "Sára Malá"],
+    "mode": "team",
+    "score": 980,
+    "duration_seconds": 5634,
+    "completed_at": "2026-08-25T19:11:00+00:00"
+  },
+  {
+    "entry_id": "demo-solo-veronika",
+    "session_id": "demo-session-solo-veronika",
+    "name": "Veronika Jelínková",
+    "players": ["Veronika Jelínková"],
+    "mode": "solo",
+    "score": 1190,
+    "duration_seconds": 4487,
+    "completed_at": "2026-08-25T17:42:00+00:00"
+  },
+  {
+    "entry_id": "demo-solo-michal",
+    "session_id": "demo-session-solo-michal",
+    "name": "Michal Kučera",
+    "players": ["Michal Kučera"],
+    "mode": "solo",
+    "score": 1060,
+    "duration_seconds": 5172,
+    "completed_at": "2026-08-25T18:37:00+00:00"
+  },
+  {
+    "entry_id": "demo-solo-tereza",
+    "session_id": "demo-session-solo-tereza",
+    "name": "Tereza Němcová",
+    "players": ["Tereza Němcová"],
+    "mode": "solo",
+    "score": 925,
+    "duration_seconds": 6015,
+    "completed_at": "2026-08-25T19:26:00+00:00"
+  }
+]

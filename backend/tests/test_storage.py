@@ -100,7 +100,7 @@ class JsonStorageTests(unittest.TestCase):
         self.storage.save_sessions({"session-1": {"score": 900}})
         self.storage.save_lobbies([{"session_id": "session-1", "players": {}}])
         self.storage.save_leaderboard([{"team_name": "Test", "score": 900}])
-        self.storage.save_runtime_settings({"opening_time": "08:00", "gameplay_enabled": True})
+        self.storage.save_runtime_settings({"opening_time": "08:00", "gameplay_enabled": True, "leaderboard_finalized": True})
 
         archive_path, report = archive_event(self.storage, self.data_dir / "archives", "test-run")
         reset_event(self.storage, RESET_CONFIRMATION)
@@ -113,6 +113,7 @@ class JsonStorageTests(unittest.TestCase):
         self.assertEqual(self.storage.load_leaderboard(), [])
         self.assertEqual(self.storage.load_runtime_settings()["opening_time"], "08:00")
         self.assertFalse(self.storage.load_runtime_settings()["gameplay_enabled"])
+        self.assertFalse(self.storage.load_runtime_settings()["leaderboard_finalized"])
 
     def test_event_reset_requires_explicit_confirmation(self) -> None:
         with self.assertRaisesRegex(ValueError, RESET_CONFIRMATION):

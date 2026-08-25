@@ -65,7 +65,8 @@ ADMIN_TOKEN = os.getenv("ESCAPEBOT_ADMIN_TOKEN", "")
 runtime_settings = {"online_mode": False, "gameplay_enabled": True, "max_active_teams": 4,
                     "start_interval_minutes": 15, "game_duration_minutes": 165,
                     "deadline_penalty": 100, "abandonment_penalty": 100, "completion_bonus": 100,
-                    "opening_time": "08:00", "closing_time": "20:00", "timezone": "Europe/Prague"}
+                    "opening_time": "08:00", "closing_time": "20:00", "timezone": "Europe/Prague",
+                    "leaderboard_finalized": False, "leaderboard_finalized_at": ""}
 
 def _local_now() -> datetime:
     try: return datetime.now(ZoneInfo(str(runtime_settings.get("timezone", "Europe/Prague"))))
@@ -265,8 +266,26 @@ def leaderboard_entries() -> list[dict[str, object]]:
             # Starší záznamy režim neukládaly. Pokud už lobby není dostupná,
             # jediné jméno je nejspolehlivější zpětně kompatibilní vodítko.
             entry["mode"] = lobby.mode if lobby else ("solo" if len(entry["players"]) == 1 else "team")
+        if not entry.get("duration_seconds"):
+            machine = active_sessions.get(str(entry.get("session_id", "")))
+            started_at = machine.state.flags.get("operations_started_at") if machine else None
+            completed_at = entry.get("completed_at")
+            if started_at and completed_at:
+                try:
+                    entry["duration_seconds"] = max(0, round((datetime.fromisoformat(str(completed_at)) - datetime.fromisoformat(str(started_at))).total_seconds()))
+                except ValueError:
+                    pass
         result.append(entry)
-    return sorted(result, key=lambda item: int(item.get("score", 0)), reverse=True)
+    return sorted(result, key=lambda item: (-int(item.get("score", 0)), int(item.get("duration_seconds") or 10**9)))
+
+def result_duration_seconds(machine: EscapeBotStateMachine, completed_at: str) -> int | None:
+    started_at = machine.state.flags.get("operations_started_at")
+    if not started_at or not completed_at:
+        return None
+    try:
+        return max(0, round((datetime.fromisoformat(str(completed_at)) - datetime.fromisoformat(str(started_at))).total_seconds()))
+    except ValueError:
+        return None
 
 def save_leaderboard():
     storage.save_leaderboard(global_leaderboard)
@@ -679,7 +698,7 @@ async def websocket_endpoint(websocket: WebSocket):
                 data = json.loads(message_str)
                 msg = Message.from_json(data)
 
-                if msg.type in {"admin.list", "admin.penalty", "admin.score_adjustment", "admin.delete", "admin.qr_set", "admin.online_mode", "admin.operations", "admin.schedule_settings", "admin.evaluate_team", "admin.session_extend", "admin.session_end", "admin.checkpoint", "admin.game_reset", "admin.game_player", "admin.player_recovery", "admin.leaderboard_delete", "admin.support_join", "admin.support_leave", "admin.support_message", "admin.spectate_start", "admin.spectate_stop"}:
+                if msg.type in {"admin.list", "admin.penalty", "admin.score_adjustment", "admin.delete", "admin.qr_set", "admin.online_mode", "admin.operations", "admin.schedule_settings", "admin.evaluate_team", "admin.session_extend", "admin.session_end", "admin.checkpoint", "admin.game_reset", "admin.game_player", "admin.player_recovery", "admin.leaderboard_delete", "admin.leaderboard_finalize", "admin.support_join", "admin.support_leave", "admin.support_message", "admin.spectate_start", "admin.spectate_stop"}:
                     try:
                         require_admin(msg.payload)
                         authenticated_admin_sockets.add(websocket)
@@ -741,6 +760,8 @@ async def websocket_endpoint(websocket: WebSocket):
                                 except Exception: pass
                             await send_admin_overview(websocket); continue
                         if msg.type == "admin.leaderboard_delete":
+                            if runtime_settings.get("leaderboard_finalized", False):
+                                raise ValueError("Uzavřené celkové pořadí už nelze měnit.")
                             entry_id = str(msg.payload.get("entry_id", "")).strip()
                             index = next((index for index, entry in enumerate(global_leaderboard) if str(entry.get("entry_id", "")) == entry_id), None)
                             if index is None:
@@ -753,6 +774,18 @@ async def websocket_endpoint(websocket: WebSocket):
                                 except Exception: pass
                             await send_admin_overview(websocket)
                             logger.info("Admin odstranil výsledek týmu %s ze Síně slávy.", removed.get("name", ""))
+                            continue
+                        if msg.type == "admin.leaderboard_finalize":
+                            if runtime_settings.get("gameplay_enabled", True):
+                                raise ValueError("Nejprve zastavte herní provoz. Po uzavření pořadí už nelze bezpečně přijímat další výsledky.")
+                            runtime_settings["leaderboard_finalized"] = True
+                            runtime_settings["leaderboard_finalized_at"] = datetime.now(UTC).isoformat()
+                            save_runtime_settings()
+                            update = Message("runtime.settings", runtime_payload())
+                            for active_socket in list(app.state.active_websockets):
+                                try: await send_message(active_socket, update)
+                                except Exception: pass
+                            await send_admin_overview(websocket)
                             continue
 
                         target_session = str(msg.payload.get("session_id", "")).strip()
@@ -857,11 +890,15 @@ async def websocket_endpoint(websocket: WebSocket):
                             machine = ensure_state_machine(target_session)
                             if not machine.state.flags.get("administratively_ended") and not machine.state.flags.get("game_completed"):
                                 raise ValueError("Vyhodnotit lze pouze dokončenou nebo provozně ukončenou hru.")
+                            if runtime_settings.get("leaderboard_finalized", False) and not any(entry.get("session_id") == target_session for entry in global_leaderboard):
+                                raise ValueError("Celkové pořadí je už organizačně uzavřeno.")
                             if not any(entry.get("session_id") == target_session for entry in global_leaderboard):
+                                completed_at = datetime.now(UTC).isoformat()
                                 global_leaderboard.append({"entry_id": secrets.token_hex(8), "session_id": target_session,
                                     "name": lobby.team_name, "players": [str(player.get("name", "")) for player in lobby.players.values()],
                                     "mode": lobby.mode, "score": machine.state.score,
-                                    "completed_at": datetime.now(UTC).isoformat(), "administrative": True})
+                                    "duration_seconds": result_duration_seconds(machine, completed_at),
+                                    "completed_at": completed_at, "administrative": True})
                                 save_leaderboard()
                             machine.state.flags["administratively_evaluated"] = True; save_sessions()
                             update = Message("leaderboard.update", {"entries": leaderboard_entries()})
@@ -1164,12 +1201,17 @@ async def websocket_endpoint(websocket: WebSocket):
                     if not lobby or not machine or not machine.state.flags.get("game_completed"):
                         await send_message(websocket, Message("error", {"message": "Výsledek lze zapsat až po dokončení hry."}))
                         continue
+                    if runtime_settings.get("leaderboard_finalized", False):
+                        await send_message(websocket, Message("error", {"message": "Celkové pořadí je už organizačně uzavřeno."}))
+                        continue
                     name = lobby.team_name
                     score = machine.state.score
                     if not any(e.get("session_id") == session_id for e in global_leaderboard):
                         global_leaderboard.append({"entry_id": secrets.token_hex(8), "session_id": session_id, "name": name,
                             "players": [str(player.get("name", "")) for player in lobby.players.values() if player.get("name")],
-                            "mode": lobby.mode, "score": score, "completed_at": machine.state.flags.get("completed_at", "")})
+                            "mode": lobby.mode, "score": score,
+                            "duration_seconds": result_duration_seconds(machine, str(machine.state.flags.get("completed_at", ""))),
+                            "completed_at": machine.state.flags.get("completed_at", "")})
                         save_leaderboard()
                     
                     update_msg = json.dumps(Message("leaderboard.update", {"entries": leaderboard_entries()}).to_json())
@@ -1245,7 +1287,7 @@ async def websocket_endpoint(websocket: WebSocket):
                             responses.append(state_machine._state_message())
                             save_sessions()
                         completed_lobby = lobby_registry.by_session.get(str(session_id))
-                        if completed_lobby and not any(entry.get("session_id") == session_id for entry in global_leaderboard):
+                        if completed_lobby and not runtime_settings.get("leaderboard_finalized", False) and not any(entry.get("session_id") == session_id for entry in global_leaderboard):
                             global_leaderboard.append({
                                 "entry_id": secrets.token_hex(8),
                                 "session_id": session_id,
@@ -1253,6 +1295,7 @@ async def websocket_endpoint(websocket: WebSocket):
                                 "players": [str(player.get("name", "")) for player in completed_lobby.players.values() if player.get("name")],
                                 "mode": completed_lobby.mode,
                                 "score": state_machine.state.score,
+                                "duration_seconds": result_duration_seconds(state_machine, str(state_machine.state.flags.get("completed_at", ""))),
                                 "completed_at": state_machine.state.flags.get("completed_at", ""),
                             })
                             save_leaderboard()
