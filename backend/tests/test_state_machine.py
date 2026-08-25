@@ -114,6 +114,21 @@ class StateMachineCheckpointTests(unittest.IsolatedAsyncioTestCase):
         finally:
             runtime_settings.clear(); runtime_settings.update(original)
 
+    def test_legacy_leaderboard_entries_are_split_into_solo_and_team_modes(self) -> None:
+        from escape_bot.server import global_leaderboard, leaderboard_entries
+        original = list(global_leaderboard)
+        try:
+            global_leaderboard.clear()
+            global_leaderboard.extend([
+                {"entry_id": "solo", "session_id": "legacy-solo", "name": "Alice", "players": ["Alice"], "score": 900},
+                {"entry_id": "team", "session_id": "legacy-team", "name": "Chrononauti", "players": ["Bob", "Cyril"], "score": 800},
+            ])
+            entries = {entry["entry_id"]: entry for entry in leaderboard_entries()}
+            self.assertEqual(entries["solo"]["mode"], "solo")
+            self.assertEqual(entries["team"]["mode"], "team")
+        finally:
+            global_leaderboard.clear(); global_leaderboard.extend(original)
+
     def test_deadline_closes_game_and_applies_penalty_only_once(self) -> None:
         from escape_bot.server import apply_deadline_end
         ended_at = datetime.now(UTC).isoformat()
