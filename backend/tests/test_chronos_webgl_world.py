@@ -9,6 +9,7 @@ WORLD_PATH = PROJECT_DIR / "client" / "chronos-webgl" / "public" / "worlds" / "c
 HORIZON_PATH = PROJECT_DIR / "client" / "chronos-webgl" / "public" / "assets" / "textures" / "chronos-horizon-v3.webp"
 CLOUDS_PATH = PROJECT_DIR / "client" / "chronos-webgl" / "public" / "assets" / "textures" / "chronos-clouds-v1.png"
 REALIZATION_PATH = BACKEND_DIR / "content" / "realizations" / "chronos_online.json"
+SOURCE_PATH = PROJECT_DIR / "client" / "chronos-webgl" / "src" / "main.js"
 
 
 class ChronosWebglWorldTest(unittest.TestCase):
@@ -96,6 +97,16 @@ class ChronosWebglWorldTest(unittest.TestCase):
         self.assertIn(("dining", 0), zones)
         self.assertIn(("lecture_hall_lower", 1), zones)
         self.assertIn(("lecture_hall_gallery", 2), zones)
+
+    def test_recent_world_repairs_remain_in_the_rendered_scene(self) -> None:
+        source = SOURCE_PATH.read_text(encoding="utf-8")
+        for marker in (
+            "buildLobbySeating", "jídelna · výdejní pult", "buildLectureHall",
+            "úniková šachta levá stěna", "spodní dno areálu", "oblačný strop",
+            "horizonSegments-1-index",
+        ):
+            with self.subTest(marker=marker):
+                self.assertIn(marker, source)
 
     def test_every_interaction_lies_inside_a_declared_zone(self) -> None:
         points = [*self.world["checkpoints"], self.world["optional_room"]]

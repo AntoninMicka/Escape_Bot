@@ -23,6 +23,21 @@ class ScenarioCatalogTest(unittest.TestCase):
         self.assertIn("104", entry.scenario.data["rooms"])
         self.assertEqual(entry.scenario.data["rooms"]["104"]["pin"], "1104")
 
+    def test_lost_in_time_online_and_qr_realizations_keep_the_same_game_contract(self) -> None:
+        catalog = load_scenario_catalog(
+            BACKEND_DIR / "content" / "templates",
+            BACKEND_DIR / "content" / "realizations",
+        )
+        online = catalog.entries["chronos_online"]
+        qr = catalog.entries["hotel_kraskov"]
+
+        self.assertEqual((online.template_id, online.template_version), (qr.template_id, qr.template_version))
+        self.assertIn("online_doom", online.modes)
+        self.assertTrue(set(qr.modes) & {"physical_indoor", "physical_outdoor", "hybrid"})
+        for section in ("checkpoints", "puzzles", "rooms", "phase_engine", "puzzle_components"):
+            with self.subTest(section=section):
+                self.assertEqual(set(online.scenario.data[section]), set(qr.scenario.data[section]))
+
     def test_invalid_realization_does_not_hide_valid_game(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
