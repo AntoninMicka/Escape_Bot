@@ -74,8 +74,9 @@ def _local_now() -> datetime:
     try: return datetime.now(ZoneInfo(str(runtime_settings.get("timezone", "Europe/Prague"))))
     except Exception: return datetime.now(ZoneInfo("Europe/Prague"))
 
-def start_availability(now: datetime | None = None) -> dict[str, object]:
+def start_availability(now: datetime | None = None, lobby_type: str = "on_site_qr") -> dict[str, object]:
     current = now or _local_now()
+    operating_hours_applied = lobby_type != "online_doom"
     duration = max(1, int(runtime_settings.get("game_duration_minutes", 165)))
     interval = max(0, int(runtime_settings.get("start_interval_minutes", 15)))
     maximum = max(1, int(runtime_settings.get("max_active_teams", 4)))
@@ -104,21 +105,24 @@ def start_availability(now: datetime | None = None) -> dict[str, object]:
             active.append(session_id)
             active_deadlines.append(parsed_start + timedelta(minutes=duration))
     next_interval = max(starts) + timedelta(minutes=interval) if starts else current
-    next_start = max(current, opening, next_interval)
+    next_start = max(current, next_interval)
+    if operating_hours_applied:
+        next_start = max(next_start, opening)
     if len(active) >= maximum and active_deadlines:
         next_start = max(next_start, min(active_deadlines))
     reasons = []
     if not runtime_settings.get("gameplay_enabled", True): reasons.append("Herní provoz je zastaven správcem.")
-    if current < opening: reasons.append("Provoz ještě nezačal.")
-    if current > latest_start: reasons.append("Dnešní nejzazší čas startu už uplynul.")
+    if operating_hours_applied and current < opening: reasons.append("Provoz ještě nezačal.")
+    if operating_hours_applied and current > latest_start: reasons.append("Dnešní nejzazší čas startu už uplynul.")
     if len(active) >= maximum: reasons.append("Kapacita současně hrajících týmů je naplněna.")
     if current < next_interval: reasons.append("Ještě neuplynul minimální rozestup mezi starty.")
     allowed = not reasons
     return {"start_allowed": allowed, "reason": " ".join(reasons), "server_time": current.isoformat(),
-            "next_start_at": (next_start.isoformat() if next_start <= latest_start else None),
+            "next_start_at": (next_start.isoformat() if not operating_hours_applied or next_start <= latest_start else None),
             "latest_start_at": latest_start.isoformat(), "opening_at": opening.isoformat(), "closing_at": closing.isoformat(),
             "active_teams": len(active), "max_active_teams": maximum, "game_duration_minutes": duration,
-            "start_interval_minutes": interval, "gameplay_enabled": bool(runtime_settings.get("gameplay_enabled", True))}
+            "start_interval_minutes": interval, "gameplay_enabled": bool(runtime_settings.get("gameplay_enabled", True)),
+            "operating_hours_applied": operating_hours_applied}
 
 def runtime_payload() -> dict[str, object]:
     games = []
@@ -130,13 +134,16 @@ def runtime_payload() -> dict[str, object]:
             "mapillary": {"enabled": bool(os.getenv("ESCAPEBOT_MAPILLARY_TOKEN", "")),
                            "access_token": os.getenv("ESCAPEBOT_MAPILLARY_TOKEN", "")},
             "availability": start_availability(),
+            "availability_by_lobby_type": {
+                kind: start_availability(lobby_type=kind) for kind in ("online_doom", "on_site_qr", "geo")
+            },
             "checkpoints": build_demo_checkpoint_catalog(scenario), "games": games,
             "scenario_available": scenario_available}
 
-def require_start_available() -> None:
+def require_start_available(lobby_type: str = "on_site_qr") -> None:
     if not scenario_available:
         raise ValueError("Není dostupný žádný platný scénář. Správce může chyby opravit v editoru her.")
-    availability = start_availability()
+    availability = start_availability(lobby_type=lobby_type)
     if not availability["start_allowed"]:
         next_start = availability.get("next_start_at")
         suffix = f" Další možný start: {datetime.fromisoformat(str(next_start)).strftime('%H:%M')}." if next_start else ""
@@ -165,7 +172,9 @@ async def operations_monitor() -> None:
                 continue
             if machine.state.flags.get("administratively_ended"): continue
             extension = max(0, int(machine.state.flags.get("deadline_extension_minutes", 0)))
-            try: deadline = min(datetime.fromisoformat(str(started_at)).astimezone(current.tzinfo) + timedelta(minutes=duration + extension), closing)
+            try:
+                duration_deadline = datetime.fromisoformat(str(started_at)).astimezone(current.tzinfo) + timedelta(minutes=duration + extension)
+                deadline = duration_deadline if lobby.lobby_type == "online_doom" else min(duration_deadline, closing)
             except ValueError: continue
             if current >= deadline:
                 ended_at = datetime.now(UTC).isoformat()
@@ -1180,7 +1189,7 @@ async def websocket_endpoint(websocket: WebSocket):
                                     await broadcast_session(session_id, score_messages)
                             continue
                         if msg.type == "lobby.solo":
-                            require_start_available()
+                            require_start_available(lobby_type)
                             entry = scenario_catalog.entries.get(requested_scenario_id)
                             if entry is None or not scenario_supports_lobby(entry, lobby_type):
                                 raise ValueError("Vybraná hra není pro tento typ lobby dostupná.")
@@ -1208,7 +1217,7 @@ async def websocket_endpoint(websocket: WebSocket):
                                 raise ValueError("Hru může spustit pouze zakladatel týmu.")
                             if not lobby.team_name or any(not str(player.get("name", "")).strip() for player in lobby.players.values()):
                                 raise ValueError("Před spuštěním musí mít tým i všichni hráči vyplněné jméno.")
-                            require_start_available()
+                            require_start_available(lobby.lobby_type)
                             lobby.started = True
 
                         session_id = lobby.session_id

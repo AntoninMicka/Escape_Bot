@@ -103,8 +103,14 @@ class StateMachineCheckpointTests(unittest.IsolatedAsyncioTestCase):
             result = start_availability(datetime(2026, 8, 21, 18, 1, tzinfo=zone))
             self.assertFalse(result["start_allowed"])
             self.assertEqual(datetime.fromisoformat(result["latest_start_at"]).strftime("%H:%M"), "18:00")
+            online_before_open = start_availability(datetime(2026, 8, 21, 7, 59, tzinfo=zone), lobby_type="online_doom")
+            online_after_close = start_availability(datetime(2026, 8, 21, 22, 1, tzinfo=zone), lobby_type="online_doom")
+            self.assertTrue(online_before_open["start_allowed"])
+            self.assertTrue(online_after_close["start_allowed"])
+            self.assertFalse(online_after_close["operating_hours_applied"])
             runtime_settings["gameplay_enabled"] = False
             self.assertFalse(start_availability(datetime(2026, 8, 21, 10, 0, tzinfo=zone))["start_allowed"])
+            self.assertFalse(start_availability(datetime(2026, 8, 21, 22, 1, tzinfo=zone), lobby_type="online_doom")["start_allowed"])
         finally:
             runtime_settings.clear(); runtime_settings.update(original)
 

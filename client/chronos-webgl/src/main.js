@@ -288,7 +288,11 @@ function buildTerraceAndOutdoors(){
   const horizonSegments=16,horizonRadius=94,horizonWidth=2*horizonRadius*Math.tan(Math.PI/horizonSegments)*1.04;
   for(let index=0;index<horizonSegments;index++){
     const angle=index*Math.PI*2/horizonSegments,x=10+Math.sin(angle)*horizonRadius,z=-20+Math.cos(angle)*horizonRadius;
-    const panel=box(`horizont ${index+1}`,[x,10.5,z],[horizonWidth,49,.2],C.white,{texture:horizonTexture,emissive:true,uvScale:[1/horizonSegments,1],uvOffset:[index/horizonSegments,0]});
+    // Panely pozorujeme z vnitřní (zadní) strany prstence. Jejich pořadí proto
+    // musí být opačné než směr narůstajícího úhlu, jinak na švech navazují
+    // vzdálené části panoramatu místo sousedních výřezů.
+    const textureIndex=horizonSegments-1-index;
+    const panel=box(`horizont ${index+1}`,[x,10.5,z],[horizonWidth,49,.2],C.white,{texture:horizonTexture,emissive:true,uvScale:[1/horizonSegments,1],uvOffset:[textureIndex/horizonSegments,0]});
     panel.setEulerAngles(0,angle*180/Math.PI,0);
   }
   // Dno leží pod B2 (podlaha -9 m) a uzavírá pohled pod terén.
