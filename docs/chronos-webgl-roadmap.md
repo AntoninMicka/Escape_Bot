@@ -1,6 +1,38 @@
 # CHRONOS WebGL — další kroky
 
-Aktualizováno: 24. 8. 2026
+Aktualizováno: 25. 8. 2026
+
+## Nejbližší plán · doladění areálu po prvním hratelném průchodu
+
+### 1. Dispozice a kolize
+
+- [ ] Posunout sportovní hřiště tak, aby nekolidovalo s hlavní budovou ani přístupovými cestami.
+- [ ] Vysunout schodiště nouzového východu mimo půdorys budovy.
+- [ ] Ponechat otvor nouzového východu pouze ve stěně podzemního podlaží a v navazující podlaze exteriéru; ostatní stropy a podlahy uzavřít.
+- [ ] Po změně znovu projít kolize budovy, hřiště, nouzového schodiště, podest a venkovní trasy oběma směry.
+
+### 2. Ubytovací patra
+
+- [ ] Přepracovat dispozici pokojů tak, aby měly uvěřitelné rozměry, chodbu, vstupy, dveře a smysluplné rozmístění vybavení.
+- [ ] Odlišit jednotlivé pokoje a patra čísly, barvou nebo drobnými orientačními prvky.
+- [ ] Ověřit, že postele, příčky a dveře neblokují chodbu, schodiště ani návrat z pokojů.
+
+### 3. Rozšíření venkovního areálu
+
+- [ ] Zvětšit terén kolem budovy a vytvořit přirozené odstupy mezi budovou, hřištěm, rybníkem a hranicí mapy.
+- [ ] Oplotit hratelný areál a doplnit kolize plotu, aby hráč nemohl opustit určený prostor.
+- [ ] Umístit horizontální kulisu s texturou až za plot a s dostatečným odstupem, aby nepůsobila jako dosažitelná stěna.
+- [ ] Zakrýt hranici terénu vegetací, terénními zlomy nebo dalšími vrstvami kulisy a prověřit pohledy z terasy i vyšších pater.
+
+### 4. Okna, materiály a textury
+
+- [ ] Doplnit okna do fasády i pokojů s konzistentní výškou, rozestupy a bezpečným kolizním řešením.
+- [ ] Navrhnout jednotnou sadu materiálů pro fasádu, interiéry, laboratoře, schodiště, komunikace, plot a venkovní povrchy.
+- [ ] Otexturovat scénu a sjednotit měřítko UV; odstranit natažení, nápadné opakování a viditelné švy.
+- [ ] Připravit samostatnou horizontální texturu odpovídající okolní krajině a otestovat ji za různého zorného pole.
+- [ ] Po vizuálním průchodu změřit velikost assetů, dobu načtení, draw calls a snímkovou frekvenci ve Firefoxu i Chromiu.
+
+Hotovo, když lze celý areál projít bez kolizních slepých míst, pokoje působí jako uvěřitelná součást budovy, hranice mapy je přirozeně skrytá a texturovaná scéna zůstane plynulá na cílových zařízeních.
 
 ## P0 — Spolehlivé zobrazení ve Firefoxu
 
