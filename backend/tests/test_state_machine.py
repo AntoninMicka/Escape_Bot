@@ -114,6 +114,29 @@ class StateMachineCheckpointTests(unittest.IsolatedAsyncioTestCase):
         finally:
             runtime_settings.clear(); runtime_settings.update(original)
 
+    def test_event_restricts_games_and_applies_its_schedule_to_online_games(self) -> None:
+        from escape_bot.server import event_allows_scenario, runtime_payload, runtime_settings, start_availability
+        original = deepcopy(runtime_settings)
+        try:
+            runtime_settings.update({"gameplay_enabled": True, "game_duration_minutes": 60,
+                                     "start_interval_minutes": 0, "max_active_teams": 4,
+                                     "timezone": "Europe/Prague", "event": {
+                                         "id": "kraskov-2026", "name": "Kraskov 2026",
+                                         "starts_at": "2026-08-25T09:00:00+02:00",
+                                         "ends_at": "2026-08-25T18:00:00+02:00",
+                                         "scenario_ids": ["chronos_online"],
+                                         "leaderboard_finalized": False, "leaderboard_finalized_at": "",
+                                     }})
+            zone = ZoneInfo("Europe/Prague")
+            self.assertTrue(event_allows_scenario("chronos_online"))
+            self.assertFalse(event_allows_scenario("hotel_kraskov"))
+            self.assertFalse(start_availability(datetime(2026, 8, 25, 8, 0, tzinfo=zone), "online_doom", "chronos_online")["start_allowed"])
+            self.assertTrue(start_availability(datetime(2026, 8, 25, 10, 0, tzinfo=zone), "online_doom", "chronos_online")["start_allowed"])
+            self.assertFalse(start_availability(datetime(2026, 8, 25, 10, 0, tzinfo=zone), "on_site_qr", "hotel_kraskov")["start_allowed"])
+            self.assertEqual([game["id"] for game in runtime_payload()["games"]], ["chronos_online"])
+        finally:
+            runtime_settings.clear(); runtime_settings.update(original)
+
     def test_legacy_leaderboard_entries_are_split_into_solo_and_team_modes(self) -> None:
         from escape_bot.server import global_leaderboard, leaderboard_entries
         original = list(global_leaderboard)

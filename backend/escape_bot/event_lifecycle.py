@@ -35,6 +35,8 @@ def reset_event(storage: Storage, confirmation: str) -> None:
     settings["gameplay_enabled"] = False
     settings["leaderboard_finalized"] = False
     settings["leaderboard_finalized_at"] = ""
+    settings["event"] = {"id": "", "name": "", "starts_at": "", "ends_at": "", "scenario_ids": [],
+                         "leaderboard_finalized": False, "leaderboard_finalized_at": ""}
     storage.save_sessions({})
     storage.save_lobbies([])
     storage.save_leaderboard([])

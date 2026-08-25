@@ -729,7 +729,7 @@
         <section id="admin-tab-chats" class="admin-section hidden"><h2>[ PODPORA TÝMŮ ]</h2><div id="admin-chat-grid" class="admin-grid"></div></section>
         <section id="admin-tab-leaderboard" class="admin-section admin-leaderboard hidden"><h2>[ SPRÁVA SÍNĚ SLÁVY ]</h2><div id="admin-leaderboard"></div></section>
         <section id="admin-tab-scenarios" class="admin-section hidden"><h2>[ EDITOR HER — NÁHLED A VALIDACE ]</h2><div class="admin-toolbar"><select id="scenario-editor-select"></select><button onclick="loadScenarioEditor()">NAČÍST</button><button onclick="validateScenarioEditor()">OVĚŘIT</button></div><p id="scenario-editor-status">Editor zatím provádí bezpečnou validaci bez zápisu na disk.</p><section id="scenario-form-editor" class="scenario-variable-form hidden"></section><details><summary>POKROČILÝ JSON EDITOR</summary><div class="scenario-editor-grid"><label>ŠABLONA<textarea id="scenario-template-editor" spellcheck="false"></textarea></label><label>REALIZACE<textarea id="scenario-realization-editor" spellcheck="false"></textarea></label></div></details><h3>NEPLATNÉ / VYŘAZENÉ SCÉNÁŘE</h3><div id="scenario-editor-errors"></div></section>
-        <section id="admin-tab-tools" class="admin-section hidden"><h2>[ PROVOZ HRY ]</h2><button id="admin-operations-toggle" onclick="toggleAdminOperations()" style="width:100%;padding:22px;font-size:1.35rem">NAČÍTÁM STAV…</button><div class="admin-actions" style="margin:16px 0"><label>Max. týmů<input id="schedule-max-teams" type="number" min="1" max="100"></label><label>Rozestup startů (min)<input id="schedule-interval" type="number" min="0" max="240"></label><label>Délka hry (min)<input id="schedule-duration" type="number" min="15" max="720"></label><label>Postih za nedokončení<input id="schedule-deadline-penalty" type="number" min="0" max="1000"></label><label>Postih za opuštění<input id="schedule-abandonment-penalty" type="number" min="0" max="1000"></label><label>Bonus za dokončení<input id="schedule-completion-bonus" type="number" min="0" max="1000"></label><label>Otevření<input id="schedule-opening" type="time"></label><label>Uzavření<input id="schedule-closing" type="time"></label><label>Časová zóna<input id="schedule-timezone" value="Europe/Prague"></label><button onclick="saveScheduleSettings()">ULOŽIT PROVOZNÍ NASTAVENÍ</button></div><p id="admin-schedule-status"></p><h2>[ NÁSTROJE GAME MASTERA ]</h2><div class="admin-toolbar"><button onclick="requestAdminQrSet()">PŘIPRAVIT QR SADU</button><button onclick="exportAdminCsv()">EXPORT UDÁLOSTÍ A STATISTIK (CSV)</button><button id="admin-online-toggle" onclick="toggleAdminOnlineMode()">ONLINE REŽIM: ?</button></div></section>
+        <section id="admin-tab-tools" class="admin-section hidden"><h2>[ PROVOZ HRY ]</h2><button id="admin-operations-toggle" onclick="toggleAdminOperations()" style="width:100%;padding:22px;font-size:1.35rem">NAČÍTÁM STAV…</button><div class="admin-actions" style="margin:16px 0"><label>Max. týmů<input id="schedule-max-teams" type="number" min="1" max="100"></label><label>Rozestup startů (min)<input id="schedule-interval" type="number" min="0" max="240"></label><label>Délka hry (min)<input id="schedule-duration" type="number" min="15" max="720"></label><label>Postih za nedokončení<input id="schedule-deadline-penalty" type="number" min="0" max="1000"></label><label>Postih za opuštění<input id="schedule-abandonment-penalty" type="number" min="0" max="1000"></label><label>Bonus za dokončení<input id="schedule-completion-bonus" type="number" min="0" max="1000"></label><label>Otevření<input id="schedule-opening" type="time"></label><label>Uzavření<input id="schedule-closing" type="time"></label><label>Časová zóna<input id="schedule-timezone" value="Europe/Prague"></label><button onclick="saveScheduleSettings()">ULOŽIT PROVOZNÍ NASTAVENÍ</button></div><p id="admin-schedule-status"></p><h2>[ EVENT ]</h2><p>Vyplněné ID aktivuje samostatný event a omezí nabídku pouze na vybrané hry.</p><div class="admin-actions"><label>ID eventu<input id="event-id" placeholder="kraskov-2026"></label><label>Název eventu<input id="event-name" placeholder="Podzimní celostátní setkání 2026"></label><label>Začátek<input id="event-start" type="datetime-local"></label><label>Konec<input id="event-end" type="datetime-local"></label><label>Hry<select id="event-games" multiple size="5"></select></label><button onclick="saveEventSettings()">ULOŽIT EVENT</button><button onclick="clearEventSettings()">ZRUŠIT EVENT</button></div><h2>[ NÁSTROJE GAME MASTERA ]</h2><div class="admin-toolbar"><button onclick="requestAdminQrSet()">PŘIPRAVIT QR SADU</button><button onclick="exportAdminCsv()">EXPORT UDÁLOSTÍ A STATISTIK (CSV)</button><button id="admin-online-toggle" onclick="toggleAdminOnlineMode()">ONLINE REŽIM: ?</button></div></section>
     </section>
     <div id="admin-spectator-bar" class="admin-spectator-bar hidden"><strong id="admin-spectator-label">NÁHLED HRY</strong><button onclick="stopAdminSpectate()">ZPĚT DO ADMINISTRACE</button></div>
     <section id="qr-print-sheet" class="qr-print-sheet"></section>
@@ -969,10 +969,7 @@
     <div id="tab-leaderboard" class="tab-content">
         <h2>[ SÍŇ SLÁVY - ARCHIV ÚSPĚŠNÝCH ŘEŠITELŮ ]</h2>
         <div class="leaderboard-container">
-            <div class="leaderboard-lists">
-                <section class="leaderboard-list"><h3>TÝMY</h3><table class="leaderboard-table"><thead><tr><th>#</th><th>NÁZEV TÝMU</th><th>HRÁČI</th><th>SKÓRE</th><th>ČAS</th></tr></thead><tbody id="leaderboard-team-body"></tbody></table></section>
-                <section class="leaderboard-list"><h3>JEDNOTLIVCI</h3><table class="leaderboard-table"><thead><tr><th>#</th><th>JMÉNO</th><th>SKÓRE</th><th>ČAS</th></tr></thead><tbody id="leaderboard-solo-body"></tbody></table></section>
-            </div>
+            <div id="leaderboard-games"></div>
             <div class="save-score-section">
                 <input type="text" id="team-name" placeholder="Zadejte název vašeho záchranného týmu..." maxlength="20" />
                 <button onclick="saveScore()">Zapsat tým do Síně slávy</button>
@@ -1007,6 +1004,7 @@
         let onlineModeEnabled = false;
         let operationsEnabled = true;
         let leaderboardFinalized = false;
+        let activeEvent = null;
         let runtimeAvailability = null;
         let runtimeAvailabilityByLobbyType = {};
         let runtimeGames = [];
@@ -1793,6 +1791,21 @@
                 timezone:document.getElementById('schedule-timezone').value.trim()
             });
         }
+        function localEventValue(value) {
+            if (!value) return '';
+            const date = new Date(value); if (Number.isNaN(date.valueOf())) return '';
+            const offset = date.getTimezoneOffset() * 60000;
+            return new Date(date - offset).toISOString().slice(0,16);
+        }
+        function saveEventSettings() {
+            const selected = [...document.getElementById('event-games').selectedOptions].map(option=>option.value);
+            const starts=document.getElementById('event-start').value,ends=document.getElementById('event-end').value;
+            if(!starts||!ends){showNotification('Vyplňte začátek i konec eventu.','error');return;}
+            sendAdmin('admin.event_settings', {id:document.getElementById('event-id').value.trim(),name:document.getElementById('event-name').value.trim(),starts_at:new Date(starts).toISOString(),ends_at:new Date(ends).toISOString(),scenario_ids:selected});
+        }
+        function clearEventSettings() {
+            if (window.confirm('Zrušit omezení eventem? Výsledky v Síni slávy zůstanou zachované.')) sendAdmin('admin.event_settings',{id:''});
+        }
         function renderLobbyAvailability() {
             const availability = runtimeAvailabilityByLobbyType[selectedLobbyType] || runtimeAvailability;
             const box = document.getElementById('lobby-availability'); if (!box || !availability) return;
@@ -1983,13 +1996,13 @@
             const completed = entry.completed_at ? new Date(entry.completed_at).toLocaleDateString('cs-CZ') : new Date().toLocaleDateString('cs-CZ');
             const duration = formatLeaderboardDuration(entry.duration_seconds);
             const category = entry.mode === 'solo' ? 'Jednotlivci' : 'Týmy';
-            const placementBlock = placement ? `<p class="placement">${Number(placement)}. MÍSTO</p><p class="label">Kategorie</p><p class="category">${category}</p><p class="event">Podzimní celostátní setkání Mensy Česko<br>Kraskov 2026</p>` : '';
+            const placementBlock = placement ? `<p class="placement">${Number(placement)}. MÍSTO</p><p class="label">Kategorie</p><p class="category">${category}</p><p class="event">${safe(entry.event_name || activeEvent?.name || 'Event')}</p>` : '';
             const intro = placement ? 'Diplom za celkové umístění v únikové hře' : 'Tento diplom potvrzuje úspěšné dokončení únikové hry';
             const popup = window.open('', '_blank', 'width=1120,height=820');
             if (!popup) { showNotification('Prohlížeč zablokoval okno pro tisk diplomu.', 'error'); return; }
             popup.document.write(`<!doctype html><html lang="cs"><head><meta charset="utf-8"><title>Diplom – ${safe(player)}</title><style>
                 @page{size:A4 landscape;margin:0}*{box-sizing:border-box}body{margin:0;background:#e8ebed;font-family:Montserrat,Arial,sans-serif;color:#393f44}.sheet{width:297mm;height:210mm;margin:auto;padding:12mm;background:#fff}.frame{height:100%;border:3px solid #0d4476;outline:1px solid #faaa01;outline-offset:-8px;padding:11mm 20mm;text-align:center;position:relative;overflow:hidden}.frame:before,.frame:after{content:'';position:absolute;width:85mm;height:85mm;border:18px solid #0d4476;border-radius:50%;opacity:.045}.frame:before{left:-42mm;top:-42mm}.frame:after{right:-42mm;bottom:-42mm}.logo{width:68mm;height:auto}.kicker{margin:4mm 0 1mm;color:#0d4476;font-size:10pt;letter-spacing:.22em;text-transform:uppercase}.title{margin:0;color:#0d4476;font-size:32pt;letter-spacing:.12em}.intro{margin:4mm 0 1mm;font-size:13pt}.game{margin:0 0 3mm;color:#0d4476;font-size:18pt;font-weight:600;letter-spacing:.08em}.placement{margin:1mm 0;color:#f0a000;font-size:27pt;font-weight:700;letter-spacing:.08em}.category{margin:0;color:#0d4476;font-size:14pt;font-weight:600}.event{margin:1mm 0 3mm;font-size:11pt;line-height:1.35}.label{margin:2mm 0 1mm;color:#697076;font-size:8pt;font-weight:600;letter-spacing:.18em;text-transform:uppercase}.name{margin:0;color:#0d4476;font-size:26pt;font-weight:600}.team-label{margin-top:2mm}.team{margin:0;font-size:15pt;font-weight:600}.achievement{margin:4mm auto 2mm;max-width:190mm;font-size:11pt;line-height:1.4}.footer{position:absolute;left:22mm;right:22mm;bottom:12mm;display:flex;justify-content:space-between;align-items:end;font-size:9pt}.line{display:inline-block;width:54mm;border-top:1px solid #393f44;padding-top:2mm;text-align:center}@media print{body{background:#fff}.sheet{margin:0}}
-            </style></head><body onload="setTimeout(()=>window.print(),300)"><main class="sheet"><section class="frame"><img class="logo" src="${new URL('assets/branding/mensa-cesko-logo.png',location.href).href}" alt="Mensa Česko"><p class="kicker">Výzkumný ústav Chronos</p><h1 class="title">DIPLOM</h1><p class="intro">${intro}</p><p class="game">ZTRACENI V ČASE</p>${placementBlock}<p class="label">Úspěšný řešitel</p><p class="name">${safe(player)}</p>${teamLine}<p class="achievement">${placement?'Ocenění za vynikající výsledek v celkovém pořadí.':'Ocenění za bystrý úsudek, vytrvalost a úspěšné splnění mise.'}</p><footer class="footer"><span>Datum: ${safe(completed)} · Čas řešení: ${safe(duration)}</span><span class="line">podpis pořadatele</span></footer></section></main></body></html>`);
+            </style></head><body onload="setTimeout(()=>window.print(),300)"><main class="sheet"><section class="frame"><img class="logo" src="${new URL('assets/branding/mensa-cesko-logo.png',location.href).href}" alt="Mensa Česko"><p class="kicker">Výzkumný ústav Chronos</p><h1 class="title">DIPLOM</h1><p class="intro">${intro}</p><p class="game">${safe(entry.game_title || 'Úniková hra')}</p>${placementBlock}<p class="label">Úspěšný řešitel</p><p class="name">${safe(player)}</p>${teamLine}<p class="achievement">${placement?'Ocenění za vynikající výsledek v celkovém pořadí.':'Ocenění za bystrý úsudek, vytrvalost a úspěšné splnění mise.'}</p><footer class="footer"><span>Datum: ${safe(completed)} · Čas řešení: ${safe(duration)}</span><span class="line">podpis pořadatele</span></footer></section></main></body></html>`);
             popup.document.close();
         }
 
@@ -2019,10 +2032,12 @@
             const container = document.getElementById('admin-leaderboard');
             if (!entries.length) { container.innerHTML = '<p>Síň slávy je prázdná.</p>'; return; }
             leaderboardEntriesById.clear();entries.forEach(entry => leaderboardEntriesById.set(String(entry.entry_id),entry));
-            const categoryRanks=new Map(['team','solo'].flatMap(mode=>entries.filter(entry=>entry.mode===mode).slice(0,3).map((entry,index)=>[String(entry.entry_id),index+1])));
-            const table = (mode,title) => { const rows=entries.filter(entry=>entry.mode===mode); return `<h3>${title}</h3><table><thead><tr><th>#</th><th>${mode==='solo'?'Hráč':'Tým'}</th><th>Hráči a diplomy</th><th>Skóre</th><th>Čas</th><th>Dokončeno</th><th>Akce</th></tr></thead><tbody>${rows.length?rows.map((entry,index)=>`<tr><td>${index+1}</td><td>${escapeHtml(mode==='solo'?(entry.players?.[0]||entry.name):entry.name)}</td><td>${(entry.players||[]).map((player,playerIndex)=>`${escapeHtml(player)} <button onclick="printDiploma('${entry.entry_id}',${playerIndex})">DIPLOM ŘEŠITELE</button>${leaderboardFinalized&&categoryRanks.has(String(entry.entry_id))?` <button onclick="printDiploma('${entry.entry_id}',${playerIndex},${categoryRanks.get(String(entry.entry_id))})">DIPLOM ZA ${categoryRanks.get(String(entry.entry_id))}. MÍSTO</button>`:''}`).join('<br>')||'nezaznamenáno'}</td><td><strong>${Number(entry.score)}</strong></td><td>${formatLeaderboardDuration(entry.duration_seconds)}</td><td>${entry.completed_at?new Date(entry.completed_at).toLocaleString('cs-CZ'):'starší záznam'}</td><td><button class="admin-delete" onclick="deleteLeaderboardEntry('${entry.entry_id}')">SMAZAT</button></td></tr>`).join(''):'<tr><td colspan="7">Zatím bez záznamů.</td></tr>'}</tbody></table>`; };
-            const finalization = leaderboardFinalized ? '<p><strong>CELKOVÉ POŘADÍ JE ORGANIZAČNĚ UZAVŘENO.</strong> Diplomy za 1.–3. místo jsou dostupné.</p>' : `<p>Diplomy za celkové umístění jsou zamčené do ukončení akce.</p><button onclick="finalizeLeaderboard()" ${operationsEnabled?'disabled title="Nejprve zastavte herní provoz"':''}>ORGANIZAČNĚ UZAVŘÍT POŘADÍ</button>`;
-            container.innerHTML = `${finalization}<div class="leaderboard-lists"><section>${table('team','TÝMY')}</section><section>${table('solo','JEDNOTLIVCI')}</section></div>`;
+            const categoryRanks=new Map();
+            if (leaderboardFinalized && activeEvent) ['team','solo'].forEach(mode=>{const games={};entries.filter(entry=>entry.event_id===activeEvent.id&&entry.mode===mode).forEach(entry=>(games[entry.scenario_id]??=[]).push(entry));Object.values(games).forEach(rows=>rows.slice(0,3).forEach((entry,index)=>categoryRanks.set(String(entry.entry_id),index+1)));});
+            const table = (rows,mode,title) => `<h3>${title}</h3><table><thead><tr><th>#</th><th>${mode==='solo'?'Hráč':'Tým'}</th><th>Hráči a diplomy</th><th>Skóre</th><th>Čas</th><th>Dokončeno</th><th>Akce</th></tr></thead><tbody>${rows.length?rows.map((entry,index)=>`<tr><td>${index+1}</td><td>${escapeHtml(mode==='solo'?(entry.players?.[0]||entry.name):entry.name)}</td><td>${(entry.players||[]).map((player,playerIndex)=>`${escapeHtml(player)} <button onclick="printDiploma('${entry.entry_id}',${playerIndex})">DIPLOM ŘEŠITELE</button>${categoryRanks.has(String(entry.entry_id))?` <button onclick="printDiploma('${entry.entry_id}',${playerIndex},${categoryRanks.get(String(entry.entry_id))})">DIPLOM ZA ${categoryRanks.get(String(entry.entry_id))}. MÍSTO</button>`:''}`).join('<br>')||'nezaznamenáno'}</td><td><strong>${Number(entry.score)}</strong></td><td>${formatLeaderboardDuration(entry.duration_seconds)}</td><td>${entry.completed_at?new Date(entry.completed_at).toLocaleString('cs-CZ'):'starší záznam'}</td><td><button class="admin-delete" onclick="deleteLeaderboardEntry('${entry.entry_id}')">SMAZAT</button></td></tr>`).join(''):'<tr><td colspan="7">Zatím bez záznamů.</td></tr>'}</tbody></table>`;
+            const games=Object.values(entries.reduce((groups,entry)=>{const key=entry.scenario_id||'legacy';groups[key]??={title:entry.game_title||key,rows:[]};groups[key].rows.push(entry);return groups;},{}));
+            const finalization = !activeEvent ? '<p>Diplomy za umístění vyžadují definovaný event.</p>' : leaderboardFinalized ? `<p><strong>POŘADÍ EVENTU ${escapeHtml(activeEvent.name)} JE UZAVŘENO.</strong></p>` : `<p>Diplomy za umístění jsou zamčené do ukončení eventu.</p><button onclick="finalizeLeaderboard()" ${operationsEnabled?'disabled title="Nejprve zastavte herní provoz"':''}>UZAVŘÍT POŘADÍ EVENTU</button>`;
+            container.innerHTML = finalization + games.map(game=>`<h2>${escapeHtml(game.title)}</h2><div class="leaderboard-lists"><section>${table(game.rows.filter(entry=>entry.mode==='team'),'team','TÝMY')}</section><section>${table(game.rows.filter(entry=>entry.mode==='solo'),'solo','JEDNOTLIVCI')}</section></div>`).join('');
         }
 
         function requestPlayerRecovery(sessionId, playerId) {
@@ -2790,10 +2805,15 @@
                     operationsEnabled = Boolean(msg.payload.gameplay_enabled);
                     mapillaryConfig = msg.payload.mapillary || {enabled:false,access_token:''};
                     leaderboardFinalized = Boolean(msg.payload.leaderboard_finalized);
+                    activeEvent = msg.payload.event?.id ? msg.payload.event : null;
                     runtimeAvailability = msg.payload.availability || null;
                     runtimeAvailabilityByLobbyType = msg.payload.availability_by_lobby_type || {};
                     runtimeCheckpoints = msg.payload.checkpoints || [];
                     runtimeGames = msg.payload.games || [];
+                    const eventGames=document.getElementById('event-games');
+                    if(eventGames){const selected=new Set(activeEvent?.scenario_ids||[]);eventGames.innerHTML=(msg.payload.configurable_games||[]).map(game=>`<option value="${escapeHtml(game.id)}" ${selected.has(game.id)?'selected':''}>${escapeHtml(game.title)}</option>`).join('');}
+                    const eventFields={'event-id':activeEvent?.id||'','event-name':activeEvent?.name||'','event-start':localEventValue(activeEvent?.starts_at),'event-end':localEventValue(activeEvent?.ends_at)};
+                    Object.entries(eventFields).forEach(([id,value])=>{const field=document.getElementById(id);if(field&&document.activeElement!==field)field.value=value;});
                     const toggle = document.getElementById('admin-online-toggle');
                     if (toggle) toggle.textContent = `ONLINE REŽIM: ${onlineModeEnabled ? 'ZAPNUT' : 'VYPNUT'}`;
                     const operations = document.getElementById('admin-operations-toggle');
@@ -2928,16 +2948,18 @@
                     latestAdminPayload.leaderboard = lb;
                     renderAdminLeaderboard(lb);
                 }
-                const renderPublicList = (mode,bodyId) => {
-                    const tbody=document.getElementById(bodyId),entries=lb.filter(entry=>entry.mode===mode).sort((a,b)=>b.score-a.score);tbody.innerHTML='';
-                    if (!entries.length) { tbody.innerHTML=`<tr><td colspan="${mode==='solo'?4:5}" style="text-align:center;color:#555;">Zatím bez výsledků.</td></tr>`; return; }
+                const renderPublicTable = (entries,mode) => {
+                    entries=entries.filter(entry=>entry.mode===mode).sort((a,b)=>b.score-a.score||Number(a.duration_seconds||1e12)-Number(b.duration_seconds||1e12));let rows='';
+                    if (!entries.length) return `<table class="leaderboard-table"><tbody><tr><td style="text-align:center;color:#555;">Zatím bez výsledků.</td></tr></tbody></table>`;
                     entries.forEach((entry, idx) => {
                         let medal = '';
                         if (idx === 0) medal = '🥇 '; else if (idx === 1) medal = '🥈 '; else if (idx === 2) medal = '🥉 ';
-                        tbody.innerHTML += mode==='solo'?`<tr><td>${medal}#${idx+1}</td><td><b>${escapeHtml(entry.players?.[0]||entry.name)}</b></td><td style="color:#0aa;font-weight:bold">${Number(entry.score)}</td><td>${formatLeaderboardDuration(entry.duration_seconds)}</td></tr>`:`<tr><td>${medal}#${idx+1}</td><td><b>${escapeHtml(entry.name)}</b></td><td>${(entry.players||[]).map(escapeHtml).join(', ')||'nezaznamenáno'}</td><td style="color:#0aa;font-weight:bold">${Number(entry.score)}</td><td>${formatLeaderboardDuration(entry.duration_seconds)}</td></tr>`;
+                        rows += mode==='solo'?`<tr><td>${medal}#${idx+1}</td><td><b>${escapeHtml(entry.players?.[0]||entry.name)}</b></td><td style="color:#0aa;font-weight:bold">${Number(entry.score)}</td><td>${formatLeaderboardDuration(entry.duration_seconds)}</td></tr>`:`<tr><td>${medal}#${idx+1}</td><td><b>${escapeHtml(entry.name)}</b></td><td>${(entry.players||[]).map(escapeHtml).join(', ')||'nezaznamenáno'}</td><td style="color:#0aa;font-weight:bold">${Number(entry.score)}</td><td>${formatLeaderboardDuration(entry.duration_seconds)}</td></tr>`;
                     });
+                    return `<table class="leaderboard-table"><thead><tr><th>#</th><th>${mode==='solo'?'JMÉNO':'NÁZEV TÝMU'}</th>${mode==='team'?'<th>HRÁČI</th>':''}<th>SKÓRE</th><th>ČAS</th></tr></thead><tbody>${rows}</tbody></table>`;
                 };
-                renderPublicList('team','leaderboard-team-body');renderPublicList('solo','leaderboard-solo-body');
+                const games=Object.values(lb.reduce((groups,entry)=>{const key=entry.scenario_id||'legacy';groups[key]??={title:entry.game_title||key,rows:[]};groups[key].rows.push(entry);return groups;},{}));
+                document.getElementById('leaderboard-games').innerHTML=games.length?games.map(game=>`<h2>${escapeHtml(game.title)}</h2><div class="leaderboard-lists"><section class="leaderboard-list"><h3>TÝMY</h3>${renderPublicTable(game.rows,'team')}</section><section class="leaderboard-list"><h3>JEDNOTLIVCI</h3>${renderPublicTable(game.rows,'solo')}</section></div>`).join(''):'<p>Síň slávy je prázdná.</p>';
                 }
                 else if (msg.type === 'score.update') {
                     if (['line_game_time','line_game_individual'].includes(msg.payload.reason)) {

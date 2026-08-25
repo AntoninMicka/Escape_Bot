@@ -69,15 +69,32 @@ runtime_settings = {"online_mode": False, "gameplay_enabled": True, "max_active_
                     "start_interval_minutes": 15, "game_duration_minutes": 165,
                     "deadline_penalty": 100, "abandonment_penalty": 100, "completion_bonus": 100,
                     "opening_time": "08:00", "closing_time": "20:00", "timezone": "Europe/Prague",
-                    "leaderboard_finalized": False, "leaderboard_finalized_at": ""}
+                    "leaderboard_finalized": False, "leaderboard_finalized_at": "",
+                    "event": {"id": "", "name": "", "starts_at": "", "ends_at": "", "scenario_ids": [],
+                              "leaderboard_finalized": False, "leaderboard_finalized_at": ""}}
+
+def configured_event() -> dict[str, object] | None:
+    event = runtime_settings.get("event")
+    return event if isinstance(event, dict) and str(event.get("id", "")).strip() else None
+
+def event_allows_scenario(scenario_id: str) -> bool:
+    event = configured_event()
+    if event is None:
+        return True
+    return scenario_id in {str(item) for item in event.get("scenario_ids", [])}
+
+def leaderboard_is_finalized() -> bool:
+    event = configured_event()
+    return bool(event.get("leaderboard_finalized", False)) if event else bool(runtime_settings.get("leaderboard_finalized", False))
 
 def _local_now() -> datetime:
     try: return datetime.now(ZoneInfo(str(runtime_settings.get("timezone", "Europe/Prague"))))
     except Exception: return datetime.now(ZoneInfo("Europe/Prague"))
 
-def start_availability(now: datetime | None = None, lobby_type: str = "on_site_qr") -> dict[str, object]:
+def start_availability(now: datetime | None = None, lobby_type: str = "on_site_qr", scenario_id: str = "") -> dict[str, object]:
     current = now or _local_now()
-    operating_hours_applied = lobby_type != "online_doom"
+    event = configured_event()
+    operating_hours_applied = event is not None or lobby_type != "online_doom"
     duration = max(1, int(runtime_settings.get("game_duration_minutes", 165)))
     interval = max(0, int(runtime_settings.get("start_interval_minutes", 15)))
     maximum = max(1, int(runtime_settings.get("max_active_teams", 4)))
@@ -113,8 +130,20 @@ def start_availability(now: datetime | None = None, lobby_type: str = "on_site_q
         next_start = max(next_start, min(active_deadlines))
     reasons = []
     if not runtime_settings.get("gameplay_enabled", True): reasons.append("Herní provoz je zastaven správcem.")
-    if operating_hours_applied and current < opening: reasons.append("Provoz ještě nezačal.")
-    if operating_hours_applied and current > latest_start: reasons.append("Dnešní nejzazší čas startu už uplynul.")
+    if event:
+        try:
+            event_start = datetime.fromisoformat(str(event.get("starts_at", ""))).astimezone(current.tzinfo)
+            event_end = datetime.fromisoformat(str(event.get("ends_at", ""))).astimezone(current.tzinfo)
+            opening, closing, latest_start = event_start, event_end, event_end - timedelta(minutes=duration)
+            next_start = max(next_start, opening)
+            if current < opening: reasons.append("Event ještě nezačal.")
+            if current > latest_start: reasons.append("Nejzazší čas startu v rámci eventu už uplynul.")
+        except ValueError:
+            reasons.append("Event nemá platně nastavenou provozní dobu.")
+        if scenario_id and not event_allows_scenario(scenario_id): reasons.append("Tato hra do aktuálního eventu nepatří.")
+    else:
+        if operating_hours_applied and current < opening: reasons.append("Provoz ještě nezačal.")
+        if operating_hours_applied and current > latest_start: reasons.append("Dnešní nejzazší čas startu už uplynul.")
     if len(active) >= maximum: reasons.append("Kapacita současně hrajících týmů je naplněna.")
     if current < next_interval: reasons.append("Ještě neuplynul minimální rozestup mezi starty.")
     allowed = not reasons
@@ -123,28 +152,32 @@ def start_availability(now: datetime | None = None, lobby_type: str = "on_site_q
             "latest_start_at": latest_start.isoformat(), "opening_at": opening.isoformat(), "closing_at": closing.isoformat(),
             "active_teams": len(active), "max_active_teams": maximum, "game_duration_minutes": duration,
             "start_interval_minutes": interval, "gameplay_enabled": bool(runtime_settings.get("gameplay_enabled", True)),
-            "operating_hours_applied": operating_hours_applied}
+            "operating_hours_applied": operating_hours_applied, "event_id": str(event.get("id", "")) if event else ""}
 
 def runtime_payload() -> dict[str, object]:
     games = []
     for entry in scenario_catalog.entries.values():
+        if not event_allows_scenario(entry.id):
+            continue
         item = entry.public()
         item["lobby_types"] = [kind for kind in ("online_doom", "on_site_qr", "geo") if scenario_supports_lobby(entry, kind)]
         games.append(item)
     return {**runtime_settings,
+            "leaderboard_finalized": leaderboard_is_finalized(),
             "mapillary": {"enabled": bool(os.getenv("ESCAPEBOT_MAPILLARY_TOKEN", "")),
                            "access_token": os.getenv("ESCAPEBOT_MAPILLARY_TOKEN", "")},
-            "availability": start_availability(),
+            "availability": start_availability(scenario_id=selected_scenario_id),
             "availability_by_lobby_type": {
                 kind: start_availability(lobby_type=kind) for kind in ("online_doom", "on_site_qr", "geo")
             },
             "checkpoints": build_demo_checkpoint_catalog(scenario), "games": games,
-            "scenario_available": scenario_available}
+            "configurable_games": [entry.public() for entry in scenario_catalog.entries.values()],
+            "scenario_available": scenario_available and bool(games)}
 
-def require_start_available(lobby_type: str = "on_site_qr") -> None:
+def require_start_available(lobby_type: str = "on_site_qr", scenario_id: str = "") -> None:
     if not scenario_available:
         raise ValueError("Není dostupný žádný platný scénář. Správce může chyby opravit v editoru her.")
-    availability = start_availability(lobby_type=lobby_type)
+    availability = start_availability(lobby_type=lobby_type, scenario_id=scenario_id)
     if not availability["start_allowed"]:
         next_start = availability.get("next_start_at")
         suffix = f" Další možný start: {datetime.fromisoformat(str(next_start)).strftime('%H:%M')}." if next_start else ""
@@ -157,6 +190,10 @@ async def operations_monitor() -> None:
         try: closing_hour, closing_minute = map(int, closing_text.split(":"))
         except ValueError: closing_hour, closing_minute = 20, 0
         closing = current.replace(hour=closing_hour, minute=closing_minute, second=0, microsecond=0)
+        event = configured_event()
+        if event:
+            try: closing = datetime.fromisoformat(str(event.get("ends_at", ""))).astimezone(current.tzinfo)
+            except ValueError: pass
         changed = False
         for session_id, machine in active_sessions.items():
             lobby = lobby_registry.by_session.get(session_id); started_at = machine.state.flags.get("operations_started_at")
@@ -175,7 +212,7 @@ async def operations_monitor() -> None:
             extension = max(0, int(machine.state.flags.get("deadline_extension_minutes", 0)))
             try:
                 duration_deadline = datetime.fromisoformat(str(started_at)).astimezone(current.tzinfo) + timedelta(minutes=duration + extension)
-                deadline = duration_deadline if lobby.lobby_type == "online_doom" else min(duration_deadline, closing)
+                deadline = duration_deadline if lobby.lobby_type == "online_doom" and event is None else min(duration_deadline, closing)
             except ValueError: continue
             if current >= deadline:
                 ended_at = datetime.now(UTC).isoformat()
@@ -286,6 +323,13 @@ def leaderboard_entries() -> list[dict[str, object]]:
                 entry["players"] = [str(player.get("name", "")) for player in lobby.players.values() if player.get("name")]
         entry.setdefault("players", [])
         lobby = lobby_registry.by_session.get(str(entry.get("session_id", "")))
+        if not entry.get("scenario_id") and lobby:
+            entry["scenario_id"] = lobby.scenario_id
+        scenario_entry = scenario_catalog.entries.get(str(entry.get("scenario_id", "")))
+        entry.setdefault("scenario_id", "legacy")
+        entry.setdefault("game_title", scenario_entry.title if scenario_entry else "Starší výsledky")
+        entry.setdefault("event_id", "")
+        entry.setdefault("event_name", "")
         if entry.get("mode") not in {"solo", "team"}:
             # Starší záznamy režim neukládaly. Pokud už lobby není dostupná,
             # jediné jméno je nejspolehlivější zpětně kompatibilní vodítko.
@@ -310,6 +354,16 @@ def result_duration_seconds(machine: EscapeBotStateMachine, completed_at: str) -
         return max(0, round((datetime.fromisoformat(str(completed_at)) - datetime.fromisoformat(str(started_at))).total_seconds()))
     except ValueError:
         return None
+
+def leaderboard_identity(lobby: Lobby) -> dict[str, str]:
+    event = configured_event()
+    scenario_entry = scenario_catalog.entries.get(lobby.scenario_id)
+    return {
+        "scenario_id": lobby.scenario_id,
+        "game_title": scenario_entry.title if scenario_entry else lobby.scenario_id,
+        "event_id": str(event.get("id", "")) if event else "",
+        "event_name": str(event.get("name", "")) if event else "",
+    }
 
 def save_leaderboard():
     storage.save_leaderboard(global_leaderboard)
@@ -774,7 +828,7 @@ async def websocket_endpoint(websocket: WebSocket):
                 data = json.loads(message_str)
                 msg = Message.from_json(data)
 
-                if msg.type in {"admin.list", "admin.penalty", "admin.score_adjustment", "admin.delete", "admin.qr_set", "admin.online_mode", "admin.operations", "admin.schedule_settings", "admin.evaluate_team", "admin.session_extend", "admin.session_end", "admin.checkpoint", "admin.game_reset", "admin.game_player", "admin.player_recovery", "admin.leaderboard_delete", "admin.leaderboard_finalize", "admin.support_join", "admin.support_leave", "admin.support_message", "admin.spectate_start", "admin.spectate_stop", "admin.scenario_source", "admin.scenario_validate"}:
+                if msg.type in {"admin.list", "admin.penalty", "admin.score_adjustment", "admin.delete", "admin.qr_set", "admin.online_mode", "admin.operations", "admin.schedule_settings", "admin.event_settings", "admin.evaluate_team", "admin.session_extend", "admin.session_end", "admin.checkpoint", "admin.game_reset", "admin.game_player", "admin.player_recovery", "admin.leaderboard_delete", "admin.leaderboard_finalize", "admin.support_join", "admin.support_leave", "admin.support_message", "admin.spectate_start", "admin.spectate_stop", "admin.scenario_source", "admin.scenario_validate"}:
                     try:
                         require_admin(msg.payload)
                         authenticated_admin_sockets.add(websocket)
@@ -847,6 +901,31 @@ async def websocket_endpoint(websocket: WebSocket):
                                 try: await send_message(active_socket, update)
                                 except Exception: pass
                             await send_admin_overview(websocket); continue
+                        if msg.type == "admin.event_settings":
+                            event_id = str(msg.payload.get("id", "")).strip()
+                            if not event_id:
+                                runtime_settings["event"] = {"id": "", "name": "", "starts_at": "", "ends_at": "", "scenario_ids": [], "leaderboard_finalized": False, "leaderboard_finalized_at": ""}
+                            else:
+                                starts_at = datetime.fromisoformat(str(msg.payload.get("starts_at", "")))
+                                ends_at = datetime.fromisoformat(str(msg.payload.get("ends_at", "")))
+                                if starts_at.tzinfo is None or ends_at.tzinfo is None: raise ValueError("Časy eventu musí obsahovat časovou zónu.")
+                                if starts_at >= ends_at: raise ValueError("Konec eventu musí následovat po jeho začátku.")
+                                scenario_ids = list(dict.fromkeys(str(item) for item in msg.payload.get("scenario_ids", [])))
+                                unknown = [item for item in scenario_ids if item not in scenario_catalog.entries]
+                                if not scenario_ids: raise ValueError("Event musí obsahovat alespoň jednu hru.")
+                                if unknown: raise ValueError("Event odkazuje na neznámé hry: " + ", ".join(unknown))
+                                previous = configured_event()
+                                same_event = previous is not None and str(previous.get("id")) == event_id
+                                runtime_settings["event"] = {"id": event_id, "name": str(msg.payload.get("name", "")).strip() or event_id,
+                                    "starts_at": starts_at.isoformat(), "ends_at": ends_at.isoformat(), "scenario_ids": scenario_ids,
+                                    "leaderboard_finalized": bool(previous.get("leaderboard_finalized", False)) if same_event else False,
+                                    "leaderboard_finalized_at": str(previous.get("leaderboard_finalized_at", "")) if same_event else ""}
+                            save_runtime_settings()
+                            update = Message("runtime.settings", runtime_payload())
+                            for active_socket in list(app.state.active_websockets):
+                                try: await send_message(active_socket, update)
+                                except Exception: pass
+                            await send_admin_overview(websocket); continue
                         if msg.type == "admin.operations":
                             enabled = bool(msg.payload.get("enabled")); runtime_settings["gameplay_enabled"] = enabled
                             if not enabled:
@@ -865,7 +944,7 @@ async def websocket_endpoint(websocket: WebSocket):
                                 except Exception: pass
                             await send_admin_overview(websocket); continue
                         if msg.type == "admin.leaderboard_delete":
-                            if runtime_settings.get("leaderboard_finalized", False):
+                            if leaderboard_is_finalized():
                                 raise ValueError("Uzavřené celkové pořadí už nelze měnit.")
                             entry_id = str(msg.payload.get("entry_id", "")).strip()
                             index = next((index for index, entry in enumerate(global_leaderboard) if str(entry.get("entry_id", "")) == entry_id), None)
@@ -883,8 +962,11 @@ async def websocket_endpoint(websocket: WebSocket):
                         if msg.type == "admin.leaderboard_finalize":
                             if runtime_settings.get("gameplay_enabled", True):
                                 raise ValueError("Nejprve zastavte herní provoz. Po uzavření pořadí už nelze bezpečně přijímat další výsledky.")
-                            runtime_settings["leaderboard_finalized"] = True
-                            runtime_settings["leaderboard_finalized_at"] = datetime.now(UTC).isoformat()
+                            event = configured_event()
+                            if event is None:
+                                raise ValueError("Diplomy za umístění lze uzavřít pouze pro definovaný event.")
+                            event["leaderboard_finalized"] = True
+                            event["leaderboard_finalized_at"] = datetime.now(UTC).isoformat()
                             save_runtime_settings()
                             update = Message("runtime.settings", runtime_payload())
                             for active_socket in list(app.state.active_websockets):
@@ -995,7 +1077,7 @@ async def websocket_endpoint(websocket: WebSocket):
                             machine = ensure_state_machine(target_session)
                             if not machine.state.flags.get("administratively_ended") and not machine.state.flags.get("game_completed"):
                                 raise ValueError("Vyhodnotit lze pouze dokončenou nebo provozně ukončenou hru.")
-                            if runtime_settings.get("leaderboard_finalized", False) and not any(entry.get("session_id") == target_session for entry in global_leaderboard):
+                            if leaderboard_is_finalized() and not any(entry.get("session_id") == target_session for entry in global_leaderboard):
                                 raise ValueError("Celkové pořadí je už organizačně uzavřeno.")
                             if not any(entry.get("session_id") == target_session for entry in global_leaderboard):
                                 completed_at = datetime.now(UTC).isoformat()
@@ -1003,7 +1085,7 @@ async def websocket_endpoint(websocket: WebSocket):
                                     "name": lobby.team_name, "players": [str(player.get("name", "")) for player in lobby.players.values()],
                                     "mode": lobby.mode, "score": machine.state.score,
                                     "duration_seconds": result_duration_seconds(machine, completed_at),
-                                    "completed_at": completed_at, "administrative": True})
+                                    "completed_at": completed_at, "administrative": True, **leaderboard_identity(lobby)})
                                 save_leaderboard()
                             machine.state.flags["administratively_evaluated"] = True; save_sessions()
                             update = Message("leaderboard.update", {"entries": leaderboard_entries()})
@@ -1232,12 +1314,13 @@ async def websocket_endpoint(websocket: WebSocket):
                                     await broadcast_session(session_id, score_messages)
                             continue
                         if msg.type == "lobby.solo":
-                            require_start_available(lobby_type)
+                            require_start_available(lobby_type, requested_scenario_id)
                             entry = scenario_catalog.entries.get(requested_scenario_id)
                             if entry is None or not scenario_supports_lobby(entry, lobby_type):
                                 raise ValueError("Vybraná hra není pro tento typ lobby dostupná.")
                             lobby = lobby_registry.create(requested_client_id, "solo", name, team_name, lobby_type, requested_scenario_id)
                         elif msg.type == "lobby.create":
+                            require_start_available(lobby_type, requested_scenario_id)
                             entry = scenario_catalog.entries.get(requested_scenario_id)
                             if entry is None or not scenario_supports_lobby(entry, lobby_type):
                                 raise ValueError("Vybraná hra není pro tento typ lobby dostupná.")
@@ -1260,7 +1343,7 @@ async def websocket_endpoint(websocket: WebSocket):
                                 raise ValueError("Hru může spustit pouze zakladatel týmu.")
                             if not lobby.team_name or any(not str(player.get("name", "")).strip() for player in lobby.players.values()):
                                 raise ValueError("Před spuštěním musí mít tým i všichni hráči vyplněné jméno.")
-                            require_start_available(lobby.lobby_type)
+                            require_start_available(lobby.lobby_type, lobby.scenario_id)
                             lobby.started = True
 
                         session_id = lobby.session_id
@@ -1314,7 +1397,7 @@ async def websocket_endpoint(websocket: WebSocket):
                     if not lobby or not machine or not machine.state.flags.get("game_completed"):
                         await send_message(websocket, Message("error", {"message": "Výsledek lze zapsat až po dokončení hry."}))
                         continue
-                    if runtime_settings.get("leaderboard_finalized", False):
+                    if leaderboard_is_finalized():
                         await send_message(websocket, Message("error", {"message": "Celkové pořadí je už organizačně uzavřeno."}))
                         continue
                     name = lobby.team_name
@@ -1324,7 +1407,7 @@ async def websocket_endpoint(websocket: WebSocket):
                             "players": [str(player.get("name", "")) for player in lobby.players.values() if player.get("name")],
                             "mode": lobby.mode, "score": score,
                             "duration_seconds": result_duration_seconds(machine, str(machine.state.flags.get("completed_at", ""))),
-                            "completed_at": machine.state.flags.get("completed_at", "")})
+                            "completed_at": machine.state.flags.get("completed_at", ""), **leaderboard_identity(lobby)})
                         save_leaderboard()
                     
                     update_msg = json.dumps(Message("leaderboard.update", {"entries": leaderboard_entries()}).to_json())
@@ -1400,7 +1483,7 @@ async def websocket_endpoint(websocket: WebSocket):
                             responses.append(state_machine._state_message())
                             save_sessions()
                         completed_lobby = lobby_registry.by_session.get(str(session_id))
-                        if completed_lobby and not runtime_settings.get("leaderboard_finalized", False) and not any(entry.get("session_id") == session_id for entry in global_leaderboard):
+                        if completed_lobby and not leaderboard_is_finalized() and not any(entry.get("session_id") == session_id for entry in global_leaderboard):
                             global_leaderboard.append({
                                 "entry_id": secrets.token_hex(8),
                                 "session_id": session_id,
@@ -1410,6 +1493,7 @@ async def websocket_endpoint(websocket: WebSocket):
                                 "score": state_machine.state.score,
                                 "duration_seconds": result_duration_seconds(state_machine, str(state_machine.state.flags.get("completed_at", ""))),
                                 "completed_at": state_machine.state.flags.get("completed_at", ""),
+                                **leaderboard_identity(completed_lobby),
                             })
                             save_leaderboard()
                             leaderboard_update = Message("leaderboard.update", {"entries": leaderboard_entries()})
