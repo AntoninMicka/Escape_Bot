@@ -7,7 +7,15 @@ const world=await fetch('./worlds/chronos-institute.json',{cache:'no-store'}).th
   return response.json();
 });
 const canvas=document.getElementById('chronos-webgl');
-const app=new pc.Application(canvas);
+const bootStatus=document.getElementById('boot-status');
+if(!canvas)throw new Error('V dokumentu chybí kreslicí plocha.');
+if(!window.WebGLRenderingContext)throw new Error('Tento prohlížeč nebo zařízení nepodporuje WebGL. Zapněte hardwarovou akceleraci a zkuste stránku načíst znovu.');
+
+// Firefox může při obnovení skrytého iframe vytvořit framebuffer 0×0.
+// Konzervativní kontext a omezené DPR snižují také tlak na SWGL/integrované GPU.
+const app=new pc.Application(canvas,{graphicsDeviceOptions:{antialias:false,alpha:false,preserveDrawingBuffer:false,powerPreference:'high-performance'}});
+if(!app.graphicsDevice)throw new Error('WebGL kontext se nepodařilo vytvořit. Zapněte hardwarovou akceleraci nebo aktualizujte ovladač grafiky.');
+app.graphicsDevice.maxPixelRatio=Math.min(window.devicePixelRatio||1,1.5);
 app.setCanvasFillMode(pc.FILLMODE_FILL_WINDOW);
 app.setCanvasResolution(pc.RESOLUTION_AUTO);
 app.scene.ambientLight=new pc.Color(.48,.54,.56);
@@ -162,6 +170,18 @@ camera.setPosition(world.spawn.x,world.spawn.y,world.spawn.z);camera.lookAt(...w
 const sun=new pc.Entity('sun');sun.addComponent('light',{type:'directional',color:pc.Color.WHITE,intensity:1.65,castShadows:false});sun.setEulerAngles(52,28,0);app.root.addChild(sun);
 for(const [x,y,z,color] of [[0,3,7,C.cyan],[-27,3,0,C.amber],[0,-2,0,C.cyan],[8,-7,-2,C.violet],[28,7,8,C.amber]]){const light=new pc.Entity('zónové světlo');light.addComponent('light',{type:'omni',color,intensity:1.2,range:15,castShadows:false});light.setPosition(x,y,z);app.root.addChild(light);}
 app.start();
+bootStatus.hidden=true;
+
+let contextLost=false;
+canvas.addEventListener('webglcontextlost',event=>{
+  event.preventDefault();contextLost=true;
+  const panel=document.getElementById('fatal');panel.hidden=false;
+  panel.textContent='WEBGL KONTEXT BYL ZTRACEN. Čekám na obnovení rendereru…';
+});
+canvas.addEventListener('webglcontextrestored',()=>{
+  contextLost=false;document.getElementById('fatal').hidden=true;scheduleResize();
+  showTransient('3D renderer byl obnoven.',3000);
+});
 
 let currentLevel=Number(world.spawn.level),futureLayer=false,paused=false;
 const held=new Set(),initialView=camera.getEulerAngles();let yaw=initialView.y,pitch=initialView.x;
@@ -247,6 +267,7 @@ window.parent?.postMessage({type:'chronos.webgl.ready'},location.origin);
 updateCheckpointMaterials();
 
 app.on('update',dt=>{
+  if(contextLost)return;
   if(paused){document.getElementById('prompt').textContent='GADGET OTEVŘEN · svět čeká';return;}
   const movementDelta=Math.min(dt,.05);
   yaw+=((held.has('turn-left')?1:0)-(held.has('turn-right')?1:0))*95*movementDelta;camera.setEulerAngles(pitch,yaw,0);
@@ -262,11 +283,21 @@ app.on('update',dt=>{
   if(performance.now()>=transientUntil)document.getElementById('story').textContent=target?`AKTIVNÍ CÍL: ${target.label} · ${target.level===currentLevel?`${camera.getPosition().distance(new pc.Vec3(...target.position)).toFixed(0)} m`:world.levels.find(level=>level.id===target.level)?.name}`:'Prozkoumejte areál a čekejte na další pokyn interkomu.';
 });
 
-function resize(){app.resizeCanvas(Math.max(1,canvas.clientWidth),Math.max(1,canvas.clientHeight));}
-new ResizeObserver(resize).observe(document.documentElement);window.addEventListener('resize',resize);requestAnimationFrame(()=>requestAnimationFrame(resize));
+let resizeFrame=0;
+function resize(){
+  resizeFrame=0;
+  const width=Math.floor(canvas.clientWidth||window.innerWidth),height=Math.floor(canvas.clientHeight||window.innerHeight);
+  if(width<2||height<2)return;
+  app.resizeCanvas(width,height);
+}
+function scheduleResize(){if(!resizeFrame)resizeFrame=requestAnimationFrame(()=>requestAnimationFrame(resize));}
+if('ResizeObserver' in window)new ResizeObserver(scheduleResize).observe(canvas);
+window.addEventListener('resize',scheduleResize);
+window.addEventListener('pageshow',scheduleResize);
+document.addEventListener('visibilitychange',()=>{held.clear();if(!document.hidden)scheduleResize();});
+scheduleResize();
 setInterval(()=>{document.getElementById('zone').textContent=`${currentZone()} · ${futureLayer?'BUDOUCNOST':'PŘÍTOMNOST'} · DRAW ${app.stats.drawCalls.total}`;},500);
 })().catch(error=>{
-  const panel=document.getElementById('fatal');
-  if(panel){panel.hidden=false;panel.textContent=`WEBGL CHYBA: ${error?.message||String(error)}`;}
+  window.showChronosFatal?.(error?.message||String(error));
   console.error(error);
 });
