@@ -24,15 +24,16 @@
     {"id": "guest_rooms", "name": "HOSTOVSKÉ POKOJE", "level": 2, "bounds": [-17, 17, -12, 14]}
   ],
   "stairs": [
-    {"id": "stairs_labs", "name": "SCHODY DO LABORATOŘÍ", "x1": -14, "x2": -10, "z_from": 6, "z_to": -4, "from_level": 0, "to_level": -1},
-    {"id": "stairs_time_hall", "name": "BEZPEČNOSTNÍ SCHODY DO B2", "x1": 10, "x2": 14, "z_from": 6, "z_to": -4, "from_level": -1, "to_level": -2},
-    {"id": "stairs_quarters", "name": "HLAVNÍ SCHODIŠTĚ", "x1": 10, "x2": 14, "z_from": 6, "z_to": -4, "from_level": 0, "to_level": 1},
-    {"id": "stairs_rooms", "name": "SCHODIŠTĚ K POKOJŮM", "x1": -2, "x2": 2, "z_from": 6, "z_to": -4, "from_level": 1, "to_level": 2},
-    {"id": "stairs_terrace", "name": "VENKOVNÍ SCHODY Z TERASY", "x1": 33, "x2": 37, "z_from": 3, "z_to": -9, "from_level": 1, "to_level": 0}
+    {"id": "stairs_labs", "name": "SCHODY DO LABORATOŘÍ", "x1": 13, "x2": 16, "z_from": 6, "z_to": -4, "from_level": 0, "to_level": -1},
+    {"id": "stairs_time_hall", "name": "BEZPEČNOSTNÍ SCHODY DO B2", "x1": 9, "x2": 12, "z_from": 6, "z_to": -4, "from_level": -1, "to_level": -2},
+    {"id": "stairs_quarters", "name": "HLAVNÍ SCHODIŠTĚ", "x1": 9, "x2": 12, "z_from": 6, "z_to": -4, "from_level": 0, "to_level": 1},
+    {"id": "stairs_rooms", "name": "SCHODIŠTĚ K POKOJŮM", "x1": 13, "x2": 16, "z_from": 6, "z_to": -4, "from_level": 1, "to_level": 2},
+    {"id": "stairs_emergency", "name": "NOUZOVÉ SCHODIŠTĚ Z PODZEMÍ", "x1": -17, "x2": -14, "z_from": -10, "z_to": -20, "from_level": -1, "to_level": 0, "exterior": true},
+    {"id": "stairs_terrace", "name": "VENKOVNÍ SCHODY Z TERASY", "x1": 33, "x2": 37, "z_from": 3, "z_to": -9, "from_level": 1, "to_level": 0, "exterior": true}
   ],
   "checkpoints": [
     {"id": "reception_archive", "label": "RECEPČNÍ ARCHIV", "level": 0, "position": [0, 1, 7], "color": "cyan"},
-    {"id": "staircase_signal", "label": "SCHODIŠŤOVÝ CHRONOSIGNÁL", "level": 1, "position": [12, 5, -5], "color": "cyan"},
+    {"id": "staircase_signal", "label": "SCHODIŠŤOVÝ CHRONOSIGNÁL", "level": 1, "position": [7, 5, -5], "color": "cyan"},
     {"id": "courtyard_minefield", "label": "NESTABILNÍ SERVISNÍ DVŮR", "level": 0, "position": [7, 1, -18], "color": "amber"},
     {"id": "bowling_diagnostics", "label": "DIAGNOSTIKA BOWLINGU", "level": 0, "position": [-30, 1, -5], "color": "cyan"},
     {"id": "timeline_calibration", "label": "KALIBRACE U DRAH", "level": 0, "position": [-24, 1, 7], "color": "amber"},

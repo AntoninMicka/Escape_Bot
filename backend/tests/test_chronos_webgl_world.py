@@ -46,6 +46,31 @@ class ChronosWebglWorldTest(unittest.TestCase):
 
         self.assertEqual(reachable, level_ids)
 
+    def test_internal_stairs_share_a_clear_non_overlapping_shaft(self) -> None:
+        stairs = [stair for stair in self.world["stairs"] if not stair.get("exterior")]
+        for stair in stairs:
+            with self.subTest(stair=stair["id"]):
+                self.assertGreaterEqual(stair["x1"], 9)
+                self.assertLessEqual(stair["x2"], 16)
+                self.assertEqual((stair["z_from"], stair["z_to"]), (6, -4))
+
+        for level in {-1, 0, 1}:
+            landings = [
+                stair for stair in stairs
+                if level in {stair["from_level"], stair["to_level"]}
+            ]
+            self.assertEqual(len(landings), 2)
+            self.assertTrue(
+                landings[0]["x2"] < landings[1]["x1"]
+                or landings[1]["x2"] < landings[0]["x1"]
+            )
+
+    def test_basement_has_a_separate_emergency_exit_to_ground_level(self) -> None:
+        emergency = next(stair for stair in self.world["stairs"] if stair["id"] == "stairs_emergency")
+        self.assertEqual((emergency["from_level"], emergency["to_level"]), (-1, 0))
+        self.assertTrue(emergency["exterior"])
+        self.assertLess(emergency["z_to"], -13)
+
     def test_every_interaction_lies_inside_a_declared_zone(self) -> None:
         points = [*self.world["checkpoints"], self.world["optional_room"]]
         level_ids = {level["id"] for level in self.world["levels"]}

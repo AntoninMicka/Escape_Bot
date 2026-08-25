@@ -59,20 +59,54 @@ function buildStair(definition){
   for(let index=0;index<steps;index++){
     const t=index/(steps-1),z=definition.z_from+(definition.z_to-definition.z_from)*t,y=fromY+(toY-fromY)*t;
     box(`${definition.name} ${index+1}`,[(definition.x1+definition.x2)/2,y-.1,z],[definition.x2-definition.x1,.2,.78],C.concrete);
+    // Sloupky a krátká madla kopírují sklon bez efektu plné lamelové stěny.
+    for(const [side,label] of [[definition.x1-.11,'L'],[definition.x2+.11,'P']]){
+      box(`${definition.name} sloupek ${label} ${index+1}`,[side,y+.72,z],[.12,1.45,.12],C.glass,{collide:true});
+      box(`${definition.name} madlo ${label} ${index+1}`,[side,y+1.47,z],[.18,.12,.78],C.white);
+    }
   }
-  const centerZ=(definition.z_from+definition.z_to)/2,centerY=(fromY+toY)/2+1;
-  wall(`${definition.name} levé zábradlí`,[definition.x1-.12,centerY,centerZ],[.18,2.1,Math.abs(definition.z_to-definition.z_from)+1],C.glass);
-  wall(`${definition.name} pravé zábradlí`,[definition.x2+.12,centerY,centerZ],[.18,2.1,Math.abs(definition.z_to-definition.z_from)+1],C.glass);
+}
+
+function buildStairShaftGuards(){
+  const shaft={x1:8.5,x2:16.5,z1:-4.5,z2:6.5};
+  const guardSegment=(name,x,y,z,sx,sz)=>{
+    box(`${name} spodní příčka`,[x,y+.55,z],[sx,.1,sz],C.glass,{collide:true});
+    box(`${name} madlo`,[x,y+1.15,z],[sx,.12,sz],C.white);
+  };
+  const postsAlongZ=(name,x,y)=>{
+    for(let z=shaft.z1;z<=shaft.z2+.01;z+=2.2)box(`${name} sloupek ${z}`,[x,y+.58,z],[.12,1.16,.12],C.glass);
+    guardSegment(name,x,y,(shaft.z1+shaft.z2)/2,.14,shaft.z2-shaft.z1);
+  };
+  const complement=(openings)=>{
+    const sorted=openings.map(([a,b])=>[Math.max(shaft.x1,a-.35),Math.min(shaft.x2,b+.35)]).sort((a,b)=>a[0]-b[0]);
+    const result=[];let cursor=shaft.x1;
+    for(const [start,end] of sorted){if(start>cursor)result.push([cursor,start]);cursor=Math.max(cursor,end);}
+    if(cursor<shaft.x2)result.push([cursor,shaft.x2]);return result;
+  };
+  for(const level of world.levels){
+    const y=levelHeight(level.id),incident=world.stairs.filter(stair=>!stair.exterior&&(stair.from_level===level.id||stair.to_level===level.id));
+    if(!incident.length)continue;
+    postsAlongZ(`${level.name} · zábradlí šachty Z`,shaft.x1,y);
+    postsAlongZ(`${level.name} · zábradlí šachty V`,shaft.x2,y);
+    for(const [z,label] of [[shaft.z1,'J'],[shaft.z2,'S']]){
+      const openings=incident.filter(stair=>Math.abs((stair.from_level===level.id?stair.z_from:stair.z_to)-z)<1).map(stair=>[stair.x1,stair.x2]);
+      for(const [start,end] of complement(openings)){
+        const width=end-start;if(width<.25)continue;const x=(start+end)/2;
+        guardSegment(`${level.name} · zábradlí šachty ${label}`,x,y,z,width,.14);
+        for(const px of [start,end])box(`${level.name} · sloupek šachty ${label}`,[px,y+.58,z],[.12,1.16,.12],C.glass);
+      }
+    }
+  }
 }
 
 function buildMainShell(){
   // Přízemí se skutečnými otvory pro obě schodiště.
   slab('přízemí sever',0,0,10.5,36,9);
   slab('přízemí jih',0,0,-8.5,36,9);
-  slab('přízemí střed západ',-16,0,1,4,10);slab('přízemí střed',0,0,1,20,10);slab('přízemí střed východ',16,0,1,4,10);
+  slab('přízemí střed západ',-4.75,0,1,26.5,10);slab('přízemí střed východ',17.25,0,1,1.5,10);
   // Obvod přízemí: dveře ven na jih a průchod do bowlingu na západ.
   wall('přízemí severní stěna',[0,2,15],[36,4,.35]);
-  wall('přízemí jižní stěna L',[-10.5,2,-13],[15,4,.35]);wall('přízemí jižní stěna P',[10.5,2,-13],[15,4,.35]);
+  wall('přízemí jižní stěna krajní',[-17.75,2,-13],[.5,4,.35]);wall('přízemí jižní stěna L',[-8.25,2,-13],[10.5,4,.35]);wall('přízemí jižní stěna P',[10.5,2,-13],[15,4,.35]);
   wall('přízemí východní stěna',[18,2,1],[.35,4,28]);
   wall('přízemí západ sever',[-18,2,9],[.35,4,12]);wall('přízemí západ jih',[-18,2,-8],[.35,4,10]);
   wall('recepce přepážka L',[-5,1,6],[4,2,1],C.glass);wall('recepce přepážka P',[5,1,6],[4,2,1],C.glass);
@@ -80,23 +114,29 @@ function buildMainShell(){
 
   // B1 · laboratoře a archiv. U bezpečnostního schodiště zůstává skutečný otvor do B2.
   slab('B1 sever',0,-5,10.5,36,9,C.dark);slab('B1 jih',0,-5,-8.5,36,9,C.dark);
-  slab('B1 střed západ',-4,-5,1,28,10,C.dark);slab('B1 střed východ',16,-5,1,4,10,C.dark);
-  wall('B1 sever',[0,-3,15],[36,4,.35],C.lab);wall('B1 jih',[0,-3,-13],[36,4,.35],C.lab);
+  slab('B1 střed západ',-4.75,-5,1,26.5,10,C.dark);slab('B1 střed východ',17.25,-5,1,1.5,10,C.dark);
+  wall('B1 sever',[0,-3,15],[36,4,.35],C.lab);wall('B1 jih krajní',[-17.75,-3,-13],[.5,4,.35],C.lab);wall('B1 jih',[2.25,-3,-13],[31.5,4,.35],C.lab);
   wall('B1 západ',[-18,-3,1],[.35,4,28],C.lab);wall('B1 východ',[18,-3,1],[.35,4,28],C.lab);
-  wall('B1 centrální přepážka L',[-9,-3,1],[14,4,.3],C.glass);wall('B1 centrální přepážka P',[9,-3,1],[14,4,.3],C.glass);
-  for(const x of [-13,-7,7,13])box('laboratorní pult',[x,-4.35,-5],[4,1.3,2],C.glass,{collide:true});
+  wall('B1 centrální přepážka L',[-4.75,-3,1],[26.5,4,.3],C.glass);wall('B1 centrální přepážka P',[17.25,-3,1],[1.5,4,.3],C.glass);
+  for(const x of [-13,-7,7])box('laboratorní pult',[x,-4.35,-5],[4,1.3,2],C.glass,{collide:true});
 
   // B2 · stíněná chronální hala s finálním strojem času.
   slab('B2 chronální hala',0,-9,1,36,28,new pc.Color(.1,.13,.17));
   wall('B2 sever',[0,-7,15],[36,4,.35],C.dark);wall('B2 jih',[0,-7,-13],[36,4,.35],C.dark);
   wall('B2 západ',[-18,-7,1],[.35,4,28],C.dark);wall('B2 východ',[18,-7,1],[.35,4,28],C.dark);
-  wall('B2 stínění L',[-10,-7,2],[12,4,.35],C.violet);wall('B2 stínění P',[10,-7,2],[12,4,.35],C.violet);
+  wall('B2 stínění L',[-10,-7,2],[12,4,.35],C.violet);wall('B2 stínění P1',[6.25,-7,2],[4.5,4,.35],C.violet);wall('B2 stínění P2',[15.25,-7,2],[1.5,4,.35],C.violet);
   cylinder('reaktor stroje času',[7,-7.4,-4],[4.4,3.2,4.4],C.violet,{emissive:true,collide:true});
   for(const x of [-12,-6,0,12])box('B2 řídicí pult',[x,-8.35,9],[3.2,1.3,1.4],C.future,{emissive:true,collide:true});
 
+  // Samostatný a dobře viditelný únikový východ z B1 do venkovního areálu.
+  box('Únikový východ · levá zárubeň',[-17.25,-3,-12.85],[.2,3.8,.2],C.dark);
+  box('Únikový východ · pravá zárubeň',[-13.75,-3,-12.85],[.2,3.8,.2],C.dark);
+  box('Únikový východ · nadpraží',[-15.5,-1.2,-12.85],[3.7,.2,.2],C.dark);
+  box('Únikový východ · označení',[-15.5,-1.45,-12.7],[2.5,.45,.12],new pc.Color(.08,.85,.35),{emissive:true});
+
   // První patro s otvory u obou schodišť.
   slab('1P sever',0,4,10.5,36,9,C.room);slab('1P jih',0,4,-8.5,36,9,C.room);
-  slab('1P střed západ',-10,4,1,16,10,C.room);slab('1P střed střed',4,4,1,4,10,C.room);slab('1P střed mezi schody',8,4,1,4,10,C.room);slab('1P střed východ',16,4,1,4,10,C.room);
+  slab('1P střed západ',-4.75,4,1,26.5,10,C.room);slab('1P střed východ',17.25,4,1,1.5,10,C.room);
   wall('1P severní stěna',[0,6,15],[36,4,.35],C.room);wall('1P jižní stěna',[0,6,-13],[36,4,.35],C.room);
   wall('1P západní stěna',[-18,6,1],[.35,4,28],C.room);
   wall('1P východ sever',[18,6,13.5],[.35,4,3],C.room);wall('1P východ jih',[18,6,-3],[.35,4,18],C.room);
@@ -107,11 +147,12 @@ function buildMainShell(){
 
   // Druhé patro – klidnější hostovské pokoje.
   slab('2P sever',0,8,10.5,36,9,C.room);slab('2P jih',0,8,-8.5,36,9,C.room);
-  slab('2P střed západ',-10,8,1,16,10,C.room);slab('2P střed východ',10,8,1,16,10,C.room);
+  slab('2P střed západ',-4.75,8,1,26.5,10,C.room);slab('2P střed východ',17.25,8,1,1.5,10,C.room);
   wall('2P sever',[0,10,15],[36,4,.35],C.room);wall('2P jih',[0,10,-13],[36,4,.35],C.room);
   wall('2P západ',[-18,10,1],[.35,4,28],C.room);wall('2P východ',[18,10,1],[.35,4,28],C.room);
-  for(const z of [-8,0,8])for(const [x,width] of [[-13.5,9],[-4,6],[4,6],[13.5,9]])wall(`2P příčka ${z} / ${x}`,[x,10,z],[width,4,.25],C.room);
-  for(const [x,z] of [[-13,-10],[-5,-10],[5,-10],[13,-10],[-13,4],[-5,4],[5,4],[13,4]])box('hostovské lůžko',[x,8.45,z],[2.5,.8,3.8],C.white,{collide:true});
+  for(const z of [-8,8])for(const [x,width] of [[-13.5,9],[-4,6],[4,6],[13.5,9]])wall(`2P příčka ${z} / ${x}`,[x,10,z],[width,4,.25],C.room);
+  for(const [x,width] of [[-4.75,26.5],[17.25,1.5]])wall(`2P příčka 0 / ${x}`,[x,10,0],[width,4,.25],C.room);
+  for(const [x,z] of [[-13,-10],[-5,-10],[5,-10],[13,-10],[-13,4],[-5,4],[5,4],[13,11]])box('hostovské lůžko',[x,8.45,z],[2.5,.8,3.8],C.white,{collide:true});
 }
 
 function buildBowling(){
@@ -163,7 +204,7 @@ function buildCheckpoints(){
   checkpointEntities.set(room.id,{...room,entity,baseColor:C.violet,interaction:'room'});
 }
 
-buildMainShell();buildBowling();buildTerraceAndOutdoors();world.stairs.forEach(buildStair);buildCheckpoints();
+buildMainShell();buildBowling();buildTerraceAndOutdoors();world.stairs.forEach(buildStair);buildStairShaftGuards();buildCheckpoints();
 
 const camera=new pc.Entity('player');camera.addComponent('camera',{clearColor:new pc.Color(.09,.18,.22),nearClip:.08,farClip:150,fov:68});
 camera.setPosition(world.spawn.x,world.spawn.y,world.spawn.z);camera.lookAt(...world.spawn.look_at);app.root.addChild(camera);
