@@ -8,8 +8,17 @@
   "abandonment_penalty": 100,
   "completion_bonus": 100,
   "opening_time": "00:00",
-  "closing_time": "23:59",
+  "closing_time": "23:00",
   "timezone": "Europe/Prague",
-  "leaderboard_finalized": false,
-  "leaderboard_finalized_at": ""
+  "leaderboard_finalized": true,
+  "leaderboard_finalized_at": "2026-08-25T20:51:44.135590+00:00",
+  "event": {
+    "id": "",
+    "name": "",
+    "starts_at": "",
+    "ends_at": "",
+    "scenario_ids": [],
+    "leaderboard_finalized": false,
+    "leaderboard_finalized_at": ""
+  }
 }
