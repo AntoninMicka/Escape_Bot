@@ -629,6 +629,7 @@
             <button id="admin-token-visibility" type="button" onclick="toggleAdminTokenVisibility()" aria-controls="admin-token" aria-pressed="false">ZOBRAZIT HESLO</button>
             <button onclick="loadAdminOverview()">NAČÍST / OBNOVIT</button>
             <button type="button" onclick="showAdminAccessQr()">QR PRO ADMINISTRACI</button>
+            <button type="button" onclick="window.open('/display','_blank','noopener')">VEŘEJNÁ OBRAZOVKA</button>
             <span id="admin-status">Čekám na spojení…</span>
         </div>
         <nav class="admin-nav"><button class="active" onclick="openAdminTab('teams',this)">TÝMY</button><button id="admin-managed-tab-button" onclick="openAdminTab('managed',this)">ŘÍZENÝ START</button><button onclick="openAdminTab('analytics',this)">ANALYTIKA</button><button id="admin-chats-tab-button" onclick="openAdminTab('chats',this)">CHATY <span id="admin-chat-unread" class="unread-badge"></span></button><button onclick="openAdminTab('leaderboard',this)">SÍŇ SLÁVY</button><button onclick="openAdminTab('tools',this)">NÁSTROJE</button></nav>

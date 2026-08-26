@@ -528,7 +528,7 @@ async def security_headers(request, call_next):
     response.headers.setdefault("X-Frame-Options", "DENY")
     response.headers.setdefault("Referrer-Policy", "same-origin")
     response.headers.setdefault("Permissions-Policy", "geolocation=(), microphone=()")
-    if request.url.path in {"/", "/index.html", "/admin", "/sw.js"}:
+    if request.url.path in {"/", "/index.html", "/admin", "/display", "/display.html", "/sw.js"}:
         response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
         response.headers["Pragma"] = "no-cache"
         response.headers["Expires"] = "0"
@@ -829,6 +829,10 @@ async def captive_portal_status() -> Response:
 @app.get("/admin")
 async def admin_page() -> RedirectResponse:
     return RedirectResponse(url="/?admin=1", status_code=307)
+
+@app.get("/display")
+async def public_display_page() -> RedirectResponse:
+    return RedirectResponse(url="/display.html", status_code=307)
 
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
