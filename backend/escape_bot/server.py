@@ -63,7 +63,8 @@ ADMIN_RESOLUTION_PRESETS = {
 DEMO_MODE_ENABLED = os.getenv("ESCAPEBOT_DEMO_MODE", "").lower() in {"1", "true", "yes", "on"}
 ADMIN_TOKEN = os.getenv("ESCAPEBOT_ADMIN_TOKEN", "")
 runtime_settings = {"online_mode": False, "gameplay_enabled": True, "max_active_teams": 4,
-                    "start_interval_minutes": 15, "game_duration_minutes": 165,
+                    "start_interval_minutes": 15, "soft_start_interval_minutes": 15,
+                    "hard_start_interval_minutes": 5, "game_duration_minutes": 165,
                     "deadline_penalty": 100, "abandonment_penalty": 100, "completion_bonus": 100,
                     "opening_time": "08:00", "closing_time": "20:00", "timezone": "Europe/Prague",
                     "leaderboard_finalized": False, "leaderboard_finalized_at": ""}
@@ -75,7 +76,8 @@ def _local_now() -> datetime:
 def start_availability(now: datetime | None = None) -> dict[str, object]:
     current = now or _local_now()
     duration = max(1, int(runtime_settings.get("game_duration_minutes", 165)))
-    interval = max(0, int(runtime_settings.get("start_interval_minutes", 15)))
+    soft_interval = max(0, int(runtime_settings.get("soft_start_interval_minutes", runtime_settings.get("start_interval_minutes", 15))))
+    hard_interval = max(0, int(runtime_settings.get("hard_start_interval_minutes", 5)))
     maximum = max(1, int(runtime_settings.get("max_active_teams", 4)))
     def clock(value: object, fallback: str) -> datetime:
         try:
@@ -101,22 +103,29 @@ def start_availability(now: datetime | None = None) -> dict[str, object]:
         if lobby and lobby.started and within_expected_duration and not machine.state.flags.get("game_completed") and not machine.state.flags.get("administratively_ended"):
             active.append(session_id)
             active_deadlines.append(parsed_start + timedelta(minutes=duration))
-    next_interval = max(starts) + timedelta(minutes=interval) if starts else current
-    next_start = max(current, opening, next_interval)
+    last_start = max(starts) if starts else None
+    next_hard = last_start + timedelta(minutes=hard_interval) if last_start else current
+    next_soft = last_start + timedelta(minutes=soft_interval) if last_start else current
+    next_start = max(current, opening, next_soft)
     if len(active) >= maximum and active_deadlines:
         next_start = max(next_start, min(active_deadlines))
-    reasons = []
-    if not runtime_settings.get("gameplay_enabled", True): reasons.append("Herní provoz je zastaven správcem.")
-    if current < opening: reasons.append("Provoz ještě nezačal.")
-    if current > latest_start: reasons.append("Dnešní nejzazší čas startu už uplynul.")
-    if len(active) >= maximum: reasons.append("Kapacita současně hrajících týmů je naplněna.")
-    if current < next_interval: reasons.append("Ještě neuplynul minimální rozestup mezi starty.")
-    allowed = not reasons
-    return {"start_allowed": allowed, "reason": " ".join(reasons), "server_time": current.isoformat(),
+    hard_reasons = []
+    if not runtime_settings.get("gameplay_enabled", True): hard_reasons.append("Herní provoz je zastaven správcem.")
+    if current < opening: hard_reasons.append("Provoz ještě nezačal.")
+    if current > latest_start: hard_reasons.append("Dnešní nejzazší čas startu už uplynul.")
+    if len(active) >= maximum: hard_reasons.append("Kapacita současně hrajících týmů je naplněna.")
+    if current < next_hard: hard_reasons.append("Ještě neuplynul hard limit mezi starty.")
+    soft_reason = "Ještě neuplynul doporučený soft rozestup mezi starty." if current < next_soft else ""
+    hard_allowed = not hard_reasons
+    allowed = hard_allowed and not soft_reason
+    return {"start_allowed": allowed, "hard_start_allowed": hard_allowed, "soft_limit_active": bool(soft_reason),
+            "reason": " ".join(hard_reasons + ([soft_reason] if soft_reason else [])),
+            "hard_reason": " ".join(hard_reasons), "soft_reason": soft_reason, "server_time": current.isoformat(),
             "next_start_at": (next_start.isoformat() if next_start <= latest_start else None),
             "latest_start_at": latest_start.isoformat(), "opening_at": opening.isoformat(), "closing_at": closing.isoformat(),
             "active_teams": len(active), "max_active_teams": maximum, "game_duration_minutes": duration,
-            "start_interval_minutes": interval, "gameplay_enabled": bool(runtime_settings.get("gameplay_enabled", True))}
+            "start_interval_minutes": soft_interval, "soft_start_interval_minutes": soft_interval,
+            "hard_start_interval_minutes": hard_interval, "gameplay_enabled": bool(runtime_settings.get("gameplay_enabled", True))}
 
 def runtime_payload() -> dict[str, object]:
     return {**runtime_settings, "availability": start_availability(), "checkpoints": build_demo_checkpoint_catalog(scenario)}
@@ -127,6 +136,13 @@ def require_start_available() -> None:
         next_start = availability.get("next_start_at")
         suffix = f" Další možný start: {datetime.fromisoformat(str(next_start)).strftime('%H:%M')}." if next_start else ""
         raise ValueError(str(availability.get("reason", "Start hry nyní není možný.")) + suffix)
+
+def require_admin_start_available(override_soft: bool = False) -> None:
+    availability = start_availability()
+    if not availability["hard_start_allowed"]:
+        raise ValueError(str(availability.get("hard_reason") or "Start hry nyní blokuje hard limit."))
+    if availability["soft_limit_active"] and not override_soft:
+        raise ValueError(str(availability.get("soft_reason")) + " Start potvrďte s obejitím soft limitu.")
 
 async def operations_monitor() -> None:
     while True:
@@ -698,7 +714,7 @@ async def websocket_endpoint(websocket: WebSocket):
                 data = json.loads(message_str)
                 msg = Message.from_json(data)
 
-                if msg.type in {"admin.list", "admin.penalty", "admin.score_adjustment", "admin.delete", "admin.qr_set", "admin.online_mode", "admin.operations", "admin.schedule_settings", "admin.evaluate_team", "admin.session_extend", "admin.session_end", "admin.checkpoint", "admin.game_reset", "admin.game_player", "admin.player_recovery", "admin.leaderboard_delete", "admin.leaderboard_finalize", "admin.support_join", "admin.support_leave", "admin.support_message", "admin.spectate_start", "admin.spectate_stop"}:
+                if msg.type in {"admin.list", "admin.penalty", "admin.score_adjustment", "admin.delete", "admin.qr_set", "admin.online_mode", "admin.operations", "admin.schedule_settings", "admin.team_create", "admin.team_start", "admin.evaluate_team", "admin.session_extend", "admin.session_end", "admin.checkpoint", "admin.game_reset", "admin.game_player", "admin.player_recovery", "admin.leaderboard_delete", "admin.leaderboard_finalize", "admin.support_join", "admin.support_leave", "admin.support_message", "admin.spectate_start", "admin.spectate_stop"}:
                     try:
                         require_admin(msg.payload)
                         authenticated_admin_sockets.add(websocket)
@@ -717,9 +733,42 @@ async def websocket_endpoint(websocket: WebSocket):
                                 try: await send_message(active_socket, update)
                                 except Exception: pass
                             continue
+                        if msg.type == "admin.team_create":
+                            lobby = lobby_registry.create_managed(str(msg.payload.get("team_name", "")))
+                            ensure_state_machine(lobby.session_id)
+                            save_lobbies(); save_sessions()
+                            await send_admin_overview(websocket)
+                            continue
+                        if msg.type == "admin.team_start":
+                            target_session = str(msg.payload.get("session_id", ""))
+                            lobby = lobby_registry.by_session.get(target_session)
+                            if lobby is None: raise ValueError("Tým už neexistuje.")
+                            if lobby.started: raise ValueError("Hra tohoto týmu už byla spuštěna.")
+                            if not lobby.players: raise ValueError("Před spuštěním se musí připojit alespoň jeden hráč.")
+                            require_admin_start_available(bool(msg.payload.get("override_soft")))
+                            lobby.started = True
+                            machine = ensure_state_machine(target_session)
+                            machine.state.flags["operations_started_at"] = datetime.now(UTC).isoformat()
+                            machine.state.flags["managed_start"] = True
+                            first_player = next(iter(lobby.players))
+                            hello = Message("client.hello", {"session_id": target_session, "demo_mode": False,
+                                "_client_id": first_player, "_participant_ids": list(lobby.players), "_team_mode": lobby.mode,
+                                "_participant_names": {key: str(value.get("name", "Hráč")) for key, value in lobby.players.items()}})
+                            responses = await machine.handle(hello)
+                            responses.extend(apply_lobby_score(lobby, machine))
+                            responses.append(Message("scenario.progress", build_scenario_progress(scenario, machine.state.snapshot())))
+                            save_lobbies(); save_sessions()
+                            await broadcast_lobby(lobby); await broadcast_session(target_session, responses)
+                            update = Message("runtime.settings", runtime_payload())
+                            for active_socket in list(app.state.active_websockets):
+                                try: await send_message(active_socket, update)
+                                except Exception: pass
+                            await send_admin_overview(websocket)
+                            continue
                         if msg.type == "admin.schedule_settings":
                             values = {"max_active_teams": int(msg.payload.get("max_active_teams", 4)),
-                                      "start_interval_minutes": int(msg.payload.get("start_interval_minutes", 15)),
+                                      "soft_start_interval_minutes": int(msg.payload.get("soft_start_interval_minutes", 15)),
+                                      "hard_start_interval_minutes": int(msg.payload.get("hard_start_interval_minutes", 5)),
                                       "game_duration_minutes": int(msg.payload.get("game_duration_minutes", 165)),
                                       "deadline_penalty": int(msg.payload.get("deadline_penalty", 100)),
                                       "abandonment_penalty": int(msg.payload.get("abandonment_penalty", 100)),
@@ -728,7 +777,8 @@ async def websocket_endpoint(websocket: WebSocket):
                                       "closing_time": str(msg.payload.get("closing_time", "20:00")),
                                       "timezone": str(msg.payload.get("timezone", "Europe/Prague"))}
                             if not 1 <= values["max_active_teams"] <= 100: raise ValueError("Kapacita musí být 1–100 týmů.")
-                            if not 0 <= values["start_interval_minutes"] <= 240: raise ValueError("Rozestup musí být 0–240 minut.")
+                            if not 0 <= values["hard_start_interval_minutes"] <= 240: raise ValueError("Hard rozestup musí být 0–240 minut.")
+                            if not values["hard_start_interval_minutes"] <= values["soft_start_interval_minutes"] <= 240: raise ValueError("Soft rozestup musí být mezi hard limitem a 240 minutami.")
                             if not 15 <= values["game_duration_minutes"] <= 720: raise ValueError("Délka hry musí být 15–720 minut.")
                             if not 0 <= values["deadline_penalty"] <= 1000: raise ValueError("Postih za nedokončení musí být 0–1000 bodů.")
                             if not 0 <= values["abandonment_penalty"] <= 1000: raise ValueError("Postih za opuštění musí být 0–1000 bodů.")
@@ -736,6 +786,7 @@ async def websocket_endpoint(websocket: WebSocket):
                             for key in ("opening_time", "closing_time"):
                                 datetime.strptime(values[key], "%H:%M")
                             ZoneInfo(values["timezone"])
+                            values["start_interval_minutes"] = values["soft_start_interval_minutes"]
                             runtime_settings.update(values); save_runtime_settings()
                             update = Message("runtime.settings", runtime_payload())
                             for active_socket in list(app.state.active_websockets):

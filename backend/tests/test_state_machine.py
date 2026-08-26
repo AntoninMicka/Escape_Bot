@@ -96,6 +96,7 @@ class StateMachineCheckpointTests(unittest.IsolatedAsyncioTestCase):
         try:
             runtime_settings.update({"gameplay_enabled": True, "opening_time": "08:00", "closing_time": "20:00",
                                      "game_duration_minutes": 120, "start_interval_minutes": 0,
+                                     "soft_start_interval_minutes": 0, "hard_start_interval_minutes": 0,
                                      "max_active_teams": 4, "timezone": "Europe/Prague"})
             zone = ZoneInfo("Europe/Prague")
             self.assertFalse(start_availability(datetime(2026, 8, 21, 7, 59, tzinfo=zone))["start_allowed"])
@@ -107,6 +108,33 @@ class StateMachineCheckpointTests(unittest.IsolatedAsyncioTestCase):
             self.assertFalse(start_availability(datetime(2026, 8, 21, 10, 0, tzinfo=zone))["start_allowed"])
         finally:
             runtime_settings.clear(); runtime_settings.update(original)
+
+    def test_managed_start_distinguishes_hard_and_soft_spacing(self) -> None:
+        from escape_bot.server import active_sessions, lobby_registry, runtime_settings, start_availability
+        from escape_bot.team_lobby import Lobby
+        original_settings = dict(runtime_settings)
+        original_sessions = dict(active_sessions)
+        original_lobbies = dict(lobby_registry.by_session)
+        try:
+            active_sessions.clear(); lobby_registry.by_session.clear()
+            runtime_settings.update({"gameplay_enabled": True, "opening_time": "08:00", "closing_time": "20:00",
+                "game_duration_minutes": 120, "soft_start_interval_minutes": 15,
+                "hard_start_interval_minutes": 5, "max_active_teams": 4, "timezone": "Europe/Prague"})
+            machine = EscapeBotStateMachine(self.scenario)
+            machine.state.flags["operations_started_at"] = "2026-08-21T10:00:00+02:00"
+            active_sessions["first"] = machine
+            lobby_registry.by_session["first"] = Lobby("first", "team", "owner", "První", started=True)
+            zone = ZoneInfo("Europe/Prague")
+            hard = start_availability(datetime(2026, 8, 21, 10, 3, tzinfo=zone))
+            self.assertFalse(hard["hard_start_allowed"])
+            soft = start_availability(datetime(2026, 8, 21, 10, 7, tzinfo=zone))
+            self.assertTrue(soft["hard_start_allowed"])
+            self.assertTrue(soft["soft_limit_active"])
+            self.assertFalse(soft["start_allowed"])
+        finally:
+            runtime_settings.clear(); runtime_settings.update(original_settings)
+            active_sessions.clear(); active_sessions.update(original_sessions)
+            lobby_registry.by_session.clear(); lobby_registry.by_session.update(original_lobbies)
 
     def test_legacy_leaderboard_entries_are_split_into_solo_and_team_modes(self) -> None:
         from escape_bot.server import global_leaderboard, leaderboard_entries
@@ -882,6 +910,14 @@ class StateMachineCheckpointTests(unittest.IsolatedAsyncioTestCase):
         restored = LobbyRegistry()
         restored.restore(registry.snapshot())
         self.assertEqual(restored.join(lobby.join_code, "fourth", "Dana").max_players, 4)
+
+    def test_admin_can_create_empty_managed_team_lobby(self) -> None:
+        registry = LobbyRegistry()
+        lobby = registry.create_managed("Řízený tým")
+        self.assertTrue(lobby.creator_id.startswith("admin:"))
+        self.assertFalse(lobby.started)
+        self.assertEqual(lobby.players, {})
+        self.assertIn("alice", registry.join(str(lobby.join_code), "alice", "Alice").players)
 
     def test_team_lobby_requires_player_and_unique_team_names(self) -> None:
         registry = LobbyRegistry()

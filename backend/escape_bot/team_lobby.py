@@ -136,6 +136,21 @@ class LobbyRegistry:
             self.by_join_code[join_code] = session_id
         return lobby
 
+    def create_managed(self, team_name: str) -> Lobby:
+        """Create a team lobby owned by the Game Master, ready for players to join."""
+        clean_team_name = " ".join(team_name.strip().split())[:32]
+        if not clean_team_name:
+            raise ValueError("Název týmu je povinný.")
+        normalized = _normalize_team_name(clean_team_name)
+        if any(_normalize_team_name(lobby.team_name) == normalized for lobby in self.by_session.values()):
+            raise ValueError("Tým s tímto názvem už existuje. Zvolte jiný název.")
+        session_id = uuid.uuid4().hex
+        lobby = Lobby(session_id=session_id, mode="team", creator_id=f"admin:{uuid.uuid4().hex}",
+                      team_name=clean_team_name, join_code=self._new_join_code())
+        self.by_session[session_id] = lobby
+        self.by_join_code[str(lobby.join_code)] = session_id
+        return lobby
+
     def pending_team_for_creator(self, client_id: str, team_name: str) -> Lobby | None:
         """Return a just-created lobby when a client retries after losing its response."""
         normalized = _normalize_team_name(team_name)

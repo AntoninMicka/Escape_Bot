@@ -624,11 +624,12 @@
             <span id="admin-status">Čekám na spojení…</span>
         </div>
         <nav class="admin-nav"><button class="active" onclick="openAdminTab('teams',this)">TÝMY</button><button onclick="openAdminTab('analytics',this)">ANALYTIKA</button><button id="admin-chats-tab-button" onclick="openAdminTab('chats',this)">CHATY <span id="admin-chat-unread" class="unread-badge"></span></button><button onclick="openAdminTab('leaderboard',this)">SÍŇ SLÁVY</button><button onclick="openAdminTab('tools',this)">NÁSTROJE</button></nav>
+        <div class="admin-toolbar"><input id="admin-new-team-name" maxlength="32" placeholder="Název nového týmu"><button onclick="createManagedTeam()">ZALOŽIT TÝM JAKO ADMIN</button></div>
         <section id="admin-tab-teams" class="admin-section"><div id="admin-summary" class="admin-summary"></div><div class="admin-filters"><input id="admin-team-search" type="search" placeholder="Hledat tým, hráče nebo kód…" oninput="applyAdminFilters()"><select id="admin-activity-filter" onchange="applyAdminFilters()"><option value="ongoing" selected>Neukončené týmy</option><option value="all">Všechny stavy</option><option value="active">Aktivní</option><option value="suspicious">Podezřelé</option><option value="abandoned">Opuštěné</option><option value="completed">Dokončené</option><option value="ended">Ukončené bez dokončení</option></select><select id="admin-online-filter" onchange="applyAdminFilters()"><option value="all">Online i offline</option><option value="online">Alespoň jeden online</option><option value="offline">Všichni offline</option></select></div><div id="admin-team-grid" class="admin-grid"></div></section>
         <section id="admin-tab-analytics" class="admin-section admin-analytics hidden"><h2>[ TELEMETRIE OBTÍŽNOSTI ]</h2><div class="admin-toolbar"><label>OBDOBÍ <select id="analytics-period" onchange="renderAdminAnalytics()"><option value="all">Celá historie</option><option value="1">Posledních 24 hodin</option><option value="7">Posledních 7 dní</option><option value="30">Posledních 30 dní</option></select></label><button onclick="exportTelemetryCsv(true)">ANONYMIZOVANÉ CSV</button><button onclick="exportTelemetryCsv(false)">INTERNÍ CSV</button></div><div id="admin-analytics-summary" class="admin-summary"></div><div id="admin-analytics-content"></div></section>
         <section id="admin-tab-chats" class="admin-section hidden"><h2>[ PODPORA TÝMŮ ]</h2><div id="admin-chat-grid" class="admin-grid"></div></section>
         <section id="admin-tab-leaderboard" class="admin-section admin-leaderboard hidden"><h2>[ SPRÁVA SÍNĚ SLÁVY ]</h2><div id="admin-leaderboard"></div></section>
-        <section id="admin-tab-tools" class="admin-section hidden"><h2>[ PROVOZ HRY ]</h2><button id="admin-operations-toggle" onclick="toggleAdminOperations()" style="width:100%;padding:22px;font-size:1.35rem">NAČÍTÁM STAV…</button><div class="admin-actions" style="margin:16px 0"><label>Max. týmů<input id="schedule-max-teams" type="number" min="1" max="100"></label><label>Rozestup startů (min)<input id="schedule-interval" type="number" min="0" max="240"></label><label>Délka hry (min)<input id="schedule-duration" type="number" min="15" max="720"></label><label>Postih za nedokončení<input id="schedule-deadline-penalty" type="number" min="0" max="1000"></label><label>Postih za opuštění<input id="schedule-abandonment-penalty" type="number" min="0" max="1000"></label><label>Bonus za dokončení<input id="schedule-completion-bonus" type="number" min="0" max="1000"></label><label>Otevření<input id="schedule-opening" type="time"></label><label>Uzavření<input id="schedule-closing" type="time"></label><label>Časová zóna<input id="schedule-timezone" value="Europe/Prague"></label><button onclick="saveScheduleSettings()">ULOŽIT PROVOZNÍ NASTAVENÍ</button></div><p id="admin-schedule-status"></p><h2>[ NÁSTROJE GAME MASTERA ]</h2><div class="admin-toolbar"><button onclick="requestAdminQrSet()">PŘIPRAVIT QR SADU</button><button onclick="exportAdminCsv()">EXPORT UDÁLOSTÍ A STATISTIK (CSV)</button><button id="admin-online-toggle" onclick="toggleAdminOnlineMode()">ONLINE REŽIM: ?</button></div></section>
+        <section id="admin-tab-tools" class="admin-section hidden"><h2>[ PROVOZ HRY ]</h2><button id="admin-operations-toggle" onclick="toggleAdminOperations()" style="width:100%;padding:22px;font-size:1.35rem">NAČÍTÁM STAV…</button><div class="admin-actions" style="margin:16px 0"><label>Max. týmů<input id="schedule-max-teams" type="number" min="1" max="100"></label><label>Hard rozestup (min)<input id="schedule-hard-interval" type="number" min="0" max="240"></label><label>Soft rozestup (min)<input id="schedule-soft-interval" type="number" min="0" max="240"></label><label>Délka hry (min)<input id="schedule-duration" type="number" min="15" max="720"></label><label>Postih za nedokončení<input id="schedule-deadline-penalty" type="number" min="0" max="1000"></label><label>Postih za opuštění<input id="schedule-abandonment-penalty" type="number" min="0" max="1000"></label><label>Bonus za dokončení<input id="schedule-completion-bonus" type="number" min="0" max="1000"></label><label>Otevření<input id="schedule-opening" type="time"></label><label>Uzavření<input id="schedule-closing" type="time"></label><label>Časová zóna<input id="schedule-timezone" value="Europe/Prague"></label><button onclick="saveScheduleSettings()">ULOŽIT PROVOZNÍ NASTAVENÍ</button></div><p id="admin-schedule-status"></p><h2>[ NÁSTROJE GAME MASTERA ]</h2><div class="admin-toolbar"><button onclick="requestAdminQrSet()">PŘIPRAVIT QR SADU</button><button onclick="exportAdminCsv()">EXPORT UDÁLOSTÍ A STATISTIK (CSV)</button><button id="admin-online-toggle" onclick="toggleAdminOnlineMode()">ONLINE REŽIM: ?</button></div></section>
     </section>
     <div id="admin-spectator-bar" class="admin-spectator-bar hidden"><strong id="admin-spectator-label">NÁHLED HRY</strong><button onclick="stopAdminSpectate()">ZPĚT DO ADMINISTRACE</button></div>
     <section id="qr-print-sheet" class="qr-print-sheet"></section>
@@ -1470,6 +1471,17 @@
         }
 
         function loadAdminOverview() { sendAdmin('admin.list'); }
+        function createManagedTeam() {
+            const input = document.getElementById('admin-new-team-name');
+            const teamName = input.value.trim();
+            if (!teamName) { showNotification('Zadejte název týmu.', 'error'); input.focus(); return; }
+            sendAdmin('admin.team_create', {team_name:teamName});
+            input.value = '';
+        }
+        function startManagedTeam(sessionId, overrideSoft = false) {
+            if (!window.confirm(overrideSoft ? 'Spustit tým a vědomě obejít soft rozestup?' : 'Spustit hru tohoto týmu?')) return;
+            sendAdmin('admin.team_start', {session_id:sessionId, override_soft:overrideSoft});
+        }
         function toggleAdminTokenVisibility() {
             const input = document.getElementById('admin-token');
             const button = document.getElementById('admin-token-visibility');
@@ -1601,7 +1613,8 @@
         function saveScheduleSettings() {
             sendAdmin('admin.schedule_settings', {
                 max_active_teams:Number(document.getElementById('schedule-max-teams').value),
-                start_interval_minutes:Number(document.getElementById('schedule-interval').value),
+                hard_start_interval_minutes:Number(document.getElementById('schedule-hard-interval').value),
+                soft_start_interval_minutes:Number(document.getElementById('schedule-soft-interval').value),
                 game_duration_minutes:Number(document.getElementById('schedule-duration').value),
                 deadline_penalty:Number(document.getElementById('schedule-deadline-penalty').value),
                 abandonment_penalty:Number(document.getElementById('schedule-abandonment-penalty').value),
@@ -1995,6 +2008,7 @@
                     <h2>${escapeHtml(team.team_name)}</h2>
                     <p><strong class="admin-activity ${escapeHtml(team.activity_status)}">${activityText}</strong> · bez aktivity ${inactivityLabel(team.inactive_seconds)}</p>
                     <p><strong>${team.mode === 'solo' ? 'SÓLO' : 'TÝM'}</strong> · ${size} hráčů · ${online} online · ${team.started ? 'hra spuštěna' : 'lobby'}</p>
+                    ${!team.started && team.join_code ? `<p>Připojovací kód: <strong class="join-code">${escapeHtml(team.join_code)}</strong> · <a href="/?join=${encodeURIComponent(team.join_code)}" target="_blank" rel="noopener">otevřít hráčské připojení</a></p>` : ''}
                     <p>Hráči: ${players || '—'}</p>
                     <p>Fáze: <strong>${escapeHtml(team.phase)}</strong> · skóre: <strong>${Number(team.score)}</strong></p>
                     <div class="admin-progress"><span style="width:${percent}%"></span></div>
@@ -2006,6 +2020,7 @@
                     <details class="admin-detail" data-detail="${team.session_id}:messages"><summary>Poslední zprávy</summary><ul class="admin-detail-list">${recentMessages}</ul></details>
                     ${!team.game_completed && !team.administratively_ended ? `<div class="admin-actions"><button onclick="extendAdminSession('${team.session_id}',15)">+15 MINUT</button><button onclick="endAdminSession('${team.session_id}','abandoned')">UKONČIT JAKO OPUŠTĚNOU</button><button onclick="endAdminSession('${team.session_id}','technical')">TECHNICKY UKONČIT</button></div><div class="admin-actions"><input id="admin-quick-message-${team.session_id}" maxlength="500" placeholder="Rychlá zpráva týmu…" onkeypress="if(event.key === 'Enter') sendAdminQuickMessage('${team.session_id}')"><button onclick="sendAdminQuickMessage('${team.session_id}')">ODESLAT ZPRÁVU</button></div>` : ''}
                     ${team.administratively_ended && !team.administratively_evaluated ? `<button onclick="evaluateAdminTeam('${team.session_id}')" style="width:100%;margin-top:10px">VYHODNOTIT A ZAPSAT VÝSLEDEK</button>` : ''}
+                    ${!team.started ? `<div class="admin-actions"><button onclick="startManagedTeam('${team.session_id}',false)" ${size < 1 ? 'disabled title="Nejprve se musí připojit hráč"' : ''}>SPUSTIT HRU</button><button class="danger" onclick="startManagedTeam('${team.session_id}',true)" ${size < 1 ? 'disabled title="Nejprve se musí připojit hráč"' : ''}>SPUSTIT PŘES SOFT LIMIT</button></div>` : ''}
                     <button onclick="startAdminSpectate('${team.session_id}')" style="width:100%;margin-top:10px">ZOBRAZIT HRU JAKO HRÁČ</button>
                     <div class="admin-actions">
                         <input id="admin-amount-${team.session_id}" type="number" min="1" max="1000" value="30" aria-label="Výše bodové úpravy">
@@ -2487,7 +2502,7 @@
                     if (toggle) toggle.textContent = `ONLINE REŽIM: ${onlineModeEnabled ? 'ZAPNUT' : 'VYPNUT'}`;
                     const operations = document.getElementById('admin-operations-toggle');
                     if (operations) { operations.textContent = operationsEnabled ? '■ ZASTAVIT HERNÍ PROVOZ' : '▶ SPUSTIT HERNÍ PROVOZ'; operations.classList.toggle('danger', operationsEnabled); }
-                    const settings = {"schedule-max-teams":msg.payload.max_active_teams,"schedule-interval":msg.payload.start_interval_minutes,"schedule-duration":msg.payload.game_duration_minutes,"schedule-deadline-penalty":msg.payload.deadline_penalty,"schedule-abandonment-penalty":msg.payload.abandonment_penalty,"schedule-completion-bonus":msg.payload.completion_bonus,"schedule-opening":msg.payload.opening_time,"schedule-closing":msg.payload.closing_time,"schedule-timezone":msg.payload.timezone};
+                    const settings = {"schedule-max-teams":msg.payload.max_active_teams,"schedule-hard-interval":msg.payload.hard_start_interval_minutes,"schedule-soft-interval":msg.payload.soft_start_interval_minutes,"schedule-duration":msg.payload.game_duration_minutes,"schedule-deadline-penalty":msg.payload.deadline_penalty,"schedule-abandonment-penalty":msg.payload.abandonment_penalty,"schedule-completion-bonus":msg.payload.completion_bonus,"schedule-opening":msg.payload.opening_time,"schedule-closing":msg.payload.closing_time,"schedule-timezone":msg.payload.timezone};
                     Object.entries(settings).forEach(([id,value]) => { const field=document.getElementById(id); if (field && document.activeElement !== field) field.value=value ?? ''; });
                     const scheduleStatus = document.getElementById('admin-schedule-status'); if (scheduleStatus && runtimeAvailability) scheduleStatus.textContent = `${runtimeAvailability.active_teams}/${runtimeAvailability.max_active_teams} aktivních týmů · nejzazší start ${new Date(runtimeAvailability.latest_start_at).toLocaleTimeString('cs-CZ',{hour:'2-digit',minute:'2-digit'})}`;
                     if (adminModeRequested && latestAdminPayload) renderAdminLeaderboard(latestAdminPayload.leaderboard || []);
