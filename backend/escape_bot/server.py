@@ -855,7 +855,7 @@ async def websocket_endpoint(websocket: WebSocket):
                 data = json.loads(message_str)
                 msg = Message.from_json(data)
 
-                if msg.type in {"admin.list", "admin.penalty", "admin.score_adjustment", "admin.delete", "admin.qr_set", "admin.online_mode", "admin.launch_mode", "admin.operations", "admin.schedule_settings", "admin.team_create", "admin.team_add_player", "admin.queue_expedite", "admin.team_start", "admin.evaluate_team", "admin.session_extend", "admin.session_end", "admin.checkpoint", "admin.game_reset", "admin.game_player", "admin.player_recovery", "admin.leaderboard_delete", "admin.leaderboard_finalize", "admin.support_join", "admin.support_leave", "admin.support_message", "admin.spectate_start", "admin.spectate_stop"}:
+                if msg.type in {"admin.list", "admin.penalty", "admin.score_adjustment", "admin.delete", "admin.qr_set", "admin.online_mode", "admin.launch_mode", "admin.operations", "admin.schedule_settings", "admin.team_create", "admin.team_add_player", "admin.queue_expedite", "admin.team_start", "admin.evaluate_team", "admin.session_extend", "admin.session_end", "admin.checkpoint", "admin.game_reset", "admin.game_player", "admin.player_recovery", "admin.diploma_printed", "admin.leaderboard_delete", "admin.leaderboard_finalize", "admin.support_join", "admin.support_leave", "admin.support_message", "admin.spectate_start", "admin.spectate_stop"}:
                     try:
                         require_admin(msg.payload)
                         authenticated_admin_sockets.add(websocket)
@@ -1008,6 +1008,23 @@ async def websocket_endpoint(websocket: WebSocket):
                             await send_admin_overview(websocket)
                             logger.info("Admin odstranil výsledek týmu %s ze Síně slávy.", removed.get("name", ""))
                             continue
+                        if msg.type == "admin.diploma_printed":
+                            entry_id = str(msg.payload.get("entry_id", "")).strip()
+                            player_index = int(msg.payload.get("player_index", -1))
+                            entry = next((item for item in global_leaderboard if str(item.get("entry_id", "")) == entry_id), None)
+                            if entry is None: raise ValueError("Výsledek pro diplom už neexistuje.")
+                            players = list(entry.get("players", []))
+                            if not 0 <= player_index < len(players): raise ValueError("Hráč pro diplom neexistuje.")
+                            printed = {int(index) for index in entry.get("printed_diplomas", [])}
+                            printed.add(player_index)
+                            entry["printed_diplomas"] = sorted(printed)
+                            save_leaderboard()
+                            update = Message("leaderboard.update", {"entries": leaderboard_entries()})
+                            for active_socket in list(app.state.active_websockets):
+                                try: await send_message(active_socket, update)
+                                except Exception: pass
+                            await send_admin_overview(websocket)
+                            continue
                         if msg.type == "admin.leaderboard_finalize":
                             if runtime_settings.get("gameplay_enabled", True):
                                 raise ValueError("Nejprve zastavte herní provoz. Po uzavření pořadí už nelze bezpečně přijímat další výsledky.")
@@ -1131,7 +1148,8 @@ async def websocket_endpoint(websocket: WebSocket):
                                     "name": lobby.team_name, "players": [str(player.get("name", "")) for player in lobby.players.values()],
                                     "mode": lobby.mode, "score": machine.state.score,
                                     "duration_seconds": result_duration_seconds(machine, completed_at),
-                                    "completed_at": completed_at, "administrative": True})
+                                    "completed_at": completed_at, "administrative": True,
+                                    "diploma_eligible": bool(machine.state.flags.get("game_completed"))})
                                 save_leaderboard()
                             machine.state.flags["administratively_evaluated"] = True; save_sessions()
                             update = Message("leaderboard.update", {"entries": leaderboard_entries()})
@@ -1479,7 +1497,7 @@ async def websocket_endpoint(websocket: WebSocket):
                             "players": [str(player.get("name", "")) for player in lobby.players.values() if player.get("name")],
                             "mode": lobby.mode, "score": score,
                             "duration_seconds": result_duration_seconds(machine, str(machine.state.flags.get("completed_at", ""))),
-                            "completed_at": machine.state.flags.get("completed_at", "")})
+                            "completed_at": machine.state.flags.get("completed_at", ""), "diploma_eligible": True})
                         save_leaderboard()
                     
                     update_msg = json.dumps(Message("leaderboard.update", {"entries": leaderboard_entries()}).to_json())
@@ -1565,6 +1583,7 @@ async def websocket_endpoint(websocket: WebSocket):
                                 "score": state_machine.state.score,
                                 "duration_seconds": result_duration_seconds(state_machine, str(state_machine.state.flags.get("completed_at", ""))),
                                 "completed_at": state_machine.state.flags.get("completed_at", ""),
+                                "diploma_eligible": True,
                             })
                             save_leaderboard()
                             leaderboard_update = Message("leaderboard.update", {"entries": leaderboard_entries()})

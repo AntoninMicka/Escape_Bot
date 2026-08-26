@@ -3,7 +3,11 @@
     "entry_id": "demo-team-chrononauti",
     "session_id": "demo-session-team-chrononauti",
     "name": "Chrononauti",
-    "players": ["Anna Nováková", "Petr Dvořák", "Klára Veselá"],
+    "players": [
+      "Anna Nováková",
+      "Petr Dvořák",
+      "Klára Veselá"
+    ],
     "mode": "team",
     "score": 1240,
     "duration_seconds": 4218,
@@ -13,7 +17,10 @@
     "entry_id": "demo-team-sede-bunky",
     "session_id": "demo-session-team-sede-bunky",
     "name": "Šedé buňky",
-    "players": ["Martin Černý", "Lucie Horáková"],
+    "players": [
+      "Martin Černý",
+      "Lucie Horáková"
+    ],
     "mode": "team",
     "score": 1115,
     "duration_seconds": 4896,
@@ -23,7 +30,12 @@
     "entry_id": "demo-team-casova-smycka",
     "session_id": "demo-session-team-casova-smycka",
     "name": "Časová smyčka",
-    "players": ["Eliška Procházková", "Tomáš Král", "Jan Bureš", "Sára Malá"],
+    "players": [
+      "Eliška Procházková",
+      "Tomáš Král",
+      "Jan Bureš",
+      "Sára Malá"
+    ],
     "mode": "team",
     "score": 980,
     "duration_seconds": 5634,
@@ -33,7 +45,9 @@
     "entry_id": "demo-solo-veronika",
     "session_id": "demo-session-solo-veronika",
     "name": "Veronika Jelínková",
-    "players": ["Veronika Jelínková"],
+    "players": [
+      "Veronika Jelínková"
+    ],
     "mode": "solo",
     "score": 1190,
     "duration_seconds": 4487,
@@ -43,7 +57,9 @@
     "entry_id": "demo-solo-michal",
     "session_id": "demo-session-solo-michal",
     "name": "Michal Kučera",
-    "players": ["Michal Kučera"],
+    "players": [
+      "Michal Kučera"
+    ],
     "mode": "solo",
     "score": 1060,
     "duration_seconds": 5172,
@@ -53,54 +69,596 @@
     "entry_id": "demo-solo-tereza",
     "session_id": "demo-session-solo-tereza",
     "name": "Tereza Němcová",
-    "players": ["Tereza Němcová"],
+    "players": [
+      "Tereza Němcová"
+    ],
     "mode": "solo",
     "score": 925,
     "duration_seconds": 6015,
     "completed_at": "2026-08-25T19:26:00+00:00"
   },
-  {"entry_id":"display-team-01","session_id":"display-team-session-01","name":"Strážci paradoxu","players":["Adam","Bára","Cyril"],"mode":"team","score":1225,"duration_seconds":4301,"completed_at":"2026-08-26T08:01:00+00:00"},
-  {"entry_id":"display-team-02","session_id":"display-team-session-02","name":"Kvantová hlídka","players":["Dana","Emil","Filip"],"mode":"team","score":1208,"duration_seconds":4380,"completed_at":"2026-08-26T08:08:00+00:00"},
-  {"entry_id":"display-team-03","session_id":"display-team-session-03","name":"Lovci času","players":["Gabriela","Hynek","Iva"],"mode":"team","score":1184,"duration_seconds":4462,"completed_at":"2026-08-26T08:16:00+00:00"},
-  {"entry_id":"display-team-04","session_id":"display-team-session-04","name":"Modrý posun","players":["Jakub","Karolína","Lukáš"],"mode":"team","score":1162,"duration_seconds":4550,"completed_at":"2026-08-26T08:24:00+00:00"},
-  {"entry_id":"display-team-05","session_id":"display-team-session-05","name":"Paralelní turisté","players":["Marie","Norbert","Olga"],"mode":"team","score":1143,"duration_seconds":4635,"completed_at":"2026-08-26T08:32:00+00:00"},
-  {"entry_id":"display-team-06","session_id":"display-team-session-06","name":"Restart protokolu","players":["Pavel","Radka","Samuel"],"mode":"team","score":1128,"duration_seconds":4720,"completed_at":"2026-08-26T08:40:00+00:00"},
-  {"entry_id":"display-team-07","session_id":"display-team-session-07","name":"Anomálie 7","players":["Tamara","Urban","Věra"],"mode":"team","score":1098,"duration_seconds":4812,"completed_at":"2026-08-26T08:48:00+00:00"},
-  {"entry_id":"display-team-08","session_id":"display-team-session-08","name":"Červí díra","players":["Zdeněk","Alena","Bohdan"],"mode":"team","score":1081,"duration_seconds":4890,"completed_at":"2026-08-26T08:56:00+00:00"},
-  {"entry_id":"display-team-09","session_id":"display-team-session-09","name":"Minutová ručička","players":["Cecílie","David","Eva"],"mode":"team","score":1047,"duration_seconds":4978,"completed_at":"2026-08-26T09:04:00+00:00"},
-  {"entry_id":"display-team-10","session_id":"display-team-session-10","name":"Tachyonová směna","players":["František","Gita","Hana"],"mode":"team","score":1029,"duration_seconds":5060,"completed_at":"2026-08-26T09:12:00+00:00"},
-  {"entry_id":"display-team-11","session_id":"display-team-session-11","name":"Ztraceni v úterý","players":["Igor","Jana","Kamil"],"mode":"team","score":1008,"duration_seconds":5151,"completed_at":"2026-08-26T09:20:00+00:00"},
-  {"entry_id":"display-team-12","session_id":"display-team-session-12","name":"Chronometr","players":["Lenka","Marek","Nina"],"mode":"team","score":995,"duration_seconds":5230,"completed_at":"2026-08-26T09:28:00+00:00"},
-  {"entry_id":"display-team-13","session_id":"display-team-session-13","name":"Kód 88","players":["Oskar","Petra","Robin"],"mode":"team","score":962,"duration_seconds":5322,"completed_at":"2026-08-26T09:36:00+00:00"},
-  {"entry_id":"display-team-14","session_id":"display-team-session-14","name":"Strojvedoucí času","players":["Sabina","Teodor","Ulrika"],"mode":"team","score":944,"duration_seconds":5410,"completed_at":"2026-08-26T09:44:00+00:00"},
-  {"entry_id":"display-team-15","session_id":"display-team-session-15","name":"Vteřinová rota","players":["Viktor","Wanda","Xaver"],"mode":"team","score":918,"duration_seconds":5495,"completed_at":"2026-08-26T09:52:00+00:00"},
-  {"entry_id":"display-team-16","session_id":"display-team-session-16","name":"Éra návratu","players":["Yveta","Zora","Aleš"],"mode":"team","score":897,"duration_seconds":5580,"completed_at":"2026-08-26T10:00:00+00:00"},
-  {"entry_id":"display-team-17","session_id":"display-team-session-17","name":"Pátá dimenze","players":["Blanka","Ctibor","Dita"],"mode":"team","score":875,"duration_seconds":5672,"completed_at":"2026-08-26T10:08:00+00:00"},
-  {"entry_id":"display-team-18","session_id":"display-team-session-18","name":"Hodináři zítřka","players":["Erik","Fany","Gustav"],"mode":"team","score":852,"duration_seconds":5755,"completed_at":"2026-08-26T10:16:00+00:00"},
-  {"entry_id":"display-team-19","session_id":"display-team-session-19","name":"Temporální chaos","players":["Helena","Ivan","Julie"],"mode":"team","score":831,"duration_seconds":5840,"completed_at":"2026-08-26T10:24:00+00:00"},
-  {"entry_id":"display-team-20","session_id":"display-team-session-20","name":"Poslední checkpoint","players":["Kristýna","Leoš","Magda"],"mode":"team","score":809,"duration_seconds":5935,"completed_at":"2026-08-26T10:32:00+00:00"},
-  {"entry_id":"display-team-21","session_id":"display-team-session-21","name":"Rozbitý kompas","players":["Nikola","Otakar","Pavla"],"mode":"team","score":786,"duration_seconds":6020,"completed_at":"2026-08-26T10:40:00+00:00"},
-  {"entry_id":"display-team-22","session_id":"display-team-session-22","name":"Budoucnost nejistá","players":["Renata","Šimon","Tadeáš"],"mode":"team","score":764,"duration_seconds":6110,"completed_at":"2026-08-26T10:48:00+00:00"},
-  {"entry_id":"display-solo-01","session_id":"display-solo-session-01","name":"Anna Svobodová","players":["Anna Svobodová"],"mode":"solo","score":1230,"duration_seconds":4320,"completed_at":"2026-08-26T11:01:00+00:00"},
-  {"entry_id":"display-solo-02","session_id":"display-solo-session-02","name":"Petr Novotný","players":["Petr Novotný"],"mode":"solo","score":1212,"duration_seconds":4400,"completed_at":"2026-08-26T11:08:00+00:00"},
-  {"entry_id":"display-solo-03","session_id":"display-solo-session-03","name":"Klára Pokorná","players":["Klára Pokorná"],"mode":"solo","score":1176,"duration_seconds":4490,"completed_at":"2026-08-26T11:16:00+00:00"},
-  {"entry_id":"display-solo-04","session_id":"display-solo-session-04","name":"Martin Marek","players":["Martin Marek"],"mode":"solo","score":1154,"duration_seconds":4575,"completed_at":"2026-08-26T11:24:00+00:00"},
-  {"entry_id":"display-solo-05","session_id":"display-solo-session-05","name":"Lucie Králová","players":["Lucie Králová"],"mode":"solo","score":1136,"duration_seconds":4660,"completed_at":"2026-08-26T11:32:00+00:00"},
-  {"entry_id":"display-solo-06","session_id":"display-solo-session-06","name":"Tomáš Bartoš","players":["Tomáš Bartoš"],"mode":"solo","score":1107,"duration_seconds":4745,"completed_at":"2026-08-26T11:40:00+00:00"},
-  {"entry_id":"display-solo-07","session_id":"display-solo-session-07","name":"Eliška Černá","players":["Eliška Černá"],"mode":"solo","score":1089,"duration_seconds":4830,"completed_at":"2026-08-26T11:48:00+00:00"},
-  {"entry_id":"display-solo-08","session_id":"display-solo-session-08","name":"Jan Konečný","players":["Jan Konečný"],"mode":"solo","score":1068,"duration_seconds":4915,"completed_at":"2026-08-26T11:56:00+00:00"},
-  {"entry_id":"display-solo-09","session_id":"display-solo-session-09","name":"Tereza Růžičková","players":["Tereza Růžičková"],"mode":"solo","score":1041,"duration_seconds":5000,"completed_at":"2026-08-26T12:04:00+00:00"},
-  {"entry_id":"display-solo-10","session_id":"display-solo-session-10","name":"David Fiala","players":["David Fiala"],"mode":"solo","score":1017,"duration_seconds":5090,"completed_at":"2026-08-26T12:12:00+00:00"},
-  {"entry_id":"display-solo-11","session_id":"display-solo-session-11","name":"Barbora Doležalová","players":["Barbora Doležalová"],"mode":"solo","score":999,"duration_seconds":5170,"completed_at":"2026-08-26T12:20:00+00:00"},
-  {"entry_id":"display-solo-12","session_id":"display-solo-session-12","name":"Ondřej Urban","players":["Ondřej Urban"],"mode":"solo","score":974,"duration_seconds":5260,"completed_at":"2026-08-26T12:28:00+00:00"},
-  {"entry_id":"display-solo-13","session_id":"display-solo-session-13","name":"Kateřina Hájková","players":["Kateřina Hájková"],"mode":"solo","score":951,"duration_seconds":5345,"completed_at":"2026-08-26T12:36:00+00:00"},
-  {"entry_id":"display-solo-14","session_id":"display-solo-session-14","name":"Marek Beneš","players":["Marek Beneš"],"mode":"solo","score":932,"duration_seconds":5430,"completed_at":"2026-08-26T12:44:00+00:00"},
-  {"entry_id":"display-solo-15","session_id":"display-solo-session-15","name":"Nikola Veselá","players":["Nikola Veselá"],"mode":"solo","score":906,"duration_seconds":5520,"completed_at":"2026-08-26T12:52:00+00:00"},
-  {"entry_id":"display-solo-16","session_id":"display-solo-session-16","name":"Filip Jelínek","players":["Filip Jelínek"],"mode":"solo","score":884,"duration_seconds":5605,"completed_at":"2026-08-26T13:00:00+00:00"},
-  {"entry_id":"display-solo-17","session_id":"display-solo-session-17","name":"Adéla Němcová","players":["Adéla Němcová"],"mode":"solo","score":861,"duration_seconds":5690,"completed_at":"2026-08-26T13:08:00+00:00"},
-  {"entry_id":"display-solo-18","session_id":"display-solo-session-18","name":"Radek Procházka","players":["Radek Procházka"],"mode":"solo","score":842,"duration_seconds":5775,"completed_at":"2026-08-26T13:16:00+00:00"},
-  {"entry_id":"display-solo-19","session_id":"display-solo-session-19","name":"Simona Blažková","players":["Simona Blažková"],"mode":"solo","score":818,"duration_seconds":5860,"completed_at":"2026-08-26T13:24:00+00:00"},
-  {"entry_id":"display-solo-20","session_id":"display-solo-session-20","name":"Vojtěch Šimek","players":["Vojtěch Šimek"],"mode":"solo","score":795,"duration_seconds":5950,"completed_at":"2026-08-26T13:32:00+00:00"},
-  {"entry_id":"display-solo-21","session_id":"display-solo-session-21","name":"Monika Zemanová","players":["Monika Zemanová"],"mode":"solo","score":773,"duration_seconds":6035,"completed_at":"2026-08-26T13:40:00+00:00"},
-  {"entry_id":"display-solo-22","session_id":"display-solo-session-22","name":"Richard Holub","players":["Richard Holub"],"mode":"solo","score":749,"duration_seconds":6120,"completed_at":"2026-08-26T13:48:00+00:00"}
+  {
+    "entry_id": "display-team-01",
+    "session_id": "display-team-session-01",
+    "name": "Strážci paradoxu",
+    "players": [
+      "Adam",
+      "Bára",
+      "Cyril"
+    ],
+    "mode": "team",
+    "score": 1225,
+    "duration_seconds": 4301,
+    "completed_at": "2026-08-26T08:01:00+00:00"
+  },
+  {
+    "entry_id": "display-team-02",
+    "session_id": "display-team-session-02",
+    "name": "Kvantová hlídka",
+    "players": [
+      "Dana",
+      "Emil",
+      "Filip"
+    ],
+    "mode": "team",
+    "score": 1208,
+    "duration_seconds": 4380,
+    "completed_at": "2026-08-26T08:08:00+00:00"
+  },
+  {
+    "entry_id": "display-team-03",
+    "session_id": "display-team-session-03",
+    "name": "Lovci času",
+    "players": [
+      "Gabriela",
+      "Hynek",
+      "Iva"
+    ],
+    "mode": "team",
+    "score": 1184,
+    "duration_seconds": 4462,
+    "completed_at": "2026-08-26T08:16:00+00:00"
+  },
+  {
+    "entry_id": "display-team-04",
+    "session_id": "display-team-session-04",
+    "name": "Modrý posun",
+    "players": [
+      "Jakub",
+      "Karolína",
+      "Lukáš"
+    ],
+    "mode": "team",
+    "score": 1162,
+    "duration_seconds": 4550,
+    "completed_at": "2026-08-26T08:24:00+00:00"
+  },
+  {
+    "entry_id": "display-team-05",
+    "session_id": "display-team-session-05",
+    "name": "Paralelní turisté",
+    "players": [
+      "Marie",
+      "Norbert",
+      "Olga"
+    ],
+    "mode": "team",
+    "score": 1143,
+    "duration_seconds": 4635,
+    "completed_at": "2026-08-26T08:32:00+00:00"
+  },
+  {
+    "entry_id": "display-team-06",
+    "session_id": "display-team-session-06",
+    "name": "Restart protokolu",
+    "players": [
+      "Pavel",
+      "Radka",
+      "Samuel"
+    ],
+    "mode": "team",
+    "score": 1128,
+    "duration_seconds": 4720,
+    "completed_at": "2026-08-26T08:40:00+00:00"
+  },
+  {
+    "entry_id": "display-team-07",
+    "session_id": "display-team-session-07",
+    "name": "Anomálie 7",
+    "players": [
+      "Tamara",
+      "Urban",
+      "Věra"
+    ],
+    "mode": "team",
+    "score": 1098,
+    "duration_seconds": 4812,
+    "completed_at": "2026-08-26T08:48:00+00:00"
+  },
+  {
+    "entry_id": "display-team-08",
+    "session_id": "display-team-session-08",
+    "name": "Červí díra",
+    "players": [
+      "Zdeněk",
+      "Alena",
+      "Bohdan"
+    ],
+    "mode": "team",
+    "score": 1081,
+    "duration_seconds": 4890,
+    "completed_at": "2026-08-26T08:56:00+00:00"
+  },
+  {
+    "entry_id": "display-team-09",
+    "session_id": "display-team-session-09",
+    "name": "Minutová ručička",
+    "players": [
+      "Cecílie",
+      "David",
+      "Eva"
+    ],
+    "mode": "team",
+    "score": 1047,
+    "duration_seconds": 4978,
+    "completed_at": "2026-08-26T09:04:00+00:00"
+  },
+  {
+    "entry_id": "display-team-10",
+    "session_id": "display-team-session-10",
+    "name": "Tachyonová směna",
+    "players": [
+      "František",
+      "Gita",
+      "Hana"
+    ],
+    "mode": "team",
+    "score": 1029,
+    "duration_seconds": 5060,
+    "completed_at": "2026-08-26T09:12:00+00:00"
+  },
+  {
+    "entry_id": "display-team-11",
+    "session_id": "display-team-session-11",
+    "name": "Ztraceni v úterý",
+    "players": [
+      "Igor",
+      "Jana",
+      "Kamil"
+    ],
+    "mode": "team",
+    "score": 1008,
+    "duration_seconds": 5151,
+    "completed_at": "2026-08-26T09:20:00+00:00"
+  },
+  {
+    "entry_id": "display-team-12",
+    "session_id": "display-team-session-12",
+    "name": "Chronometr",
+    "players": [
+      "Lenka",
+      "Marek",
+      "Nina"
+    ],
+    "mode": "team",
+    "score": 995,
+    "duration_seconds": 5230,
+    "completed_at": "2026-08-26T09:28:00+00:00"
+  },
+  {
+    "entry_id": "display-team-13",
+    "session_id": "display-team-session-13",
+    "name": "Kód 88",
+    "players": [
+      "Oskar",
+      "Petra",
+      "Robin"
+    ],
+    "mode": "team",
+    "score": 962,
+    "duration_seconds": 5322,
+    "completed_at": "2026-08-26T09:36:00+00:00"
+  },
+  {
+    "entry_id": "display-team-14",
+    "session_id": "display-team-session-14",
+    "name": "Strojvedoucí času",
+    "players": [
+      "Sabina",
+      "Teodor",
+      "Ulrika"
+    ],
+    "mode": "team",
+    "score": 944,
+    "duration_seconds": 5410,
+    "completed_at": "2026-08-26T09:44:00+00:00"
+  },
+  {
+    "entry_id": "display-team-15",
+    "session_id": "display-team-session-15",
+    "name": "Vteřinová rota",
+    "players": [
+      "Viktor",
+      "Wanda",
+      "Xaver"
+    ],
+    "mode": "team",
+    "score": 918,
+    "duration_seconds": 5495,
+    "completed_at": "2026-08-26T09:52:00+00:00"
+  },
+  {
+    "entry_id": "display-team-16",
+    "session_id": "display-team-session-16",
+    "name": "Éra návratu",
+    "players": [
+      "Yveta",
+      "Zora",
+      "Aleš"
+    ],
+    "mode": "team",
+    "score": 897,
+    "duration_seconds": 5580,
+    "completed_at": "2026-08-26T10:00:00+00:00"
+  },
+  {
+    "entry_id": "display-team-17",
+    "session_id": "display-team-session-17",
+    "name": "Pátá dimenze",
+    "players": [
+      "Blanka",
+      "Ctibor",
+      "Dita"
+    ],
+    "mode": "team",
+    "score": 875,
+    "duration_seconds": 5672,
+    "completed_at": "2026-08-26T10:08:00+00:00"
+  },
+  {
+    "entry_id": "display-team-18",
+    "session_id": "display-team-session-18",
+    "name": "Hodináři zítřka",
+    "players": [
+      "Erik",
+      "Fany",
+      "Gustav"
+    ],
+    "mode": "team",
+    "score": 852,
+    "duration_seconds": 5755,
+    "completed_at": "2026-08-26T10:16:00+00:00"
+  },
+  {
+    "entry_id": "display-team-19",
+    "session_id": "display-team-session-19",
+    "name": "Temporální chaos",
+    "players": [
+      "Helena",
+      "Ivan",
+      "Julie"
+    ],
+    "mode": "team",
+    "score": 831,
+    "duration_seconds": 5840,
+    "completed_at": "2026-08-26T10:24:00+00:00"
+  },
+  {
+    "entry_id": "display-team-20",
+    "session_id": "display-team-session-20",
+    "name": "Poslední checkpoint",
+    "players": [
+      "Kristýna",
+      "Leoš",
+      "Magda"
+    ],
+    "mode": "team",
+    "score": 809,
+    "duration_seconds": 5935,
+    "completed_at": "2026-08-26T10:32:00+00:00"
+  },
+  {
+    "entry_id": "display-team-21",
+    "session_id": "display-team-session-21",
+    "name": "Rozbitý kompas",
+    "players": [
+      "Nikola",
+      "Otakar",
+      "Pavla"
+    ],
+    "mode": "team",
+    "score": 786,
+    "duration_seconds": 6020,
+    "completed_at": "2026-08-26T10:40:00+00:00"
+  },
+  {
+    "entry_id": "display-team-22",
+    "session_id": "display-team-session-22",
+    "name": "Budoucnost nejistá",
+    "players": [
+      "Renata",
+      "Šimon",
+      "Tadeáš"
+    ],
+    "mode": "team",
+    "score": 764,
+    "duration_seconds": 6110,
+    "completed_at": "2026-08-26T10:48:00+00:00",
+    "printed_diplomas": [
+      2
+    ]
+  },
+  {
+    "entry_id": "display-solo-01",
+    "session_id": "display-solo-session-01",
+    "name": "Anna Svobodová",
+    "players": [
+      "Anna Svobodová"
+    ],
+    "mode": "solo",
+    "score": 1230,
+    "duration_seconds": 4320,
+    "completed_at": "2026-08-26T11:01:00+00:00",
+    "printed_diplomas": [
+      0
+    ]
+  },
+  {
+    "entry_id": "display-solo-02",
+    "session_id": "display-solo-session-02",
+    "name": "Petr Novotný",
+    "players": [
+      "Petr Novotný"
+    ],
+    "mode": "solo",
+    "score": 1212,
+    "duration_seconds": 4400,
+    "completed_at": "2026-08-26T11:08:00+00:00"
+  },
+  {
+    "entry_id": "display-solo-03",
+    "session_id": "display-solo-session-03",
+    "name": "Klára Pokorná",
+    "players": [
+      "Klára Pokorná"
+    ],
+    "mode": "solo",
+    "score": 1176,
+    "duration_seconds": 4490,
+    "completed_at": "2026-08-26T11:16:00+00:00"
+  },
+  {
+    "entry_id": "display-solo-04",
+    "session_id": "display-solo-session-04",
+    "name": "Martin Marek",
+    "players": [
+      "Martin Marek"
+    ],
+    "mode": "solo",
+    "score": 1154,
+    "duration_seconds": 4575,
+    "completed_at": "2026-08-26T11:24:00+00:00"
+  },
+  {
+    "entry_id": "display-solo-05",
+    "session_id": "display-solo-session-05",
+    "name": "Lucie Králová",
+    "players": [
+      "Lucie Králová"
+    ],
+    "mode": "solo",
+    "score": 1136,
+    "duration_seconds": 4660,
+    "completed_at": "2026-08-26T11:32:00+00:00"
+  },
+  {
+    "entry_id": "display-solo-06",
+    "session_id": "display-solo-session-06",
+    "name": "Tomáš Bartoš",
+    "players": [
+      "Tomáš Bartoš"
+    ],
+    "mode": "solo",
+    "score": 1107,
+    "duration_seconds": 4745,
+    "completed_at": "2026-08-26T11:40:00+00:00"
+  },
+  {
+    "entry_id": "display-solo-07",
+    "session_id": "display-solo-session-07",
+    "name": "Eliška Černá",
+    "players": [
+      "Eliška Černá"
+    ],
+    "mode": "solo",
+    "score": 1089,
+    "duration_seconds": 4830,
+    "completed_at": "2026-08-26T11:48:00+00:00"
+  },
+  {
+    "entry_id": "display-solo-08",
+    "session_id": "display-solo-session-08",
+    "name": "Jan Konečný",
+    "players": [
+      "Jan Konečný"
+    ],
+    "mode": "solo",
+    "score": 1068,
+    "duration_seconds": 4915,
+    "completed_at": "2026-08-26T11:56:00+00:00"
+  },
+  {
+    "entry_id": "display-solo-09",
+    "session_id": "display-solo-session-09",
+    "name": "Tereza Růžičková",
+    "players": [
+      "Tereza Růžičková"
+    ],
+    "mode": "solo",
+    "score": 1041,
+    "duration_seconds": 5000,
+    "completed_at": "2026-08-26T12:04:00+00:00"
+  },
+  {
+    "entry_id": "display-solo-10",
+    "session_id": "display-solo-session-10",
+    "name": "David Fiala",
+    "players": [
+      "David Fiala"
+    ],
+    "mode": "solo",
+    "score": 1017,
+    "duration_seconds": 5090,
+    "completed_at": "2026-08-26T12:12:00+00:00"
+  },
+  {
+    "entry_id": "display-solo-11",
+    "session_id": "display-solo-session-11",
+    "name": "Barbora Doležalová",
+    "players": [
+      "Barbora Doležalová"
+    ],
+    "mode": "solo",
+    "score": 999,
+    "duration_seconds": 5170,
+    "completed_at": "2026-08-26T12:20:00+00:00"
+  },
+  {
+    "entry_id": "display-solo-12",
+    "session_id": "display-solo-session-12",
+    "name": "Ondřej Urban",
+    "players": [
+      "Ondřej Urban"
+    ],
+    "mode": "solo",
+    "score": 974,
+    "duration_seconds": 5260,
+    "completed_at": "2026-08-26T12:28:00+00:00"
+  },
+  {
+    "entry_id": "display-solo-13",
+    "session_id": "display-solo-session-13",
+    "name": "Kateřina Hájková",
+    "players": [
+      "Kateřina Hájková"
+    ],
+    "mode": "solo",
+    "score": 951,
+    "duration_seconds": 5345,
+    "completed_at": "2026-08-26T12:36:00+00:00"
+  },
+  {
+    "entry_id": "display-solo-14",
+    "session_id": "display-solo-session-14",
+    "name": "Marek Beneš",
+    "players": [
+      "Marek Beneš"
+    ],
+    "mode": "solo",
+    "score": 932,
+    "duration_seconds": 5430,
+    "completed_at": "2026-08-26T12:44:00+00:00"
+  },
+  {
+    "entry_id": "display-solo-15",
+    "session_id": "display-solo-session-15",
+    "name": "Nikola Veselá",
+    "players": [
+      "Nikola Veselá"
+    ],
+    "mode": "solo",
+    "score": 906,
+    "duration_seconds": 5520,
+    "completed_at": "2026-08-26T12:52:00+00:00"
+  },
+  {
+    "entry_id": "display-solo-16",
+    "session_id": "display-solo-session-16",
+    "name": "Filip Jelínek",
+    "players": [
+      "Filip Jelínek"
+    ],
+    "mode": "solo",
+    "score": 884,
+    "duration_seconds": 5605,
+    "completed_at": "2026-08-26T13:00:00+00:00"
+  },
+  {
+    "entry_id": "display-solo-17",
+    "session_id": "display-solo-session-17",
+    "name": "Adéla Němcová",
+    "players": [
+      "Adéla Němcová"
+    ],
+    "mode": "solo",
+    "score": 861,
+    "duration_seconds": 5690,
+    "completed_at": "2026-08-26T13:08:00+00:00"
+  },
+  {
+    "entry_id": "display-solo-18",
+    "session_id": "display-solo-session-18",
+    "name": "Radek Procházka",
+    "players": [
+      "Radek Procházka"
+    ],
+    "mode": "solo",
+    "score": 842,
+    "duration_seconds": 5775,
+    "completed_at": "2026-08-26T13:16:00+00:00"
+  },
+  {
+    "entry_id": "display-solo-19",
+    "session_id": "display-solo-session-19",
+    "name": "Simona Blažková",
+    "players": [
+      "Simona Blažková"
+    ],
+    "mode": "solo",
+    "score": 818,
+    "duration_seconds": 5860,
+    "completed_at": "2026-08-26T13:24:00+00:00"
+  },
+  {
+    "entry_id": "display-solo-20",
+    "session_id": "display-solo-session-20",
+    "name": "Vojtěch Šimek",
+    "players": [
+      "Vojtěch Šimek"
+    ],
+    "mode": "solo",
+    "score": 795,
+    "duration_seconds": 5950,
+    "completed_at": "2026-08-26T13:32:00+00:00"
+  },
+  {
+    "entry_id": "display-solo-21",
+    "session_id": "display-solo-session-21",
+    "name": "Monika Zemanová",
+    "players": [
+      "Monika Zemanová"
+    ],
+    "mode": "solo",
+    "score": 773,
+    "duration_seconds": 6035,
+    "completed_at": "2026-08-26T13:40:00+00:00",
+    "printed_diplomas": [
+      0
+    ]
+  },
+  {
+    "entry_id": "display-solo-22",
+    "session_id": "display-solo-session-22",
+    "name": "Richard Holub",
+    "players": [
+      "Richard Holub"
+    ],
+    "mode": "solo",
+    "score": 749,
+    "duration_seconds": 6120,
+    "completed_at": "2026-08-26T13:48:00+00:00",
+    "printed_diplomas": [
+      0
+    ]
+  }
 ]
