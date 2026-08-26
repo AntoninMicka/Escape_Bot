@@ -15,7 +15,9 @@
   "closing_time": "23:00",
   "timezone": "Europe/Prague",
   "display_announcements": [
-    "Nalezeny dámské tanga na záchodcích v přízemí."
+    "{'text': '{\\'text\\': \"{\\'text\\': \\'Nalezeny dámské tanga na záchodcích v přízemí.\\', \\'priority\\': \\'high\\'}\", \\'priority\\': \\'normal\\'}', 'priority': 'normal'}",
+    "{'text': \"{'text': 'ztratil se telefon', 'priority': 'normal'}\", 'priority': 'normal'}",
+    "{'text': 'našel se kočárek', 'priority': 'normal'}"
   ],
   "leaderboard_finalized": false,
   "leaderboard_finalized_at": ""

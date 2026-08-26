@@ -978,10 +978,18 @@ async def websocket_endpoint(websocket: WebSocket):
                             await send_admin_overview(websocket); continue
                         if msg.type == "admin.display_announcements":
                             raw_announcements = msg.payload.get("announcements", [])
-                            if not isinstance(raw_announcements, list):
-                                raise ValueError("Oznámení musí být seznam textů.")
-                            announcements = [str(item).strip() for item in raw_announcements if str(item).strip()]
-                            if len(announcements) > 20 or any(len(item) > 500 for item in announcements):
+                            if not isinstance(raw_announcements, list): raise ValueError("Oznámení musí být seznam položek.")
+                            announcements = []
+                            for item in raw_announcements:
+                                if isinstance(item, dict):
+                                    text = str(item.get("text", "")).strip()
+                                    priority = str(item.get("priority", "normal"))
+                                else:
+                                    text, priority = str(item).strip(), "normal"
+                                if not text: continue
+                                if priority not in {"high", "normal", "low"}: raise ValueError("Neznámá priorita oznámení.")
+                                announcements.append({"text": text, "priority": priority})
+                            if len(announcements) > 20 or any(len(item["text"]) > 500 for item in announcements):
                                 raise ValueError("Lze uložit nejvýše 20 oznámení, každé do 500 znaků.")
                             runtime_settings["display_announcements"] = announcements
                             save_runtime_settings()
