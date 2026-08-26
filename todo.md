@@ -703,6 +703,9 @@ Původní stručný záměr je rozpracován v oddílu 19. Editor nemá být svá
 
 ### 15.4 První kooperativní vertikální řez
 
+- [ ] Po splnění finálního úkolu zhmotnit Elaru a kapitánku v recepci jako závěrečnou scénu; jejich příchod musí být synchronizovaný pro celý tým.
+- [ ] Úplně ukončit 3D hru a vrátit hráče do vstupní lobby ve chvíli, kdy dorazí do recepce; pokud tam nedorazí, provést stejný přechod automaticky po 30 sekundách od spuštění závěrečné scény.
+- [ ] Před návratem do lobby jednorázově a serverově potvrdit dokončení hry, uložit výsledek a zabránit opakovanému započtení při reconnectu nebo souběhu příchodu s timeoutem.
 - [ ] Navrhnout úkol, který skutečně využije více hráčů, například současné držení dvou spínačů, navigaci podle rozdělených indicií nebo přenos energie přes několik stanovišť.
 - [ ] Umožnit sólo průchod pomocí přepínání stanovišť, časové pojistky nebo pomocného hologramu; hlavní scénář nesmí být bez týmu nedohratelný.
 - [ ] Ukládat stav dveří, spínačů, sebraných předmětů a dokončených cílů do autoritativního stavu relace.
