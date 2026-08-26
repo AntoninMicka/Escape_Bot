@@ -1,4 +1,5 @@
 import asyncio
+import ast
 import json
 import logging
 import os
@@ -57,6 +58,7 @@ recovery_tokens: dict[str, dict[str, object]] = {}
 admin_support_sessions: dict[WebSocket, set[str]] = {}
 admin_spectator_sessions: dict[WebSocket, str] = {}
 authenticated_admin_sockets: set[WebSocket] = set()
+public_display_status: dict[str, object] = {}
 ADMIN_RESOLUTION_PRESETS = {
     "technical": {"label": "Technická chyba / uznat bez postihu", "penalty": 0},
     "minor_help": {"label": "Drobná pomoc Game Mastera", "penalty": 20},
@@ -69,7 +71,7 @@ runtime_settings = {"online_mode": False, "gameplay_enabled": True, "max_active_
                     "start_interval_minutes": 15, "game_duration_minutes": 165,
                     "deadline_penalty": 100, "abandonment_penalty": 100, "completion_bonus": 100,
                     "opening_time": "08:00", "closing_time": "20:00", "timezone": "Europe/Prague",
-                    "leaderboard_finalized": False, "leaderboard_finalized_at": "",
+                    "display_announcements": [], "leaderboard_finalized": False, "leaderboard_finalized_at": "",
                     "event": {"id": "", "name": "", "starts_at": "", "ends_at": "", "scenario_ids": [],
                               "leaderboard_finalized": False, "leaderboard_finalized_at": ""}}
 
@@ -86,6 +88,53 @@ def event_allows_scenario(scenario_id: str) -> bool:
 def leaderboard_is_finalized() -> bool:
     event = configured_event()
     return bool(event.get("leaderboard_finalized", False)) if event else bool(runtime_settings.get("leaderboard_finalized", False))
+
+def normalize_display_announcement(item: object) -> dict[str, object] | None:
+    """Unwrap current, JSON-stringified, and legacy Python-repr announcements."""
+    priority = "normal"
+    value = item
+    for _ in range(8):
+        if isinstance(value, dict):
+            candidate = str(value.get("priority", priority))
+            if candidate in {"emergency", "high", "normal", "low"}: priority = candidate
+            value = value.get("text", "")
+            continue
+        text = str(value).strip()
+        if text.startswith("{") and text.endswith("}"):
+            parsed = None
+            try: parsed = json.loads(text)
+            except (json.JSONDecodeError, TypeError):
+                try: parsed = ast.literal_eval(text)
+                except (ValueError, SyntaxError): pass
+            if isinstance(parsed, dict):
+                value = parsed
+                continue
+        if not text: return None
+        source = item if isinstance(item, dict) else {}
+        category = str(source.get("category", "organization"))
+        if category not in {"organization", "lost_found", "refreshment", "results", "important"}: category = "organization"
+        fallback_priority = str(source.get("fallback_priority", "high"))
+        if fallback_priority not in {"high", "normal", "low"}: fallback_priority = "high"
+        try: override_minutes = max(0.0, min(1440.0, float(source.get("override_minutes", 0))))
+        except (TypeError, ValueError): override_minutes = 0.0
+        return {"id": str(source.get("id", "")) or secrets.token_hex(6), "text": text, "priority": priority,
+                "category": category, "published": bool(source.get("published", True)),
+                "starts_at": str(source.get("starts_at", "")), "ends_at": str(source.get("ends_at", "")),
+                "link_url": str(source.get("link_url", "")), "link_label": str(source.get("link_label", "Více informací")),
+                "override_minutes": override_minutes, "override_until": str(source.get("override_until", "")),
+                "fallback_priority": fallback_priority}
+    text = str(value).strip()
+    return {"id": secrets.token_hex(6), "text": text, "priority": priority, "category": "organization",
+            "published": True, "starts_at": "", "ends_at": "", "link_url": "", "link_label": "Více informací",
+            "override_minutes": 0.0, "override_until": "", "fallback_priority": "high"} if text else None
+
+def display_status_payload() -> dict[str, object]:
+    updated_at = str(public_display_status.get("updated_at", ""))
+    online = False
+    if updated_at:
+        try: online = (datetime.now(UTC) - datetime.fromisoformat(updated_at)).total_seconds() < 15
+        except ValueError: pass
+    return {**public_display_status, "online": online}
 
 def _local_now() -> datetime:
     try: return datetime.now(ZoneInfo(str(runtime_settings.get("timezone", "Europe/Prague"))))
@@ -162,7 +211,7 @@ def runtime_payload() -> dict[str, object]:
         item = entry.public()
         item["lobby_types"] = [kind for kind in ("online_doom", "on_site_qr", "geo") if scenario_supports_lobby(entry, kind)]
         games.append(item)
-    return {**runtime_settings,
+    return {**runtime_settings, "start_queue": public_start_queue(),
             "leaderboard_finalized": leaderboard_is_finalized(),
             "mapillary": {"enabled": bool(os.getenv("ESCAPEBOT_MAPILLARY_TOKEN", "")),
                            "access_token": os.getenv("ESCAPEBOT_MAPILLARY_TOKEN", "")},
@@ -173,6 +222,23 @@ def runtime_payload() -> dict[str, object]:
             "checkpoints": build_demo_checkpoint_catalog(scenario), "games": games,
             "configurable_games": [entry.public() for entry in scenario_catalog.entries.values()],
             "scenario_available": scenario_available and bool(games)}
+
+def public_start_queue() -> list[dict[str, object]]:
+    """Project waiting on-site team lobbies into the public display queue."""
+    waiting = [lobby for lobby in lobby_registry.by_session.values()
+               if lobby.mode == "team" and not lobby.started and lobby.lobby_type in {"on_site_qr", "geo"}]
+    waiting.sort(key=lambda lobby: min((str(player.get("joined_at", "")) for player in lobby.players.values()), default=lobby.session_id))
+    availability = start_availability(lobby_type="on_site_qr")
+    base_text = availability.get("next_start_at")
+    try: planned = datetime.fromisoformat(str(base_text)) if base_text else _local_now()
+    except ValueError: planned = _local_now()
+    interval = timedelta(minutes=max(0, int(runtime_settings.get("start_interval_minutes", 15))))
+    result = []
+    for index, lobby in enumerate(waiting):
+        queued_at = min((str(player.get("joined_at", "")) for player in lobby.players.values()), default="")
+        result.append({"session_id": lobby.session_id, "team_name": lobby.team_name, "position": index + 1,
+                       "planned_start_at": (planned + interval * index).isoformat(), "queued_at": queued_at})
+    return result
 
 def require_start_available(lobby_type: str = "on_site_qr", scenario_id: str = "") -> None:
     if not scenario_available:
@@ -415,6 +481,12 @@ def load_lobbies():
 def load_runtime_settings():
     try:
         runtime_settings.update(storage.load_runtime_settings())
+        stored = runtime_settings.get("display_announcements", [])
+        if isinstance(stored, list):
+            normalized = [result for item in stored if (result := normalize_display_announcement(item))]
+            if normalized != stored:
+                runtime_settings["display_announcements"] = normalized
+                save_runtime_settings()
     except Exception as error:
         logger.error(f"Chyba nastavení režimu: {error}")
 
@@ -473,7 +545,7 @@ async def security_headers(request, call_next):
     response.headers.setdefault("X-Frame-Options", "SAMEORIGIN")
     response.headers.setdefault("Referrer-Policy", "same-origin")
     response.headers.setdefault("Permissions-Policy", "geolocation=(self), microphone=()")
-    if request.url.path in {"/", "/index.html", "/admin", "/sw.js"}:
+    if request.url.path in {"/", "/index.html", "/admin", "/display", "/display.html", "/sw.js"}:
         response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
         response.headers["Pragma"] = "no-cache"
         response.headers["Expires"] = "0"
@@ -700,6 +772,7 @@ async def send_admin_overview(websocket: WebSocket) -> None:
         "scenario_catalog": scenario_catalog.public(),
         "scenario_errors": scenario_catalog.errors,
         "selected_scenario_id": selected_scenario.id if selected_scenario else "",
+        "display_status": display_status_payload(),
     }))
 
 
@@ -807,6 +880,10 @@ async def world_geometry(geometry_id: str) -> Response:
 async def admin_page() -> RedirectResponse:
     return RedirectResponse(url="/?admin=1", status_code=307)
 
+@app.get("/display")
+async def public_display_page() -> RedirectResponse:
+    return RedirectResponse(url="/display.html", status_code=307)
+
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
     await websocket.accept()
@@ -828,7 +905,7 @@ async def websocket_endpoint(websocket: WebSocket):
                 data = json.loads(message_str)
                 msg = Message.from_json(data)
 
-                if msg.type in {"admin.list", "admin.penalty", "admin.score_adjustment", "admin.delete", "admin.qr_set", "admin.online_mode", "admin.operations", "admin.schedule_settings", "admin.event_settings", "admin.evaluate_team", "admin.session_extend", "admin.session_end", "admin.checkpoint", "admin.game_reset", "admin.game_player", "admin.player_recovery", "admin.leaderboard_delete", "admin.leaderboard_finalize", "admin.support_join", "admin.support_leave", "admin.support_message", "admin.spectate_start", "admin.spectate_stop", "admin.scenario_source", "admin.scenario_validate"}:
+                if msg.type in {"admin.list", "admin.penalty", "admin.score_adjustment", "admin.delete", "admin.qr_set", "admin.online_mode", "admin.operations", "admin.schedule_settings", "admin.event_settings", "admin.display_announcements", "admin.evaluate_team", "admin.session_extend", "admin.session_end", "admin.checkpoint", "admin.game_reset", "admin.game_player", "admin.player_recovery", "admin.leaderboard_delete", "admin.leaderboard_finalize", "admin.support_join", "admin.support_leave", "admin.support_message", "admin.spectate_start", "admin.spectate_stop", "admin.scenario_source", "admin.scenario_validate"}:
                     try:
                         require_admin(msg.payload)
                         authenticated_admin_sockets.add(websocket)
@@ -920,6 +997,27 @@ async def websocket_endpoint(websocket: WebSocket):
                                     "starts_at": starts_at.isoformat(), "ends_at": ends_at.isoformat(), "scenario_ids": scenario_ids,
                                     "leaderboard_finalized": bool(previous.get("leaderboard_finalized", False)) if same_event else False,
                                     "leaderboard_finalized_at": str(previous.get("leaderboard_finalized_at", "")) if same_event else ""}
+                            save_runtime_settings()
+                            update = Message("runtime.settings", runtime_payload())
+                            for active_socket in list(app.state.active_websockets):
+                                try: await send_message(active_socket, update)
+                                except Exception: pass
+                            await send_admin_overview(websocket); continue
+                        if msg.type == "admin.display_announcements":
+                            raw_announcements = msg.payload.get("announcements", [])
+                            if not isinstance(raw_announcements, list): raise ValueError("Oznámení musí být seznam položek.")
+                            announcements = [result for item in raw_announcements if (result := normalize_display_announcement(item))]
+                            if len(announcements) > 20 or any(len(item["text"]) > 500 for item in announcements):
+                                raise ValueError("Lze uložit nejvýše 20 oznámení, každé do 500 znaků.")
+                            for item in announcements:
+                                for key in ("starts_at", "ends_at"):
+                                    if item[key]: datetime.fromisoformat(item[key])
+                                if item["override_until"]: datetime.fromisoformat(item["override_until"])
+                                if len(item["link_url"]) > 500 or len(item["link_label"]) > 80: raise ValueError("Odkaz oznámení je příliš dlouhý.")
+                                if item["priority"] == "emergency" and item["override_minutes"] and not item["override_until"]:
+                                    item["override_until"] = (datetime.now(UTC) + timedelta(minutes=float(item["override_minutes"]))).isoformat()
+                                if item["priority"] != "emergency": item["override_until"] = ""
+                            runtime_settings["display_announcements"] = announcements
                             save_runtime_settings()
                             update = Message("runtime.settings", runtime_payload())
                             for active_socket in list(app.state.active_websockets):
@@ -1389,6 +1487,13 @@ async def websocket_endpoint(websocket: WebSocket):
                 # Zpracování požadavků na Síň slávy (mimo state machine)
                 if msg.type == "leaderboard.get":
                     await websocket.send_text(json.dumps(Message("leaderboard.update", {"entries": leaderboard_entries()}).to_json()))
+                    continue
+                if msg.type == "display.heartbeat":
+                    public_display_status.update({"updated_at": datetime.now(UTC).isoformat(),
+                        "mode": str(msg.payload.get("mode", "auto"))[:40], "screen": str(msg.payload.get("screen", ""))[:80],
+                        "fullscreen": bool(msg.payload.get("fullscreen")), "wake_lock": bool(msg.payload.get("wake_lock")),
+                        "user_agent": str(msg.payload.get("user_agent", ""))[:200]})
+                    await send_message(websocket, Message("runtime.settings", runtime_payload()))
                     continue
                     
                 if msg.type == "leaderboard.save":
