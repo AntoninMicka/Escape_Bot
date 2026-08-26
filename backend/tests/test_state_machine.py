@@ -1,4 +1,5 @@
 import unittest
+from unittest.mock import AsyncMock, patch
 from copy import deepcopy
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -942,6 +943,66 @@ class StateMachineCheckpointTests(unittest.IsolatedAsyncioTestCase):
             runtime_settings.clear(); runtime_settings.update(original_settings)
             lobby_registry.by_session.clear(); lobby_registry.by_session.update(original_lobbies)
             lobby_registry.by_join_code.clear(); lobby_registry.by_join_code.update(original_codes)
+
+    async def test_due_first_team_in_free_queue_starts_automatically(self) -> None:
+        from escape_bot import server
+        original_settings = dict(server.runtime_settings)
+        original_sessions = dict(server.active_sessions)
+        original_lobbies = dict(server.lobby_registry.by_session)
+        original_codes = dict(server.lobby_registry.by_join_code)
+        try:
+            server.active_sessions.clear(); server.lobby_registry.by_session.clear(); server.lobby_registry.by_join_code.clear()
+            server.runtime_settings.update({"launch_mode": "free", "start_queue": [], "gameplay_enabled": True,
+                "opening_time": "00:00", "closing_time": "23:59", "game_duration_minutes": 15,
+                "soft_start_interval_minutes": 0, "hard_start_interval_minutes": 0,
+                "max_active_teams": 10, "timezone": "Europe/Prague"})
+            lobby = server.lobby_registry.create("one", "team", "Alice", "Automatický tým")
+            now = datetime.now(ZoneInfo("Europe/Prague"))
+            server.runtime_settings["start_queue"] = [{"session_id": lobby.session_id,
+                "queued_at": (now - timedelta(minutes=2)).isoformat(),
+                "planned_start_at": (now - timedelta(seconds=1)).isoformat()}]
+            with patch.object(server, "save_lobbies"), patch.object(server, "save_sessions"), patch.object(server, "save_runtime_settings"), \
+                 patch.object(server, "broadcast_lobby", new=AsyncMock()), patch.object(server, "broadcast_session", new=AsyncMock()):
+                self.assertTrue(await server.start_due_queue_team(now))
+            self.assertTrue(lobby.started)
+            self.assertTrue(server.active_sessions[lobby.session_id].state.flags["queue_auto_start"])
+            self.assertEqual(server.runtime_settings["start_queue"], [])
+        finally:
+            server.runtime_settings.clear(); server.runtime_settings.update(original_settings)
+            server.active_sessions.clear(); server.active_sessions.update(original_sessions)
+            server.lobby_registry.by_session.clear(); server.lobby_registry.by_session.update(original_lobbies)
+            server.lobby_registry.by_join_code.clear(); server.lobby_registry.by_join_code.update(original_codes)
+
+    def test_admin_can_shorten_queue_head_only_to_hard_limit(self) -> None:
+        from escape_bot import server
+        original_settings = dict(server.runtime_settings)
+        original_sessions = dict(server.active_sessions)
+        original_lobbies = dict(server.lobby_registry.by_session)
+        original_codes = dict(server.lobby_registry.by_join_code)
+        try:
+            server.active_sessions.clear(); server.lobby_registry.by_session.clear(); server.lobby_registry.by_join_code.clear()
+            server.runtime_settings.update({"launch_mode": "free", "start_queue": [], "gameplay_enabled": True,
+                "opening_time": "00:00", "closing_time": "23:59", "game_duration_minutes": 60,
+                "soft_start_interval_minutes": 15, "hard_start_interval_minutes": 5,
+                "max_active_teams": 10, "timezone": "Europe/Prague"})
+            active = server.lobby_registry.create("active", "team", "Alice", "Hrající")
+            active.started = True
+            active_machine = EscapeBotStateMachine(self.scenario)
+            active_machine.state.flags["operations_started_at"] = (datetime.now(UTC) - timedelta(minutes=2)).isoformat()
+            server.active_sessions[active.session_id] = active_machine
+            waiting = server.lobby_registry.create("waiting", "team", "Bob", "Čekající")
+            server.queue_team(waiting.session_id)
+            normal = datetime.fromisoformat(server.queue_payload()[0]["planned_start_at"])
+            shortened = server.expedite_queue_head()
+            expedited = datetime.fromisoformat(str(shortened["planned_start_at"]))
+            self.assertTrue(server.queue_payload()[0]["soft_override"])
+            self.assertLess(expedited, normal)
+            self.assertGreaterEqual(expedited, datetime.fromisoformat(active_machine.state.flags["operations_started_at"]) + timedelta(minutes=5))
+        finally:
+            server.runtime_settings.clear(); server.runtime_settings.update(original_settings)
+            server.active_sessions.clear(); server.active_sessions.update(original_sessions)
+            server.lobby_registry.by_session.clear(); server.lobby_registry.by_session.update(original_lobbies)
+            server.lobby_registry.by_join_code.clear(); server.lobby_registry.by_join_code.update(original_codes)
 
     def test_team_lobby_requires_player_and_unique_team_names(self) -> None:
         registry = LobbyRegistry()

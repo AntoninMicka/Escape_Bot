@@ -25,6 +25,8 @@
         }
         .lobby-overlay { position: fixed; inset: 0; z-index: 2200; display: flex; align-items: center; justify-content: center; padding: 18px; background: rgba(0, 0, 0, .96); }
         .lobby-overlay.hidden { display: none; }
+        .lobby-modes button:disabled { opacity:.34; filter:grayscale(1); cursor:not-allowed; border-style:dashed; box-shadow:none; }
+        .lobby-modes button:disabled small::after { content:' · NEDOSTUPNÉ'; color:#ff7777; font-weight:bold; }
         .start-lights { display:flex; justify-content:center; gap:8px; margin:12px 0; }
         .start-light { width:30px; height:30px; border-radius:50%; background:#271010; border:2px solid #642626; box-shadow:inset 0 0 8px #000; }
         .start-light.on { background:#ff2020; box-shadow:0 0 14px #ff2020; }
@@ -640,6 +642,7 @@
     <div id="admin-spectator-bar" class="admin-spectator-bar hidden"><strong id="admin-spectator-label">NÁHLED HRY</strong><button onclick="stopAdminSpectate()">ZPĚT DO ADMINISTRACE</button></div>
     <section id="qr-print-sheet" class="qr-print-sheet"></section>
     <dialog id="admin-access-dialog" class="recovery-dialog"><h2>[ PŘÍSTUP K ADMINISTRACI ]</h2><img id="admin-access-qr" class="join-qr" alt="QR odkaz na administraci"><p id="admin-access-url" style="overflow-wrap:anywhere"></p><p>QR obsahuje pouze adresu dashboardu. Pro přihlášení je stále nutné administrátorské heslo.</p><div class="admin-toolbar" style="justify-content:center"><button class="icon-action" type="button" onclick="copyAdminAccessUrl()" title="Kopírovat odkaz" aria-label="Kopírovat odkaz">📋</button><button type="button" onclick="document.getElementById('admin-access-dialog').close()">ZAVŘÍT</button></div></dialog>
+    <dialog id="admin-player-scan-dialog" class="recovery-dialog"><h2>[ PŘIDAT HRÁČE DO TÝMU ]</h2><video id="admin-player-scan-video" class="reverse-scanner visible" autoplay playsinline></video><canvas id="admin-player-scan-canvas" style="display:none"></canvas><div class="admin-toolbar"><input id="admin-player-code" maxlength="64" placeholder="Hráčské ID"><button onclick="submitAdminPlayerCode()">PŘIDAT</button><button onclick="closeAdminPlayerScanner()">ZAVŘÍT</button></div></dialog>
     <dialog id="recovery-dialog" class="recovery-dialog"><h2>[ NÁVRAT HRÁČE ]</h2><p id="recovery-dialog-info"></p><img id="recovery-dialog-qr" class="join-qr" alt="Jednorázový návratový QR"><div id="recovery-dialog-code" class="join-code"></div><p>Kód platí 10 minut a lze ho použít pouze jednou.</p><button onclick="document.getElementById('recovery-dialog').close()">ZAVŘÍT</button></dialog>
     <section id="lobby-overlay" class="lobby-overlay" aria-label="Zahájení hry">
         <div class="lobby-card">
@@ -875,6 +878,9 @@
         const demoModeRequested = new URLSearchParams(window.location.search).get('demo') === '1';
         const adminModeRequested = new URLSearchParams(window.location.search).get('admin') === '1' || window.location.pathname.replace(/\/$/, '') === '/admin';
         let adminRefreshTimer = null;
+        let adminPlayerScanSession = '';
+        let adminPlayerScanStream = null;
+        let adminPlayerScanActive = false;
 
         const MORSE = {
             A: '.-', B: '-...', C: '-.-.', D: '-..', E: '.', F: '..-.', G: '--.', H: '....', I: '..',
@@ -1676,7 +1682,11 @@
             const adminLights = document.getElementById('admin-managed-lights'); if (adminLights) adminLights.innerHTML = startLightsHtml(target);
             const queueButton = document.getElementById('lobby-queue-button');
             if (queueButton) { queueButton.style.display = launchMode === 'free' && currentLobby && !currentLobby.started ? 'block' : 'none'; queueButton.textContent = own ? 'OPUSTIT FRONTU' : 'ZAŘADIT TÝM DO FRONTY'; }
-            if (own) scheduleTeamAlarm(own);
+            if (own) {
+                const status = document.getElementById('lobby-status');
+                if (status && currentLobby && !currentLobby.started) status.textContent = `Jste ${own.position}. ve frontě. Hra se automaticky spustí v ${new Date(own.planned_start_at).toLocaleTimeString('cs-CZ',{hour:'2-digit',minute:'2-digit'})}.`;
+                scheduleTeamAlarm(own);
+            }
         }
         function toggleTeamQueue() {
             const own = runtimeStartQueue.some(item => item.session_id === sessionId);
@@ -1691,6 +1701,10 @@
             showNotification('Za jednu minutu startuje vaše hra.', 'success');
             if ('Notification' in window && Notification.permission === 'granted') new Notification('Escape Bot', {body:'Za jednu minutu startuje vaše hra.'});
             try { const audio = new AudioContext(); const tone = audio.createOscillator(); tone.connect(audio.destination); tone.start(); tone.stop(audio.currentTime + .35); } catch (_) {}
+        }
+        function notifyQueueChange(message) {
+            showNotification(message, 'info');
+            if ('Notification' in window && Notification.permission === 'granted') new Notification('Escape Bot · změna fronty', {body:message});
         }
 
         function renderAdminQrSet(payload) {
@@ -2106,8 +2120,50 @@
             grid.innerHTML = waiting.length ? waiting.map(team => {
                 const players = (team.players || []).map(player => `${player.connected ? '●' : '○'} ${escapeHtml(player.name)}`).join('<br>') || 'Zatím bez hráčů';
                 const joinUrl = `${window.location.origin}/?join=${encodeURIComponent(team.join_code || '')}`;
-                return `<article class="admin-team"><h2>${escapeHtml(team.team_name)}</h2><p>${players}</p><p>Kód: <strong class="join-code">${escapeHtml(team.join_code || '')}</strong></p><img class="join-qr" src="/api/qr?data=${encodeURIComponent(joinUrl)}" alt="QR pro připojení k týmu"><div class="admin-actions"><button onclick="startManagedTeam('${team.session_id}',false)" ${(team.players || []).length ? '' : 'disabled'}>SPUSTIT HRU</button><button class="danger" onclick="startManagedTeam('${team.session_id}',true)" ${(team.players || []).length ? '' : 'disabled'}>PŘESKOČIT SOFT LIMIT</button></div></article>`;
+                const queued = runtimeStartQueue.find(item => item.session_id === team.session_id);
+                const queueInfo = queued ? `<p><strong>FRONTA ${queued.position}.</strong> · automatický start ${new Date(queued.planned_start_at).toLocaleTimeString('cs-CZ',{hour:'2-digit',minute:'2-digit'})}${queued.soft_override ? ' · ZKRÁCENO NA HARD LIMIT' : ''}</p>` : '';
+                const expedite = queued?.position === 1 && !queued.soft_override ? `<button class="danger" onclick="expediteQueuedTeam('${team.session_id}')">ZKRÁTIT ČEKÁNÍ NA HARD LIMIT</button>` : '';
+                return `<article class="admin-team"><h2>${escapeHtml(team.team_name)}</h2>${queueInfo}<p>${players}</p><p>Kód: <strong class="join-code">${escapeHtml(team.join_code || '')}</strong></p><img class="join-qr" src="/api/qr?data=${encodeURIComponent(joinUrl)}" alt="QR pro připojení k týmu"><button onclick="openAdminPlayerScanner('${team.session_id}')" style="width:100%">NAČÍST HRÁČSKÝ QR / ID</button>${expedite}<div class="admin-actions"><button onclick="startManagedTeam('${team.session_id}',false)" ${(team.players || []).length ? '' : 'disabled'}>SPUSTIT HRU</button><button class="danger" onclick="startManagedTeam('${team.session_id}',true)" ${(team.players || []).length ? '' : 'disabled'}>PŘESKOČIT SOFT LIMIT</button></div></article>`;
             }).join('') : '<p>Žádná čekající řízená lobby.</p>';
+        }
+        function expediteQueuedTeam(sessionId) {
+            if (!window.confirm('Posunout první tým na nejbližší start povolený hard limitem?')) return;
+            sendAdmin('admin.queue_expedite', {session_id:sessionId});
+        }
+
+        async function openAdminPlayerScanner(sessionId) {
+            adminPlayerScanSession = sessionId;
+            document.getElementById('admin-player-code').value = '';
+            document.getElementById('admin-player-scan-dialog').showModal();
+            try {
+                adminPlayerScanStream = await navigator.mediaDevices.getUserMedia({video:{facingMode:'environment'}});
+                document.getElementById('admin-player-scan-video').srcObject = adminPlayerScanStream;
+                adminPlayerScanActive = true; requestAnimationFrame(tickAdminPlayerScanner);
+            } catch (error) { showNotification(`Kameru nelze otevřít: ${error.message}`, 'error'); }
+        }
+        function tickAdminPlayerScanner() {
+            if (!adminPlayerScanActive) return;
+            const video = document.getElementById('admin-player-scan-video'), canvas = document.getElementById('admin-player-scan-canvas');
+            if (video.readyState >= 2) {
+                canvas.width = video.videoWidth; canvas.height = video.videoHeight;
+                const context = canvas.getContext('2d'); context.drawImage(video,0,0,canvas.width,canvas.height);
+                const image = context.getImageData(0,0,canvas.width,canvas.height);
+                const decoded = jsQR(image.data,image.width,image.height,{inversionAttempts:'dontInvert'});
+                if (decoded?.data) { document.getElementById('admin-player-code').value = decoded.data; submitAdminPlayerCode(); return; }
+            }
+            requestAnimationFrame(tickAdminPlayerScanner);
+        }
+        function submitAdminPlayerCode() {
+            const code = document.getElementById('admin-player-code').value.trim();
+            if (!code || !adminPlayerScanSession) return;
+            sendAdmin('admin.team_add_player', {session_id:adminPlayerScanSession, player_code:code});
+            closeAdminPlayerScanner();
+        }
+        function closeAdminPlayerScanner() {
+            adminPlayerScanActive = false;
+            if (adminPlayerScanStream) adminPlayerScanStream.getTracks().forEach(track => track.stop());
+            adminPlayerScanStream = null;
+            document.getElementById('admin-player-scan-dialog').close();
         }
 
         function lobbyTeamName() {
@@ -2558,10 +2614,16 @@
                     document.getElementById('admin-overlay').classList.remove('hidden');
                 }
                 else if (msg.type === 'runtime.settings') {
+                    const previousQueueItem = runtimeStartQueue.find(item => item.session_id === sessionId);
                     onlineModeEnabled = Boolean(msg.payload.online_mode);
                     operationsEnabled = Boolean(msg.payload.gameplay_enabled);
                     launchMode = msg.payload.launch_mode || 'free';
                     runtimeStartQueue = msg.payload.start_queue || [];
+                    const currentQueueItem = runtimeStartQueue.find(item => item.session_id === sessionId);
+                    if (previousQueueItem && currentQueueItem && (previousQueueItem.position !== currentQueueItem.position || previousQueueItem.planned_start_at !== currentQueueItem.planned_start_at)) {
+                        const time = new Date(currentQueueItem.planned_start_at).toLocaleTimeString('cs-CZ',{hour:'2-digit',minute:'2-digit'});
+                        notifyQueueChange(`Fronta se posunula: jste ${currentQueueItem.position}. v pořadí, nový start ${time}.`);
+                    }
                     leaderboardFinalized = Boolean(msg.payload.leaderboard_finalized);
                     runtimeAvailability = msg.payload.availability || null;
                     runtimeCheckpoints = msg.payload.checkpoints || [];

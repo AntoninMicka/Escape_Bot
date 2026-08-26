@@ -141,7 +141,8 @@ def clean_start_queue() -> list[dict[str, str]]:
         lobby = lobby_registry.by_session.get(session_id)
         if session_id and session_id not in seen and lobby and not lobby.started:
             valid.append({"session_id": session_id, "queued_at": str(item.get("queued_at", "")),
-                          "planned_start_at": str(item.get("planned_start_at", ""))})
+                          "planned_start_at": str(item.get("planned_start_at", "")),
+                          "soft_override": bool(item.get("soft_override", False))})
             seen.add(session_id)
     runtime_settings["start_queue"] = valid
     return valid
@@ -160,7 +161,8 @@ def queue_payload(now: datetime | None = None) -> list[dict[str, object]]:
         except ValueError: planned = next_at
         if index > 0: planned = max(planned, result[-1]["_planned"] + timedelta(minutes=interval))
         result.append({"session_id": lobby.session_id, "team_name": lobby.team_name, "position": index + 1,
-                       "planned_start_at": planned.isoformat(), "queued_at": item["queued_at"], "_planned": planned})
+                       "planned_start_at": planned.isoformat(), "queued_at": item["queued_at"],
+                       "soft_override": bool(item.get("soft_override", False)), "_planned": planned})
     for item in result: item.pop("_planned", None)
     return result
 
@@ -175,11 +177,50 @@ def queue_team(session_id: str) -> None:
     if queue:
         previous = queue_payload()[-1]["planned_start_at"]
         planned = (datetime.fromisoformat(str(previous)) + timedelta(minutes=max(0, int(runtime_settings.get("soft_start_interval_minutes", 15))))).isoformat()
-    queue.append({"session_id": session_id, "queued_at": datetime.now(UTC).isoformat(), "planned_start_at": str(planned)})
+    queue.append({"session_id": session_id, "queued_at": datetime.now(UTC).isoformat(),
+                  "planned_start_at": str(planned), "soft_override": False})
     runtime_settings["start_queue"] = queue
 
 def dequeue_team(session_id: str) -> None:
     runtime_settings["start_queue"] = [item for item in clean_start_queue() if item["session_id"] != session_id]
+    reflow_start_queue()
+
+def reflow_start_queue() -> None:
+    """Close gaps after a team leaves while preserving the normal soft spacing."""
+    queue = clean_start_queue()
+    if not queue: return
+    availability = start_availability()
+    base_text = availability.get("next_start_at")
+    if not base_text: return
+    planned = datetime.fromisoformat(str(base_text))
+    interval = timedelta(minutes=max(0, int(runtime_settings.get("soft_start_interval_minutes", 15))))
+    for index, item in enumerate(queue):
+        item["planned_start_at"] = planned.isoformat()
+        item["soft_override"] = False
+        planned += interval
+    runtime_settings["start_queue"] = queue
+
+def expedite_queue_head() -> dict[str, object]:
+    queue = clean_start_queue()
+    if not queue: raise ValueError("Fronta je prázdná.")
+    availability = start_availability()
+    if not availability["hard_start_allowed"]:
+        hard_reason = str(availability.get("hard_reason", "Hard limit nyní start nepovoluje."))
+    else:
+        hard_reason = ""
+    current = _local_now()
+    hard_minutes = max(0, int(runtime_settings.get("hard_start_interval_minutes", 5)))
+    starts = []
+    for machine in active_sessions.values():
+        value = machine.state.flags.get("operations_started_at")
+        if value:
+            try: starts.append(datetime.fromisoformat(str(value)).astimezone(current.tzinfo))
+            except ValueError: pass
+    earliest = max(current, (max(starts) + timedelta(minutes=hard_minutes)) if starts else current)
+    queue[0]["planned_start_at"] = earliest.isoformat()
+    queue[0]["soft_override"] = True
+    runtime_settings["start_queue"] = queue
+    return {"planned_start_at": earliest.isoformat(), "hard_reason": hard_reason}
 
 def require_start_available() -> None:
     availability = start_availability()
@@ -194,6 +235,49 @@ def require_admin_start_available(override_soft: bool = False) -> None:
         raise ValueError(str(availability.get("hard_reason") or "Start hry nyní blokuje hard limit."))
     if availability["soft_limit_active"] and not override_soft:
         raise ValueError(str(availability.get("soft_reason")) + " Start potvrďte s obejitím soft limitu.")
+
+async def start_due_queue_team(current: datetime) -> bool:
+    """Start the first queued team once its reserved slot and all hard rules allow it."""
+    if runtime_settings.get("launch_mode", "free") != "free": return False
+    queue = queue_payload(current)
+    if not queue: return False
+    first = queue[0]
+    try: due = current >= datetime.fromisoformat(str(first["planned_start_at"])).astimezone(current.tzinfo)
+    except ValueError: return False
+    if not due: return False
+    availability = start_availability(current)
+    if not availability["hard_start_allowed"]: return False
+    if availability["soft_limit_active"] and not bool(first.get("soft_override")): return False
+    lobby = lobby_registry.by_session.get(str(first["session_id"]))
+    if lobby is None or lobby.started or not lobby.players: return False
+    lobby.started = True
+    machine = ensure_state_machine(lobby.session_id)
+    machine.state.flags["operations_started_at"] = datetime.now(UTC).isoformat()
+    machine.state.flags["queue_auto_start"] = True
+    dequeue_team(lobby.session_id)
+    first_player = next(iter(lobby.players))
+    hello = Message("client.hello", {"session_id": lobby.session_id, "demo_mode": False,
+        "_client_id": first_player, "_participant_ids": list(lobby.players), "_team_mode": lobby.mode,
+        "_participant_names": {key: str(value.get("name", "Hráč")) for key, value in lobby.players.items()}})
+    responses = [Message("queue.auto_started", {"message": "Váš rezervovaný čas nastal. Hra byla automaticky spuštěna."})]
+    responses.extend(await machine.handle(hello))
+    responses.extend(apply_lobby_score(lobby, machine))
+    responses.append(Message("scenario.progress", build_scenario_progress(scenario, machine.state.snapshot())))
+    save_lobbies(); save_sessions(); save_runtime_settings()
+    await broadcast_lobby(lobby); await broadcast_session(lobby.session_id, responses)
+    update = Message("runtime.settings", runtime_payload())
+    for active_socket in list(getattr(app.state, "active_websockets", set())):
+        try: await send_message(active_socket, update)
+        except Exception: pass
+    for admin_socket in list(authenticated_admin_sockets):
+        try: await send_admin_overview(admin_socket)
+        except Exception: pass
+    return True
+
+async def queue_monitor() -> None:
+    while True:
+        await start_due_queue_team(_local_now())
+        await asyncio.sleep(1)
 
 async def operations_monitor() -> None:
     while True:
@@ -419,12 +503,14 @@ async def lifespan(app: FastAPI):
     # 1. Načtení uložených stavů her z předchozího běhu
     load_sessions(scenario)
     monitor_task = asyncio.create_task(operations_monitor())
+    queue_monitor_task = asyncio.create_task(queue_monitor())
     # Volitelný experiment; produkční hra ani start serveru LLM nevyžadují.
     if os.getenv("ESCAPEBOT_LLM_ENABLED", "").lower() in {"1", "true", "yes", "on"}:
         ai_checker = OllamaAdapter()
         asyncio.create_task(ai_checker.ensure_model())
     yield
     monitor_task.cancel()
+    queue_monitor_task.cancel()
     storage.close()
 
 # --- Inicializace FastAPI ---
@@ -765,7 +851,7 @@ async def websocket_endpoint(websocket: WebSocket):
                 data = json.loads(message_str)
                 msg = Message.from_json(data)
 
-                if msg.type in {"admin.list", "admin.penalty", "admin.score_adjustment", "admin.delete", "admin.qr_set", "admin.online_mode", "admin.launch_mode", "admin.operations", "admin.schedule_settings", "admin.team_create", "admin.team_start", "admin.evaluate_team", "admin.session_extend", "admin.session_end", "admin.checkpoint", "admin.game_reset", "admin.game_player", "admin.player_recovery", "admin.leaderboard_delete", "admin.leaderboard_finalize", "admin.support_join", "admin.support_leave", "admin.support_message", "admin.spectate_start", "admin.spectate_stop"}:
+                if msg.type in {"admin.list", "admin.penalty", "admin.score_adjustment", "admin.delete", "admin.qr_set", "admin.online_mode", "admin.launch_mode", "admin.operations", "admin.schedule_settings", "admin.team_create", "admin.team_add_player", "admin.queue_expedite", "admin.team_start", "admin.evaluate_team", "admin.session_extend", "admin.session_end", "admin.checkpoint", "admin.game_reset", "admin.game_player", "admin.player_recovery", "admin.leaderboard_delete", "admin.leaderboard_finalize", "admin.support_join", "admin.support_leave", "admin.support_message", "admin.spectate_start", "admin.spectate_stop"}:
                     try:
                         require_admin(msg.payload)
                         authenticated_admin_sockets.add(websocket)
@@ -803,6 +889,33 @@ async def websocket_endpoint(websocket: WebSocket):
                             save_lobbies(); save_sessions()
                             await send_admin_overview(websocket)
                             continue
+                        if msg.type == "admin.team_add_player":
+                            target_session = str(msg.payload.get("session_id", ""))
+                            lobby = lobby_registry.by_session.get(target_session)
+                            if lobby is None or lobby.started: raise ValueError("Cílová lobby už není dostupná.")
+                            player_code = str(msg.payload.get("player_code", "")).strip().upper().removeprefix("ESCAPEBOT://PLAYER/")
+                            waiting = waiting_players.pop(player_code, None)
+                            if waiting is None: raise ValueError("Hráčské ID není platné nebo už bylo použito.")
+                            waiting_socket = waiting["websocket"]
+                            waiting_client_id = str(waiting["client_id"])
+                            lobby.add_player(waiting_client_id, str(waiting.get("name", "")))
+                            attach_to_lobby(waiting_socket, lobby, waiting_client_id, bool(waiting.get("demo")))
+                            save_lobbies(); await broadcast_lobby(lobby)
+                            await send_admin_overview(websocket)
+                            continue
+                        if msg.type == "admin.queue_expedite":
+                            target_session = str(msg.payload.get("session_id", ""))
+                            queue = clean_start_queue()
+                            if not queue or queue[0]["session_id"] != target_session:
+                                raise ValueError("Zkrátit čekání lze pouze prvnímu týmu ve frontě.")
+                            result = expedite_queue_head()
+                            save_runtime_settings()
+                            update = Message("runtime.settings", runtime_payload())
+                            for active_socket in list(app.state.active_websockets):
+                                try: await send_message(active_socket, update)
+                                except Exception: pass
+                            await send_admin_overview(websocket)
+                            continue
                         if msg.type == "admin.team_start":
                             target_session = str(msg.payload.get("session_id", ""))
                             lobby = lobby_registry.by_session.get(target_session)
@@ -811,10 +924,10 @@ async def websocket_endpoint(websocket: WebSocket):
                             if not lobby.players: raise ValueError("Před spuštěním se musí připojit alespoň jeden hráč.")
                             require_admin_start_available(bool(msg.payload.get("override_soft")))
                             lobby.started = True
-                            dequeue_team(target_session)
                             machine = ensure_state_machine(target_session)
                             machine.state.flags["operations_started_at"] = datetime.now(UTC).isoformat()
                             machine.state.flags["managed_start"] = True
+                            dequeue_team(target_session)
                             first_player = next(iter(lobby.players))
                             hello = Message("client.hello", {"session_id": target_session, "demo_mode": False,
                                 "_client_id": first_player, "_participant_ids": list(lobby.players), "_team_mode": lobby.mode,
@@ -1151,11 +1264,17 @@ async def websocket_endpoint(websocket: WebSocket):
                                 pass
                         if lobby.join_code:
                             lobby_registry.by_join_code.pop(lobby.join_code, None)
+                        dequeue_team(target_session)
                         lobby_registry.by_session.pop(target_session, None)
                         active_sessions.pop(target_session, None)
                         session_connections.pop(target_session, None)
                         save_lobbies()
                         save_sessions()
+                        save_runtime_settings()
+                        update = Message("runtime.settings", runtime_payload())
+                        for active_socket in list(app.state.active_websockets):
+                            try: await send_message(active_socket, update)
+                            except Exception: pass
                         await send_admin_overview(websocket)
                         continue
                     except (ValueError, TypeError) as error:

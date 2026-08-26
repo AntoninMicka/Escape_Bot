@@ -2708,30 +2708,5 @@
     "event_history": [],
     "game_exclusions": {},
     "game_results": {}
-  },
-  "737bae6a83fb425aa0aff3f5b7014670": {
-    "phase": "boot",
-    "unlocked_discoveries": [],
-    "inventory": [],
-    "flags": {},
-    "chat_history": [],
-    "score": 1000,
-    "hints_used": {},
-    "checkpoint_states": {},
-    "unlocked_cipher_tools": [
-      "a1z26",
-      "morse"
-    ],
-    "paid_cipher_tools": [],
-    "puzzle_attempts": {},
-    "interactive_games": {},
-    "sokoban_games": {},
-    "karel_games": {},
-    "last_activity_at": "",
-    "triad_games": {},
-    "archive_games": {},
-    "event_history": [],
-    "game_exclusions": {},
-    "game_results": {}
   }
 }
