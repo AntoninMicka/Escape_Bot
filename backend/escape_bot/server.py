@@ -63,6 +63,7 @@ ADMIN_RESOLUTION_PRESETS = {
 DEMO_MODE_ENABLED = os.getenv("ESCAPEBOT_DEMO_MODE", "").lower() in {"1", "true", "yes", "on"}
 ADMIN_TOKEN = os.getenv("ESCAPEBOT_ADMIN_TOKEN", "")
 runtime_settings = {"online_mode": False, "gameplay_enabled": True, "max_active_teams": 4,
+                    "launch_mode": "free", "start_queue": [],
                     "start_interval_minutes": 15, "soft_start_interval_minutes": 15,
                     "hard_start_interval_minutes": 5, "game_duration_minutes": 165,
                     "deadline_penalty": 100, "abandonment_penalty": 100, "completion_bonus": 100,
@@ -128,7 +129,57 @@ def start_availability(now: datetime | None = None) -> dict[str, object]:
             "hard_start_interval_minutes": hard_interval, "gameplay_enabled": bool(runtime_settings.get("gameplay_enabled", True))}
 
 def runtime_payload() -> dict[str, object]:
-    return {**runtime_settings, "availability": start_availability(), "checkpoints": build_demo_checkpoint_catalog(scenario)}
+    return {**runtime_settings, "start_queue": queue_payload(), "availability": start_availability(),
+            "checkpoints": build_demo_checkpoint_catalog(scenario)}
+
+def clean_start_queue() -> list[dict[str, str]]:
+    queue = runtime_settings.setdefault("start_queue", [])
+    valid = []
+    seen = set()
+    for item in queue if isinstance(queue, list) else []:
+        session_id = str(item.get("session_id", ""))
+        lobby = lobby_registry.by_session.get(session_id)
+        if session_id and session_id not in seen and lobby and not lobby.started:
+            valid.append({"session_id": session_id, "queued_at": str(item.get("queued_at", "")),
+                          "planned_start_at": str(item.get("planned_start_at", ""))})
+            seen.add(session_id)
+    runtime_settings["start_queue"] = valid
+    return valid
+
+def queue_payload(now: datetime | None = None) -> list[dict[str, object]]:
+    current = now or _local_now()
+    availability = start_availability(current)
+    interval = max(0, int(runtime_settings.get("soft_start_interval_minutes", 15)))
+    next_at_text = availability.get("next_start_at")
+    next_at = datetime.fromisoformat(str(next_at_text)) if next_at_text else current
+    result = []
+    for index, item in enumerate(clean_start_queue()):
+        lobby = lobby_registry.by_session[item["session_id"]]
+        stored = item.get("planned_start_at")
+        try: planned = datetime.fromisoformat(str(stored)) if stored else next_at
+        except ValueError: planned = next_at
+        if index > 0: planned = max(planned, result[-1]["_planned"] + timedelta(minutes=interval))
+        result.append({"session_id": lobby.session_id, "team_name": lobby.team_name, "position": index + 1,
+                       "planned_start_at": planned.isoformat(), "queued_at": item["queued_at"], "_planned": planned})
+    for item in result: item.pop("_planned", None)
+    return result
+
+def queue_team(session_id: str) -> None:
+    if runtime_settings.get("launch_mode", "free") != "free":
+        raise ValueError("Fronta je dostupná pouze ve volném režimu.")
+    lobby = lobby_registry.by_session.get(session_id)
+    if lobby is None or lobby.started: raise ValueError("Tento tým nelze zařadit do fronty.")
+    queue = clean_start_queue()
+    if any(item["session_id"] == session_id for item in queue): return
+    planned = start_availability().get("next_start_at") or _local_now().isoformat()
+    if queue:
+        previous = queue_payload()[-1]["planned_start_at"]
+        planned = (datetime.fromisoformat(str(previous)) + timedelta(minutes=max(0, int(runtime_settings.get("soft_start_interval_minutes", 15))))).isoformat()
+    queue.append({"session_id": session_id, "queued_at": datetime.now(UTC).isoformat(), "planned_start_at": str(planned)})
+    runtime_settings["start_queue"] = queue
+
+def dequeue_team(session_id: str) -> None:
+    runtime_settings["start_queue"] = [item for item in clean_start_queue() if item["session_id"] != session_id]
 
 def require_start_available() -> None:
     availability = start_availability()
@@ -714,7 +765,7 @@ async def websocket_endpoint(websocket: WebSocket):
                 data = json.loads(message_str)
                 msg = Message.from_json(data)
 
-                if msg.type in {"admin.list", "admin.penalty", "admin.score_adjustment", "admin.delete", "admin.qr_set", "admin.online_mode", "admin.operations", "admin.schedule_settings", "admin.team_create", "admin.team_start", "admin.evaluate_team", "admin.session_extend", "admin.session_end", "admin.checkpoint", "admin.game_reset", "admin.game_player", "admin.player_recovery", "admin.leaderboard_delete", "admin.leaderboard_finalize", "admin.support_join", "admin.support_leave", "admin.support_message", "admin.spectate_start", "admin.spectate_stop"}:
+                if msg.type in {"admin.list", "admin.penalty", "admin.score_adjustment", "admin.delete", "admin.qr_set", "admin.online_mode", "admin.launch_mode", "admin.operations", "admin.schedule_settings", "admin.team_create", "admin.team_start", "admin.evaluate_team", "admin.session_extend", "admin.session_end", "admin.checkpoint", "admin.game_reset", "admin.game_player", "admin.player_recovery", "admin.leaderboard_delete", "admin.leaderboard_finalize", "admin.support_join", "admin.support_leave", "admin.support_message", "admin.spectate_start", "admin.spectate_stop"}:
                     try:
                         require_admin(msg.payload)
                         authenticated_admin_sockets.add(websocket)
@@ -733,7 +784,20 @@ async def websocket_endpoint(websocket: WebSocket):
                                 try: await send_message(active_socket, update)
                                 except Exception: pass
                             continue
+                        if msg.type == "admin.launch_mode":
+                            mode = str(msg.payload.get("mode", ""))
+                            if mode not in {"free", "managed"}: raise ValueError("Neznámý režim spouštění.")
+                            runtime_settings["launch_mode"] = mode
+                            save_runtime_settings()
+                            update = Message("runtime.settings", runtime_payload())
+                            for active_socket in list(app.state.active_websockets):
+                                try: await send_message(active_socket, update)
+                                except Exception: pass
+                            await send_admin_overview(websocket)
+                            continue
                         if msg.type == "admin.team_create":
+                            if runtime_settings.get("launch_mode", "free") != "managed":
+                                raise ValueError("Administrátorské lobby lze zakládat pouze v řízeném režimu.")
                             lobby = lobby_registry.create_managed(str(msg.payload.get("team_name", "")))
                             ensure_state_machine(lobby.session_id)
                             save_lobbies(); save_sessions()
@@ -747,6 +811,7 @@ async def websocket_endpoint(websocket: WebSocket):
                             if not lobby.players: raise ValueError("Před spuštěním se musí připojit alespoň jeden hráč.")
                             require_admin_start_available(bool(msg.payload.get("override_soft")))
                             lobby.started = True
+                            dequeue_team(target_session)
                             machine = ensure_state_machine(target_session)
                             machine.state.flags["operations_started_at"] = datetime.now(UTC).isoformat()
                             machine.state.flags["managed_start"] = True
@@ -757,7 +822,7 @@ async def websocket_endpoint(websocket: WebSocket):
                             responses = await machine.handle(hello)
                             responses.extend(apply_lobby_score(lobby, machine))
                             responses.append(Message("scenario.progress", build_scenario_progress(scenario, machine.state.snapshot())))
-                            save_lobbies(); save_sessions()
+                            save_lobbies(); save_sessions(); save_runtime_settings()
                             await broadcast_lobby(lobby); await broadcast_session(target_session, responses)
                             update = Message("runtime.settings", runtime_payload())
                             for active_socket in list(app.state.active_websockets):
@@ -1097,7 +1162,7 @@ async def websocket_endpoint(websocket: WebSocket):
                         await send_message(websocket, Message("admin.error", {"message": str(error)}))
                         continue
 
-                if msg.type in {"lobby.solo", "lobby.create", "lobby.join", "lobby.resume", "lobby.start", "lobby.identify", "lobby.add_player", "lobby.recover"}:
+                if msg.type in {"lobby.solo", "lobby.create", "lobby.join", "lobby.resume", "lobby.start", "lobby.queue", "lobby.dequeue", "lobby.identify", "lobby.add_player", "lobby.recover"}:
                     try:
                         requested_client_id = str(msg.payload.get("client_id", "")).strip()
                         if not requested_client_id:
@@ -1105,6 +1170,19 @@ async def websocket_endpoint(websocket: WebSocket):
                         name = str(msg.payload.get("name", "")).strip()
                         team_name = str(msg.payload.get("team_name", "")).strip()
                         requested_demo = DEMO_MODE_ENABLED and bool(msg.payload.get("demo_mode"))
+                        if msg.type in {"lobby.queue", "lobby.dequeue"}:
+                            info = connection_info.get(websocket, {})
+                            lobby = lobby_registry.by_session.get(str(info.get("session_id", "")))
+                            if lobby is None or requested_client_id not in lobby.players:
+                                raise ValueError("Nejprve se připojte k týmové lobby.")
+                            if msg.type == "lobby.queue": queue_team(lobby.session_id)
+                            else: dequeue_team(lobby.session_id)
+                            save_runtime_settings()
+                            update = Message("runtime.settings", runtime_payload())
+                            for active_socket in list(app.state.active_websockets):
+                                try: await send_message(active_socket, update)
+                                except Exception: pass
+                            continue
                         if msg.type == "lobby.recover":
                             token = str(msg.payload.get("recovery_token", "")).strip().upper().removeprefix("ESCAPEBOT://RECOVER/")
                             recovery = recovery_tokens.pop(token, None)
@@ -1176,9 +1254,13 @@ async def websocket_endpoint(websocket: WebSocket):
                                     await broadcast_session(session_id, score_messages)
                             continue
                         if msg.type == "lobby.solo":
+                            if runtime_settings.get("launch_mode", "free") == "managed":
+                                raise ValueError("Zakládání her je nyní řízené administrátorem.")
                             require_start_available()
                             lobby = lobby_registry.create(requested_client_id, "solo", name, team_name)
                         elif msg.type == "lobby.create":
+                            if runtime_settings.get("launch_mode", "free") == "managed":
+                                raise ValueError("Zakládání týmů je nyní řízené administrátorem.")
                             # Mobile Safari can suspend a socket immediately after
                             # sending. A retry must recover the created lobby instead
                             # of failing on its now-duplicate team name.
@@ -1198,8 +1280,19 @@ async def websocket_endpoint(websocket: WebSocket):
                                 raise ValueError("Hru může spustit pouze zakladatel týmu.")
                             if not lobby.team_name or any(not str(player.get("name", "")).strip() for player in lobby.players.values()):
                                 raise ValueError("Před spuštěním musí mít tým i všichni hráči vyplněné jméno.")
+                            if runtime_settings.get("launch_mode", "free") == "managed":
+                                raise ValueError("V řízeném režimu spouští hru administrátor.")
+                            queue = clean_start_queue()
+                            queued = next((index for index, item in enumerate(queue) if item["session_id"] == lobby.session_id), None)
+                            if queue and queued != 0:
+                                raise ValueError("Nejprve je na řadě jiný tým ve frontě.")
+                            if queued == 0:
+                                planned = queue_payload()[0]["planned_start_at"]
+                                if _local_now() < datetime.fromisoformat(str(planned)):
+                                    raise ValueError("Váš rezervovaný čas startu ještě nenastal.")
                             require_start_available()
                             lobby.started = True
+                            dequeue_team(lobby.session_id)
 
                         session_id = lobby.session_id
                         client_id = requested_client_id
@@ -1210,8 +1303,9 @@ async def websocket_endpoint(websocket: WebSocket):
                             state_machine.state.flags["operations_started_at"] = datetime.now(UTC).isoformat()
                             availability_update = Message("runtime.settings", runtime_payload())
                             for active_socket in list(app.state.active_websockets):
-                                try: await send_message(active_socket, availability_update)
-                                except Exception: pass
+                                    try: await send_message(active_socket, availability_update)
+                                    except Exception: pass
+                            save_runtime_settings()
                         save_lobbies()
                         await broadcast_lobby(lobby)
 

@@ -25,6 +25,12 @@
         }
         .lobby-overlay { position: fixed; inset: 0; z-index: 2200; display: flex; align-items: center; justify-content: center; padding: 18px; background: rgba(0, 0, 0, .96); }
         .lobby-overlay.hidden { display: none; }
+        .start-lights { display:flex; justify-content:center; gap:8px; margin:12px 0; }
+        .start-light { width:30px; height:30px; border-radius:50%; background:#271010; border:2px solid #642626; box-shadow:inset 0 0 8px #000; }
+        .start-light.on { background:#ff2020; box-shadow:0 0 14px #ff2020; }
+        .start-light.go { background:#20e060; border-color:#20e060; box-shadow:0 0 16px #20e060; }
+        .queue-list { margin:8px 0 16px; padding-left:24px; text-align:left; }
+        .queue-list .current-team { color:#65f7ff; font-weight:bold; }
         .lobby-card { width: min(680px, 100%); max-height: calc(100vh - 36px); overflow-y: auto; padding: 24px; border: 2px solid #0aa; background: #001113; box-shadow: 0 0 35px rgba(0, 255, 255, .25); }
         .lobby-card h1 { color: #0ff; margin-top: 0; }
         .lobby-modes { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin: 18px 0; }
@@ -623,9 +629,9 @@
             <button type="button" onclick="showAdminAccessQr()">QR PRO ADMINISTRACI</button>
             <span id="admin-status">Čekám na spojení…</span>
         </div>
-        <nav class="admin-nav"><button class="active" onclick="openAdminTab('teams',this)">TÝMY</button><button onclick="openAdminTab('analytics',this)">ANALYTIKA</button><button id="admin-chats-tab-button" onclick="openAdminTab('chats',this)">CHATY <span id="admin-chat-unread" class="unread-badge"></span></button><button onclick="openAdminTab('leaderboard',this)">SÍŇ SLÁVY</button><button onclick="openAdminTab('tools',this)">NÁSTROJE</button></nav>
-        <div class="admin-toolbar"><input id="admin-new-team-name" maxlength="32" placeholder="Název nového týmu"><button onclick="createManagedTeam()">ZALOŽIT TÝM JAKO ADMIN</button></div>
+        <nav class="admin-nav"><button class="active" onclick="openAdminTab('teams',this)">TÝMY</button><button id="admin-managed-tab-button" onclick="openAdminTab('managed',this)">ŘÍZENÝ START</button><button onclick="openAdminTab('analytics',this)">ANALYTIKA</button><button id="admin-chats-tab-button" onclick="openAdminTab('chats',this)">CHATY <span id="admin-chat-unread" class="unread-badge"></span></button><button onclick="openAdminTab('leaderboard',this)">SÍŇ SLÁVY</button><button onclick="openAdminTab('tools',this)">NÁSTROJE</button></nav>
         <section id="admin-tab-teams" class="admin-section"><div id="admin-summary" class="admin-summary"></div><div class="admin-filters"><input id="admin-team-search" type="search" placeholder="Hledat tým, hráče nebo kód…" oninput="applyAdminFilters()"><select id="admin-activity-filter" onchange="applyAdminFilters()"><option value="ongoing" selected>Neukončené týmy</option><option value="all">Všechny stavy</option><option value="active">Aktivní</option><option value="suspicious">Podezřelé</option><option value="abandoned">Opuštěné</option><option value="completed">Dokončené</option><option value="ended">Ukončené bez dokončení</option></select><select id="admin-online-filter" onchange="applyAdminFilters()"><option value="all">Online i offline</option><option value="online">Alespoň jeden online</option><option value="offline">Všichni offline</option></select></div><div id="admin-team-grid" class="admin-grid"></div></section>
+        <section id="admin-tab-managed" class="admin-section hidden"><h2>[ REŽIM SPOUŠTĚNÍ ]</h2><div class="admin-toolbar"><button id="admin-mode-free" onclick="setLaunchMode('free')">VOLNÝ REŽIM</button><button id="admin-mode-managed" onclick="setLaunchMode('managed')">ŘÍZENÝ REŽIM</button></div><p>Přepnutí zachová všechny existující týmy i jejich pořadí. Řízený režim zakáže hráčům zakládat a spouštět hry.</p><h2>[ ŘÍZENÉ LOBBY ]</h2><div class="admin-toolbar"><input id="admin-new-team-name" maxlength="32" placeholder="Název nového týmu"><button onclick="createManagedTeam()">ZALOŽIT TÝM</button></div><div id="admin-managed-lights"></div><div id="admin-managed-grid" class="admin-grid"></div></section>
         <section id="admin-tab-analytics" class="admin-section admin-analytics hidden"><h2>[ TELEMETRIE OBTÍŽNOSTI ]</h2><div class="admin-toolbar"><label>OBDOBÍ <select id="analytics-period" onchange="renderAdminAnalytics()"><option value="all">Celá historie</option><option value="1">Posledních 24 hodin</option><option value="7">Posledních 7 dní</option><option value="30">Posledních 30 dní</option></select></label><button onclick="exportTelemetryCsv(true)">ANONYMIZOVANÉ CSV</button><button onclick="exportTelemetryCsv(false)">INTERNÍ CSV</button></div><div id="admin-analytics-summary" class="admin-summary"></div><div id="admin-analytics-content"></div></section>
         <section id="admin-tab-chats" class="admin-section hidden"><h2>[ PODPORA TÝMŮ ]</h2><div id="admin-chat-grid" class="admin-grid"></div></section>
         <section id="admin-tab-leaderboard" class="admin-section admin-leaderboard hidden"><h2>[ SPRÁVA SÍNĚ SLÁVY ]</h2><div id="admin-leaderboard"></div></section>
@@ -644,14 +650,16 @@
             <label for="lobby-player-name">Jméno hráče</label>
             <input id="lobby-player-name" maxlength="24" placeholder="Např. Antonín" style="width:100%; box-sizing:border-box; margin-top:6px">
             <div id="lobby-modes" class="lobby-modes">
-                <button onclick="chooseSoloMode()">SÓLO<br><small>vše na jednom zařízení · +20 bodů</small></button>
-                <button onclick="createTeamMode()">ZALOŽIT TÝM<br><small>ideálně 3 hráči</small></button>
+                <button id="lobby-solo-button" onclick="chooseSoloMode()">SÓLO<br><small>vše na jednom zařízení · +20 bodů</small></button>
+                <button id="lobby-create-button" onclick="createTeamMode()">ZALOŽIT TÝM<br><small>ideálně 3 hráči</small></button>
                 <button onclick="showJoinTeamPanel()">PŘIPOJIT SE K TÝMU<br><small>zadat kód týmu</small></button>
                 <button onclick="showPlayerIdentity()">PŘIPOJIT NOTEBOOK<br><small>leader načte váš QR</small></button>
                 <button onclick="showRecoveryPanel()">OBNOVIT HRÁČE<br><small>návratový kód od správce</small></button>
             </div>
             <div id="lobby-status">Čekám na spojení se serverem…</div>
             <div id="lobby-availability" class="cipher-note">Načítám provozní dostupnost…</div>
+            <div id="lobby-start-lights"></div>
+            <h3>[ FRONTA STARTŮ ]</h3><ol id="lobby-queue" class="queue-list"><li>Fronta se načítá…</li></ol>
             <div id="lobby-team" class="lobby-team">
                 <h2>[ TÝMOVÁ RELACE: <span id="lobby-team-title"></span> ]</h2>
                 <p>Doporučení: jeden z hráčů používá notebook jako týmový terminál, ostatní vlastní telefon či notebook. Každý hráč má právě jedno zařízení a každé přidané zařízení představuje jednoho regulérního hráče.</p>
@@ -660,6 +668,7 @@
                 <div id="lobby-join-code" class="join-code"></div>
                 <p style="text-align:center">Ostatní hráči načtou tento QR fotoaparátem telefonu.</p>
                 <ul id="lobby-player-list" class="lobby-player-list"></ul>
+                <button id="lobby-queue-button" onclick="toggleTeamQueue()" style="width:100%;margin:8px 0">ZAŘADIT TÝM DO FRONTY</button>
                 <div id="reverse-join" class="reverse-join">
                     <strong>[ PŘIDAT HRÁČSKÉ ZAŘÍZENÍ ]</strong>
                     <p>Načtěte QR z notebooku hráče, nebo opište jeho ID.</p>
@@ -859,6 +868,8 @@
         let leaderboardFinalized = false;
         let runtimeAvailability = null;
         let runtimeCheckpoints = [];
+        let launchMode = 'free';
+        let runtimeStartQueue = [];
         let latestScenarioProgress = null;
         let deviceRole = localStorage.getItem('escapeBotDeviceRole') || 'free';
         const demoModeRequested = new URLSearchParams(window.location.search).get('demo') === '1';
@@ -1606,6 +1617,10 @@
             if (!window.confirm(`${action}?`)) return;
             sendAdmin('admin.operations', {enabled:!operationsEnabled});
         }
+        function setLaunchMode(mode) {
+            if (!window.confirm(`Přepnout provoz do ${mode === 'managed' ? 'řízeného' : 'volného'} režimu? Existující týmy zůstanou zachované.`)) return;
+            sendAdmin('admin.launch_mode', {mode});
+        }
         function finalizeLeaderboard() {
             if (!window.confirm('Definitivně uzavřít celkové pořadí? Tisk diplomů za 1.–3. místo se zpřístupní až po tomto kroku.')) return;
             sendAdmin('admin.leaderboard_finalize');
@@ -1630,14 +1645,53 @@
             const seconds = next ? Math.max(0, Math.ceil((next - new Date()) / 1000)) : 0;
             const countdown = seconds > 0 ? ` · další start za ${Math.floor(seconds/60)}:${String(seconds%60).padStart(2,'0')}` : '';
             box.innerHTML = `<strong>${runtimeAvailability.start_allowed ? 'START JE DOSTUPNÝ' : 'START NYNÍ NENÍ MOŽNÝ'}</strong><br>${escapeHtml(runtimeAvailability.reason || `Aktivní týmy: ${runtimeAvailability.active_teams}/${runtimeAvailability.max_active_teams}`)}${countdown}<br>Provoz ${new Date(runtimeAvailability.opening_at).toLocaleTimeString('cs-CZ',{hour:'2-digit',minute:'2-digit'})}–${new Date(runtimeAvailability.closing_at).toLocaleTimeString('cs-CZ',{hour:'2-digit',minute:'2-digit'})} · hra ${runtimeAvailability.game_duration_minutes} min · nejzazší start ${new Date(runtimeAvailability.latest_start_at).toLocaleTimeString('cs-CZ',{hour:'2-digit',minute:'2-digit'})}`;
-            const solo = document.querySelector('#lobby-modes button');
+            const solo = document.getElementById('lobby-solo-button');
             if (solo) {
-                solo.classList.toggle('danger', !runtimeAvailability.start_allowed);
-                solo.title = runtimeAvailability.start_allowed ? 'Spustit sólo hru' : (runtimeAvailability.reason || 'Server nyní start nepovoluje. Kliknutím ověříte aktuální stav.');
+                solo.disabled = launchMode === 'managed';
+                solo.classList.toggle('danger', !runtimeAvailability.start_allowed || launchMode === 'managed');
+                solo.title = launchMode === 'managed' ? 'Hry nyní zakládá administrátor.' : (runtimeAvailability.start_allowed ? 'Spustit sólo hru' : runtimeAvailability.reason);
             }
-            const start = document.getElementById('lobby-start-button'); if (start) start.disabled = !runtimeAvailability.start_allowed;
+            const create = document.getElementById('lobby-create-button');
+            if (create) { create.disabled = launchMode === 'managed'; create.title = launchMode === 'managed' ? 'Týmy nyní zakládá administrátor.' : ''; }
+            const ownQueue = runtimeStartQueue.find(item => item.session_id === sessionId);
+            const start = document.getElementById('lobby-start-button');
+            if (start) start.disabled = launchMode === 'managed' || !runtimeAvailability.start_allowed || (runtimeStartQueue.length && runtimeStartQueue[0].session_id !== sessionId) || (ownQueue && new Date(ownQueue.planned_start_at) > new Date());
+            renderStartQueue();
         }
         setInterval(renderLobbyAvailability, 1000);
+
+        function startLightsHtml(target) {
+            if (!target) return '';
+            const seconds = Math.ceil((new Date(target) - new Date()) / 1000);
+            const lit = seconds <= 0 ? 5 : Math.max(0, 6 - Math.min(6, seconds));
+            const lights = Array.from({length:5}, (_, index) => `<span class="start-light ${seconds <= 0 ? 'go' : (index < lit ? 'on' : '')}"></span>`).join('');
+            return `<div class="start-lights" aria-label="Odpočet startu">${lights}</div><p style="text-align:center"><strong>${seconds <= 0 ? 'START' : `T−${Math.floor(seconds/60)}:${String(seconds%60).padStart(2,'0')}`}</strong></p>`;
+        }
+        function renderStartQueue() {
+            const list = document.getElementById('lobby-queue');
+            if (list) list.innerHTML = runtimeStartQueue.length ? runtimeStartQueue.map(item => `<li class="${item.session_id === sessionId ? 'current-team' : ''}">${item.position}. ${escapeHtml(item.team_name)} · ${new Date(item.planned_start_at).toLocaleTimeString('cs-CZ',{hour:'2-digit',minute:'2-digit'})}</li>`).join('') : '<li>Bez čekajících týmů.</li>';
+            const own = runtimeStartQueue.find(item => item.session_id === sessionId);
+            const target = own?.planned_start_at || runtimeAvailability?.next_start_at;
+            const lights = document.getElementById('lobby-start-lights'); if (lights) lights.innerHTML = startLightsHtml(target);
+            const adminLights = document.getElementById('admin-managed-lights'); if (adminLights) adminLights.innerHTML = startLightsHtml(target);
+            const queueButton = document.getElementById('lobby-queue-button');
+            if (queueButton) { queueButton.style.display = launchMode === 'free' && currentLobby && !currentLobby.started ? 'block' : 'none'; queueButton.textContent = own ? 'OPUSTIT FRONTU' : 'ZAŘADIT TÝM DO FRONTY'; }
+            if (own) scheduleTeamAlarm(own);
+        }
+        function toggleTeamQueue() {
+            const own = runtimeStartQueue.some(item => item.session_id === sessionId);
+            if (!own && 'Notification' in window && Notification.permission === 'default') Notification.requestPermission();
+            sendLobby(own ? 'lobby.dequeue' : 'lobby.queue');
+        }
+        function scheduleTeamAlarm(item) {
+            const alarmAt = new Date(item.planned_start_at).getTime() - 60000;
+            const key = `escapeBotAlarm:${item.session_id}:${item.planned_start_at}`;
+            if (Date.now() < alarmAt || Date.now() > new Date(item.planned_start_at).getTime() || localStorage.getItem(key)) return;
+            localStorage.setItem(key, '1');
+            showNotification('Za jednu minutu startuje vaše hra.', 'success');
+            if ('Notification' in window && Notification.permission === 'granted') new Notification('Escape Bot', {body:'Za jednu minutu startuje vaše hra.'});
+            try { const audio = new AudioContext(); const tone = audio.createOscillator(); tone.connect(audio.destination); tone.start(); tone.stop(audio.currentTime + .35); } catch (_) {}
+        }
 
         function renderAdminQrSet(payload) {
             const startUrl = new URL('/', window.location.origin);
@@ -1957,6 +2011,7 @@
             updateAdminChatNotifications(allTeams);
             renderAdminChats(allTeams);
             renderAdminAnalytics();
+            renderManagedLobbies(allTeams);
             if (!teams.length) {
                 grid.innerHTML = `<p>${allTeams.length ? 'Filtrům neodpovídá žádný tým.' : 'Nejsou evidované žádné týmy.'}</p>`;
                 return;
@@ -2043,6 +2098,16 @@
                     if (typeof field.setSelectionRange === 'function' && activeField.start !== null) field.setSelectionRange(activeField.start, activeField.end);
                 }
             }
+        }
+
+        function renderManagedLobbies(teams) {
+            const grid = document.getElementById('admin-managed-grid'); if (!grid) return;
+            const waiting = teams.filter(team => !team.started && !team.game_completed && !team.administratively_ended);
+            grid.innerHTML = waiting.length ? waiting.map(team => {
+                const players = (team.players || []).map(player => `${player.connected ? '●' : '○'} ${escapeHtml(player.name)}`).join('<br>') || 'Zatím bez hráčů';
+                const joinUrl = `${window.location.origin}/?join=${encodeURIComponent(team.join_code || '')}`;
+                return `<article class="admin-team"><h2>${escapeHtml(team.team_name)}</h2><p>${players}</p><p>Kód: <strong class="join-code">${escapeHtml(team.join_code || '')}</strong></p><img class="join-qr" src="/api/qr?data=${encodeURIComponent(joinUrl)}" alt="QR pro připojení k týmu"><div class="admin-actions"><button onclick="startManagedTeam('${team.session_id}',false)" ${(team.players || []).length ? '' : 'disabled'}>SPUSTIT HRU</button><button class="danger" onclick="startManagedTeam('${team.session_id}',true)" ${(team.players || []).length ? '' : 'disabled'}>PŘESKOČIT SOFT LIMIT</button></div></article>`;
+            }).join('') : '<p>Žádná čekající řízená lobby.</p>';
         }
 
         function lobbyTeamName() {
@@ -2444,7 +2509,7 @@
                     if (adminToken()) loadAdminOverview();
                     clearInterval(adminRefreshTimer);
                     adminRefreshTimer = setInterval(() => {
-                        if (adminToken() && activeAdminTab === 'teams' && !document.getElementById('admin-overlay').classList.contains('hidden')) loadAdminOverview();
+                        if (adminToken() && ['teams','managed'].includes(activeAdminTab) && !document.getElementById('admin-overlay').classList.contains('hidden')) loadAdminOverview();
                     }, 5000);
                 } else {
                     ws.send(JSON.stringify({ type: 'leaderboard.get', payload: {} }));
@@ -2495,6 +2560,8 @@
                 else if (msg.type === 'runtime.settings') {
                     onlineModeEnabled = Boolean(msg.payload.online_mode);
                     operationsEnabled = Boolean(msg.payload.gameplay_enabled);
+                    launchMode = msg.payload.launch_mode || 'free';
+                    runtimeStartQueue = msg.payload.start_queue || [];
                     leaderboardFinalized = Boolean(msg.payload.leaderboard_finalized);
                     runtimeAvailability = msg.payload.availability || null;
                     runtimeCheckpoints = msg.payload.checkpoints || [];
@@ -2502,6 +2569,11 @@
                     if (toggle) toggle.textContent = `ONLINE REŽIM: ${onlineModeEnabled ? 'ZAPNUT' : 'VYPNUT'}`;
                     const operations = document.getElementById('admin-operations-toggle');
                     if (operations) { operations.textContent = operationsEnabled ? '■ ZASTAVIT HERNÍ PROVOZ' : '▶ SPUSTIT HERNÍ PROVOZ'; operations.classList.toggle('danger', operationsEnabled); }
+                    const freeMode = document.getElementById('admin-mode-free'), managedMode = document.getElementById('admin-mode-managed');
+                    if (freeMode) freeMode.classList.toggle('active', launchMode === 'free');
+                    if (managedMode) managedMode.classList.toggle('active', launchMode === 'managed');
+                    const managedCreate = document.querySelector('#admin-new-team-name + button');
+                    if (managedCreate) { managedCreate.disabled = launchMode !== 'managed'; managedCreate.title = launchMode === 'managed' ? '' : 'Nejprve zapněte řízený režim.'; }
                     const settings = {"schedule-max-teams":msg.payload.max_active_teams,"schedule-hard-interval":msg.payload.hard_start_interval_minutes,"schedule-soft-interval":msg.payload.soft_start_interval_minutes,"schedule-duration":msg.payload.game_duration_minutes,"schedule-deadline-penalty":msg.payload.deadline_penalty,"schedule-abandonment-penalty":msg.payload.abandonment_penalty,"schedule-completion-bonus":msg.payload.completion_bonus,"schedule-opening":msg.payload.opening_time,"schedule-closing":msg.payload.closing_time,"schedule-timezone":msg.payload.timezone};
                     Object.entries(settings).forEach(([id,value]) => { const field=document.getElementById(id); if (field && document.activeElement !== field) field.value=value ?? ''; });
                     const scheduleStatus = document.getElementById('admin-schedule-status'); if (scheduleStatus && runtimeAvailability) scheduleStatus.textContent = `${runtimeAvailability.active_teams}/${runtimeAvailability.max_active_teams} aktivních týmů · nejzazší start ${new Date(runtimeAvailability.latest_start_at).toLocaleTimeString('cs-CZ',{hour:'2-digit',minute:'2-digit'})}`;

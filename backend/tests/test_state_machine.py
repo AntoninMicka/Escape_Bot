@@ -919,6 +919,30 @@ class StateMachineCheckpointTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(lobby.players, {})
         self.assertIn("alice", registry.join(str(lobby.join_code), "alice", "Alice").players)
 
+    def test_free_mode_queue_is_ordered_and_persistent(self) -> None:
+        from escape_bot.server import lobby_registry, queue_payload, queue_team, runtime_settings
+        original_settings = dict(runtime_settings)
+        original_lobbies = dict(lobby_registry.by_session)
+        original_codes = dict(lobby_registry.by_join_code)
+        try:
+            lobby_registry.by_session.clear(); lobby_registry.by_join_code.clear()
+            runtime_settings.update({"launch_mode": "free", "start_queue": [], "gameplay_enabled": True,
+                "opening_time": "00:00", "closing_time": "23:59", "game_duration_minutes": 15,
+                "soft_start_interval_minutes": 10, "hard_start_interval_minutes": 2,
+                "max_active_teams": 10, "timezone": "Europe/Prague"})
+            first = lobby_registry.create("one", "team", "Alice", "První")
+            second = lobby_registry.create("two", "team", "Bob", "Druhý")
+            queue_team(first.session_id); queue_team(second.session_id)
+            queue = queue_payload()
+            self.assertEqual([item["session_id"] for item in queue], [first.session_id, second.session_id])
+            gap = datetime.fromisoformat(queue[1]["planned_start_at"]) - datetime.fromisoformat(queue[0]["planned_start_at"])
+            self.assertGreaterEqual(gap.total_seconds(), 600)
+            self.assertEqual(queue[0]["planned_start_at"], queue_payload()[0]["planned_start_at"])
+        finally:
+            runtime_settings.clear(); runtime_settings.update(original_settings)
+            lobby_registry.by_session.clear(); lobby_registry.by_session.update(original_lobbies)
+            lobby_registry.by_join_code.clear(); lobby_registry.by_join_code.update(original_codes)
+
     def test_team_lobby_requires_player_and_unique_team_names(self) -> None:
         registry = LobbyRegistry()
         with self.assertRaisesRegex(ValueError, "Název týmu"):
