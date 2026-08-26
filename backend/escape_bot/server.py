@@ -97,13 +97,20 @@ def normalize_display_announcement(item: object) -> dict[str, object] | None:
         source = item if isinstance(item, dict) else {}
         category = str(source.get("category", "organization"))
         if category not in {"organization", "lost_found", "refreshment", "results", "important"}: category = "organization"
+        fallback_priority = str(source.get("fallback_priority", "high"))
+        if fallback_priority not in {"high", "normal", "low"}: fallback_priority = "high"
+        try: override_minutes = max(0.0, min(1440.0, float(source.get("override_minutes", 0))))
+        except (TypeError, ValueError): override_minutes = 0.0
         return {"id": str(source.get("id", "")) or secrets.token_hex(6), "text": text, "priority": priority,
                 "category": category, "published": bool(source.get("published", True)),
                 "starts_at": str(source.get("starts_at", "")), "ends_at": str(source.get("ends_at", "")),
-                "link_url": str(source.get("link_url", "")), "link_label": str(source.get("link_label", "Více informací"))}
+                "link_url": str(source.get("link_url", "")), "link_label": str(source.get("link_label", "Více informací")),
+                "override_minutes": override_minutes, "override_until": str(source.get("override_until", "")),
+                "fallback_priority": fallback_priority}
     text = str(value).strip()
     return {"id": secrets.token_hex(6), "text": text, "priority": priority, "category": "organization",
-            "published": True, "starts_at": "", "ends_at": "", "link_url": "", "link_label": "Více informací"} if text else None
+            "published": True, "starts_at": "", "ends_at": "", "link_url": "", "link_label": "Více informací",
+            "override_minutes": 0.0, "override_until": "", "fallback_priority": "high"} if text else None
 
 def display_status_payload() -> dict[str, object]:
     updated_at = str(public_display_status.get("updated_at", ""))
@@ -1034,7 +1041,11 @@ async def websocket_endpoint(websocket: WebSocket):
                             for item in announcements:
                                 for key in ("starts_at", "ends_at"):
                                     if item[key]: datetime.fromisoformat(item[key])
+                                if item["override_until"]: datetime.fromisoformat(item["override_until"])
                                 if len(item["link_url"]) > 500 or len(item["link_label"]) > 80: raise ValueError("Odkaz oznámení je příliš dlouhý.")
+                                if item["priority"] == "emergency" and item["override_minutes"] and not item["override_until"]:
+                                    item["override_until"] = (datetime.now(UTC) + timedelta(minutes=float(item["override_minutes"]))).isoformat()
+                                if item["priority"] != "emergency": item["override_until"] = ""
                             runtime_settings["display_announcements"] = announcements
                             save_runtime_settings()
                             update = Message("runtime.settings", runtime_payload())
