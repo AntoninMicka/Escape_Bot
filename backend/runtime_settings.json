@@ -14,6 +14,9 @@
   "opening_time": "00:00",
   "closing_time": "23:00",
   "timezone": "Europe/Prague",
+  "display_announcements": [
+    "Nalezeny dámské tanga na záchodcích v přízemí."
+  ],
   "leaderboard_finalized": false,
   "leaderboard_finalized_at": ""
 }
