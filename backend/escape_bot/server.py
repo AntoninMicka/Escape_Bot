@@ -1,4 +1,5 @@
 import asyncio
+import ast
 import json
 import logging
 import os
@@ -70,6 +71,30 @@ runtime_settings = {"online_mode": False, "gameplay_enabled": True, "max_active_
                     "opening_time": "08:00", "closing_time": "20:00", "timezone": "Europe/Prague",
                     "display_announcements": [],
                     "leaderboard_finalized": False, "leaderboard_finalized_at": ""}
+
+def normalize_display_announcement(item: object) -> dict[str, str] | None:
+    """Unwrap current, JSON-stringified, and legacy Python-repr announcements."""
+    priority = "normal"
+    value = item
+    for _ in range(8):
+        if isinstance(value, dict):
+            candidate = str(value.get("priority", priority))
+            if candidate in {"high", "normal", "low"}: priority = candidate
+            value = value.get("text", "")
+            continue
+        text = str(value).strip()
+        if text.startswith("{") and text.endswith("}"):
+            parsed = None
+            try: parsed = json.loads(text)
+            except (json.JSONDecodeError, TypeError):
+                try: parsed = ast.literal_eval(text)
+                except (ValueError, SyntaxError): pass
+            if isinstance(parsed, dict):
+                value = parsed
+                continue
+        return {"text": text, "priority": priority} if text else None
+    text = str(value).strip()
+    return {"text": text, "priority": priority} if text else None
 
 def _local_now() -> datetime:
     try: return datetime.now(ZoneInfo(str(runtime_settings.get("timezone", "Europe/Prague"))))
@@ -484,6 +509,12 @@ def load_lobbies():
 def load_runtime_settings():
     try:
         runtime_settings.update(storage.load_runtime_settings())
+        stored = runtime_settings.get("display_announcements", [])
+        if isinstance(stored, list):
+            normalized = [result for item in stored if (result := normalize_display_announcement(item))]
+            if normalized != stored:
+                runtime_settings["display_announcements"] = normalized
+                save_runtime_settings()
     except Exception as error:
         logger.error(f"Chyba nastavení režimu: {error}")
 
@@ -979,16 +1010,7 @@ async def websocket_endpoint(websocket: WebSocket):
                         if msg.type == "admin.display_announcements":
                             raw_announcements = msg.payload.get("announcements", [])
                             if not isinstance(raw_announcements, list): raise ValueError("Oznámení musí být seznam položek.")
-                            announcements = []
-                            for item in raw_announcements:
-                                if isinstance(item, dict):
-                                    text = str(item.get("text", "")).strip()
-                                    priority = str(item.get("priority", "normal"))
-                                else:
-                                    text, priority = str(item).strip(), "normal"
-                                if not text: continue
-                                if priority not in {"high", "normal", "low"}: raise ValueError("Neznámá priorita oznámení.")
-                                announcements.append({"text": text, "priority": priority})
+                            announcements = [result for item in raw_announcements if (result := normalize_display_announcement(item))]
                             if len(announcements) > 20 or any(len(item["text"]) > 500 for item in announcements):
                                 raise ValueError("Lze uložit nejvýše 20 oznámení, každé do 500 znaků.")
                             runtime_settings["display_announcements"] = announcements
