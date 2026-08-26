@@ -15,9 +15,22 @@
   "closing_time": "23:00",
   "timezone": "Europe/Prague",
   "display_announcements": [
-    {"text": "Nalezeny dámské tanga na záchodcích v přízemí.", "priority": "high"},
-    {"text": "ztratil se telefon", "priority": "normal"},
-    {"text": "našel se kočárek", "priority": "normal"}
+    {
+      "text": "Nalezeny dámské tanga na záchodcích v přízemí.",
+      "priority": "high"
+    },
+    {
+      "text": "ztratil se telefon",
+      "priority": "normal"
+    },
+    {
+      "text": "našel se kočárek",
+      "priority": "normal"
+    },
+    {
+      "text": "Večeře se vydává do půl osmé",
+      "priority": "high"
+    }
   ],
   "leaderboard_finalized": false,
   "leaderboard_finalized_at": ""
