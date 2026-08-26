@@ -1222,3 +1222,32 @@ Původní stručný záměr je rozpracován v oddílu 19. Editor nemá být svá
 - [ ] Zvážit ochrannou známku EU, pokud se projekt začne používat mimo ČR.
 - [ ] Zvážit další třídy podle nových služeb.
 - [ ] Průběžně sledovat nové podobné ochranné známky a domény.
+
+## 23. Eventově řízený provoz
+
+### 23.1 Hotový základ
+
+- [x] Event má právě jednu hlavní hru a může mít další soutěžní a doplňkové hry.
+- [x] Každá hra eventu má vlastní nastavení fronty, žebříčku, rozestupu startů, kapacity a soutěžní váhy.
+- [x] Doplňkové hry lze vyřadit z fronty a výsledkových žebříčků.
+- [x] Event má životní stav, časovou zónu a základní branding nástěnky.
+- [x] Nástěnka přepíná soutěžní hry a její lobby QR míří přímo na zvolenou hru eventu.
+- [x] Oznámení mohou být globální, eventová nebo určená konkrétní hře.
+- [x] Starší konfigurace se seznamem `scenario_ids` se načítá zpětně kompatibilně.
+
+### 23.2 Nejbližší rozvoj
+
+- [ ] Ukládat katalog více eventů; nyní je v runtime aktivní vždy jediný event.
+- [ ] Přidat klonování eventu včetně nové sady odkazů a QR, ale bez přenosu výsledků.
+- [ ] Zpřístupnit archivované eventy a jejich výsledky pouze pro čtení.
+- [ ] Definovat normalizaci bodů / maximální skóre her a teprve poté zapnout vážené celkové pořadí napříč hrami.
+- [ ] Přidat profily více fyzických nástěnek (výchozí hra, povolené sekce, vlastní rotační režim).
+- [ ] Doplnit promo karty doplňkových online/3D her mimo soutěž.
+- [ ] Přidat předstartovní kontrolu eventu: hlavní hra, platnost času, QR odkazy, dostupnost scénářů a konflikty front.
+- [ ] Zaznamenávat audit změn eventu, oznámení a výsledků.
+
+### 23.3 Správa přístupů — později
+
+- [ ] Zavést správcovské účty pro více osob.
+- [ ] Navrhnout role a oprávnění (hlavní správce, Game Master, obsluha nástěnky, pouze čtení).
+- [ ] Navázat auditní záznamy na konkrétní správcovské účty.

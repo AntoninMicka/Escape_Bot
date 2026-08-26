@@ -2708,5 +2708,1131 @@
     "event_history": [],
     "game_exclusions": {},
     "game_results": {}
+  },
+  "ece8f78f40a84897b7d3487ff7fd02c3": {
+    "phase": "portal_open",
+    "unlocked_discoveries": [
+      "bowling_diagnostics",
+      "courtyard_alignment",
+      "courtyard_minefield",
+      "future_archive",
+      "reception_archive",
+      "sports_archive",
+      "sports_cipher",
+      "staircase_signal",
+      "terrace_echo",
+      "time_machine_console",
+      "timeline_calibration"
+    ],
+    "inventory": [
+      "TEMPORÁLNÍ MOTOR",
+      "FÁZOVÝ STABILIZÁTOR",
+      "KRYSTAL ČASOVÉ KOTVY"
+    ],
+    "flags": {
+      "operations_started_at": "2026-08-26T18:54:28.205020+00:00",
+      "chronomap_unlocked": true,
+      "reception_archive_unlocked": true,
+      "room_104_unlocked": true,
+      "bowling_route_unlocked": true,
+      "courtyard_route_stable": true,
+      "admin_actions": [
+        {
+          "action": "checkpoint",
+          "label": "Checkpoint courtyard_minefield: solved · Technická chyba / uznat bez postihu",
+          "at": "2026-08-26T18:58:10.703473+00:00",
+          "checkpoint_id": "courtyard_minefield",
+          "previous_status": "found",
+          "status": "solved"
+        },
+        {
+          "action": "checkpoint",
+          "label": "Checkpoint timeline_calibration: solved · Technická chyba / uznat bez postihu",
+          "at": "2026-08-26T18:59:15.813762+00:00",
+          "checkpoint_id": "timeline_calibration",
+          "previous_status": "found",
+          "status": "solved"
+        },
+        {
+          "action": "checkpoint",
+          "label": "Checkpoint courtyard_alignment: solved · Technická chyba / uznat bez postihu",
+          "at": "2026-08-26T19:00:08.876940+00:00",
+          "checkpoint_id": "courtyard_alignment",
+          "previous_status": "found",
+          "status": "solved"
+        },
+        {
+          "action": "checkpoint",
+          "label": "Checkpoint sports_archive: solved · Technická chyba / uznat bez postihu",
+          "at": "2026-08-26T19:01:06.673432+00:00",
+          "checkpoint_id": "sports_archive",
+          "previous_status": "found",
+          "status": "solved"
+        }
+      ],
+      "temporal_motor_recovered": true,
+      "timeline_calibrated": true,
+      "phase_stabilizer_recovered": true,
+      "temporal_nodes_aligned": true,
+      "anchor_crystal_recovered": true,
+      "future_archive_unlocked": true,
+      "return_vector_recovered": true,
+      "elara_rescued": true,
+      "game_completed": true,
+      "completed_at": "2026-08-26T19:05:35.985985+00:00",
+      "final_rating": "VÝZKUMNÝ TÝM",
+      "outcome_score_applied_completed": true,
+      "admin_score_adjustments": [
+        {
+          "delta": 100,
+          "amount": 100,
+          "reason": "Bonus za úspěšné dokončení hry",
+          "at": "2026-08-26T19:05:35.990272+00:00",
+          "score_before": 1020,
+          "score_after": 1120,
+          "automatic": true
+        }
+      ]
+    },
+    "chat_history": [
+      {
+        "role": "bot",
+        "channel": "captain",
+        "text": "*ššš*... Tady Kapitánka. Slyšíme se? Interkom konečně naběhl. Potvrď příjem!",
+        "voice_id": "captain_first_contact",
+        "audio_url": "/assets/voices/captain_first_contact.mp3"
+      },
+      {
+        "role": "player",
+        "channel": "captain",
+        "text": "příjem"
+      },
+      {
+        "role": "bot",
+        "channel": "captain",
+        "text": "Výborně, spojení funguje. Při experimentu v areálu Výzkumného ústavu CHRONOS zmizela doktorka Elara. Z poškozeného chronálního vysílače zůstal jediný nouzový záznam:\n\nNOSNÁ VLNA C-17\n━━  ━━  ●  ●  ●   /   ●  ●  ●  ━━  ━━   /   ●  ●  ●  ●  ━━\n\nZáznam tvoří tři oddělené skupiny. Obnovenou třícifernou frekvenci odešli do interkomu."
+      },
+      {
+        "role": "player",
+        "channel": "captain",
+        "text": "734"
+      },
+      {
+        "role": "bot",
+        "channel": "captain",
+        "text": "Frekvence 734 přijata! Zachytila jsem chronální ozvěnu. Přepojuji... *píp*"
+      },
+      {
+        "role": "bot",
+        "channel": "lost",
+        "text": "Haló? Tady doktorka Elara. Jsem pořád v Ústavu CHRONOS, ale areál vypadá, jako by tu nikdo nebyl celá desetiletí. Stroj se rozpadl při přenosu. Slyšíte mě?",
+        "voice_id": "elara_first_contact",
+        "audio_url": "/assets/voices/elara_first_contact.mp3"
+      },
+      {
+        "role": "bot",
+        "channel": "lost",
+        "text": "Jsme ve stejném ústavu, ale já jsem uvázla v jeho budoucí časové vrstvě. Interkom přenese jen hlas a data; ven mě dostane až stabilní koridor. Havárie vymrštila tři součásti stroje do vašeho času. CHRONOMAPA je online — najděte její první stabilní bod u recepčního archivu.",
+        "voice_id": "elara_temporal_reveal",
+        "audio_url": "/assets/voices/elara_temporal_reveal.mp3"
+      },
+      {
+        "role": "bot",
+        "channel": "captain",
+        "text": "Časová kotva na recepci potvrzena. CHRONOMAPA obnovila recepční archiv."
+      },
+      {
+        "role": "bot",
+        "channel": "general",
+        "text": "Archivní kombinace nesouhlasí. Zkontrolujte vazby mezi pokoji, součástkami a pozicemi."
+      },
+      {
+        "role": "bot",
+        "channel": "captain",
+        "text": "Archiv potvrzuje shodu: Elara, pokoj 214, pozice 7. V dokumentaci se obnovil servisní otisk panelu dveří 104:\n\nI   |   X   |   IV\n\nKaždá oddělená skupina tvoří jednu část čtyřmístného přístupového kódu."
+      },
+      {
+        "role": "bot",
+        "channel": "captain",
+        "text": "Než opustíte recepci, použijte obnovený servisní otisk k odemčení pokoje 104 v prvním patře. Potom pokračujte k hlavnímu schodišti; na podestě leží další časová kotva."
+      },
+      {
+        "role": "bot",
+        "channel": "general",
+        "text": "Přístupový panel dveří 104 odemčen. Elektromagnetický zámek uvolněn."
+      },
+      {
+        "role": "bot",
+        "channel": "lost",
+        "text": "Slyšela jsem cvaknutí! Pokoj 104 je otevřený a archivní stopa zajištěná. Teď pokračujte ke schodišti a najděte tam další časovou kotvu."
+      },
+      {
+        "role": "bot",
+        "channel": "lost",
+        "text": "Další časová kotva drží. Z trosek se podařilo obnovit poškozený obrazový záznam; jeho význam ale nedokážu z této vrstvy spolehlivě určit."
+      },
+      {
+        "role": "bot",
+        "channel": "lost",
+        "text": "Signál přeložen: BOWLING. Chronomapa zachytila diagnostické impulzy v prostoru kuželek."
+      },
+      {
+        "role": "bot",
+        "channel": "captain",
+        "text": "Záznam skutečně ukazuje na bowling, ale přímá trasa je přerušená. Nejdřív aktivujte nestabilní kotvu na nádvoří a proveďte Elaru minovým polem."
+      },
+      {
+        "role": "bot",
+        "channel": "captain",
+        "text": "Sonda zachytila nestabilní časová pole. Elara vidí jen tmu; rozdělte si mapu a navigaci."
+      },
+      {
+        "role": "bot",
+        "channel": "captain",
+        "text": "Bowlingová kotva aktivní. Terminál obnovil binární diagnostický záznam a referenci ASCII."
+      },
+      {
+        "role": "bot",
+        "channel": "captain",
+        "text": "Diagnostická sekvence potvrzena: MOTOR. TEMPORÁLNÍ MOTOR je znovu synchronizován s terminálem.",
+        "voice_id": "captain_motor_recovered",
+        "audio_url": "/assets/voices/captain_motor_recovered.mp3"
+      },
+      {
+        "role": "bot",
+        "channel": "captain",
+        "text": "Motor máme. Zůstaňte v bowlingovém křídle a přesuňte se ke křesílkům u drah. Aktivujte konzoli KALIBRACE ČASOVÉ OSY a potom otevřete záložku HÁDANKY."
+      },
+      {
+        "role": "bot",
+        "channel": "captain",
+        "text": "Kalibrační terminál je aktivní. Dva časové proudy se rozpadají; srovnejte jejich uzly do stabilních řad."
+      },
+      {
+        "role": "bot",
+        "channel": "lost",
+        "text": "Kotva u terasy zachytila noční světelný přenos. Obrazový záznam byl uložen do archivu hádanek."
+      },
+      {
+        "role": "bot",
+        "channel": "lost",
+        "text": "Světelný přenos potvrzen: HŘIŠTĚ. FÁZOVÝ STABILIZÁTOR se synchronizoval a Chronomapa označila sportovní areál.",
+        "voice_id": "elara_stabilizer_recovered",
+        "audio_url": "/assets/voices/elara_stabilizer_recovered.mp3"
+      },
+      {
+        "role": "bot",
+        "channel": "captain",
+        "text": "HŘIŠTĚ potvrzeno. Ve sportovním areálu nejprve najděte kotvu zarovnání časových uzlů; až potom půjde otevřít samotný sportovní archiv."
+      },
+      {
+        "role": "bot",
+        "channel": "captain",
+        "text": "Trojice nestabilních os čeká na zarovnání. Zvolte barvy uzlů a propojte všechny směry."
+      },
+      {
+        "role": "bot",
+        "channel": "captain",
+        "text": "Sportovní archiv je nalezen, ale jeho servisní síť nemá napájení. Elara je v úplné tmě a mřížku vidíte jen vy na terminálu. Jeden z vás musí sledovat mapu a druhý ji navigovat přes interkom."
+      },
+      {
+        "role": "bot",
+        "channel": "captain",
+        "text": "Obě části archivního otisku reagují. Spojte obnovená data a určete, jaké slovo ukrývají."
+      },
+      {
+        "role": "bot",
+        "channel": "captain",
+        "text": "Zpráva potvrzena: HODINY. V jejich servisním pouzdře je třetí díl stroje – KRYSTAL ČASOVÉ KOTVY – a přístupový otisk Archivu budoucnosti.",
+        "voice_id": "captain_crystal_recovered",
+        "audio_url": "/assets/voices/captain_crystal_recovered.mp3"
+      },
+      {
+        "role": "bot",
+        "channel": "lost",
+        "text": "Máme všechny tři součásti. Chronomapa zpřístupnila Archiv budoucnosti; otevřete jeho kotvu a obnovte návratový vektor."
+      },
+      {
+        "role": "bot",
+        "channel": "lost",
+        "text": "Archiv budoucnosti je otevřený. Poškozený obraz stroje času ukrývá návratový vektor pro Elaru."
+      },
+      {
+        "role": "bot",
+        "channel": "support",
+        "text": "Vigenère, klíč CHRONOS. Text: ROK DVA NULA TŘI SEDM / ČAS DVA JEDNA ČTYŘI NULA / POŘADÍ MOTOR STABILIZÁTOR KRYSTAL, tedy 2037, 21:40, MOTOR → STABILIZÁTOR → KRYSTAL.",
+        "sender": "Game Master",
+        "at": "2026-08-26T19:02:55.411453+00:00"
+      },
+      {
+        "role": "bot",
+        "channel": "general",
+        "text": "Archiv vektor odmítl. Ověřte rok, čas i pořadí všech tří modulů."
+      },
+      {
+        "role": "bot",
+        "channel": "lost",
+        "text": "Návratový vektor obnoven: rok 2037, čas 21:40, pořadí MOTOR → STABILIZÁTOR → KRYSTAL. Vraťte se k základně stroje času.",
+        "voice_id": "elara_return_vector",
+        "audio_url": "/assets/voices/elara_return_vector.mp3"
+      },
+      {
+        "role": "bot",
+        "channel": "captain",
+        "text": "Vektor je kompletní. Sejděte po bezpečnostním schodišti z B1 do chronální haly B2 a aktivujte finální konzoli stroje času."
+      },
+      {
+        "role": "bot",
+        "channel": "captain",
+        "text": "Základna stroje času je online. Terminál čeká na tři moduly a návratový vektor."
+      },
+      {
+        "role": "bot",
+        "channel": "captain",
+        "text": "Vektor přijat. Spouštím desetisekundovou stabilizační sekvenci. Držte se dál od kotvy!",
+        "voice_id": "captain_final_countdown",
+        "audio_url": "/assets/voices/captain_final_countdown.mp3"
+      },
+      {
+        "role": "bot",
+        "channel": "lost",
+        "text": "Vidím vás! Časové vrstvy se překrývají… motor drží… jsem zpátky v Ústavu CHRONOS!",
+        "voice_id": "elara_returned",
+        "audio_url": "/assets/voices/elara_returned.mp3"
+      }
+    ],
+    "score": 1120,
+    "hints_used": {},
+    "checkpoint_states": {
+      "reception_archive": {
+        "status": "solved",
+        "first_scanned_at": "2026-08-26T18:55:58.058145+00:00",
+        "solved_at": "2026-08-26T18:56:16.273687+00:00"
+      },
+      "staircase_signal": {
+        "status": "solved",
+        "first_scanned_at": "2026-08-26T18:57:04.378245+00:00",
+        "solved_at": "2026-08-26T18:57:12.633560+00:00"
+      },
+      "courtyard_minefield": {
+        "status": "solved",
+        "first_scanned_at": "2026-08-26T18:57:59.099722+00:00",
+        "admin_override_at": "2026-08-26T18:58:10.703451+00:00",
+        "solved_at": "2026-08-26T18:58:10.703451+00:00"
+      },
+      "bowling_diagnostics": {
+        "status": "solved",
+        "first_scanned_at": "2026-08-26T18:58:47.954079+00:00",
+        "solved_at": "2026-08-26T18:58:57.158313+00:00"
+      },
+      "timeline_calibration": {
+        "status": "solved",
+        "first_scanned_at": "2026-08-26T18:59:09.691391+00:00",
+        "admin_override_at": "2026-08-26T18:59:15.813740+00:00",
+        "solved_at": "2026-08-26T18:59:15.813740+00:00"
+      },
+      "terrace_echo": {
+        "status": "solved",
+        "first_scanned_at": "2026-08-26T18:59:44.822581+00:00",
+        "solved_at": "2026-08-26T18:59:51.331251+00:00"
+      },
+      "courtyard_alignment": {
+        "status": "solved",
+        "first_scanned_at": "2026-08-26T19:00:03.013164+00:00",
+        "admin_override_at": "2026-08-26T19:00:08.876925+00:00",
+        "solved_at": "2026-08-26T19:00:08.876925+00:00"
+      },
+      "sports_archive": {
+        "status": "solved",
+        "first_scanned_at": "2026-08-26T19:01:00.259090+00:00",
+        "admin_override_at": "2026-08-26T19:01:06.673412+00:00",
+        "solved_at": "2026-08-26T19:01:06.673412+00:00"
+      },
+      "sports_cipher": {
+        "status": "solved",
+        "first_scanned_at": "2026-08-26T19:01:16.150942+00:00",
+        "solved_at": "2026-08-26T19:01:23.918354+00:00"
+      },
+      "future_archive": {
+        "status": "solved",
+        "first_scanned_at": "2026-08-26T19:01:52.529733+00:00",
+        "solved_at": "2026-08-26T19:04:28.433802+00:00"
+      },
+      "time_machine_console": {
+        "status": "solved",
+        "first_scanned_at": "2026-08-26T19:05:09.522041+00:00",
+        "solved_at": "2026-08-26T19:05:35.985985+00:00"
+      }
+    },
+    "unlocked_cipher_tools": [
+      "a1z26",
+      "binary_ascii",
+      "classical",
+      "morse",
+      "pigpen",
+      "semaphore"
+    ],
+    "paid_cipher_tools": [],
+    "puzzle_attempts": {
+      "reception_deduction": 2,
+      "staircase_semaphore": 1,
+      "bowling_binary": 1,
+      "terrace_morse": 1,
+      "sports_pigpen": 1,
+      "future_archive_cipher": 2,
+      "time_machine_finale": 1
+    },
+    "interactive_games": {
+      "timeline_lines": {
+        "progress": {
+          "3": 0,
+          "4": 0,
+          "5": 0
+        },
+        "status": "expired",
+        "started_at": "2026-08-26T18:59:09.691456+00:00",
+        "deadline_at": "2026-08-26T19:04:09.691456+00:00",
+        "swaps": 0,
+        "rng": 1477420827,
+        "board": [
+          [
+            "cyan",
+            "red",
+            "cyan",
+            "amber",
+            "green",
+            "amber",
+            "violet"
+          ],
+          [
+            "amber",
+            "amber",
+            "cyan",
+            "violet",
+            "cyan",
+            "violet",
+            "cyan"
+          ],
+          [
+            "violet",
+            "green",
+            "red",
+            "violet",
+            "violet",
+            "green",
+            "violet"
+          ],
+          [
+            "green",
+            "amber",
+            "cyan",
+            "red",
+            "red",
+            "amber",
+            "red"
+          ],
+          [
+            "cyan",
+            "green",
+            "red",
+            "violet",
+            "green",
+            "red",
+            "amber"
+          ],
+          [
+            "violet",
+            "red",
+            "violet",
+            "violet",
+            "green",
+            "violet",
+            "violet"
+          ],
+          [
+            "red",
+            "cyan",
+            "cyan",
+            "green",
+            "amber",
+            "green",
+            "violet"
+          ]
+        ]
+      }
+    },
+    "sokoban_games": {
+      "sports_sokoban": {
+        "active_level_ids": [
+          "sector_a",
+          "sector_b",
+          "sector_c"
+        ],
+        "level_index": 0,
+        "completed_levels": [],
+        "awarded_points": 0,
+        "moves": 0,
+        "pushes": 0,
+        "total_moves": 0,
+        "total_pushes": 0,
+        "restarts": 0,
+        "status": "expired",
+        "command_history": [],
+        "player": [
+          5,
+          6
+        ],
+        "boxes": [
+          [
+            2,
+            5
+          ],
+          [
+            5,
+            5
+          ]
+        ],
+        "walls": [
+          [
+            0,
+            0
+          ],
+          [
+            0,
+            1
+          ],
+          [
+            0,
+            2
+          ],
+          [
+            0,
+            3
+          ],
+          [
+            0,
+            4
+          ],
+          [
+            0,
+            5
+          ],
+          [
+            0,
+            6
+          ],
+          [
+            0,
+            7
+          ],
+          [
+            1,
+            0
+          ],
+          [
+            1,
+            1
+          ],
+          [
+            1,
+            4
+          ],
+          [
+            1,
+            7
+          ],
+          [
+            2,
+            0
+          ],
+          [
+            2,
+            7
+          ],
+          [
+            3,
+            0
+          ],
+          [
+            3,
+            1
+          ],
+          [
+            3,
+            2
+          ],
+          [
+            3,
+            7
+          ],
+          [
+            4,
+            0
+          ],
+          [
+            4,
+            7
+          ],
+          [
+            5,
+            0
+          ],
+          [
+            5,
+            7
+          ],
+          [
+            6,
+            0
+          ],
+          [
+            6,
+            7
+          ],
+          [
+            7,
+            0
+          ],
+          [
+            7,
+            1
+          ],
+          [
+            7,
+            2
+          ],
+          [
+            7,
+            3
+          ],
+          [
+            7,
+            4
+          ],
+          [
+            7,
+            5
+          ],
+          [
+            7,
+            6
+          ],
+          [
+            7,
+            7
+          ]
+        ],
+        "targets": [
+          [
+            4,
+            4
+          ],
+          [
+            5,
+            3
+          ]
+        ],
+        "rows": 8,
+        "columns": 8,
+        "level_id": "sector_a",
+        "level_label": "Servisní sektor A",
+        "history": [],
+        "level_speakers": [],
+        "started_at": "2026-08-26T19:01:00.259272+00:00",
+        "deadline_at": "2026-08-26T19:03:00.259272+00:00"
+      }
+    },
+    "karel_games": {
+      "courtyard_karel": {
+        "active_level_ids": [
+          "field_a",
+          "field_b",
+          "field_c"
+        ],
+        "level_index": 0,
+        "completed_levels": [],
+        "awarded_points": 0,
+        "total_moves": 0,
+        "total_strikes": 0,
+        "restarts": 0,
+        "status": "expired",
+        "level_id": "field_a",
+        "level_label": "Pole A",
+        "rows": 7,
+        "columns": 7,
+        "mines": [
+          [
+            0,
+            3
+          ],
+          [
+            1,
+            1
+          ],
+          [
+            1,
+            5
+          ],
+          [
+            2,
+            3
+          ],
+          [
+            3,
+            1
+          ],
+          [
+            3,
+            5
+          ],
+          [
+            4,
+            3
+          ],
+          [
+            5,
+            1
+          ],
+          [
+            5,
+            5
+          ],
+          [
+            6,
+            3
+          ]
+        ],
+        "start": [
+          0,
+          0
+        ],
+        "exit": [
+          6,
+          6
+        ],
+        "player": [
+          0,
+          0
+        ],
+        "revealed": [
+          [
+            0,
+            1
+          ],
+          [
+            1,
+            0
+          ],
+          [
+            2,
+            2
+          ],
+          [
+            2,
+            4
+          ],
+          [
+            3,
+            3
+          ],
+          [
+            4,
+            2
+          ],
+          [
+            4,
+            4
+          ],
+          [
+            5,
+            6
+          ],
+          [
+            6,
+            5
+          ],
+          [
+            0,
+            0
+          ],
+          [
+            6,
+            6
+          ]
+        ],
+        "triggered_mines": [],
+        "moves": 0,
+        "strikes": 0,
+        "history": [],
+        "started_at": "2026-08-26T18:57:59.100036+00:00",
+        "deadline_at": "2026-08-26T19:00:59.100036+00:00"
+      }
+    },
+    "last_activity_at": "2026-08-26T19:05:35.985913+00:00",
+    "triad_games": {
+      "temporal_triad": {
+        "size": 6,
+        "board": [
+          [
+            null,
+            null,
+            null,
+            null,
+            null,
+            null
+          ],
+          [
+            null,
+            null,
+            null,
+            null,
+            null,
+            null
+          ],
+          [
+            null,
+            null,
+            null,
+            null,
+            null,
+            null
+          ],
+          [
+            null,
+            null,
+            null,
+            null,
+            null,
+            null
+          ],
+          [
+            null,
+            null,
+            null,
+            null,
+            null,
+            null
+          ],
+          [
+            null,
+            null,
+            null,
+            null,
+            null,
+            null
+          ]
+        ],
+        "blocked": [],
+        "completed_orientations": [],
+        "scored_lines": [],
+        "placements": 0,
+        "opponent_moves": 0,
+        "restarts": 0,
+        "status": "expired",
+        "started_at": "2026-08-26T19:00:03.013329+00:00",
+        "deadline_at": "2026-08-26T19:03:03.013329+00:00"
+      }
+    },
+    "archive_games": {
+      "future_archive_cipher": {
+        "order": [
+          "tile_1",
+          "tile_2",
+          "tile_3",
+          "tile_4",
+          "tile_5",
+          "tile_6",
+          "tile_7",
+          "tile_8",
+          "tile_9",
+          "tile_10",
+          "tile_11",
+          "tile_12",
+          "tile_13",
+          "tile_14",
+          "tile_15",
+          "tile_16"
+        ],
+        "rotations": {
+          "tile_1": 0,
+          "tile_2": 0,
+          "tile_3": 0,
+          "tile_4": 0,
+          "tile_5": 0,
+          "tile_6": 0,
+          "tile_7": 0,
+          "tile_8": 0,
+          "tile_9": 0,
+          "tile_10": 0,
+          "tile_11": 0,
+          "tile_12": 0,
+          "tile_13": 0,
+          "tile_14": 0,
+          "tile_15": 0,
+          "tile_16": 0
+        },
+        "moves": 14,
+        "assembled": true
+      }
+    },
+    "event_history": [
+      {
+        "at": "2026-08-26T18:54:58.119805+00:00",
+        "type": "player.message",
+        "details": {
+          "channel": "captain"
+        }
+      },
+      {
+        "at": "2026-08-26T18:55:19.132297+00:00",
+        "type": "player.message",
+        "details": {
+          "channel": "captain"
+        }
+      },
+      {
+        "at": "2026-08-26T18:55:58.058085+00:00",
+        "type": "qr.detected",
+        "details": {
+          "value": "escapebot://checkpoint/4ec67b900c4a491ba180c8a48d5309f2"
+        }
+      },
+      {
+        "at": "2026-08-26T18:56:09.670554+00:00",
+        "type": "puzzle.submit",
+        "details": {
+          "puzzle_id": "reception_deduction"
+        }
+      },
+      {
+        "at": "2026-08-26T18:56:16.273608+00:00",
+        "type": "puzzle.submit",
+        "details": {
+          "puzzle_id": "reception_deduction"
+        }
+      },
+      {
+        "at": "2026-08-26T18:56:24.432996+00:00",
+        "type": "room.unlock",
+        "details": {}
+      },
+      {
+        "at": "2026-08-26T18:57:04.378191+00:00",
+        "type": "qr.detected",
+        "details": {
+          "value": "escapebot://checkpoint/74c67eaf38ef4b72b22f5c971b7bb7bd"
+        }
+      },
+      {
+        "at": "2026-08-26T18:57:12.633484+00:00",
+        "type": "puzzle.submit",
+        "details": {
+          "puzzle_id": "staircase_semaphore"
+        }
+      },
+      {
+        "at": "2026-08-26T18:57:59.099651+00:00",
+        "type": "qr.detected",
+        "details": {
+          "value": "escapebot://checkpoint/6b0f716a2a264cc783d182b93f99a531"
+        }
+      },
+      {
+        "at": "2026-08-26T18:58:47.953992+00:00",
+        "type": "qr.detected",
+        "details": {
+          "value": "escapebot://checkpoint/a9dc930b787a4be6a5344e524d56073b"
+        }
+      },
+      {
+        "at": "2026-08-26T18:58:57.158241+00:00",
+        "type": "puzzle.submit",
+        "details": {
+          "puzzle_id": "bowling_binary"
+        }
+      },
+      {
+        "at": "2026-08-26T18:59:09.691323+00:00",
+        "type": "qr.detected",
+        "details": {
+          "value": "escapebot://checkpoint/9c6fa028b7614a669c9c43def9df1ba8"
+        }
+      },
+      {
+        "at": "2026-08-26T18:59:44.822513+00:00",
+        "type": "qr.detected",
+        "details": {
+          "value": "escapebot://checkpoint/8fd7cd0a5c844702bc384665e864d335"
+        }
+      },
+      {
+        "at": "2026-08-26T18:59:51.331183+00:00",
+        "type": "puzzle.submit",
+        "details": {
+          "puzzle_id": "terrace_morse"
+        }
+      },
+      {
+        "at": "2026-08-26T19:00:03.013110+00:00",
+        "type": "qr.detected",
+        "details": {
+          "value": "escapebot://checkpoint/cb2ee52d5ae74fa6b68f94f59db75d63"
+        }
+      },
+      {
+        "at": "2026-08-26T19:01:00.259034+00:00",
+        "type": "qr.detected",
+        "details": {
+          "value": "escapebot://checkpoint/de724be50829411287a0536095cc9148"
+        }
+      },
+      {
+        "at": "2026-08-26T19:01:16.150875+00:00",
+        "type": "qr.detected",
+        "details": {
+          "value": "escapebot://checkpoint/fbc646e76f0247d69589de21ea645f95"
+        }
+      },
+      {
+        "at": "2026-08-26T19:01:23.918233+00:00",
+        "type": "puzzle.submit",
+        "details": {
+          "puzzle_id": "sports_pigpen"
+        }
+      },
+      {
+        "at": "2026-08-26T19:01:52.529686+00:00",
+        "type": "qr.detected",
+        "details": {
+          "value": "escapebot://checkpoint/4dc33e89b217a3a439dbb96e31c59ea4"
+        }
+      },
+      {
+        "at": "2026-08-26T19:01:57.713888+00:00",
+        "type": "archive.arrange",
+        "details": {
+          "puzzle_id": "future_archive_cipher"
+        }
+      },
+      {
+        "at": "2026-08-26T19:02:00.211933+00:00",
+        "type": "archive.arrange",
+        "details": {
+          "puzzle_id": "future_archive_cipher"
+        }
+      },
+      {
+        "at": "2026-08-26T19:02:02.505432+00:00",
+        "type": "archive.arrange",
+        "details": {
+          "puzzle_id": "future_archive_cipher"
+        }
+      },
+      {
+        "at": "2026-08-26T19:02:05.410638+00:00",
+        "type": "archive.arrange",
+        "details": {
+          "puzzle_id": "future_archive_cipher"
+        }
+      },
+      {
+        "at": "2026-08-26T19:02:08.987594+00:00",
+        "type": "archive.arrange",
+        "details": {
+          "puzzle_id": "future_archive_cipher"
+        }
+      },
+      {
+        "at": "2026-08-26T19:02:11.014299+00:00",
+        "type": "archive.arrange",
+        "details": {
+          "puzzle_id": "future_archive_cipher"
+        }
+      },
+      {
+        "at": "2026-08-26T19:02:13.561173+00:00",
+        "type": "archive.arrange",
+        "details": {
+          "puzzle_id": "future_archive_cipher"
+        }
+      },
+      {
+        "at": "2026-08-26T19:02:15.315950+00:00",
+        "type": "archive.arrange",
+        "details": {
+          "puzzle_id": "future_archive_cipher"
+        }
+      },
+      {
+        "at": "2026-08-26T19:02:18.781186+00:00",
+        "type": "archive.arrange",
+        "details": {
+          "puzzle_id": "future_archive_cipher"
+        }
+      },
+      {
+        "at": "2026-08-26T19:02:20.512789+00:00",
+        "type": "archive.arrange",
+        "details": {
+          "puzzle_id": "future_archive_cipher"
+        }
+      },
+      {
+        "at": "2026-08-26T19:02:27.497217+00:00",
+        "type": "archive.arrange",
+        "details": {
+          "puzzle_id": "future_archive_cipher"
+        }
+      },
+      {
+        "at": "2026-08-26T19:02:30.766287+00:00",
+        "type": "archive.arrange",
+        "details": {
+          "puzzle_id": "future_archive_cipher"
+        }
+      },
+      {
+        "at": "2026-08-26T19:02:32.558331+00:00",
+        "type": "archive.arrange",
+        "details": {
+          "puzzle_id": "future_archive_cipher"
+        }
+      },
+      {
+        "at": "2026-08-26T19:02:34.269785+00:00",
+        "type": "archive.arrange",
+        "details": {
+          "puzzle_id": "future_archive_cipher"
+        }
+      },
+      {
+        "at": "2026-08-26T19:04:02.918925+00:00",
+        "type": "puzzle.submit",
+        "details": {
+          "puzzle_id": "future_archive_cipher"
+        }
+      },
+      {
+        "at": "2026-08-26T19:04:28.433721+00:00",
+        "type": "puzzle.submit",
+        "details": {
+          "puzzle_id": "future_archive_cipher"
+        }
+      },
+      {
+        "at": "2026-08-26T19:05:09.521980+00:00",
+        "type": "qr.detected",
+        "details": {
+          "value": "escapebot://checkpoint/b9ae752e80e5d4d85965e805bbc4b62f"
+        }
+      },
+      {
+        "at": "2026-08-26T19:05:35.985913+00:00",
+        "type": "finale.activate",
+        "details": {}
+      }
+    ],
+    "game_exclusions": {},
+    "game_results": {}
   }
 }

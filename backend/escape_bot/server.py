@@ -77,13 +77,53 @@ runtime_settings = {"online_mode": False, "gameplay_enabled": True, "max_active_
 
 def configured_event() -> dict[str, object] | None:
     event = runtime_settings.get("event")
-    return event if isinstance(event, dict) and str(event.get("id", "")).strip() else None
+    return normalize_event(event) if isinstance(event, dict) and str(event.get("id", "")).strip() else None
+
+def normalize_event(event: dict[str, object]) -> dict[str, object]:
+    """Return the current event schema while accepting legacy scenario_ids."""
+    def number(value: object, default: float = 0.0) -> float:
+        try: return float(value)
+        except (TypeError, ValueError): return default
+    raw_games = event.get("games")
+    if not isinstance(raw_games, list):
+        raw_games = [{"game_id": str(game_id), "role": "primary" if index == 0 else "competitive"}
+                     for index, game_id in enumerate(event.get("scenario_ids", []))]
+    games = []
+    seen = set()
+    for index, raw in enumerate(raw_games):
+        raw = raw if isinstance(raw, dict) else {"game_id": str(raw)}
+        game_id = str(raw.get("game_id", "")).strip()
+        if not game_id or game_id in seen: continue
+        role = str(raw.get("role", "primary" if index == 0 else "competitive"))
+        if role not in {"primary", "competitive", "side"}: role = "competitive"
+        games.append({"game_id": game_id, "role": role,
+                      "queue_enabled": bool(raw.get("queue_enabled", role != "side")),
+                      "leaderboard_enabled": bool(raw.get("leaderboard_enabled", role != "side")),
+                      "weight": max(0.0, number(raw.get("weight", 1.0), 1.0)),
+                      "start_interval_minutes": max(0, int(number(raw.get("start_interval_minutes", 0)))),
+                      "max_active_teams": max(0, int(number(raw.get("max_active_teams", 0))))})
+        seen.add(game_id)
+    primary_id = str(event.get("primary_game_id", ""))
+    if primary_id not in seen and games: primary_id = games[0]["game_id"]
+    for game in games: game["role"] = "primary" if game["game_id"] == primary_id else ("competitive" if game["role"] == "primary" else game["role"])
+    status = str(event.get("status", "open" if str(event.get("id", "")).strip() else "draft"))
+    if status not in {"draft", "ready", "open", "paused", "ended", "archived"}: status = "draft"
+    branding = event.get("branding") if isinstance(event.get("branding"), dict) else {}
+    return {**event, "primary_game_id": primary_id, "games": games, "scenario_ids": [game["game_id"] for game in games],
+            "status": status, "timezone": str(event.get("timezone", runtime_settings.get("timezone", "Europe/Prague"))),
+            "branding": {"title": str(branding.get("title", event.get("name", ""))), "logo_url": str(branding.get("logo_url", "")),
+                         "accent_color": str(branding.get("accent_color", "#65f7ff"))}}
+
+def event_game_config(scenario_id: str) -> dict[str, object] | None:
+    event = configured_event()
+    if event is None: return None
+    return next((game for game in event["games"] if game["game_id"] == scenario_id), None)
 
 def event_allows_scenario(scenario_id: str) -> bool:
     event = configured_event()
     if event is None:
         return True
-    return scenario_id in {str(item) for item in event.get("scenario_ids", [])}
+    return any(game["game_id"] == scenario_id for game in event["games"])
 
 def leaderboard_is_finalized() -> bool:
     event = configured_event()
@@ -122,11 +162,12 @@ def normalize_display_announcement(item: object) -> dict[str, object] | None:
                 "starts_at": str(source.get("starts_at", "")), "ends_at": str(source.get("ends_at", "")),
                 "link_url": str(source.get("link_url", "")), "link_label": str(source.get("link_label", "Více informací")),
                 "override_minutes": override_minutes, "override_until": str(source.get("override_until", "")),
-                "fallback_priority": fallback_priority}
+                "fallback_priority": fallback_priority, "event_id": str(source.get("event_id", "")),
+                "game_id": str(source.get("game_id", ""))}
     text = str(value).strip()
     return {"id": secrets.token_hex(6), "text": text, "priority": priority, "category": "organization",
             "published": True, "starts_at": "", "ends_at": "", "link_url": "", "link_label": "Více informací",
-            "override_minutes": 0.0, "override_until": "", "fallback_priority": "high"} if text else None
+            "override_minutes": 0.0, "override_until": "", "fallback_priority": "high", "event_id": "", "game_id": ""} if text else None
 
 def display_status_payload() -> dict[str, object]:
     updated_at = str(public_display_status.get("updated_at", ""))
@@ -143,10 +184,11 @@ def _local_now() -> datetime:
 def start_availability(now: datetime | None = None, lobby_type: str = "on_site_qr", scenario_id: str = "") -> dict[str, object]:
     current = now or _local_now()
     event = configured_event()
+    game_config = event_game_config(scenario_id) if scenario_id else None
     operating_hours_applied = event is not None or lobby_type != "online_doom"
     duration = max(1, int(runtime_settings.get("game_duration_minutes", 165)))
-    interval = max(0, int(runtime_settings.get("start_interval_minutes", 15)))
-    maximum = max(1, int(runtime_settings.get("max_active_teams", 4)))
+    interval = max(0, int(game_config.get("start_interval_minutes") or runtime_settings.get("start_interval_minutes", 15))) if game_config else max(0, int(runtime_settings.get("start_interval_minutes", 15)))
+    maximum = max(1, int(game_config.get("max_active_teams") or runtime_settings.get("max_active_teams", 4))) if game_config else max(1, int(runtime_settings.get("max_active_teams", 4)))
     def clock(value: object, fallback: str) -> datetime:
         try:
             hour, minute = map(int, str(value).split(":")); return current.replace(hour=hour, minute=minute, second=0, microsecond=0)
@@ -180,6 +222,9 @@ def start_availability(now: datetime | None = None, lobby_type: str = "on_site_q
     reasons = []
     if not runtime_settings.get("gameplay_enabled", True): reasons.append("Herní provoz je zastaven správcem.")
     if event:
+        if event.get("status") in {"draft", "ready"}: reasons.append("Event ještě není otevřený.")
+        if event.get("status") == "paused": reasons.append("Event je dočasně pozastavený.")
+        if event.get("status") in {"ended", "archived"}: reasons.append("Event už byl ukončen.")
         try:
             event_start = datetime.fromisoformat(str(event.get("starts_at", ""))).astimezone(current.tzinfo)
             event_end = datetime.fromisoformat(str(event.get("ends_at", ""))).astimezone(current.tzinfo)
@@ -209,9 +254,15 @@ def runtime_payload() -> dict[str, object]:
         if not event_allows_scenario(entry.id):
             continue
         item = entry.public()
+        config = event_game_config(entry.id)
+        item["event_role"] = str(config.get("role", "competitive")) if config else "competitive"
+        item["queue_enabled"] = bool(config.get("queue_enabled", True)) if config else True
+        item["leaderboard_enabled"] = bool(config.get("leaderboard_enabled", True)) if config else True
         item["lobby_types"] = [kind for kind in ("online_doom", "on_site_qr", "geo") if scenario_supports_lobby(entry, kind)]
         games.append(item)
-    return {**runtime_settings, "start_queue": public_start_queue(),
+    event = configured_event()
+    games.sort(key=lambda item: (0 if item.get("event_role") == "primary" else 1 if item.get("event_role") == "competitive" else 2, str(item.get("title", ""))))
+    return {**runtime_settings, "event": event or runtime_settings.get("event", {}), "start_queue": public_start_queue(),
             "leaderboard_finalized": leaderboard_is_finalized(),
             "mapillary": {"enabled": bool(os.getenv("ESCAPEBOT_MAPILLARY_TOKEN", "")),
                            "access_token": os.getenv("ESCAPEBOT_MAPILLARY_TOKEN", "")},
@@ -225,19 +276,26 @@ def runtime_payload() -> dict[str, object]:
 
 def public_start_queue() -> list[dict[str, object]]:
     """Project waiting on-site team lobbies into the public display queue."""
-    waiting = [lobby for lobby in lobby_registry.by_session.values()
-               if lobby.mode == "team" and not lobby.started and lobby.lobby_type in {"on_site_qr", "geo"}]
-    waiting.sort(key=lambda lobby: min((str(player.get("joined_at", "")) for player in lobby.players.values()), default=lobby.session_id))
-    availability = start_availability(lobby_type="on_site_qr")
-    base_text = availability.get("next_start_at")
-    try: planned = datetime.fromisoformat(str(base_text)) if base_text else _local_now()
-    except ValueError: planned = _local_now()
-    interval = timedelta(minutes=max(0, int(runtime_settings.get("start_interval_minutes", 15))))
+    def queued(lobby: Lobby) -> str: return min((str(player.get("joined_at", "")) for player in lobby.players.values()), default=lobby.session_id)
+    waiting = [lobby for lobby in lobby_registry.by_session.values() if lobby.mode == "team" and not lobby.started
+               and lobby.lobby_type in {"on_site_qr", "geo"}
+               and (event_game_config(lobby.scenario_id) is None or bool(event_game_config(lobby.scenario_id).get("queue_enabled")))]
+    event = configured_event(); primary = str(event.get("primary_game_id", "")) if event else ""
+    waiting.sort(key=lambda lobby: (0 if lobby.scenario_id == primary else 1, lobby.scenario_id, queued(lobby)))
+    game_positions: dict[str, int] = {}
     result = []
-    for index, lobby in enumerate(waiting):
-        queued_at = min((str(player.get("joined_at", "")) for player in lobby.players.values()), default="")
-        result.append({"session_id": lobby.session_id, "team_name": lobby.team_name, "position": index + 1,
-                       "planned_start_at": (planned + interval * index).isoformat(), "queued_at": queued_at})
+    for lobby in waiting:
+        config = event_game_config(lobby.scenario_id) or {}
+        position = game_positions.get(lobby.scenario_id, 0) + 1; game_positions[lobby.scenario_id] = position
+        availability = start_availability(lobby_type=lobby.lobby_type, scenario_id=lobby.scenario_id)
+        try: planned = datetime.fromisoformat(str(availability.get("next_start_at")))
+        except ValueError: planned = _local_now()
+        interval = timedelta(minutes=max(0, int(config.get("start_interval_minutes") or runtime_settings.get("start_interval_minutes", 15))))
+        scenario_entry = scenario_catalog.entries.get(lobby.scenario_id)
+        result.append({"session_id": lobby.session_id, "team_name": lobby.team_name, "position": position,
+                       "planned_start_at": (planned + interval * (position - 1)).isoformat(), "queued_at": queued(lobby),
+                       "scenario_id": lobby.scenario_id, "game_title": scenario_entry.title if scenario_entry else lobby.scenario_id,
+                       "event_role": str(config.get("role", "competitive"))})
     return result
 
 def require_start_available(lobby_type: str = "on_site_qr", scenario_id: str = "") -> None:
@@ -421,14 +479,18 @@ def result_duration_seconds(machine: EscapeBotStateMachine, completed_at: str) -
     except ValueError:
         return None
 
-def leaderboard_identity(lobby: Lobby) -> dict[str, str]:
+def leaderboard_identity(lobby: Lobby) -> dict[str, object]:
     event = configured_event()
+    game_config = event_game_config(lobby.scenario_id) or {}
     scenario_entry = scenario_catalog.entries.get(lobby.scenario_id)
     return {
         "scenario_id": lobby.scenario_id,
         "game_title": scenario_entry.title if scenario_entry else lobby.scenario_id,
         "event_id": str(event.get("id", "")) if event else "",
         "event_name": str(event.get("name", "")) if event else "",
+        "competition_role": str(game_config.get("role", "competitive")),
+        "leaderboard_enabled": bool(game_config.get("leaderboard_enabled", True)),
+        "competition_weight": float(game_config.get("weight", 1.0)),
     }
 
 def save_leaderboard():
@@ -981,20 +1043,34 @@ async def websocket_endpoint(websocket: WebSocket):
                         if msg.type == "admin.event_settings":
                             event_id = str(msg.payload.get("id", "")).strip()
                             if not event_id:
-                                runtime_settings["event"] = {"id": "", "name": "", "starts_at": "", "ends_at": "", "scenario_ids": [], "leaderboard_finalized": False, "leaderboard_finalized_at": ""}
+                                runtime_settings["event"] = {"id": "", "name": "", "starts_at": "", "ends_at": "", "status": "draft", "primary_game_id": "", "games": [], "scenario_ids": [], "leaderboard_finalized": False, "leaderboard_finalized_at": ""}
                             else:
                                 starts_at = datetime.fromisoformat(str(msg.payload.get("starts_at", "")))
                                 ends_at = datetime.fromisoformat(str(msg.payload.get("ends_at", "")))
                                 if starts_at.tzinfo is None or ends_at.tzinfo is None: raise ValueError("Časy eventu musí obsahovat časovou zónu.")
                                 if starts_at >= ends_at: raise ValueError("Konec eventu musí následovat po jeho začátku.")
-                                scenario_ids = list(dict.fromkeys(str(item) for item in msg.payload.get("scenario_ids", [])))
+                                raw_games = msg.payload.get("games", [])
+                                if not isinstance(raw_games, list): raise ValueError("Konfigurace her eventu musí být seznam.")
+                                games = normalize_event({"games": raw_games, "primary_game_id": msg.payload.get("primary_game_id", "")})["games"]
+                                scenario_ids = [str(item["game_id"]) for item in games]
                                 unknown = [item for item in scenario_ids if item not in scenario_catalog.entries]
                                 if not scenario_ids: raise ValueError("Event musí obsahovat alespoň jednu hru.")
                                 if unknown: raise ValueError("Event odkazuje na neznámé hry: " + ", ".join(unknown))
+                                primary_ids = [item["game_id"] for item in games if item["role"] == "primary"]
+                                if len(primary_ids) != 1: raise ValueError("Event musí mít právě jednu hlavní hru.")
+                                status = str(msg.payload.get("status", "draft"))
+                                if status not in {"draft", "ready", "open", "paused", "ended", "archived"}: raise ValueError("Neznámý stav eventu.")
+                                event_timezone = str(msg.payload.get("timezone", runtime_settings.get("timezone", "Europe/Prague")))
+                                ZoneInfo(event_timezone)
                                 previous = configured_event()
                                 same_event = previous is not None and str(previous.get("id")) == event_id
                                 runtime_settings["event"] = {"id": event_id, "name": str(msg.payload.get("name", "")).strip() or event_id,
                                     "starts_at": starts_at.isoformat(), "ends_at": ends_at.isoformat(), "scenario_ids": scenario_ids,
+                                    "status": status, "timezone": event_timezone,
+                                    "primary_game_id": primary_ids[0], "games": games,
+                                    "branding": {"title": str(msg.payload.get("branding_title", "")).strip(),
+                                                 "logo_url": str(msg.payload.get("branding_logo_url", "")).strip(),
+                                                 "accent_color": str(msg.payload.get("branding_accent_color", "#65f7ff")).strip()},
                                     "leaderboard_finalized": bool(previous.get("leaderboard_finalized", False)) if same_event else False,
                                     "leaderboard_finalized_at": str(previous.get("leaderboard_finalized_at", "")) if same_event else ""}
                             save_runtime_settings()
@@ -1014,6 +1090,10 @@ async def websocket_endpoint(websocket: WebSocket):
                                     if item[key]: datetime.fromisoformat(item[key])
                                 if item["override_until"]: datetime.fromisoformat(item["override_until"])
                                 if len(item["link_url"]) > 500 or len(item["link_label"]) > 80: raise ValueError("Odkaz oznámení je příliš dlouhý.")
+                                event = configured_event()
+                                if item["game_id"] and not item["event_id"]: raise ValueError("Oznámení hry musí patřit eventu.")
+                                if item["event_id"] and (event is None or item["event_id"] != event["id"]): raise ValueError("Oznámení odkazuje na jiný než aktivní event.")
+                                if item["game_id"] and item["game_id"] not in event["scenario_ids"]: raise ValueError("Oznámení odkazuje na hru mimo aktivní event.")
                                 if item["priority"] == "emergency" and item["override_minutes"] and not item["override_until"]:
                                     item["override_until"] = (datetime.now(UTC) + timedelta(minutes=float(item["override_minutes"]))).isoformat()
                                 if item["priority"] != "emergency": item["override_until"] = ""

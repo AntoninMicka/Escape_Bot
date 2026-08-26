@@ -41,6 +41,36 @@ class PublicDisplayTests(unittest.TestCase):
         self.assertIn("/display", paths)
         self.assertIn("/api/qr", paths)
 
+    def test_legacy_event_gets_one_primary_game(self) -> None:
+        event = server.normalize_event({"id": "demo", "scenario_ids": ["main", "second"]})
+        self.assertEqual(event["primary_game_id"], "main")
+        self.assertEqual([game["role"] for game in event["games"]], ["primary", "competitive"])
+        self.assertEqual(event["status"], "open")
+
+    def test_side_game_is_not_added_to_public_queue(self) -> None:
+        original_registry = server.lobby_registry
+        original_settings = dict(server.runtime_settings)
+        try:
+            server.lobby_registry = LobbyRegistry()
+            server.runtime_settings["event"] = {
+                "id": "demo", "status": "open", "primary_game_id": "main",
+                "games": [
+                    {"game_id": "main", "role": "primary", "queue_enabled": True},
+                    {"game_id": "bonus", "role": "side", "queue_enabled": False},
+                ],
+            }
+            main = server.lobby_registry.create("one", "team", "Ada", "Hlavní", scenario_id="main")
+            server.lobby_registry.create("two", "team", "Boris", "Bonus", scenario_id="bonus")
+
+            queue = server.public_start_queue()
+
+            self.assertEqual([item["session_id"] for item in queue], [main.session_id])
+            self.assertEqual(queue[0]["event_role"], "primary")
+        finally:
+            server.lobby_registry = original_registry
+            server.runtime_settings.clear()
+            server.runtime_settings.update(original_settings)
+
 
 if __name__ == "__main__":
     unittest.main()

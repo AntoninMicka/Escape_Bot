@@ -1,6 +1,6 @@
 [
   {
-    "session_id": "548416b884c74108a16e3198b3c526b5",
+    "session_id": "ece8f78f40a84897b7d3487ff7fd02c3",
     "mode": "solo",
     "creator_id": "46c4b312-8a98-4aea-abca-527300ba58e5",
     "team_name": "Pokus4",
@@ -10,11 +10,11 @@
       "46c4b312-8a98-4aea-abca-527300ba58e5": {
         "id": "46c4b312-8a98-4aea-abca-527300ba58e5",
         "name": "PC",
-        "joined_at": "2026-08-25T21:50:31.444975+00:00"
+        "joined_at": "2026-08-26T18:54:28.204995+00:00"
       }
     },
     "max_players": 1,
-    "applied_score_adjustment": 0,
+    "applied_score_adjustment": 20,
     "lobby_type": "online_doom",
     "scenario_id": "chronos_online"
   }
