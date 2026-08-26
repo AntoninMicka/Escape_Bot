@@ -55,6 +55,7 @@ recovery_tokens: dict[str, dict[str, object]] = {}
 admin_support_sessions: dict[WebSocket, set[str]] = {}
 admin_spectator_sessions: dict[WebSocket, str] = {}
 authenticated_admin_sockets: set[WebSocket] = set()
+public_display_status: dict[str, object] = {}
 ADMIN_RESOLUTION_PRESETS = {
     "technical": {"label": "Technická chyba / uznat bez postihu", "penalty": 0},
     "minor_help": {"label": "Drobná pomoc Game Mastera", "penalty": 20},
@@ -72,14 +73,14 @@ runtime_settings = {"online_mode": False, "gameplay_enabled": True, "max_active_
                     "display_announcements": [],
                     "leaderboard_finalized": False, "leaderboard_finalized_at": ""}
 
-def normalize_display_announcement(item: object) -> dict[str, str] | None:
+def normalize_display_announcement(item: object) -> dict[str, object] | None:
     """Unwrap current, JSON-stringified, and legacy Python-repr announcements."""
     priority = "normal"
     value = item
     for _ in range(8):
         if isinstance(value, dict):
             candidate = str(value.get("priority", priority))
-            if candidate in {"high", "normal", "low"}: priority = candidate
+            if candidate in {"emergency", "high", "normal", "low"}: priority = candidate
             value = value.get("text", "")
             continue
         text = str(value).strip()
@@ -92,9 +93,25 @@ def normalize_display_announcement(item: object) -> dict[str, str] | None:
             if isinstance(parsed, dict):
                 value = parsed
                 continue
-        return {"text": text, "priority": priority} if text else None
+        if not text: return None
+        source = item if isinstance(item, dict) else {}
+        category = str(source.get("category", "organization"))
+        if category not in {"organization", "lost_found", "refreshment", "results", "important"}: category = "organization"
+        return {"id": str(source.get("id", "")) or secrets.token_hex(6), "text": text, "priority": priority,
+                "category": category, "published": bool(source.get("published", True)),
+                "starts_at": str(source.get("starts_at", "")), "ends_at": str(source.get("ends_at", "")),
+                "link_url": str(source.get("link_url", "")), "link_label": str(source.get("link_label", "Více informací"))}
     text = str(value).strip()
-    return {"text": text, "priority": priority} if text else None
+    return {"id": secrets.token_hex(6), "text": text, "priority": priority, "category": "organization",
+            "published": True, "starts_at": "", "ends_at": "", "link_url": "", "link_label": "Více informací"} if text else None
+
+def display_status_payload() -> dict[str, object]:
+    updated_at = str(public_display_status.get("updated_at", ""))
+    online = False
+    if updated_at:
+        try: online = (datetime.now(UTC) - datetime.fromisoformat(updated_at)).total_seconds() < 15
+        except ValueError: pass
+    return {**public_display_status, "online": online}
 
 def _local_now() -> datetime:
     try: return datetime.now(ZoneInfo(str(runtime_settings.get("timezone", "Europe/Prague"))))
@@ -768,6 +785,7 @@ async def send_admin_overview(websocket: WebSocket) -> None:
         "leaderboard": leaderboard_entries(),
         "abandonment_thresholds": {"suspicious_seconds": 1800, "abandoned_seconds": 3600},
         "resolution_presets": ADMIN_RESOLUTION_PRESETS,
+        "display_status": display_status_payload(),
     }))
 
 
@@ -1013,6 +1031,10 @@ async def websocket_endpoint(websocket: WebSocket):
                             announcements = [result for item in raw_announcements if (result := normalize_display_announcement(item))]
                             if len(announcements) > 20 or any(len(item["text"]) > 500 for item in announcements):
                                 raise ValueError("Lze uložit nejvýše 20 oznámení, každé do 500 znaků.")
+                            for item in announcements:
+                                for key in ("starts_at", "ends_at"):
+                                    if item[key]: datetime.fromisoformat(item[key])
+                                if len(item["link_url"]) > 500 or len(item["link_label"]) > 80: raise ValueError("Odkaz oznámení je příliš dlouhý.")
                             runtime_settings["display_announcements"] = announcements
                             save_runtime_settings()
                             update = Message("runtime.settings", runtime_payload())
@@ -1524,6 +1546,12 @@ async def websocket_endpoint(websocket: WebSocket):
                 # Zpracování požadavků na Síň slávy (mimo state machine)
                 if msg.type == "leaderboard.get":
                     await websocket.send_text(json.dumps(Message("leaderboard.update", {"entries": leaderboard_entries()}).to_json()))
+                    continue
+                if msg.type == "display.heartbeat":
+                    public_display_status.update({"updated_at": datetime.now(UTC).isoformat(),
+                        "mode": str(msg.payload.get("mode", "auto"))[:40], "screen": str(msg.payload.get("screen", ""))[:80],
+                        "fullscreen": bool(msg.payload.get("fullscreen")), "wake_lock": bool(msg.payload.get("wake_lock")),
+                        "user_agent": str(msg.payload.get("user_agent", ""))[:200]})
                     continue
                     
                 if msg.type == "leaderboard.save":
