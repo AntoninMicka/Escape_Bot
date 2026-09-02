@@ -1,6 +1,27 @@
 {
   "id": "kraskov_time_rescue",
   "title": "Ztracená v čase: Hotel Kraskov",
+  "onboarding": {
+    "intro": {
+      "eyebrow": "PŘÍCHOZÍ NOUZOVÁ VIDEOZPRÁVA",
+      "sender": "OPERAČNÍ STŘEDISKO · HOTEL KRASKOV",
+      "title": "Incident CHRONOS",
+      "lines": [
+        "Byli jste přivoláni do Hotelu Kraskov kvůli nehodě v uzavřeném výzkumném prostoru.",
+        "Během experimentu selhal prototyp stroje času. Vedoucí projektu, doktorka Elara, zmizela a části zařízení byly rozmetány po areálu.",
+        "Nouzový interkom stále zachytává slabý signál. Zjistěte, co se stalo, obnovte časové kotvy a zachraňte, co se dá."
+      ],
+      "cta": "PŘIJMOUT MISI"
+    },
+    "tutorial": [
+      {"target": "intercom-tab-button", "icon": "▣", "title": "Interkom", "text": "Tady probíhá komunikace. Přepínejte kanály vlevo, napište odpověď do spodního pole a odešlete ji. První úkol už čeká ve zprávách."},
+      {"target": "chronomap-tab-button", "icon": "⌖", "title": "Chronomapa", "text": "Mapa ukazuje postup mise, dostupná místa a nalezené stopy. Nové části se odemykají postupně."},
+      {"target": "scanner-tab-button", "icon": "▦", "title": "Skener kotev", "text": "Na stanovištích hledejte QR kódy. Otevřete Skener, namiřte kameru na kód a vyčkejte na potvrzení terminálu."},
+      {"target": "cipher-toggle", "icon": "⌘", "title": "Pomůcky a nápověda", "text": "Šifrovací pomůcky otevřete plovoucím tlačítkem. Nápovědy jsou dostupné u úkolů, ale mohou odečíst body."},
+      {"target": "intercom-tab-button", "icon": "▶", "title": "Jste připraveni", "text": "Spolupracujte, čtěte zadání pozorně a sledujte nové zprávy. Teď potvrďte příjem Kapitánce v Interkomu."}
+    ],
+    "finish_cta": "OTEVŘÍT INTERKOM"
+  },
   "knowledge_base": "Děj se odehrává v Hotelu Kraskov. Doktorka Elara při havárii prototypu stroje času uvízla v budoucí časové vrstvě stejného hotelu; není v jiné budově, dimenzi ani kopii světa. Hráči z přítomnosti s ní komunikují přes poškozený interkom, který přenáší pouze zvuk a data, nikoli osoby nebo předměty. Časové kotvy vytvářejí krátká stabilní spojení mezi shodnými místy obou časů. Havárie vytrhla do přítomnosti tři součásti stroje: Temporální motor, Fázový stabilizátor a Krystal časové kotvy. Aktivované kotvy a všechny tři díly jsou nutné k jedinému bezpečnému návratu Elary. Již stabilizované události se nepřepisují, nevznikají duplikáty osob a Elara nemůže měnit minulost hráčů. Chronomapa zaznamenává stabilní body a navádí tým v jeho přítomnosti.",
   "time_travel_rules": [
     "Existuje jedna historie a několik dočasně rozladěných časových vrstev téhož místa; nejde o paralelní dimenze.",

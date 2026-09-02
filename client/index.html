@@ -25,6 +25,30 @@
         }
         .lobby-overlay { position: fixed; inset: 0; z-index: 2200; display: flex; align-items: center; justify-content: center; padding: 18px; background: rgba(0, 0, 0, .96); }
         .lobby-overlay.hidden { display: none; }
+        .onboarding-overlay { position: fixed; inset: 0; z-index: 2300; display: none; place-items: center; padding: 18px; overflow-y: auto; background: radial-gradient(circle at 50% 35%, rgba(0,55,61,.96), rgba(0,0,0,.99) 68%); }
+        .onboarding-overlay.active { display: grid; }
+        .onboarding-card { position: relative; width: min(760px, 100%); min-height: min(520px, calc(100dvh - 36px)); overflow: hidden; border: 2px solid #0ff; background: #001012; box-shadow: 0 0 42px rgba(0,255,255,.28), inset 0 0 60px rgba(0,30,34,.8); }
+        .onboarding-card::after { content: ''; pointer-events: none; position: absolute; inset: 0; background: repeating-linear-gradient(0deg, transparent 0 3px, rgba(0,255,255,.035) 3px 4px); }
+        .video-message { position: relative; z-index: 1; display: grid; grid-template-rows: auto 1fr auto; min-height: inherit; padding: clamp(20px, 5vw, 46px); }
+        .video-message-header { display: flex; justify-content: space-between; gap: 18px; color: #65f7ff; font-size: .78rem; letter-spacing: .14em; }
+        .video-message-status { color: #ff5d5d; animation: onboarding-record 1.1s steps(2) infinite; }
+        @keyframes onboarding-record { 50% { opacity: .35; } }
+        .video-message-body { align-self: center; }
+        .video-message h1 { margin: 10px 0 22px; color: #fff; font-size: clamp(1.8rem, 6vw, 3.5rem); text-shadow: 0 0 18px #0aa; }
+        .video-message-line { margin: 0 0 14px; color: #cff; font-size: clamp(1rem, 2.7vw, 1.25rem); line-height: 1.55; opacity: 0; transform: translateY(8px); animation: onboarding-line .5s ease forwards; }
+        @keyframes onboarding-line { to { opacity: 1; transform: none; } }
+        .onboarding-actions { position: relative; z-index: 2; display: flex; justify-content: flex-end; gap: 10px; margin-top: 22px; }
+        .onboarding-skip { color: #7aa; border: 1px solid #355; background: transparent; }
+        .tutorial-view { position: relative; z-index: 1; display: grid; grid-template-rows: auto 1fr auto; min-height: inherit; padding: clamp(20px, 5vw, 44px); }
+        .tutorial-progress { display: flex; gap: 7px; }
+        .tutorial-progress span { flex: 1; height: 4px; background: #164348; }
+        .tutorial-progress span.complete { background: #0ff; box-shadow: 0 0 8px #0ff; }
+        .tutorial-content { align-self: center; text-align: center; }
+        .tutorial-icon { display: grid; place-items: center; width: 92px; height: 92px; margin: 0 auto 24px; border: 2px solid #0ff; border-radius: 50%; color: #0ff; font-size: 3rem; box-shadow: 0 0 24px rgba(0,255,255,.25); }
+        .tutorial-content h2 { color: #fff; font-size: clamp(1.55rem, 5vw, 2.5rem); }
+        .tutorial-content p { max-width: 590px; margin: 0 auto; color: #cff; font-size: clamp(1rem, 2.5vw, 1.2rem); line-height: 1.6; }
+        .tutorial-counter { margin-top: 18px; color: #0aa; }
+        .tutorial-highlight { position: relative; z-index: 2301 !important; pointer-events: none; box-shadow: 0 0 0 4px #ffcf5a, 0 0 28px #ffb000 !important; }
         .lobby-modes button:disabled { opacity:.34; filter:grayscale(1); cursor:not-allowed; border-style:dashed; box-shadow:none; }
         .lobby-modes button:disabled small::after { content:' · NEDOSTUPNÉ'; color:#ff7777; font-weight:bold; }
         .start-lights { display:flex; justify-content:center; gap:8px; margin:12px 0; }
@@ -712,6 +736,7 @@
             </div>
         </div>
     </section>
+    <section id="onboarding-overlay" class="onboarding-overlay" aria-modal="true" role="dialog" aria-label="Úvod do mise"></section>
     <div id="hud-notifications"></div>
 
     <div class="tabs">
@@ -720,9 +745,9 @@
         <span id="device-role" class="device-role"><small>ZAŘÍZENÍ:</small><button id="role-observer" onclick="setDeviceRole('observer')">MAPA</button><button id="role-navigator" onclick="setDeviceRole('navigator')">INTERKOM</button><button id="role-free" onclick="setDeviceRole('free')">VOLNĚ</button></span>
         <button id="chronomap-tab-button" class="tab-button" onclick="openTab('tab-map', this)" disabled>CHRONOMAPA [OFFLINE]</button>
         <button id="puzzles-tab-button" class="tab-button" onclick="openTab('tab-puzzles', this)" disabled>HÁDANKY [0]</button>
-        <button class="tab-button" onclick="openTab('tab-scanner', this)">SKENER (Kamera)</button>
+        <button id="scanner-tab-button" class="tab-button" onclick="openTab('tab-scanner', this)">SKENER (Kamera)</button>
         <button class="tab-button" onclick="openTab('tab-leaderboard', this)">SÍŇ SLÁVY</button>
-        <button class="utility-button" onclick="toggleCipherPanel()">ŠIFROVACÍ POMŮCKY</button>
+        <button id="cipher-toggle" class="utility-button" onclick="toggleCipherPanel()">ŠIFROVACÍ POMŮCKY</button>
         <span class="sound-controls"><button id="sound-toggle" onclick="toggleSound()" aria-label="Vypnout zvuk">🔊</button><label>FX<input id="sound-volume" type="range" min="0" max="100" value="55" oninput="setSoundVolume(this.value)" aria-label="Hlasitost efektů"></label><label>HLAS<input id="voice-volume" type="range" min="0" max="100" value="80" oninput="setVoiceVolume(this.value)" aria-label="Hlasitost hlasových zpráv"></label></span>
     </div>
 
@@ -1455,6 +1480,9 @@
         }
         let sessionId = '';
         let currentLobby = null;
+        let onboardingContent = {};
+        let onboardingStep = -1;
+        let onboardingWasRequested = false;
         let reverseQrStream = null;
         let reverseQrScanning = false;
         let joinTeamStream = null;
@@ -2239,9 +2267,48 @@
             pendingLobbyRequest=null;clearTimeout(pendingLobbyTimer);pendingLobbyTimer=null;
         }
 
-        function chooseSoloMode() { sendLobby('lobby.solo'); }
+        function chooseSoloMode() { onboardingWasRequested = true; sendLobby('lobby.solo'); }
         function createTeamMode() { sendLobby('lobby.create'); }
-        function startTeamGame() { sendLobby('lobby.start'); }
+        function startTeamGame() { onboardingWasRequested = true; sendLobby('lobby.start'); }
+
+        function clearTutorialHighlight() {
+            document.querySelectorAll('.tutorial-highlight').forEach(element => element.classList.remove('tutorial-highlight'));
+        }
+
+        function beginOnboarding() {
+            const intro = onboardingContent.intro || {};
+            if (!Array.isArray(intro.lines) || !intro.lines.length) return;
+            onboardingStep = -1;
+            clearTutorialHighlight();
+            const overlay = document.getElementById('onboarding-overlay');
+            overlay.innerHTML = `<div class="onboarding-card"><div class="video-message"><div class="video-message-header"><span>${escapeHtml(intro.eyebrow || 'PŘÍCHOZÍ ZPRÁVA')}</span><span class="video-message-status">● REC</span></div><div class="video-message-body"><small>${escapeHtml(intro.sender || '')}</small><h1>${escapeHtml(intro.title || 'Nouzové hlášení')}</h1>${intro.lines.map((line, index) => `<p class="video-message-line" style="animation-delay:${index * .55}s">${escapeHtml(line)}</p>`).join('')}</div><div class="onboarding-actions"><button class="onboarding-skip" onclick="showTutorialStep(0)">PŘESKOČIT VIDEOZPRÁVU</button><button onclick="showTutorialStep(0)">${escapeHtml(intro.cta || 'POKRAČOVAT')}</button></div></div></div>`;
+            overlay.classList.add('active');
+            document.body.setAttribute('aria-busy', 'true');
+            playSound('captain');
+        }
+
+        function showTutorialStep(index) {
+            const steps = Array.isArray(onboardingContent.tutorial) ? onboardingContent.tutorial : [];
+            if (!steps.length || index >= steps.length) { finishOnboarding(); return; }
+            onboardingStep = Math.max(0, index);
+            clearTutorialHighlight();
+            const step = steps[onboardingStep];
+            const target = document.getElementById(step.target || '');
+            if (target) target.classList.add('tutorial-highlight');
+            const overlay = document.getElementById('onboarding-overlay');
+            overlay.innerHTML = `<div class="onboarding-card"><div class="tutorial-view"><div class="tutorial-progress" aria-label="Krok ${onboardingStep + 1} z ${steps.length}">${steps.map((_, i) => `<span class="${i <= onboardingStep ? 'complete' : ''}"></span>`).join('')}</div><div class="tutorial-content"><div class="tutorial-icon" aria-hidden="true">${escapeHtml(step.icon || '?')}</div><h2>${escapeHtml(step.title || '')}</h2><p>${escapeHtml(step.text || '')}</p><div class="tutorial-counter">KROK ${onboardingStep + 1} / ${steps.length}</div></div><div class="onboarding-actions"><button class="onboarding-skip" onclick="finishOnboarding()">PŘESKOČIT</button>${onboardingStep ? `<button onclick="showTutorialStep(${onboardingStep - 1})">ZPĚT</button>` : ''}<button onclick="showTutorialStep(${onboardingStep + 1})">${onboardingStep === steps.length - 1 ? escapeHtml(onboardingContent.finish_cta || 'ZAČÍT') : 'DALŠÍ'}</button></div></div></div>`;
+        }
+
+        function finishOnboarding() {
+            clearTutorialHighlight();
+            document.getElementById('onboarding-overlay').classList.remove('active');
+            document.getElementById('onboarding-overlay').innerHTML = '';
+            document.body.removeAttribute('aria-busy');
+            onboardingStep = -1;
+            openTab('tab-intercom', document.getElementById('intercom-tab-button'));
+            const input = document.getElementById('msgInput');
+            if (input) input.focus();
+        }
         function showPlayerIdentity() {
             if (!requireLobbyName('lobby-player-name', 'Před zobrazením QR zadejte jméno hráče.')) return;
             document.getElementById('lobby-modes').style.display = 'none';
@@ -2322,6 +2389,7 @@
         function renderLobby(payload) {
             clearPendingLobbyRequest();
             clearTimeout(lobbySyncTimer);
+            const gameJustStarted = payload.started && ((currentLobby && !currentLobby.started) || onboardingWasRequested);
             currentLobby = payload;
             stopJoinTeamScanner();
             sessionId = payload.session_id;
@@ -2341,6 +2409,10 @@
             if (payload.started) {
                 stopReversePlayerScanner();
                 document.getElementById('lobby-overlay').classList.add('hidden');
+                if (gameJustStarted && !adminModeRequested) {
+                    onboardingWasRequested = false;
+                    setTimeout(beginOnboarding, 120);
+                }
                 return;
             }
             document.getElementById('lobby-overlay').classList.remove('hidden');
@@ -2664,6 +2736,7 @@
                     leaderboardFinalized = Boolean(msg.payload.leaderboard_finalized);
                     runtimeAvailability = msg.payload.availability || null;
                     runtimeCheckpoints = msg.payload.checkpoints || [];
+                    onboardingContent = msg.payload.onboarding || onboardingContent;
                     const toggle = document.getElementById('admin-online-toggle');
                     if (toggle) toggle.textContent = `ONLINE REŽIM: ${onlineModeEnabled ? 'ZAPNUT' : 'VYPNUT'}`;
                     const operations = document.getElementById('admin-operations-toggle');
@@ -2734,6 +2807,7 @@
                 }
                 else if (msg.type === 'lobby.error') {
                     clearPendingLobbyRequest();
+                    onboardingWasRequested = false;
                     localStorage.removeItem('escapeBotLobby');
                     savedLobby = null;
                     stopJoinTeamScanner();

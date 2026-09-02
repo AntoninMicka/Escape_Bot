@@ -180,7 +180,8 @@ def start_availability(now: datetime | None = None) -> dict[str, object]:
 
 def runtime_payload() -> dict[str, object]:
     return {**runtime_settings, "start_queue": queue_payload(), "availability": start_availability(),
-            "checkpoints": build_demo_checkpoint_catalog(scenario)}
+            "checkpoints": build_demo_checkpoint_catalog(scenario),
+            "onboarding": scenario.data.get("onboarding", {})}
 
 def clean_start_queue() -> list[dict[str, str]]:
     queue = runtime_settings.setdefault("start_queue", [])
