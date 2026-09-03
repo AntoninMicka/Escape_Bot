@@ -2709,13 +2709,76 @@
     "game_exclusions": {},
     "game_results": {}
   },
-  "d4612a4686804cb8b583ccbc23bf57eb": {
-    "phase": "navigating",
-    "unlocked_discoveries": [],
-    "inventory": [],
+  "04a178b814144fd387cc8d6719c4b83a": {
+    "phase": "searching_lost",
+    "unlocked_discoveries": [
+      "bowling_diagnostics",
+      "courtyard_minefield",
+      "reception_archive",
+      "staircase_signal",
+      "timeline_calibration"
+    ],
+    "inventory": [
+      "TEMPORÁLNÍ MOTOR"
+    ],
     "flags": {
-      "operations_started_at": "2026-09-03T15:30:23.330185+00:00",
-      "chronomap_unlocked": true
+      "operations_started_at": "2026-09-03T15:40:46.677110+00:00",
+      "queue_auto_start": true,
+      "reception_archive_unlocked": true,
+      "admin_actions": [
+        {
+          "action": "checkpoint",
+          "label": "Checkpoint reception_archive: solved · Technická chyba / uznat bez postihu",
+          "at": "2026-09-03T15:41:40.480828+00:00",
+          "checkpoint_id": "reception_archive",
+          "previous_status": "locked",
+          "status": "solved"
+        },
+        {
+          "action": "checkpoint",
+          "label": "Checkpoint staircase_signal: solved · Technická chyba / uznat bez postihu",
+          "at": "2026-09-03T15:41:43.045336+00:00",
+          "checkpoint_id": "staircase_signal",
+          "previous_status": "locked",
+          "status": "solved"
+        },
+        {
+          "action": "checkpoint",
+          "label": "Checkpoint courtyard_minefield: found · Technická chyba / uznat bez postihu",
+          "at": "2026-09-03T15:41:53.312155+00:00",
+          "checkpoint_id": "courtyard_minefield",
+          "previous_status": "locked",
+          "status": "found"
+        },
+        {
+          "action": "checkpoint",
+          "label": "Checkpoint courtyard_minefield: solved · Technická chyba / uznat bez postihu",
+          "at": "2026-09-03T15:42:18.286287+00:00",
+          "checkpoint_id": "courtyard_minefield",
+          "previous_status": "found",
+          "status": "solved"
+        },
+        {
+          "action": "checkpoint",
+          "label": "Checkpoint bowling_diagnostics: solved · Technická chyba / uznat bez postihu",
+          "at": "2026-09-03T15:42:23.857230+00:00",
+          "checkpoint_id": "bowling_diagnostics",
+          "previous_status": "locked",
+          "status": "solved"
+        },
+        {
+          "action": "checkpoint",
+          "label": "Checkpoint timeline_calibration: found · Technická chyba / uznat bez postihu",
+          "at": "2026-09-03T15:42:39.909801+00:00",
+          "checkpoint_id": "timeline_calibration",
+          "previous_status": "locked",
+          "status": "found"
+        }
+      ],
+      "bowling_route_unlocked": true,
+      "courtyard_route_stable": true,
+      "temporal_motor_recovered": true,
+      "room_104_unlocked": true
     },
     "chat_history": [
       {
@@ -2728,7 +2791,7 @@
       {
         "role": "player",
         "channel": "captain",
-        "text": "ok"
+        "text": "Ok"
       },
       {
         "role": "bot",
@@ -2736,58 +2799,386 @@
         "text": "Výborně, spojení funguje. Při experimentu v Hotelu Kraskov zmizela doktorka Elara. Z poškozeného chronálního vysílače zůstal jediný nouzový záznam:\n\nNOSNÁ VLNA C-17\n━━  ━━  ●  ●  ●   /   ●  ●  ●  ━━  ━━   /   ●  ●  ●  ●  ━━\n\nZáznam tvoří tři oddělené skupiny. Obnovenou třícifernou frekvenci odešli do interkomu."
       },
       {
-        "role": "player",
-        "channel": "captain",
-        "text": "734"
-      },
-      {
         "role": "bot",
-        "channel": "captain",
-        "text": "Frekvence 734 přijata! Zachytila jsem chronální ozvěnu. Přepojuji... *píp*"
+        "channel": "general",
+        "text": "Přístupový panel dveří 104 odemčen. Elektromagnetický zámek uvolněn."
       },
       {
         "role": "bot",
         "channel": "lost",
-        "text": "Haló? Tady doktorka Elara. Jsem pořád v Kraskově, ale hotel vypadá, jako by tu nikdo nebyl celá desetiletí. Stroj se rozpadl při přenosu. Slyšíte mě?",
-        "voice_id": "elara_first_contact",
-        "audio_url": "/assets/voices/elara_first_contact.mp3"
-      },
-      {
-        "role": "bot",
-        "channel": "lost",
-        "text": "Jsme ve stejném Kraskově, ale já jsem uvázla v jeho budoucí časové vrstvě. Interkom přenese jen hlas a data; ven mě dostane až stabilní koridor. Havárie vymrštila tři součásti stroje do vašeho času. CHRONOMAPA je online — najděte její první stabilní bod u recepčního archivu.",
-        "voice_id": "elara_temporal_reveal",
-        "audio_url": "/assets/voices/elara_temporal_reveal.mp3"
+        "text": "Slyšela jsem cvaknutí! Pokoj 104 je otevřený a archivní stopa zajištěná. Teď pokračujte ke schodišti a najděte tam další časovou kotvu."
       }
     ],
-    "score": 1020,
+    "score": 1010,
     "hints_used": {},
-    "checkpoint_states": {},
+    "checkpoint_states": {
+      "reception_archive": {
+        "status": "solved",
+        "first_scanned_at": "2026-09-03T15:41:40.480808+00:00",
+        "admin_override_at": "2026-09-03T15:41:40.480808+00:00",
+        "solved_at": "2026-09-03T15:41:40.480808+00:00"
+      },
+      "staircase_signal": {
+        "status": "solved",
+        "first_scanned_at": "2026-09-03T15:41:43.045306+00:00",
+        "admin_override_at": "2026-09-03T15:41:43.045306+00:00",
+        "solved_at": "2026-09-03T15:41:43.045306+00:00"
+      },
+      "courtyard_minefield": {
+        "status": "solved",
+        "first_scanned_at": "2026-09-03T15:41:53.312137+00:00",
+        "admin_override_at": "2026-09-03T15:42:18.286268+00:00",
+        "solved_at": "2026-09-03T15:42:18.286268+00:00"
+      },
+      "bowling_diagnostics": {
+        "status": "solved",
+        "first_scanned_at": "2026-09-03T15:42:23.857203+00:00",
+        "admin_override_at": "2026-09-03T15:42:23.857203+00:00",
+        "solved_at": "2026-09-03T15:42:23.857203+00:00"
+      },
+      "timeline_calibration": {
+        "status": "found",
+        "first_scanned_at": "2026-09-03T15:42:39.909783+00:00",
+        "admin_override_at": "2026-09-03T15:42:39.909783+00:00"
+      }
+    },
     "unlocked_cipher_tools": [
       "a1z26",
-      "morse"
+      "binary_ascii",
+      "morse",
+      "semaphore"
     ],
     "paid_cipher_tools": [],
     "puzzle_attempts": {},
-    "interactive_games": {},
+    "interactive_games": {
+      "timeline_lines": {
+        "players": {
+          "717cae3e-f2ef-4bcc-891c-31f1e3144353": {
+            "progress": {
+              "3": 1,
+              "4": 0,
+              "5": 0
+            },
+            "status": "playing",
+            "started_at": "2026-09-03T15:45:29.986881+00:00",
+            "deadline_at": "2026-09-03T15:50:29.986881+00:00",
+            "swaps": 1,
+            "rng": 391566029,
+            "board": [
+              [
+                "amber",
+                "violet",
+                "red",
+                "amber",
+                "green",
+                "amber",
+                "violet"
+              ],
+              [
+                "cyan",
+                "red",
+                "red",
+                "violet",
+                "cyan",
+                "violet",
+                "cyan"
+              ],
+              [
+                "violet",
+                "green",
+                "amber",
+                "violet",
+                "violet",
+                "green",
+                "violet"
+              ],
+              [
+                "green",
+                "amber",
+                "cyan",
+                "cyan",
+                "red",
+                "amber",
+                "red"
+              ],
+              [
+                "cyan",
+                "green",
+                "cyan",
+                "violet",
+                "green",
+                "red",
+                "amber"
+              ],
+              [
+                "violet",
+                "red",
+                "violet",
+                "violet",
+                "green",
+                "violet",
+                "violet"
+              ],
+              [
+                "red",
+                "cyan",
+                "cyan",
+                "green",
+                "amber",
+                "green",
+                "violet"
+              ]
+            ]
+          },
+          "46c4b312-8a98-4aea-abca-527300ba58e5": {
+            "progress": {
+              "3": 2,
+              "4": 1,
+              "5": 0
+            },
+            "status": "playing",
+            "started_at": "2026-09-03T15:42:39.914637+00:00",
+            "deadline_at": "2026-09-03T15:47:39.914637+00:00",
+            "swaps": 1,
+            "rng": 822843368,
+            "board": [
+              [
+                "green",
+                "violet",
+                "red",
+                "red",
+                "amber",
+                "amber",
+                "violet"
+              ],
+              [
+                "cyan",
+                "red",
+                "red",
+                "green",
+                "green",
+                "violet",
+                "cyan"
+              ],
+              [
+                "violet",
+                "green",
+                "violet",
+                "green",
+                "cyan",
+                "green",
+                "violet"
+              ],
+              [
+                "green",
+                "amber",
+                "red",
+                "amber",
+                "violet",
+                "amber",
+                "red"
+              ],
+              [
+                "cyan",
+                "green",
+                "red",
+                "amber",
+                "green",
+                "red",
+                "amber"
+              ],
+              [
+                "violet",
+                "red",
+                "violet",
+                "green",
+                "green",
+                "violet",
+                "violet"
+              ],
+              [
+                "red",
+                "cyan",
+                "cyan",
+                "green",
+                "amber",
+                "green",
+                "violet"
+              ]
+            ]
+          }
+        }
+      }
+    },
     "sokoban_games": {},
-    "karel_games": {},
-    "last_activity_at": "2026-09-03T15:31:54.895126+00:00",
+    "karel_games": {
+      "courtyard_karel": {
+        "active_level_ids": [
+          "field_a",
+          "field_b",
+          "field_c"
+        ],
+        "level_index": 0,
+        "completed_levels": [],
+        "awarded_points": 0,
+        "total_moves": 0,
+        "total_strikes": 0,
+        "restarts": 0,
+        "status": "expired",
+        "level_id": "field_a",
+        "level_label": "Pole A",
+        "rows": 7,
+        "columns": 7,
+        "mines": [
+          [
+            0,
+            3
+          ],
+          [
+            1,
+            1
+          ],
+          [
+            1,
+            5
+          ],
+          [
+            2,
+            3
+          ],
+          [
+            3,
+            1
+          ],
+          [
+            3,
+            5
+          ],
+          [
+            4,
+            3
+          ],
+          [
+            5,
+            1
+          ],
+          [
+            5,
+            5
+          ],
+          [
+            6,
+            3
+          ]
+        ],
+        "start": [
+          0,
+          0
+        ],
+        "exit": [
+          6,
+          6
+        ],
+        "player": [
+          0,
+          0
+        ],
+        "revealed": [
+          [
+            0,
+            1
+          ],
+          [
+            1,
+            0
+          ],
+          [
+            2,
+            2
+          ],
+          [
+            2,
+            4
+          ],
+          [
+            3,
+            3
+          ],
+          [
+            4,
+            2
+          ],
+          [
+            4,
+            4
+          ],
+          [
+            5,
+            6
+          ],
+          [
+            6,
+            5
+          ],
+          [
+            0,
+            0
+          ],
+          [
+            6,
+            6
+          ]
+        ],
+        "triggered_mines": [],
+        "moves": 0,
+        "strikes": 0,
+        "history": [],
+        "started_at": "2026-09-03T15:41:53.338728+00:00",
+        "deadline_at": "2026-09-03T15:44:53.338728+00:00"
+      }
+    },
+    "last_activity_at": "2026-09-03T15:45:32.518771+00:00",
     "triad_games": {},
     "archive_games": {},
     "event_history": [
       {
-        "at": "2026-09-03T15:31:40.513814+00:00",
+        "at": "2026-09-03T15:41:21.897918+00:00",
         "type": "player.message",
         "details": {
           "channel": "captain"
         }
       },
       {
-        "at": "2026-09-03T15:31:54.895126+00:00",
-        "type": "player.message",
+        "at": "2026-09-03T15:42:33.485760+00:00",
+        "type": "room.unlock",
+        "details": {}
+      },
+      {
+        "at": "2026-09-03T15:42:51.844906+00:00",
+        "type": "line_game.move",
         "details": {
-          "channel": "captain"
+          "puzzle_id": "timeline_lines"
+        }
+      },
+      {
+        "at": "2026-09-03T15:43:14.745468+00:00",
+        "type": "line_game.move",
+        "details": {
+          "puzzle_id": "timeline_lines"
+        }
+      },
+      {
+        "at": "2026-09-03T15:45:29.986840+00:00",
+        "type": "line_game.reset",
+        "details": {
+          "puzzle_id": "timeline_lines"
+        }
+      },
+      {
+        "at": "2026-09-03T15:45:32.518771+00:00",
+        "type": "line_game.move",
+        "details": {
+          "puzzle_id": "timeline_lines"
         }
       }
     ],

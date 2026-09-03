@@ -1680,7 +1680,14 @@ async def websocket_endpoint(websocket: WebSocket):
                             try: await send_message(active_socket, availability_update)
                             except Exception: pass
                     if session_id:
-                        await broadcast_session(session_id, responses)
+                        # A line-game board belongs to one player. Its result contains
+                        # animation frames for that player's board and must never be
+                        # replayed over another team member's personalized snapshot.
+                        player_responses = [response for response in responses if response.type == "line_game.result"]
+                        shared_responses = [response for response in responses if response.type != "line_game.result"]
+                        for response in player_responses:
+                            await send_message(websocket, response)
+                        await broadcast_session(session_id, shared_responses)
                     else:
                         for response in responses:
                             await send_message(websocket, response)
