@@ -220,12 +220,26 @@
             border: 1px solid #0f0;
             padding: 20px;
             background: #001100;
-            font-size: 1.2em;
             line-height: 1.5;
             overflow: auto;
         }
-        .map-room { display: inline-block; width: 100px; height: 60px; border: 1px solid #0aa; text-align: center; line-height: 60px; margin: 5px; background: #000;}
-        .map-corridor { display: inline-block; width: 330px; height: 40px; border: 1px dashed #555; text-align: center; line-height: 40px; margin: 5px; }
+        .chronomap-brief { margin: 0 0 18px; padding: 12px 14px; border-left: 4px solid #0ff; background: #002326; color: #cff; }
+        .chronomap-brief strong { display: block; color: #0ff; font-size: 1.08rem; }
+        .chronomap-route { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 20px 12px; margin: 22px 0; counter-reset: checkpoint; }
+        .chronomap-node { position: relative; min-height: 112px; padding: 12px 12px 10px 48px; border: 1px solid #355; background: #000; color: #788; counter-increment: checkpoint; }
+        .chronomap-node::before { content: counter(checkpoint); position: absolute; top: 12px; left: 12px; display: grid; place-items: center; width: 25px; height: 25px; border: 1px solid currentColor; border-radius: 50%; font-weight: bold; }
+        .chronomap-node::after { content: '→'; position: absolute; z-index: 1; top: 42px; right: -20px; color: #077; font-size: 1.35rem; }
+        .chronomap-node:last-child::after { content: none; }
+        .chronomap-node strong { display: block; color: inherit; line-height: 1.25; }
+        .chronomap-node small { display: block; margin-top: 8px; font: 700 .75rem/1.3 monospace; letter-spacing: .06em; }
+        .chronomap-node.complete { border-color: #0b8; background: #00251c; color: #5fda; }
+        .chronomap-node.complete small { color: #3fb; }
+        .chronomap-node.active { border-color: #fc0; background: #2b2100; color: #ffe08a; box-shadow: 0 0 15px #fc05; }
+        .chronomap-node.available { border: 2px solid #0ff; background: #003238; color: #dfffff; box-shadow: 0 0 18px #0ff5; }
+        .chronomap-node.available small { color: #0ff; }
+        .chronomap-node.locked { filter: grayscale(.7); }
+        .chronomap-legend { display: flex; flex-wrap: wrap; gap: 8px 16px; color: #8aa; font-size: .78rem; }
+        .chronomap-legend span::before { content: ''; display: inline-block; width: 9px; height: 9px; margin-right: 6px; border: 1px solid currentColor; }
         
         .status-indicator {
             display: inline-block;
@@ -810,23 +824,10 @@
     <div id="tab-map" class="tab-content">
         <h2>[ CHRONOMAPA: HOTEL KRASKOV ]</h2>
         <div class="map-container">
-            <div>
-                <div class="map-room">Pokoj 101</div>
-                <div class="map-room">Pokoj 102</div>
-                <div class="map-room">Pokoj 103</div>
-            </div>
-            <div>
-                <div class="map-corridor">Východní chodba</div>
-            </div>
-            <div>
-                <div class="map-room" style="border-color: #555;">Sklad</div>
-                <div id="map-room-104" class="map-room" style="border-color: #f00; color: #f00;">Pokoj 104</div>
-                <div class="map-room" style="border-color: #ff0;">Schodiště</div>
-            </div>
-            <p style="color: #0aa; margin-top: 20px;">
-                > Cíl mise: aktivujte časové kotvy a získejte tři součásti stroje času. <br>
-                > Neověřené oblasti CHRONOMAPY budou doplněny po průzkumu hotelu.
-            </p>
+            <div id="chronomap-brief" class="chronomap-brief"><strong>TRASA SE SYNCHRONIZUJE…</strong>Čekám na stav časových kotev.</div>
+            <div id="chronomap-route" class="chronomap-route" aria-label="Trasa checkpointů podle scénáře"></div>
+            <div class="chronomap-legend"><span style="color:#3fb">HOTOVO</span><span style="color:#fc0">ŘEŠÍ SE</span><span style="color:#0ff">DALŠÍ CÍL</span><span>UZAMČENO</span></div>
+            <p style="color: #0aa; margin-top: 20px;">> Postupujte podle zvýrazněného cíle. Na místě najděte QR časové kotvy; po načtení se případné zadání objeví v záložce HÁDANKY.</p>
             <section id="online-map-actions" class="demo-scanner-panel" style="margin-top:14px"></section>
         </div>
     </div>
@@ -2977,11 +2978,6 @@
                         }
                     }
                     
-                    const room104 = document.getElementById('map-room-104');
-                    if (room104 && flags['room_104_unlocked']) {
-                        room104.style.borderColor = '#0f0';
-                        room104.style.color = '#0f0';
-                    }
                     const chronomapButton = document.getElementById('chronomap-tab-button');
                     if (flags.chronomap_unlocked) {
                         chronomapButton.disabled = false;
@@ -3879,6 +3875,7 @@
 
         function renderScenarioProgress(progress) {
             latestScenarioProgress = progress;
+            renderChronomap(progress);
             renderOnlineMapActions();
             const panel = document.getElementById('scenario-progress');
             if (!demoModeRequested) return;
@@ -3902,6 +3899,35 @@
             });
             document.getElementById('progress-inventory').textContent = (progress.inventory || []).join(' · ') || '—';
             document.getElementById('progress-tools').textContent = (progress.unlocked_cipher_tools || []).join(' · ') || '—';
+        }
+
+        function renderChronomap(progress) {
+            const route = document.getElementById('chronomap-route');
+            const brief = document.getElementById('chronomap-brief');
+            if (!route || !brief) return;
+            const checkpoints = (progress?.nodes || []).filter(node => node.kind === 'checkpoint');
+            if (!checkpoints.length) return;
+
+            route.innerHTML = checkpoints.map(node => {
+                const status = ['complete', 'active', 'available'].includes(node.status) ? node.status : 'locked';
+                const detail = {complete:'KOTVA STABILIZOVÁNA', active:'NALEZENO · OTEVŘETE HÁDANKY', available:'DALŠÍ CÍL · HLEDEJTE QR', locked:'ZATÍM UZAMČENO'}[status];
+                return `<article class="chronomap-node ${status}" data-checkpoint="${escapeHtml(node.id)}"><strong>${escapeHtml(node.label)}</strong><small>${detail}</small></article>`;
+            }).join('');
+
+            const active = checkpoints.find(node => node.status === 'active');
+            const available = checkpoints.find(node => node.status === 'available');
+            const complete = checkpoints.filter(node => node.status === 'complete').length;
+            const target = active || available;
+            if (active) {
+                brief.innerHTML = `<strong>AKTUÁLNĚ ŘEŠÍTE: ${escapeHtml(active.label)}</strong>Kotva je načtená. Pokračujte v záložce HÁDANKY.`;
+            } else if (available) {
+                brief.innerHTML = `<strong>DALŠÍ CHECKPOINT: ${escapeHtml(available.label)}</strong>Přesuňte se na uvedené místo a najděte QR časové kotvy.`;
+            } else if (complete === checkpoints.length) {
+                brief.innerHTML = '<strong>VŠECHNY CHECKPOINTY STABILIZOVÁNY</strong>Trasa scénáře je dokončena.';
+            } else {
+                brief.innerHTML = '<strong>TRASA ČEKÁ NA SYNCHRONIZACI</strong>Pokračujte podle pokynů v Interkomu.';
+            }
+            if (target) route.querySelector(`[data-checkpoint="${CSS.escape(String(target.id))}"]`)?.setAttribute('aria-current', 'step');
         }
 
         function renderOnlineMapActions() {
