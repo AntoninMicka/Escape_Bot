@@ -237,7 +237,9 @@
         .chronomap-node.active { border-color: #fc0; background: #2b2100; color: #ffe08a; box-shadow: 0 0 15px #fc05; }
         .chronomap-node.available { border: 2px solid #0ff; background: #003238; color: #dfffff; box-shadow: 0 0 18px #0ff5; }
         .chronomap-node.available small { color: #0ff; }
-        .chronomap-node.locked { filter: grayscale(.7); }
+        .chronomap-node.locked { display: grid; place-items: center; padding: 12px; filter: grayscale(.7); }
+        .chronomap-node.locked::before { display: none; }
+        .chronomap-node.locked strong { color: #788; font-size: 1.05rem; letter-spacing: .12em; }
         .chronomap-legend { display: flex; flex-wrap: wrap; gap: 8px 16px; color: #8aa; font-size: .78rem; }
         .chronomap-legend span::before { content: ''; display: inline-block; width: 9px; height: 9px; margin-right: 6px; border: 1px solid currentColor; }
         
@@ -3910,7 +3912,8 @@
 
             route.innerHTML = checkpoints.map(node => {
                 const status = ['complete', 'active', 'available'].includes(node.status) ? node.status : 'locked';
-                const detail = {complete:'KOTVA STABILIZOVÁNA', active:'NALEZENO · OTEVŘETE HÁDANKY', available:'DALŠÍ CÍL · HLEDEJTE QR', locked:'ZATÍM UZAMČENO'}[status];
+                if (status === 'locked') return `<article class="chronomap-node locked" data-checkpoint="${escapeHtml(node.id)}"><strong>ZAMČENO</strong></article>`;
+                const detail = {complete:'KOTVA STABILIZOVÁNA', active:'NALEZENO · OTEVŘETE HÁDANKY', available:'DALŠÍ CÍL · HLEDEJTE QR'}[status];
                 return `<article class="chronomap-node ${status}" data-checkpoint="${escapeHtml(node.id)}"><strong>${escapeHtml(node.label)}</strong><small>${detail}</small></article>`;
             }).join('');
 
