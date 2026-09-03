@@ -2713,13 +2713,20 @@
     "phase": "searching_lost",
     "unlocked_discoveries": [
       "bowling_diagnostics",
+      "courtyard_alignment",
       "courtyard_minefield",
+      "future_archive",
       "reception_archive",
+      "sports_archive",
+      "sports_cipher",
       "staircase_signal",
+      "terrace_echo",
       "timeline_calibration"
     ],
     "inventory": [
-      "TEMPORÁLNÍ MOTOR"
+      "TEMPORÁLNÍ MOTOR",
+      "FÁZOVÝ STABILIZÁTOR",
+      "KRYSTAL ČASOVÉ KOTVY"
     ],
     "flags": {
       "operations_started_at": "2026-09-03T15:40:46.677110+00:00",
@@ -2773,12 +2780,58 @@
           "checkpoint_id": "timeline_calibration",
           "previous_status": "locked",
           "status": "found"
+        },
+        {
+          "action": "checkpoint",
+          "label": "Checkpoint terrace_echo: solved · Technická chyba / uznat bez postihu",
+          "at": "2026-09-03T15:52:58.185847+00:00",
+          "checkpoint_id": "terrace_echo",
+          "previous_status": "locked",
+          "status": "solved"
+        },
+        {
+          "action": "checkpoint",
+          "label": "Checkpoint courtyard_alignment: found · Technická chyba / uznat bez postihu",
+          "at": "2026-09-03T15:53:07.652915+00:00",
+          "checkpoint_id": "courtyard_alignment",
+          "previous_status": "locked",
+          "status": "found"
+        },
+        {
+          "action": "checkpoint",
+          "label": "Checkpoint sports_archive: found · Technická chyba / uznat bez postihu",
+          "at": "2026-09-03T15:54:15.196300+00:00",
+          "checkpoint_id": "sports_archive",
+          "previous_status": "locked",
+          "status": "found"
+        },
+        {
+          "action": "checkpoint",
+          "label": "Checkpoint sports_cipher: solved · Technická chyba / uznat bez postihu",
+          "at": "2026-09-03T15:56:08.447473+00:00",
+          "checkpoint_id": "sports_cipher",
+          "previous_status": "locked",
+          "status": "solved"
+        },
+        {
+          "action": "checkpoint",
+          "label": "Checkpoint future_archive: solved · Technická chyba / uznat bez postihu",
+          "at": "2026-09-03T15:56:14.478619+00:00",
+          "checkpoint_id": "future_archive",
+          "previous_status": "locked",
+          "status": "solved"
         }
       ],
       "bowling_route_unlocked": true,
       "courtyard_route_stable": true,
       "temporal_motor_recovered": true,
-      "room_104_unlocked": true
+      "room_104_unlocked": true,
+      "timeline_calibrated": true,
+      "phase_stabilizer_recovered": true,
+      "temporal_nodes_aligned": true,
+      "anchor_crystal_recovered": true,
+      "future_archive_unlocked": true,
+      "return_vector_recovered": true
     },
     "chat_history": [
       {
@@ -2807,9 +2860,379 @@
         "role": "bot",
         "channel": "lost",
         "text": "Slyšela jsem cvaknutí! Pokoj 104 je otevřený a archivní stopa zajištěná. Teď pokračujte ke schodišti a najděte tam další časovou kotvu."
+      },
+      {
+        "role": "bot",
+        "channel": "lost",
+        "text": "Oba časové proudy drží! Kalibrace 5–3–1 je dokončena. Vyjděte ven na terasu u rybníka a najděte tam časovou kotvu s nočním obrazovým přenosem."
+      },
+      {
+        "role": "bot",
+        "channel": "lost",
+        "text": "Kalibrace odhalila další ozvěnu venku u terasy a rybníka. Hledejte tam časovou kotvu s nočním obrazovým přenosem."
+      },
+      {
+        "role": "bot",
+        "channel": "lost",
+        "text": "Tři osy jsou zarovnané. Časové uzly vytvořily stabilní průchod ke sportovnímu archivu."
+      },
+      {
+        "role": "bot",
+        "channel": "lost",
+        "text": "Uzly drží. Teď můžete pokračovat k Archivu sportovního areálu a obnovit jeho servisní síť."
+      },
+      {
+        "role": "bot",
+        "channel": "lost",
+        "text": "Sekvence potvrzena: 1 kroků, přesunuté články: 1."
+      },
+      {
+        "role": "bot",
+        "channel": "lost",
+        "text": "Sekvence potvrzena: 1 kroků, přesunuté články: 1."
+      },
+      {
+        "role": "bot",
+        "channel": "lost",
+        "text": "Sekvence potvrzena: 1 kroků, přesunuté články: 0."
+      },
+      {
+        "role": "bot",
+        "channel": "lost",
+        "text": "Sekvence potvrzena: 1 kroků, přesunuté články: 0."
+      },
+      {
+        "role": "bot",
+        "channel": "lost",
+        "text": "Sekvence potvrzena: 1 kroků, přesunuté články: 0."
+      },
+      {
+        "role": "bot",
+        "channel": "lost",
+        "text": "Sekvence potvrzena: 1 kroků, přesunuté články: 0."
+      },
+      {
+        "role": "bot",
+        "channel": "lost",
+        "text": "Sekvence potvrzena: 1 kroků, přesunuté články: 0."
+      },
+      {
+        "role": "bot",
+        "channel": "lost",
+        "text": "Sekvence potvrzena: 1 kroků, přesunuté články: 0."
+      },
+      {
+        "role": "bot",
+        "channel": "lost",
+        "text": "Sekvence potvrzena: 1 kroků, přesunuté články: 0."
+      },
+      {
+        "role": "bot",
+        "channel": "lost",
+        "text": "Sekvence potvrzena: 1 kroků, přesunuté články: 0."
+      },
+      {
+        "role": "bot",
+        "channel": "lost",
+        "text": "Sekvence potvrzena: 1 kroků, přesunuté články: 0."
+      },
+      {
+        "role": "bot",
+        "channel": "lost",
+        "text": "Sekvence potvrzena: 1 kroků, přesunuté články: 1."
+      },
+      {
+        "role": "bot",
+        "channel": "lost",
+        "text": "Sekvence potvrzena: 1 kroků, přesunuté články: 1."
+      },
+      {
+        "role": "bot",
+        "channel": "lost",
+        "text": "Sekvence potvrzena: 1 kroků, přesunuté články: 0."
+      },
+      {
+        "role": "bot",
+        "channel": "lost",
+        "text": "Sekvence potvrzena: 1 kroků, přesunuté články: 0."
+      },
+      {
+        "role": "bot",
+        "channel": "lost",
+        "text": "Sekvence potvrzena: 1 kroků, přesunuté články: 1. Úroveň je stabilní; přepínám na další servisní sektor."
+      },
+      {
+        "role": "bot",
+        "channel": "lost",
+        "text": "Sekvence potvrzena: 1 kroků, přesunuté články: 0."
+      },
+      {
+        "role": "bot",
+        "channel": "lost",
+        "text": "Sekvence potvrzena: 1 kroků, přesunuté články: 1."
+      },
+      {
+        "role": "bot",
+        "channel": "lost",
+        "text": "Sekvence potvrzena: 1 kroků, přesunuté články: 0."
+      },
+      {
+        "role": "bot",
+        "channel": "lost",
+        "text": "Sekvence potvrzena: 1 kroků, přesunuté články: 0."
+      },
+      {
+        "role": "bot",
+        "channel": "lost",
+        "text": "Sekvence potvrzena: 1 kroků, přesunuté články: 1."
+      },
+      {
+        "role": "bot",
+        "channel": "lost",
+        "text": "Sekvence potvrzena: 1 kroků, přesunuté články: 0."
+      },
+      {
+        "role": "bot",
+        "channel": "lost",
+        "text": "Sekvence potvrzena: 1 kroků, přesunuté články: 0."
+      },
+      {
+        "role": "bot",
+        "channel": "lost",
+        "text": "Sekvence potvrzena: 1 kroků, přesunuté články: 1."
+      },
+      {
+        "role": "bot",
+        "channel": "lost",
+        "text": "Sekvence potvrzena: 1 kroků, přesunuté články: 1."
+      },
+      {
+        "role": "bot",
+        "channel": "lost",
+        "text": "Sekvence potvrzena: 1 kroků, přesunuté články: 0."
+      },
+      {
+        "role": "bot",
+        "channel": "lost",
+        "text": "Sekvence potvrzena: 1 kroků, přesunuté články: 0."
+      },
+      {
+        "role": "bot",
+        "channel": "lost",
+        "text": "Sekvence potvrzena: 1 kroků, přesunuté články: 1."
+      },
+      {
+        "role": "bot",
+        "channel": "lost",
+        "text": "Sekvence potvrzena: 1 kroků, přesunuté články: 0."
+      },
+      {
+        "role": "bot",
+        "channel": "lost",
+        "text": "Sekvence potvrzena: 1 kroků, přesunuté články: 0."
+      },
+      {
+        "role": "bot",
+        "channel": "lost",
+        "text": "Sekvence potvrzena: 1 kroků, přesunuté články: 1."
+      },
+      {
+        "role": "bot",
+        "channel": "lost",
+        "text": "Sekvence potvrzena: 1 kroků, přesunuté články: 0."
+      },
+      {
+        "role": "bot",
+        "channel": "lost",
+        "text": "Sekvence potvrzena: 1 kroků, přesunuté články: 0."
+      },
+      {
+        "role": "bot",
+        "channel": "lost",
+        "text": "Sekvence potvrzena: 1 kroků, přesunuté články: 0."
+      },
+      {
+        "role": "bot",
+        "channel": "lost",
+        "text": "Sekvence potvrzena: 1 kroků, přesunuté články: 0."
+      },
+      {
+        "role": "bot",
+        "channel": "lost",
+        "text": "Sekvence potvrzena: 1 kroků, přesunuté články: 1."
+      },
+      {
+        "role": "bot",
+        "channel": "lost",
+        "text": "Sekvence potvrzena: 1 kroků, přesunuté články: 1."
+      },
+      {
+        "role": "bot",
+        "channel": "lost",
+        "text": "Sekvence potvrzena: 1 kroků, přesunuté články: 0."
+      },
+      {
+        "role": "bot",
+        "channel": "lost",
+        "text": "Sekvence potvrzena: 1 kroků, přesunuté články: 0."
+      },
+      {
+        "role": "bot",
+        "channel": "lost",
+        "text": "Sekvence potvrzena: 1 kroků, přesunuté články: 1. Úroveň je stabilní; přepínám na další servisní sektor."
+      },
+      {
+        "role": "bot",
+        "channel": "lost",
+        "text": "Sekvence potvrzena: 1 kroků, přesunuté články: 0."
+      },
+      {
+        "role": "bot",
+        "channel": "lost",
+        "text": "Sekvence potvrzena: 1 kroků, přesunuté články: 0."
+      },
+      {
+        "role": "bot",
+        "channel": "lost",
+        "text": "Sekvence potvrzena: 1 kroků, přesunuté články: 0."
+      },
+      {
+        "role": "bot",
+        "channel": "lost",
+        "text": "Sekvence potvrzena: 1 kroků, přesunuté články: 0."
+      },
+      {
+        "role": "bot",
+        "channel": "lost",
+        "text": "Sekvence potvrzena: 1 kroků, přesunuté články: 1."
+      },
+      {
+        "role": "bot",
+        "channel": "lost",
+        "text": "Sekvence potvrzena: 1 kroků, přesunuté články: 0."
+      },
+      {
+        "role": "bot",
+        "channel": "lost",
+        "text": "Sekvence potvrzena: 1 kroků, přesunuté články: 0."
+      },
+      {
+        "role": "bot",
+        "channel": "lost",
+        "text": "Sekvence potvrzena: 1 kroků, přesunuté články: 0."
+      },
+      {
+        "role": "bot",
+        "channel": "lost",
+        "text": "Sekvence potvrzena: 1 kroků, přesunuté články: 0."
+      },
+      {
+        "role": "bot",
+        "channel": "lost",
+        "text": "Sekvence potvrzena: 1 kroků, přesunuté články: 0."
+      },
+      {
+        "role": "bot",
+        "channel": "lost",
+        "text": "Sekvence potvrzena: 1 kroků, přesunuté články: 0."
+      },
+      {
+        "role": "bot",
+        "channel": "lost",
+        "text": "Sekvence potvrzena: 1 kroků, přesunuté články: 1."
+      },
+      {
+        "role": "bot",
+        "channel": "lost",
+        "text": "Provedla jsem 0 z 1 kroků. Další pohyb blokuje stěna nebo energetický článek."
+      },
+      {
+        "role": "bot",
+        "channel": "lost",
+        "text": "Sekvence potvrzena: 1 kroků, přesunuté články: 0."
+      },
+      {
+        "role": "bot",
+        "channel": "lost",
+        "text": "Sekvence potvrzena: 1 kroků, přesunuté články: 0."
+      },
+      {
+        "role": "bot",
+        "channel": "lost",
+        "text": "Sekvence potvrzena: 1 kroků, přesunuté články: 0."
+      },
+      {
+        "role": "bot",
+        "channel": "lost",
+        "text": "Sekvence potvrzena: 1 kroků, přesunuté články: 0."
+      },
+      {
+        "role": "bot",
+        "channel": "lost",
+        "text": "Sekvence potvrzena: 1 kroků, přesunuté články: 0."
+      },
+      {
+        "role": "bot",
+        "channel": "lost",
+        "text": "Sekvence potvrzena: 1 kroků, přesunuté články: 1."
+      },
+      {
+        "role": "bot",
+        "channel": "lost",
+        "text": "Sekvence potvrzena: 1 kroků, přesunuté články: 1."
+      },
+      {
+        "role": "bot",
+        "channel": "lost",
+        "text": "Sekvence potvrzena: 1 kroků, přesunuté články: 0."
+      },
+      {
+        "role": "bot",
+        "channel": "lost",
+        "text": "Sekvence potvrzena: 1 kroků, přesunuté články: 0."
+      },
+      {
+        "role": "bot",
+        "channel": "lost",
+        "text": "Sekvence potvrzena: 1 kroků, přesunuté články: 0."
+      },
+      {
+        "role": "bot",
+        "channel": "lost",
+        "text": "Sekvence potvrzena: 1 kroků, přesunuté články: 0."
+      },
+      {
+        "role": "bot",
+        "channel": "lost",
+        "text": "Sekvence potvrzena: 1 kroků, přesunuté články: 1."
+      },
+      {
+        "role": "bot",
+        "channel": "lost",
+        "text": "Sekvence potvrzena: 1 kroků, přesunuté články: 0."
+      },
+      {
+        "role": "bot",
+        "channel": "lost",
+        "text": "Sekvence potvrzena: 1 kroků, přesunuté články: 0."
+      },
+      {
+        "role": "bot",
+        "channel": "lost",
+        "text": "Sekvence potvrzena: 1 kroků, přesunuté články: 1."
+      },
+      {
+        "role": "bot",
+        "channel": "lost",
+        "text": "Všechny tři servisní sektory jsou stabilní. Síť se rozběhla a archiv vydal obě části šifrovací tabulky. Pokračujte ke sportovní šifrovací kotvě, kde lze obnovený otisk prozkoumat."
+      },
+      {
+        "role": "bot",
+        "channel": "captain",
+        "text": "Napájení archivu drží. V jeho výstupu se objevily dvě části tabulky; přesuňte se ke sportovní šifrovací kotvě a složte je dohromady."
       }
     ],
-    "score": 1010,
+    "score": 1250,
     "hints_used": {},
     "checkpoint_states": {
       "reception_archive": {
@@ -2837,15 +3260,48 @@
         "solved_at": "2026-09-03T15:42:23.857203+00:00"
       },
       "timeline_calibration": {
-        "status": "found",
+        "status": "solved",
         "first_scanned_at": "2026-09-03T15:42:39.909783+00:00",
-        "admin_override_at": "2026-09-03T15:42:39.909783+00:00"
+        "admin_override_at": "2026-09-03T15:42:39.909783+00:00",
+        "solved_at": "2026-09-03T15:52:23.720933+00:00"
+      },
+      "terrace_echo": {
+        "status": "solved",
+        "first_scanned_at": "2026-09-03T15:52:58.185820+00:00",
+        "admin_override_at": "2026-09-03T15:52:58.185820+00:00",
+        "solved_at": "2026-09-03T15:52:58.185820+00:00"
+      },
+      "courtyard_alignment": {
+        "status": "solved",
+        "first_scanned_at": "2026-09-03T15:53:07.652894+00:00",
+        "admin_override_at": "2026-09-03T15:53:07.652894+00:00",
+        "solved_at": "2026-09-03T15:53:53.001433+00:00"
+      },
+      "sports_archive": {
+        "status": "solved",
+        "first_scanned_at": "2026-09-03T15:54:15.196288+00:00",
+        "admin_override_at": "2026-09-03T15:54:15.196288+00:00",
+        "solved_at": "2026-09-03T15:55:56.021386+00:00"
+      },
+      "sports_cipher": {
+        "status": "solved",
+        "first_scanned_at": "2026-09-03T15:56:08.447457+00:00",
+        "admin_override_at": "2026-09-03T15:56:08.447457+00:00",
+        "solved_at": "2026-09-03T15:56:08.447457+00:00"
+      },
+      "future_archive": {
+        "status": "solved",
+        "first_scanned_at": "2026-09-03T15:56:14.478602+00:00",
+        "admin_override_at": "2026-09-03T15:56:14.478602+00:00",
+        "solved_at": "2026-09-03T15:56:14.478602+00:00"
       }
     },
     "unlocked_cipher_tools": [
       "a1z26",
       "binary_ascii",
+      "classical",
       "morse",
+      "pigpen",
       "semaphore"
     ],
     "paid_cipher_tools": [],
@@ -2855,143 +3311,143 @@
         "players": {
           "717cae3e-f2ef-4bcc-891c-31f1e3144353": {
             "progress": {
-              "3": 1,
-              "4": 0,
+              "3": 5,
+              "4": 3,
               "5": 0
             },
-            "status": "playing",
-            "started_at": "2026-09-03T15:45:29.986881+00:00",
-            "deadline_at": "2026-09-03T15:50:29.986881+00:00",
-            "swaps": 1,
-            "rng": 391566029,
+            "status": "complete",
+            "started_at": "2026-09-03T15:50:56.860185+00:00",
+            "deadline_at": "2026-09-03T15:55:56.860185+00:00",
+            "swaps": 8,
+            "rng": 1602026051,
             "board": [
               [
-                "amber",
-                "violet",
-                "red",
-                "amber",
+                "green",
+                "green",
+                "cyan",
                 "green",
                 "amber",
-                "violet"
+                "green",
+                "red"
               ],
               [
                 "cyan",
                 "red",
-                "red",
                 "violet",
+                "violet",
+                "amber",
+                "amber",
+                "green"
+              ],
+              [
+                "violet",
+                "amber",
+                "violet",
+                "red",
+                "green",
                 "cyan",
+                "red"
+              ],
+              [
+                "green",
+                "cyan",
+                "amber",
+                "green",
+                "violet",
+                "green",
+                "violet"
+              ],
+              [
+                "cyan",
+                "green",
+                "green",
+                "violet",
+                "red",
                 "violet",
                 "cyan"
               ],
               [
                 "violet",
-                "green",
-                "amber",
-                "violet",
+                "red",
                 "violet",
                 "green",
-                "violet"
-              ],
-              [
-                "green",
-                "amber",
-                "cyan",
                 "cyan",
                 "red",
-                "amber",
                 "red"
               ],
               [
-                "cyan",
-                "green",
-                "cyan",
-                "violet",
-                "green",
-                "red",
-                "amber"
-              ],
-              [
-                "violet",
-                "red",
-                "violet",
-                "violet",
-                "green",
-                "violet",
-                "violet"
-              ],
-              [
                 "red",
                 "cyan",
                 "cyan",
-                "green",
                 "amber",
-                "green",
+                "violet",
+                "red",
                 "violet"
               ]
             ]
           },
           "46c4b312-8a98-4aea-abca-527300ba58e5": {
             "progress": {
-              "3": 2,
+              "3": 5,
               "4": 1,
-              "5": 0
+              "5": 1
             },
-            "status": "playing",
-            "started_at": "2026-09-03T15:42:39.914637+00:00",
-            "deadline_at": "2026-09-03T15:47:39.914637+00:00",
-            "swaps": 1,
-            "rng": 822843368,
+            "status": "complete",
+            "started_at": "2026-09-03T15:47:43.793620+00:00",
+            "deadline_at": "2026-09-03T15:52:43.793620+00:00",
+            "swaps": 11,
+            "rng": 2035520951,
             "board": [
               [
+                "amber",
                 "green",
                 "violet",
-                "red",
-                "red",
                 "amber",
-                "amber",
-                "violet"
+                "green",
+                "violet",
+                "amber"
               ],
               [
                 "cyan",
+                "violet",
                 "red",
-                "red",
-                "green",
                 "green",
                 "violet",
+                "cyan",
                 "cyan"
               ],
               [
-                "violet",
-                "green",
-                "violet",
-                "green",
+                "amber",
+                "red",
                 "cyan",
-                "green",
-                "violet"
-              ],
-              [
-                "green",
-                "amber",
-                "red",
-                "amber",
-                "violet",
-                "amber",
-                "red"
-              ],
-              [
                 "cyan",
-                "green",
-                "red",
                 "amber",
                 "green",
-                "red",
                 "amber"
               ],
               [
                 "violet",
+                "green",
+                "amber",
+                "cyan",
+                "violet",
+                "violet",
+                "green"
+              ],
+              [
+                "cyan",
+                "green",
+                "cyan",
                 "red",
                 "violet",
-                "green",
+                "cyan",
+                "amber"
+              ],
+              [
+                "violet",
+                "amber",
+                "violet",
+                "amber",
                 "green",
                 "violet",
                 "violet"
@@ -3001,8 +3457,8 @@
                 "cyan",
                 "cyan",
                 "green",
-                "amber",
                 "green",
+                "amber",
                 "violet"
               ]
             ]
@@ -3010,7 +3466,1219 @@
         }
       }
     },
-    "sokoban_games": {},
+    "sokoban_games": {
+      "sports_sokoban": {
+        "active_level_ids": [
+          "sector_a",
+          "sector_b",
+          "sector_c"
+        ],
+        "level_index": 2,
+        "completed_levels": [
+          "sector_a",
+          "sector_b",
+          "sector_c"
+        ],
+        "awarded_points": 90,
+        "moves": 27,
+        "pushes": 6,
+        "total_moves": 67,
+        "total_pushes": 20,
+        "restarts": 0,
+        "status": "complete",
+        "command_history": [
+          {
+            "commands": [
+              "left"
+            ],
+            "executed": 1,
+            "blocked": false
+          },
+          {
+            "commands": [
+              "left"
+            ],
+            "executed": 1,
+            "blocked": false
+          },
+          {
+            "commands": [
+              "right"
+            ],
+            "executed": 1,
+            "blocked": false
+          },
+          {
+            "commands": [
+              "right"
+            ],
+            "executed": 1,
+            "blocked": false
+          },
+          {
+            "commands": [
+              "up"
+            ],
+            "executed": 1,
+            "blocked": false
+          },
+          {
+            "commands": [
+              "up"
+            ],
+            "executed": 1,
+            "blocked": false
+          },
+          {
+            "commands": [
+              "up"
+            ],
+            "executed": 1,
+            "blocked": false
+          },
+          {
+            "commands": [
+              "up"
+            ],
+            "executed": 1,
+            "blocked": false
+          },
+          {
+            "commands": [
+              "down"
+            ],
+            "executed": 1,
+            "blocked": false
+          },
+          {
+            "commands": [
+              "up"
+            ],
+            "executed": 1,
+            "blocked": false
+          },
+          {
+            "commands": [
+              "left"
+            ],
+            "executed": 1,
+            "blocked": false
+          },
+          {
+            "commands": [
+              "down"
+            ],
+            "executed": 1,
+            "blocked": false
+          },
+          {
+            "commands": [
+              "down"
+            ],
+            "executed": 1,
+            "blocked": false
+          },
+          {
+            "commands": [
+              "right"
+            ],
+            "executed": 1,
+            "blocked": false
+          },
+          {
+            "commands": [
+              "down"
+            ],
+            "executed": 1,
+            "blocked": false
+          },
+          {
+            "commands": [
+              "left"
+            ],
+            "executed": 1,
+            "blocked": false
+          },
+          {
+            "commands": [
+              "right"
+            ],
+            "executed": 1,
+            "blocked": false
+          },
+          {
+            "commands": [
+              "right"
+            ],
+            "executed": 1,
+            "blocked": false
+          },
+          {
+            "commands": [
+              "up"
+            ],
+            "executed": 1,
+            "blocked": false
+          },
+          {
+            "commands": [
+              "right"
+            ],
+            "executed": 1,
+            "blocked": false
+          },
+          {
+            "commands": [
+              "down"
+            ],
+            "executed": 1,
+            "blocked": false
+          },
+          {
+            "commands": [
+              "right"
+            ],
+            "executed": 1,
+            "blocked": false
+          },
+          {
+            "commands": [
+              "down"
+            ],
+            "executed": 1,
+            "blocked": false
+          },
+          {
+            "commands": [
+              "left"
+            ],
+            "executed": 1,
+            "blocked": false
+          },
+          {
+            "commands": [
+              "left"
+            ],
+            "executed": 1,
+            "blocked": false
+          },
+          {
+            "commands": [
+              "up"
+            ],
+            "executed": 1,
+            "blocked": false
+          },
+          {
+            "commands": [
+              "left"
+            ],
+            "executed": 1,
+            "blocked": false
+          },
+          {
+            "commands": [
+              "down"
+            ],
+            "executed": 1,
+            "blocked": false
+          },
+          {
+            "commands": [
+              "right"
+            ],
+            "executed": 1,
+            "blocked": false
+          },
+          {
+            "commands": [
+              "down"
+            ],
+            "executed": 1,
+            "blocked": false
+          },
+          {
+            "commands": [
+              "left"
+            ],
+            "executed": 1,
+            "blocked": false
+          },
+          {
+            "commands": [
+              "up"
+            ],
+            "executed": 1,
+            "blocked": false
+          },
+          {
+            "commands": [
+              "up"
+            ],
+            "executed": 1,
+            "blocked": false
+          },
+          {
+            "commands": [
+              "left"
+            ],
+            "executed": 1,
+            "blocked": false
+          },
+          {
+            "commands": [
+              "up"
+            ],
+            "executed": 1,
+            "blocked": false
+          },
+          {
+            "commands": [
+              "right"
+            ],
+            "executed": 1,
+            "blocked": false
+          },
+          {
+            "commands": [
+              "right"
+            ],
+            "executed": 1,
+            "blocked": false
+          },
+          {
+            "commands": [
+              "up"
+            ],
+            "executed": 1,
+            "blocked": false
+          },
+          {
+            "commands": [
+              "right"
+            ],
+            "executed": 1,
+            "blocked": false
+          },
+          {
+            "commands": [
+              "down"
+            ],
+            "executed": 1,
+            "blocked": false
+          },
+          {
+            "commands": [
+              "down"
+            ],
+            "executed": 1,
+            "blocked": false
+          },
+          {
+            "commands": [
+              "down"
+            ],
+            "executed": 1,
+            "blocked": false
+          },
+          {
+            "commands": [
+              "right"
+            ],
+            "executed": 1,
+            "blocked": false
+          },
+          {
+            "commands": [
+              "down"
+            ],
+            "executed": 1,
+            "blocked": false
+          },
+          {
+            "commands": [
+              "right"
+            ],
+            "executed": 1,
+            "blocked": false
+          },
+          {
+            "commands": [
+              "up"
+            ],
+            "executed": 1,
+            "blocked": false
+          },
+          {
+            "commands": [
+              "right"
+            ],
+            "executed": 1,
+            "blocked": false
+          },
+          {
+            "commands": [
+              "right"
+            ],
+            "executed": 1,
+            "blocked": false
+          },
+          {
+            "commands": [
+              "down"
+            ],
+            "executed": 1,
+            "blocked": false
+          },
+          {
+            "commands": [
+              "down"
+            ],
+            "executed": 1,
+            "blocked": false
+          },
+          {
+            "commands": [
+              "left"
+            ],
+            "executed": 1,
+            "blocked": false
+          },
+          {
+            "commands": [
+              "up"
+            ],
+            "executed": 1,
+            "blocked": false
+          },
+          {
+            "commands": [
+              "up"
+            ],
+            "executed": 0,
+            "blocked": true
+          },
+          {
+            "commands": [
+              "right"
+            ],
+            "executed": 1,
+            "blocked": false
+          },
+          {
+            "commands": [
+              "up"
+            ],
+            "executed": 1,
+            "blocked": false
+          },
+          {
+            "commands": [
+              "up"
+            ],
+            "executed": 1,
+            "blocked": false
+          },
+          {
+            "commands": [
+              "up"
+            ],
+            "executed": 1,
+            "blocked": false
+          },
+          {
+            "commands": [
+              "left"
+            ],
+            "executed": 1,
+            "blocked": false
+          },
+          {
+            "commands": [
+              "left"
+            ],
+            "executed": 1,
+            "blocked": false
+          },
+          {
+            "commands": [
+              "left"
+            ],
+            "executed": 1,
+            "blocked": false
+          },
+          {
+            "commands": [
+              "up"
+            ],
+            "executed": 1,
+            "blocked": false
+          },
+          {
+            "commands": [
+              "down"
+            ],
+            "executed": 1,
+            "blocked": false
+          },
+          {
+            "commands": [
+              "up"
+            ],
+            "executed": 1,
+            "blocked": false
+          },
+          {
+            "commands": [
+              "left"
+            ],
+            "executed": 1,
+            "blocked": false
+          },
+          {
+            "commands": [
+              "down"
+            ],
+            "executed": 1,
+            "blocked": false
+          },
+          {
+            "commands": [
+              "right"
+            ],
+            "executed": 1,
+            "blocked": false
+          },
+          {
+            "commands": [
+              "down"
+            ],
+            "executed": 1,
+            "blocked": false
+          },
+          {
+            "commands": [
+              "left"
+            ],
+            "executed": 1,
+            "blocked": false
+          }
+        ],
+        "player": [
+          3,
+          2
+        ],
+        "boxes": [
+          [
+            3,
+            1
+          ],
+          [
+            4,
+            5
+          ]
+        ],
+        "walls": [
+          [
+            0,
+            0
+          ],
+          [
+            0,
+            1
+          ],
+          [
+            0,
+            2
+          ],
+          [
+            0,
+            3
+          ],
+          [
+            0,
+            4
+          ],
+          [
+            0,
+            5
+          ],
+          [
+            0,
+            6
+          ],
+          [
+            0,
+            7
+          ],
+          [
+            1,
+            0
+          ],
+          [
+            1,
+            1
+          ],
+          [
+            1,
+            7
+          ],
+          [
+            2,
+            0
+          ],
+          [
+            2,
+            7
+          ],
+          [
+            3,
+            0
+          ],
+          [
+            3,
+            5
+          ],
+          [
+            3,
+            7
+          ],
+          [
+            4,
+            0
+          ],
+          [
+            4,
+            7
+          ],
+          [
+            5,
+            0
+          ],
+          [
+            5,
+            1
+          ],
+          [
+            5,
+            7
+          ],
+          [
+            6,
+            0
+          ],
+          [
+            6,
+            1
+          ],
+          [
+            6,
+            2
+          ],
+          [
+            6,
+            4
+          ],
+          [
+            6,
+            7
+          ],
+          [
+            7,
+            0
+          ],
+          [
+            7,
+            1
+          ],
+          [
+            7,
+            2
+          ],
+          [
+            7,
+            3
+          ],
+          [
+            7,
+            4
+          ],
+          [
+            7,
+            5
+          ],
+          [
+            7,
+            6
+          ],
+          [
+            7,
+            7
+          ]
+        ],
+        "targets": [
+          [
+            3,
+            1
+          ],
+          [
+            4,
+            5
+          ]
+        ],
+        "rows": 8,
+        "columns": 8,
+        "level_id": "sector_c",
+        "level_label": "Servisní sektor C",
+        "history": [
+          {
+            "player": [
+              2,
+              2
+            ],
+            "boxes": [
+              [
+                2,
+                4
+              ],
+              [
+                5,
+                4
+              ]
+            ],
+            "moves": 0,
+            "pushes": 0,
+            "total_moves": 40,
+            "total_pushes": 14
+          },
+          {
+            "player": [
+              3,
+              2
+            ],
+            "boxes": [
+              [
+                2,
+                4
+              ],
+              [
+                5,
+                4
+              ]
+            ],
+            "moves": 1,
+            "pushes": 0,
+            "total_moves": 41,
+            "total_pushes": 14
+          },
+          {
+            "player": [
+              4,
+              2
+            ],
+            "boxes": [
+              [
+                2,
+                4
+              ],
+              [
+                5,
+                4
+              ]
+            ],
+            "moves": 2,
+            "pushes": 0,
+            "total_moves": 42,
+            "total_pushes": 14
+          },
+          {
+            "player": [
+              4,
+              3
+            ],
+            "boxes": [
+              [
+                2,
+                4
+              ],
+              [
+                5,
+                4
+              ]
+            ],
+            "moves": 3,
+            "pushes": 0,
+            "total_moves": 43,
+            "total_pushes": 14
+          },
+          {
+            "player": [
+              5,
+              3
+            ],
+            "boxes": [
+              [
+                2,
+                4
+              ],
+              [
+                5,
+                4
+              ]
+            ],
+            "moves": 4,
+            "pushes": 0,
+            "total_moves": 44,
+            "total_pushes": 14
+          },
+          {
+            "player": [
+              5,
+              4
+            ],
+            "boxes": [
+              [
+                2,
+                4
+              ],
+              [
+                5,
+                5
+              ]
+            ],
+            "moves": 5,
+            "pushes": 1,
+            "total_moves": 45,
+            "total_pushes": 15
+          },
+          {
+            "player": [
+              4,
+              4
+            ],
+            "boxes": [
+              [
+                2,
+                4
+              ],
+              [
+                5,
+                5
+              ]
+            ],
+            "moves": 6,
+            "pushes": 1,
+            "total_moves": 46,
+            "total_pushes": 15
+          },
+          {
+            "player": [
+              4,
+              5
+            ],
+            "boxes": [
+              [
+                2,
+                4
+              ],
+              [
+                5,
+                5
+              ]
+            ],
+            "moves": 7,
+            "pushes": 1,
+            "total_moves": 47,
+            "total_pushes": 15
+          },
+          {
+            "player": [
+              4,
+              6
+            ],
+            "boxes": [
+              [
+                2,
+                4
+              ],
+              [
+                5,
+                5
+              ]
+            ],
+            "moves": 8,
+            "pushes": 1,
+            "total_moves": 48,
+            "total_pushes": 15
+          },
+          {
+            "player": [
+              5,
+              6
+            ],
+            "boxes": [
+              [
+                2,
+                4
+              ],
+              [
+                5,
+                5
+              ]
+            ],
+            "moves": 9,
+            "pushes": 1,
+            "total_moves": 49,
+            "total_pushes": 15
+          },
+          {
+            "player": [
+              6,
+              6
+            ],
+            "boxes": [
+              [
+                2,
+                4
+              ],
+              [
+                5,
+                5
+              ]
+            ],
+            "moves": 10,
+            "pushes": 1,
+            "total_moves": 50,
+            "total_pushes": 15
+          },
+          {
+            "player": [
+              6,
+              5
+            ],
+            "boxes": [
+              [
+                2,
+                4
+              ],
+              [
+                5,
+                5
+              ]
+            ],
+            "moves": 11,
+            "pushes": 1,
+            "total_moves": 51,
+            "total_pushes": 15
+          },
+          {
+            "player": [
+              5,
+              5
+            ],
+            "boxes": [
+              [
+                2,
+                4
+              ],
+              [
+                4,
+                5
+              ]
+            ],
+            "moves": 12,
+            "pushes": 2,
+            "total_moves": 52,
+            "total_pushes": 16
+          },
+          {
+            "player": [
+              5,
+              6
+            ],
+            "boxes": [
+              [
+                2,
+                4
+              ],
+              [
+                4,
+                5
+              ]
+            ],
+            "moves": 13,
+            "pushes": 2,
+            "total_moves": 53,
+            "total_pushes": 16
+          },
+          {
+            "player": [
+              4,
+              6
+            ],
+            "boxes": [
+              [
+                2,
+                4
+              ],
+              [
+                4,
+                5
+              ]
+            ],
+            "moves": 14,
+            "pushes": 2,
+            "total_moves": 54,
+            "total_pushes": 16
+          },
+          {
+            "player": [
+              3,
+              6
+            ],
+            "boxes": [
+              [
+                2,
+                4
+              ],
+              [
+                4,
+                5
+              ]
+            ],
+            "moves": 15,
+            "pushes": 2,
+            "total_moves": 55,
+            "total_pushes": 16
+          },
+          {
+            "player": [
+              2,
+              6
+            ],
+            "boxes": [
+              [
+                2,
+                4
+              ],
+              [
+                4,
+                5
+              ]
+            ],
+            "moves": 16,
+            "pushes": 2,
+            "total_moves": 56,
+            "total_pushes": 16
+          },
+          {
+            "player": [
+              2,
+              5
+            ],
+            "boxes": [
+              [
+                2,
+                4
+              ],
+              [
+                4,
+                5
+              ]
+            ],
+            "moves": 17,
+            "pushes": 2,
+            "total_moves": 57,
+            "total_pushes": 16
+          },
+          {
+            "player": [
+              2,
+              4
+            ],
+            "boxes": [
+              [
+                2,
+                3
+              ],
+              [
+                4,
+                5
+              ]
+            ],
+            "moves": 18,
+            "pushes": 3,
+            "total_moves": 58,
+            "total_pushes": 17
+          },
+          {
+            "player": [
+              2,
+              3
+            ],
+            "boxes": [
+              [
+                2,
+                2
+              ],
+              [
+                4,
+                5
+              ]
+            ],
+            "moves": 19,
+            "pushes": 4,
+            "total_moves": 59,
+            "total_pushes": 18
+          },
+          {
+            "player": [
+              1,
+              3
+            ],
+            "boxes": [
+              [
+                2,
+                2
+              ],
+              [
+                4,
+                5
+              ]
+            ],
+            "moves": 20,
+            "pushes": 4,
+            "total_moves": 60,
+            "total_pushes": 18
+          },
+          {
+            "player": [
+              2,
+              3
+            ],
+            "boxes": [
+              [
+                2,
+                2
+              ],
+              [
+                4,
+                5
+              ]
+            ],
+            "moves": 21,
+            "pushes": 4,
+            "total_moves": 61,
+            "total_pushes": 18
+          },
+          {
+            "player": [
+              1,
+              3
+            ],
+            "boxes": [
+              [
+                2,
+                2
+              ],
+              [
+                4,
+                5
+              ]
+            ],
+            "moves": 22,
+            "pushes": 4,
+            "total_moves": 62,
+            "total_pushes": 18
+          },
+          {
+            "player": [
+              1,
+              2
+            ],
+            "boxes": [
+              [
+                2,
+                2
+              ],
+              [
+                4,
+                5
+              ]
+            ],
+            "moves": 23,
+            "pushes": 4,
+            "total_moves": 63,
+            "total_pushes": 18
+          },
+          {
+            "player": [
+              2,
+              2
+            ],
+            "boxes": [
+              [
+                3,
+                2
+              ],
+              [
+                4,
+                5
+              ]
+            ],
+            "moves": 24,
+            "pushes": 5,
+            "total_moves": 64,
+            "total_pushes": 19
+          },
+          {
+            "player": [
+              2,
+              3
+            ],
+            "boxes": [
+              [
+                3,
+                2
+              ],
+              [
+                4,
+                5
+              ]
+            ],
+            "moves": 25,
+            "pushes": 5,
+            "total_moves": 65,
+            "total_pushes": 19
+          },
+          {
+            "player": [
+              3,
+              3
+            ],
+            "boxes": [
+              [
+                3,
+                2
+              ],
+              [
+                4,
+                5
+              ]
+            ],
+            "moves": 26,
+            "pushes": 5,
+            "total_moves": 66,
+            "total_pushes": 19
+          }
+        ],
+        "level_speakers": [
+          "717cae3e-f2ef-4bcc-891c-31f1e3144353"
+        ],
+        "started_at": "2026-09-03T15:55:25.357770+00:00",
+        "deadline_at": "2026-09-03T15:57:25.357770+00:00"
+      }
+    },
     "karel_games": {
       "courtyard_karel": {
         "active_level_ids": [
@@ -3137,8 +4805,175 @@
         "deadline_at": "2026-09-03T15:44:53.338728+00:00"
       }
     },
-    "last_activity_at": "2026-09-03T15:45:32.518771+00:00",
-    "triad_games": {},
+    "last_activity_at": "2026-09-03T15:56:14.478602+00:00",
+    "triad_games": {
+      "temporal_triad": {
+        "players": {
+          "717cae3e-f2ef-4bcc-891c-31f1e3144353": {
+            "size": 6,
+            "board": [
+              [
+                null,
+                null,
+                null,
+                null,
+                null,
+                null
+              ],
+              [
+                null,
+                null,
+                "opponent",
+                null,
+                null,
+                null
+              ],
+              [
+                null,
+                null,
+                "opponent",
+                "cyan",
+                "opponent",
+                "cyan"
+              ],
+              [
+                null,
+                null,
+                null,
+                "opponent",
+                "cyan",
+                "opponent"
+              ],
+              [
+                null,
+                null,
+                null,
+                "cyan",
+                "cyan",
+                "cyan"
+              ],
+              [
+                null,
+                null,
+                null,
+                null,
+                null,
+                null
+              ]
+            ],
+            "blocked": [],
+            "completed_orientations": [
+              "diagonal",
+              "horizontal"
+            ],
+            "scored_lines": [
+              [
+                "2:5",
+                "3:4",
+                "4:3"
+              ],
+              [
+                "2:3",
+                "3:4",
+                "4:5"
+              ],
+              [
+                "4:3",
+                "4:4",
+                "4:5"
+              ]
+            ],
+            "placements": 6,
+            "opponent_moves": 5,
+            "restarts": 0,
+            "status": "complete",
+            "started_at": "2026-09-03T15:53:07.658225+00:00",
+            "deadline_at": "2026-09-03T15:56:07.658225+00:00"
+          },
+          "46c4b312-8a98-4aea-abca-527300ba58e5": {
+            "size": 6,
+            "board": [
+              [
+                null,
+                null,
+                null,
+                null,
+                null,
+                null
+              ],
+              [
+                null,
+                null,
+                null,
+                null,
+                "opponent",
+                null
+              ],
+              [
+                null,
+                "cyan",
+                "opponent",
+                "cyan",
+                null,
+                null
+              ],
+              [
+                null,
+                null,
+                "cyan",
+                "opponent",
+                "opponent",
+                null
+              ],
+              [
+                null,
+                "opponent",
+                "cyan",
+                "cyan",
+                null,
+                null
+              ],
+              [
+                null,
+                null,
+                "cyan",
+                "opponent",
+                "cyan",
+                null
+              ]
+            ],
+            "blocked": [],
+            "completed_orientations": [
+              "diagonal",
+              "vertical"
+            ],
+            "scored_lines": [
+              [
+                "2:1",
+                "3:2",
+                "4:3"
+              ],
+              [
+                "3:2",
+                "4:3",
+                "5:4"
+              ],
+              [
+                "3:2",
+                "4:2",
+                "5:2"
+              ]
+            ],
+            "placements": 7,
+            "opponent_moves": 6,
+            "restarts": 0,
+            "status": "complete",
+            "started_at": "2026-09-03T15:53:07.658755+00:00",
+            "deadline_at": "2026-09-03T15:56:07.658755+00:00"
+          }
+        }
+      }
+    },
     "archive_games": {},
     "event_history": [
       {
@@ -3180,9 +5015,947 @@
         "details": {
           "puzzle_id": "timeline_lines"
         }
+      },
+      {
+        "at": "2026-09-03T15:47:01.409250+00:00",
+        "type": "line_game.move",
+        "details": {
+          "puzzle_id": "timeline_lines"
+        }
+      },
+      {
+        "at": "2026-09-03T15:47:43.793581+00:00",
+        "type": "line_game.reset",
+        "details": {
+          "puzzle_id": "timeline_lines"
+        }
+      },
+      {
+        "at": "2026-09-03T15:47:57.069710+00:00",
+        "type": "line_game.move",
+        "details": {
+          "puzzle_id": "timeline_lines"
+        }
+      },
+      {
+        "at": "2026-09-03T15:48:07.325725+00:00",
+        "type": "line_game.move",
+        "details": {
+          "puzzle_id": "timeline_lines"
+        }
+      },
+      {
+        "at": "2026-09-03T15:48:17.217649+00:00",
+        "type": "line_game.move",
+        "details": {
+          "puzzle_id": "timeline_lines"
+        }
+      },
+      {
+        "at": "2026-09-03T15:48:26.157357+00:00",
+        "type": "line_game.move",
+        "details": {
+          "puzzle_id": "timeline_lines"
+        }
+      },
+      {
+        "at": "2026-09-03T15:48:35.898596+00:00",
+        "type": "line_game.move",
+        "details": {
+          "puzzle_id": "timeline_lines"
+        }
+      },
+      {
+        "at": "2026-09-03T15:48:43.144834+00:00",
+        "type": "line_game.move",
+        "details": {
+          "puzzle_id": "timeline_lines"
+        }
+      },
+      {
+        "at": "2026-09-03T15:48:53.133598+00:00",
+        "type": "line_game.move",
+        "details": {
+          "puzzle_id": "timeline_lines"
+        }
+      },
+      {
+        "at": "2026-09-03T15:48:56.899093+00:00",
+        "type": "line_game.move",
+        "details": {
+          "puzzle_id": "timeline_lines"
+        }
+      },
+      {
+        "at": "2026-09-03T15:49:09.898577+00:00",
+        "type": "line_game.move",
+        "details": {
+          "puzzle_id": "timeline_lines"
+        }
+      },
+      {
+        "at": "2026-09-03T15:49:15.400268+00:00",
+        "type": "line_game.move",
+        "details": {
+          "puzzle_id": "timeline_lines"
+        }
+      },
+      {
+        "at": "2026-09-03T15:49:18.798335+00:00",
+        "type": "line_game.move",
+        "details": {
+          "puzzle_id": "timeline_lines"
+        }
+      },
+      {
+        "at": "2026-09-03T15:49:24.300008+00:00",
+        "type": "line_game.move",
+        "details": {
+          "puzzle_id": "timeline_lines"
+        }
+      },
+      {
+        "at": "2026-09-03T15:49:31.019640+00:00",
+        "type": "line_game.move",
+        "details": {
+          "puzzle_id": "timeline_lines"
+        }
+      },
+      {
+        "at": "2026-09-03T15:49:38.383886+00:00",
+        "type": "line_game.move",
+        "details": {
+          "puzzle_id": "timeline_lines"
+        }
+      },
+      {
+        "at": "2026-09-03T15:49:50.434362+00:00",
+        "type": "line_game.move",
+        "details": {
+          "puzzle_id": "timeline_lines"
+        }
+      },
+      {
+        "at": "2026-09-03T15:49:59.672620+00:00",
+        "type": "line_game.move",
+        "details": {
+          "puzzle_id": "timeline_lines"
+        }
+      },
+      {
+        "at": "2026-09-03T15:50:06.054071+00:00",
+        "type": "line_game.move",
+        "details": {
+          "puzzle_id": "timeline_lines"
+        }
+      },
+      {
+        "at": "2026-09-03T15:50:11.288843+00:00",
+        "type": "line_game.move",
+        "details": {
+          "puzzle_id": "timeline_lines"
+        }
+      },
+      {
+        "at": "2026-09-03T15:50:13.973788+00:00",
+        "type": "line_game.move",
+        "details": {
+          "puzzle_id": "timeline_lines"
+        }
+      },
+      {
+        "at": "2026-09-03T15:50:20.124807+00:00",
+        "type": "line_game.move",
+        "details": {
+          "puzzle_id": "timeline_lines"
+        }
+      },
+      {
+        "at": "2026-09-03T15:50:26.720556+00:00",
+        "type": "line_game.move",
+        "details": {
+          "puzzle_id": "timeline_lines"
+        }
+      },
+      {
+        "at": "2026-09-03T15:50:33.356972+00:00",
+        "type": "line_game.move",
+        "details": {
+          "puzzle_id": "timeline_lines"
+        }
+      },
+      {
+        "at": "2026-09-03T15:50:38.495907+00:00",
+        "type": "line_game.move",
+        "details": {
+          "puzzle_id": "timeline_lines"
+        }
+      },
+      {
+        "at": "2026-09-03T15:50:42.957594+00:00",
+        "type": "line_game.move",
+        "details": {
+          "puzzle_id": "timeline_lines"
+        }
+      },
+      {
+        "at": "2026-09-03T15:50:48.777326+00:00",
+        "type": "line_game.move",
+        "details": {
+          "puzzle_id": "timeline_lines"
+        }
+      },
+      {
+        "at": "2026-09-03T15:50:56.860137+00:00",
+        "type": "line_game.reset",
+        "details": {
+          "puzzle_id": "timeline_lines"
+        }
+      },
+      {
+        "at": "2026-09-03T15:51:01.990565+00:00",
+        "type": "line_game.move",
+        "details": {
+          "puzzle_id": "timeline_lines"
+        }
+      },
+      {
+        "at": "2026-09-03T15:51:14.629550+00:00",
+        "type": "line_game.move",
+        "details": {
+          "puzzle_id": "timeline_lines"
+        }
+      },
+      {
+        "at": "2026-09-03T15:51:21.985862+00:00",
+        "type": "line_game.move",
+        "details": {
+          "puzzle_id": "timeline_lines"
+        }
+      },
+      {
+        "at": "2026-09-03T15:51:26.704691+00:00",
+        "type": "line_game.move",
+        "details": {
+          "puzzle_id": "timeline_lines"
+        }
+      },
+      {
+        "at": "2026-09-03T15:51:34.378774+00:00",
+        "type": "line_game.move",
+        "details": {
+          "puzzle_id": "timeline_lines"
+        }
+      },
+      {
+        "at": "2026-09-03T15:51:47.382652+00:00",
+        "type": "line_game.move",
+        "details": {
+          "puzzle_id": "timeline_lines"
+        }
+      },
+      {
+        "at": "2026-09-03T15:51:52.573827+00:00",
+        "type": "line_game.move",
+        "details": {
+          "puzzle_id": "timeline_lines"
+        }
+      },
+      {
+        "at": "2026-09-03T15:51:59.269556+00:00",
+        "type": "line_game.move",
+        "details": {
+          "puzzle_id": "timeline_lines"
+        }
+      },
+      {
+        "at": "2026-09-03T15:52:14.759700+00:00",
+        "type": "line_game.move",
+        "details": {
+          "puzzle_id": "timeline_lines"
+        }
+      },
+      {
+        "at": "2026-09-03T15:52:23.720719+00:00",
+        "type": "line_game.move",
+        "details": {
+          "puzzle_id": "timeline_lines"
+        }
+      },
+      {
+        "at": "2026-09-03T15:53:25.654874+00:00",
+        "type": "triad.place",
+        "details": {
+          "puzzle_id": "temporal_triad"
+        }
+      },
+      {
+        "at": "2026-09-03T15:53:27.267174+00:00",
+        "type": "triad.place",
+        "details": {
+          "puzzle_id": "temporal_triad"
+        }
+      },
+      {
+        "at": "2026-09-03T15:53:29.063884+00:00",
+        "type": "triad.place",
+        "details": {
+          "puzzle_id": "temporal_triad"
+        }
+      },
+      {
+        "at": "2026-09-03T15:53:31.417041+00:00",
+        "type": "triad.place",
+        "details": {
+          "puzzle_id": "temporal_triad"
+        }
+      },
+      {
+        "at": "2026-09-03T15:53:33.523202+00:00",
+        "type": "triad.place",
+        "details": {
+          "puzzle_id": "temporal_triad"
+        }
+      },
+      {
+        "at": "2026-09-03T15:53:34.635079+00:00",
+        "type": "triad.place",
+        "details": {
+          "puzzle_id": "temporal_triad"
+        }
+      },
+      {
+        "at": "2026-09-03T15:53:38.202427+00:00",
+        "type": "triad.place",
+        "details": {
+          "puzzle_id": "temporal_triad"
+        }
+      },
+      {
+        "at": "2026-09-03T15:53:39.709172+00:00",
+        "type": "triad.place",
+        "details": {
+          "puzzle_id": "temporal_triad"
+        }
+      },
+      {
+        "at": "2026-09-03T15:53:40.618382+00:00",
+        "type": "triad.place",
+        "details": {
+          "puzzle_id": "temporal_triad"
+        }
+      },
+      {
+        "at": "2026-09-03T15:53:45.057895+00:00",
+        "type": "triad.place",
+        "details": {
+          "puzzle_id": "temporal_triad"
+        }
+      },
+      {
+        "at": "2026-09-03T15:53:48.713495+00:00",
+        "type": "triad.place",
+        "details": {
+          "puzzle_id": "temporal_triad"
+        }
+      },
+      {
+        "at": "2026-09-03T15:53:51.477523+00:00",
+        "type": "triad.place",
+        "details": {
+          "puzzle_id": "temporal_triad"
+        }
+      },
+      {
+        "at": "2026-09-03T15:53:53.001237+00:00",
+        "type": "triad.place",
+        "details": {
+          "puzzle_id": "temporal_triad"
+        }
+      },
+      {
+        "at": "2026-09-03T15:54:42.477426+00:00",
+        "type": "sokoban.command",
+        "details": {
+          "puzzle_id": "sports_sokoban",
+          "commands": "['left']"
+        }
+      },
+      {
+        "at": "2026-09-03T15:54:42.972282+00:00",
+        "type": "sokoban.command",
+        "details": {
+          "puzzle_id": "sports_sokoban",
+          "commands": "['left']"
+        }
+      },
+      {
+        "at": "2026-09-03T15:54:45.647385+00:00",
+        "type": "sokoban.command",
+        "details": {
+          "puzzle_id": "sports_sokoban",
+          "commands": "['right']"
+        }
+      },
+      {
+        "at": "2026-09-03T15:54:47.071022+00:00",
+        "type": "sokoban.command",
+        "details": {
+          "puzzle_id": "sports_sokoban",
+          "commands": "['right']"
+        }
+      },
+      {
+        "at": "2026-09-03T15:54:47.704357+00:00",
+        "type": "sokoban.command",
+        "details": {
+          "puzzle_id": "sports_sokoban",
+          "commands": "['up']"
+        }
+      },
+      {
+        "at": "2026-09-03T15:54:48.803440+00:00",
+        "type": "sokoban.command",
+        "details": {
+          "puzzle_id": "sports_sokoban",
+          "commands": "['up']"
+        }
+      },
+      {
+        "at": "2026-09-03T15:54:49.370300+00:00",
+        "type": "sokoban.command",
+        "details": {
+          "puzzle_id": "sports_sokoban",
+          "commands": "['up']"
+        }
+      },
+      {
+        "at": "2026-09-03T15:54:51.409640+00:00",
+        "type": "sokoban.command",
+        "details": {
+          "puzzle_id": "sports_sokoban",
+          "commands": "['up']"
+        }
+      },
+      {
+        "at": "2026-09-03T15:54:52.344955+00:00",
+        "type": "sokoban.command",
+        "details": {
+          "puzzle_id": "sports_sokoban",
+          "commands": "['down']"
+        }
+      },
+      {
+        "at": "2026-09-03T15:54:53.612403+00:00",
+        "type": "sokoban.command",
+        "details": {
+          "puzzle_id": "sports_sokoban",
+          "commands": "['up']"
+        }
+      },
+      {
+        "at": "2026-09-03T15:54:54.254095+00:00",
+        "type": "sokoban.command",
+        "details": {
+          "puzzle_id": "sports_sokoban",
+          "commands": "['left']"
+        }
+      },
+      {
+        "at": "2026-09-03T15:54:55.317635+00:00",
+        "type": "sokoban.command",
+        "details": {
+          "puzzle_id": "sports_sokoban",
+          "commands": "['down']"
+        }
+      },
+      {
+        "at": "2026-09-03T15:54:56.486857+00:00",
+        "type": "sokoban.command",
+        "details": {
+          "puzzle_id": "sports_sokoban",
+          "commands": "['down']"
+        }
+      },
+      {
+        "at": "2026-09-03T15:54:57.526425+00:00",
+        "type": "sokoban.command",
+        "details": {
+          "puzzle_id": "sports_sokoban",
+          "commands": "['right']"
+        }
+      },
+      {
+        "at": "2026-09-03T15:54:58.090690+00:00",
+        "type": "sokoban.command",
+        "details": {
+          "puzzle_id": "sports_sokoban",
+          "commands": "['down']"
+        }
+      },
+      {
+        "at": "2026-09-03T15:54:59.109115+00:00",
+        "type": "sokoban.command",
+        "details": {
+          "puzzle_id": "sports_sokoban",
+          "commands": "['left']"
+        }
+      },
+      {
+        "at": "2026-09-03T15:55:02.911538+00:00",
+        "type": "sokoban.command",
+        "details": {
+          "puzzle_id": "sports_sokoban",
+          "commands": "['right']"
+        }
+      },
+      {
+        "at": "2026-09-03T15:55:04.134190+00:00",
+        "type": "sokoban.command",
+        "details": {
+          "puzzle_id": "sports_sokoban",
+          "commands": "['right']"
+        }
+      },
+      {
+        "at": "2026-09-03T15:55:05.241410+00:00",
+        "type": "sokoban.command",
+        "details": {
+          "puzzle_id": "sports_sokoban",
+          "commands": "['up']"
+        }
+      },
+      {
+        "at": "2026-09-03T15:55:06.337189+00:00",
+        "type": "sokoban.command",
+        "details": {
+          "puzzle_id": "sports_sokoban",
+          "commands": "['right']"
+        }
+      },
+      {
+        "at": "2026-09-03T15:55:06.951436+00:00",
+        "type": "sokoban.command",
+        "details": {
+          "puzzle_id": "sports_sokoban",
+          "commands": "['down']"
+        }
+      },
+      {
+        "at": "2026-09-03T15:55:08.142947+00:00",
+        "type": "sokoban.command",
+        "details": {
+          "puzzle_id": "sports_sokoban",
+          "commands": "['right']"
+        }
+      },
+      {
+        "at": "2026-09-03T15:55:08.689133+00:00",
+        "type": "sokoban.command",
+        "details": {
+          "puzzle_id": "sports_sokoban",
+          "commands": "['down']"
+        }
+      },
+      {
+        "at": "2026-09-03T15:55:09.749796+00:00",
+        "type": "sokoban.command",
+        "details": {
+          "puzzle_id": "sports_sokoban",
+          "commands": "['left']"
+        }
+      },
+      {
+        "at": "2026-09-03T15:55:10.372387+00:00",
+        "type": "sokoban.command",
+        "details": {
+          "puzzle_id": "sports_sokoban",
+          "commands": "['left']"
+        }
+      },
+      {
+        "at": "2026-09-03T15:55:11.585965+00:00",
+        "type": "sokoban.command",
+        "details": {
+          "puzzle_id": "sports_sokoban",
+          "commands": "['up']"
+        }
+      },
+      {
+        "at": "2026-09-03T15:55:12.144156+00:00",
+        "type": "sokoban.command",
+        "details": {
+          "puzzle_id": "sports_sokoban",
+          "commands": "['left']"
+        }
+      },
+      {
+        "at": "2026-09-03T15:55:13.308636+00:00",
+        "type": "sokoban.command",
+        "details": {
+          "puzzle_id": "sports_sokoban",
+          "commands": "['down']"
+        }
+      },
+      {
+        "at": "2026-09-03T15:55:13.946100+00:00",
+        "type": "sokoban.command",
+        "details": {
+          "puzzle_id": "sports_sokoban",
+          "commands": "['right']"
+        }
+      },
+      {
+        "at": "2026-09-03T15:55:14.932914+00:00",
+        "type": "sokoban.command",
+        "details": {
+          "puzzle_id": "sports_sokoban",
+          "commands": "['down']"
+        }
+      },
+      {
+        "at": "2026-09-03T15:55:15.401430+00:00",
+        "type": "sokoban.command",
+        "details": {
+          "puzzle_id": "sports_sokoban",
+          "commands": "['left']"
+        }
+      },
+      {
+        "at": "2026-09-03T15:55:16.505087+00:00",
+        "type": "sokoban.command",
+        "details": {
+          "puzzle_id": "sports_sokoban",
+          "commands": "['up']"
+        }
+      },
+      {
+        "at": "2026-09-03T15:55:18.096558+00:00",
+        "type": "sokoban.command",
+        "details": {
+          "puzzle_id": "sports_sokoban",
+          "commands": "['up']"
+        }
+      },
+      {
+        "at": "2026-09-03T15:55:18.614036+00:00",
+        "type": "sokoban.command",
+        "details": {
+          "puzzle_id": "sports_sokoban",
+          "commands": "['left']"
+        }
+      },
+      {
+        "at": "2026-09-03T15:55:19.564043+00:00",
+        "type": "sokoban.command",
+        "details": {
+          "puzzle_id": "sports_sokoban",
+          "commands": "['up']"
+        }
+      },
+      {
+        "at": "2026-09-03T15:55:20.128561+00:00",
+        "type": "sokoban.command",
+        "details": {
+          "puzzle_id": "sports_sokoban",
+          "commands": "['right']"
+        }
+      },
+      {
+        "at": "2026-09-03T15:55:21.903372+00:00",
+        "type": "sokoban.command",
+        "details": {
+          "puzzle_id": "sports_sokoban",
+          "commands": "['right']"
+        }
+      },
+      {
+        "at": "2026-09-03T15:55:22.547907+00:00",
+        "type": "sokoban.command",
+        "details": {
+          "puzzle_id": "sports_sokoban",
+          "commands": "['up']"
+        }
+      },
+      {
+        "at": "2026-09-03T15:55:23.592605+00:00",
+        "type": "sokoban.command",
+        "details": {
+          "puzzle_id": "sports_sokoban",
+          "commands": "['right']"
+        }
+      },
+      {
+        "at": "2026-09-03T15:55:25.357738+00:00",
+        "type": "sokoban.command",
+        "details": {
+          "puzzle_id": "sports_sokoban",
+          "commands": "['down']"
+        }
+      },
+      {
+        "at": "2026-09-03T15:55:33.403182+00:00",
+        "type": "sokoban.command",
+        "details": {
+          "puzzle_id": "sports_sokoban",
+          "commands": "['down']"
+        }
+      },
+      {
+        "at": "2026-09-03T15:55:33.874652+00:00",
+        "type": "sokoban.command",
+        "details": {
+          "puzzle_id": "sports_sokoban",
+          "commands": "['down']"
+        }
+      },
+      {
+        "at": "2026-09-03T15:55:34.394859+00:00",
+        "type": "sokoban.command",
+        "details": {
+          "puzzle_id": "sports_sokoban",
+          "commands": "['right']"
+        }
+      },
+      {
+        "at": "2026-09-03T15:55:35.627281+00:00",
+        "type": "sokoban.command",
+        "details": {
+          "puzzle_id": "sports_sokoban",
+          "commands": "['down']"
+        }
+      },
+      {
+        "at": "2026-09-03T15:55:36.086416+00:00",
+        "type": "sokoban.command",
+        "details": {
+          "puzzle_id": "sports_sokoban",
+          "commands": "['right']"
+        }
+      },
+      {
+        "at": "2026-09-03T15:55:37.229847+00:00",
+        "type": "sokoban.command",
+        "details": {
+          "puzzle_id": "sports_sokoban",
+          "commands": "['up']"
+        }
+      },
+      {
+        "at": "2026-09-03T15:55:38.207975+00:00",
+        "type": "sokoban.command",
+        "details": {
+          "puzzle_id": "sports_sokoban",
+          "commands": "['right']"
+        }
+      },
+      {
+        "at": "2026-09-03T15:55:38.747406+00:00",
+        "type": "sokoban.command",
+        "details": {
+          "puzzle_id": "sports_sokoban",
+          "commands": "['right']"
+        }
+      },
+      {
+        "at": "2026-09-03T15:55:39.811703+00:00",
+        "type": "sokoban.command",
+        "details": {
+          "puzzle_id": "sports_sokoban",
+          "commands": "['down']"
+        }
+      },
+      {
+        "at": "2026-09-03T15:55:40.402936+00:00",
+        "type": "sokoban.command",
+        "details": {
+          "puzzle_id": "sports_sokoban",
+          "commands": "['down']"
+        }
+      },
+      {
+        "at": "2026-09-03T15:55:41.372236+00:00",
+        "type": "sokoban.command",
+        "details": {
+          "puzzle_id": "sports_sokoban",
+          "commands": "['left']"
+        }
+      },
+      {
+        "at": "2026-09-03T15:55:41.896229+00:00",
+        "type": "sokoban.command",
+        "details": {
+          "puzzle_id": "sports_sokoban",
+          "commands": "['up']"
+        }
+      },
+      {
+        "at": "2026-09-03T15:55:42.917299+00:00",
+        "type": "sokoban.command",
+        "details": {
+          "puzzle_id": "sports_sokoban",
+          "commands": "['up']"
+        }
+      },
+      {
+        "at": "2026-09-03T15:55:44.318292+00:00",
+        "type": "sokoban.command",
+        "details": {
+          "puzzle_id": "sports_sokoban",
+          "commands": "['right']"
+        }
+      },
+      {
+        "at": "2026-09-03T15:55:45.880876+00:00",
+        "type": "sokoban.command",
+        "details": {
+          "puzzle_id": "sports_sokoban",
+          "commands": "['up']"
+        }
+      },
+      {
+        "at": "2026-09-03T15:55:46.345182+00:00",
+        "type": "sokoban.command",
+        "details": {
+          "puzzle_id": "sports_sokoban",
+          "commands": "['up']"
+        }
+      },
+      {
+        "at": "2026-09-03T15:55:46.836112+00:00",
+        "type": "sokoban.command",
+        "details": {
+          "puzzle_id": "sports_sokoban",
+          "commands": "['up']"
+        }
+      },
+      {
+        "at": "2026-09-03T15:55:47.947005+00:00",
+        "type": "sokoban.command",
+        "details": {
+          "puzzle_id": "sports_sokoban",
+          "commands": "['left']"
+        }
+      },
+      {
+        "at": "2026-09-03T15:55:48.929294+00:00",
+        "type": "sokoban.command",
+        "details": {
+          "puzzle_id": "sports_sokoban",
+          "commands": "['left']"
+        }
+      },
+      {
+        "at": "2026-09-03T15:55:49.550519+00:00",
+        "type": "sokoban.command",
+        "details": {
+          "puzzle_id": "sports_sokoban",
+          "commands": "['left']"
+        }
+      },
+      {
+        "at": "2026-09-03T15:55:50.563676+00:00",
+        "type": "sokoban.command",
+        "details": {
+          "puzzle_id": "sports_sokoban",
+          "commands": "['up']"
+        }
+      },
+      {
+        "at": "2026-09-03T15:55:51.151643+00:00",
+        "type": "sokoban.command",
+        "details": {
+          "puzzle_id": "sports_sokoban",
+          "commands": "['down']"
+        }
+      },
+      {
+        "at": "2026-09-03T15:55:52.297369+00:00",
+        "type": "sokoban.command",
+        "details": {
+          "puzzle_id": "sports_sokoban",
+          "commands": "['up']"
+        }
+      },
+      {
+        "at": "2026-09-03T15:55:52.796204+00:00",
+        "type": "sokoban.command",
+        "details": {
+          "puzzle_id": "sports_sokoban",
+          "commands": "['left']"
+        }
+      },
+      {
+        "at": "2026-09-03T15:55:53.820591+00:00",
+        "type": "sokoban.command",
+        "details": {
+          "puzzle_id": "sports_sokoban",
+          "commands": "['down']"
+        }
+      },
+      {
+        "at": "2026-09-03T15:55:55.036394+00:00",
+        "type": "sokoban.command",
+        "details": {
+          "puzzle_id": "sports_sokoban",
+          "commands": "['right']"
+        }
+      },
+      {
+        "at": "2026-09-03T15:55:55.504430+00:00",
+        "type": "sokoban.command",
+        "details": {
+          "puzzle_id": "sports_sokoban",
+          "commands": "['down']"
+        }
+      },
+      {
+        "at": "2026-09-03T15:55:56.021303+00:00",
+        "type": "sokoban.command",
+        "details": {
+          "puzzle_id": "sports_sokoban",
+          "commands": "['left']"
+        }
       }
     ],
     "game_exclusions": {},
-    "game_results": {}
+    "game_results": {
+      "timeline_lines": {
+        "717cae3e-f2ef-4bcc-891c-31f1e3144353": {
+          "elapsed_seconds": 62,
+          "score_delta": 60,
+          "conditions": [
+            "3",
+            "4"
+          ]
+        },
+        "46c4b312-8a98-4aea-abca-527300ba58e5": {
+          "elapsed_seconds": 279,
+          "score_delta": -50,
+          "conditions": [
+            "3",
+            "5"
+          ]
+        }
+      },
+      "temporal_triad": {
+        "717cae3e-f2ef-4bcc-891c-31f1e3144353": {
+          "elapsed_seconds": 26,
+          "score_delta": 20,
+          "conditions": [
+            "diagonal",
+            "horizontal"
+          ]
+        },
+        "46c4b312-8a98-4aea-abca-527300ba58e5": {
+          "elapsed_seconds": 45,
+          "score_delta": 20,
+          "conditions": [
+            "diagonal",
+            "vertical"
+          ]
+        }
+      }
+    }
   }
 }

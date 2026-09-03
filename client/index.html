@@ -551,7 +551,28 @@
         .finale-overlay .finale-modules-live { display: flex; justify-content: center; gap: 8px; margin-top: 20px; font-size: .8rem; }
         .finale-overlay .finale-modules-live span { padding: 6px 9px; border: 1px solid #088; color: #577; }
         .finale-overlay .finale-modules-live span.online { color: #0ff; border-color: #0ff; box-shadow: 0 0 12px #0ff8; }
+        .finale-overlay.rescue-cinematic { overflow: hidden; background: radial-gradient(circle at 50% 46%, #18ffff38 0 8%, #072d3d 24%, #00070c 62%); font-size: 1rem; text-shadow: none; animation: rescue-fade-in .7s ease-out both; }
+        .finale-overlay.rescue-cinematic.closing { opacity: 0; transition: opacity .8s ease-in; }
+        .rescue-cinematic::before { content: ''; position: absolute; inset: -35%; background: repeating-conic-gradient(from 0deg at 50% 50%, #0ff0 0 8deg, #0ff2 9deg 10deg, #0ff0 11deg 22deg); animation: rescue-spin 7s linear infinite; }
+        .rescue-scene { position: relative; width: min(760px, 94vw); height: min(520px, 82vh); overflow: hidden; border: 1px solid #0ff8; background: linear-gradient(#00101899, #000 78%); box-shadow: 0 0 60px #0ff5, inset 0 0 70px #001; text-align: center; animation: none !important; }
+        .rescue-scanlines { position: absolute; inset: 0; z-index: 5; pointer-events: none; background: repeating-linear-gradient(0deg, transparent 0 3px, #8fffff0d 3px 4px); }
+        .rescue-portal { position: absolute; left: 50%; top: 44%; width: min(42vw, 290px); aspect-ratio: 1; border: 7px solid #9ff; border-radius: 50%; box-shadow: 0 0 18px #fff, 0 0 55px #0ff, inset 0 0 45px #0ff; transform: translate(-50%,-50%) scale(.05); animation: portal-open 1.5s .2s cubic-bezier(.2,.8,.2,1) forwards, portal-hold 1s 1.7s ease-in-out infinite alternate; }
+        .rescue-portal::before, .rescue-portal::after { content: ''; position: absolute; inset: -22px; border: 2px dashed #0ff; border-radius: 50%; animation: rescue-spin 2.4s linear infinite; }
+        .rescue-portal::after { inset: 18px; border-color: #fff; animation-direction: reverse; }
+        .rescue-elara { position: absolute; z-index: 3; left: 50%; bottom: 12%; width: 74px; height: 190px; border-radius: 48% 48% 18% 18%; background: linear-gradient(90deg,#024,#dfffff 48%,#079); filter: drop-shadow(0 0 14px #0ff); opacity: 0; transform: translate(-50%,35px) scale(.82); animation: elara-arrives 2s 1.65s ease-out forwards; }
+        .rescue-elara::before { content: ''; position: absolute; left: 16px; top: -43px; width: 43px; height: 52px; border-radius: 50% 50% 43% 43%; background: #bfffff; box-shadow: 0 0 16px #0ff; }
+        .rescue-elara::after { content: ''; position: absolute; left: -25px; top: 48px; width: 124px; height: 10px; border-radius: 50%; background: #79ffff; box-shadow: 0 0 12px #0ff; transform: rotate(-7deg); }
+        .rescue-caption { position: absolute; z-index: 6; left: 5%; right: 5%; bottom: 4%; opacity: 0; animation: rescue-caption 1s 3.3s ease-out forwards; }
+        .rescue-caption strong { display: block; color: #fff; font-size: clamp(1.5rem,5vw,3rem); letter-spacing: .12em; text-shadow: 0 0 18px #0ff; }
+        .rescue-caption span { display: block; margin-top: 8px; color: #7ff; font: 700 clamp(.7rem,2vw,1rem)/1.4 monospace; letter-spacing: .16em; }
+        .rescue-skip { position: absolute; z-index: 8; top: 12px; right: 12px; padding: 7px 10px; border: 1px solid #477; background: #001b; color: #9bb; font-size: .72rem; }
         @keyframes finale-pulse { 50% { text-shadow: 0 0 42px #0ff; transform: scale(1.025); } }
+        @keyframes rescue-spin { to { transform: rotate(360deg); } }
+        @keyframes rescue-fade-in { from { opacity: 0; } }
+        @keyframes portal-open { 70% { transform: translate(-50%,-50%) scale(1.08); } to { transform: translate(-50%,-50%) scale(1); } }
+        @keyframes portal-hold { to { filter: brightness(1.45); } }
+        @keyframes elara-arrives { 25% { opacity: .25; } 65% { opacity: .8; transform: translate(-50%,8px) scale(.96); } to { opacity: 1; transform: translate(-50%,0) scale(1); } }
+        @keyframes rescue-caption { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
         @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; scroll-behavior: auto !important; transition-duration: .01ms !important; } }
         .sokoban-controls { display: grid; grid-template-columns: repeat(3, 64px); justify-content: center; gap: 6px; margin: 12px 0; }
         .sokoban-controls button { padding: 12px 5px; }
@@ -3405,12 +3426,28 @@
             const tick = () => {
                 const elapsed = total - remaining;
                 const online = Math.min(3, Math.max(0, Math.floor(elapsed / Math.max(1, total / 4))));
-                const finalPulse = remaining <= 1;
-                overlay.innerHTML = `<div>${finalPulse ? 'ELARA' : remaining}<small>${finalPulse ? 'NÁVRAT POTVRZEN' : (online < 3 ? 'AKTIVACE TEMPORÁLNÍCH MODULŮ' : 'STABILIZACE ČASOVÉ OSY')}</small><div class="finale-modules-live">${['MOTOR','STABILIZÁTOR','KOTVA'].map((label,index) => `<span class="${index < online ? 'online' : ''}">${label}</span>`).join('')}</div></div>`;
-                playSound(finalPulse ? 'success' : 'tick');
-                if (remaining-- <= 1) { if (timer) clearInterval(timer); setTimeout(() => overlay.remove(), 1400); }
+                overlay.innerHTML = `<div>${remaining}<small>${online < 3 ? 'AKTIVACE TEMPORÁLNÍCH MODULŮ' : 'STABILIZACE ČASOVÉ OSY'}</small><div class="finale-modules-live">${['MOTOR','STABILIZÁTOR','KOTVA'].map((label,index) => `<span class="${index < online ? 'online' : ''}">${label}</span>`).join('')}</div></div>`;
+                playSound('tick');
+                if (remaining-- <= 1) { if (timer) clearInterval(timer); showElaraRescue(overlay); }
             };
             tick(); timer = setInterval(tick, 1000);
+        }
+
+        function showElaraRescue(overlay) {
+            if (!overlay?.isConnected) return;
+            overlay.className = 'finale-overlay rescue-cinematic';
+            overlay.setAttribute('role', 'dialog');
+            overlay.setAttribute('aria-label', 'Záchrana doktorky Elary');
+            overlay.innerHTML = `<button class="rescue-skip" onclick="this.closest('.finale-overlay').remove()">PŘESKOČIT</button><div class="rescue-scene"><div class="rescue-portal"></div><div class="rescue-elara" aria-hidden="true"></div><div class="rescue-caption"><strong>ELARA JE ZPÁTKY</strong><span>ČASOVÉ VRSTVY STABILIZOVÁNY · MISE SPLNĚNA</span></div><div class="rescue-scanlines"></div></div>`;
+            playSound('success');
+            if (!soundSettings.muted) {
+                if (activeVoiceAudio) activeVoiceAudio.pause();
+                activeVoiceAudio = new Audio('/assets/voices/elara_returned.mp3');
+                activeVoiceAudio.volume = Number(soundSettings.voiceVolume);
+                activeVoiceAudio.play().catch(() => {});
+            }
+            setTimeout(() => overlay.classList.add('closing'), 7200);
+            setTimeout(() => overlay.remove(), 8000);
         }
 
         function updateTeamSokobanIntercomControls() {
