@@ -47,6 +47,9 @@
         .tutorial-icon { display: grid; place-items: center; width: 92px; height: 92px; margin: 0 auto 24px; border: 2px solid #0ff; border-radius: 50%; color: #0ff; font-size: 3rem; box-shadow: 0 0 24px rgba(0,255,255,.25); }
         .tutorial-content h2 { color: #fff; font-size: clamp(1.55rem, 5vw, 2.5rem); }
         .tutorial-content p { max-width: 590px; margin: 0 auto; color: #cff; font-size: clamp(1rem, 2.5vw, 1.2rem); line-height: 1.6; }
+        .tutorial-visual-cue { display: flex; align-items: center; justify-content: center; gap: 10px; width: fit-content; max-width: 100%; margin: 0 auto 18px; padding: 9px 13px; border: 1px solid #ffcf5a; background: rgba(62,42,0,.72); color: #fff2bd; font: 700 clamp(.76rem, 2vw, .92rem)/1.35 monospace; letter-spacing: .035em; text-align: left; }
+        .tutorial-visual-cue::before { content: '↗'; flex: 0 0 auto; color: #ffcf5a; font-size: 1.35rem; text-shadow: 0 0 9px #ffb000; }
+        .tutorial-visual-cue strong { color: #ffcf5a; white-space: nowrap; }
         .tutorial-counter { margin-top: 18px; color: #0aa; }
         .tutorial-highlight { position: relative; z-index: 2301 !important; pointer-events: none; box-shadow: 0 0 0 4px #ffcf5a, 0 0 28px #ffb000 !important; }
         .lobby-modes button:disabled { opacity:.34; filter:grayscale(1); cursor:not-allowed; border-style:dashed; box-shadow:none; }
@@ -2296,7 +2299,8 @@
             const target = document.getElementById(step.target || '');
             if (target) target.classList.add('tutorial-highlight');
             const overlay = document.getElementById('onboarding-overlay');
-            overlay.innerHTML = `<div class="onboarding-card"><div class="tutorial-view"><div class="tutorial-progress" aria-label="Krok ${onboardingStep + 1} z ${steps.length}">${steps.map((_, i) => `<span class="${i <= onboardingStep ? 'complete' : ''}"></span>`).join('')}</div><div class="tutorial-content"><div class="tutorial-icon" aria-hidden="true">${escapeHtml(step.icon || '?')}</div><h2>${escapeHtml(step.title || '')}</h2><p>${escapeHtml(step.text || '')}</p><div class="tutorial-counter">KROK ${onboardingStep + 1} / ${steps.length}</div></div><div class="onboarding-actions"><button class="onboarding-skip" onclick="finishOnboarding()">PŘESKOČIT</button>${onboardingStep ? `<button onclick="showTutorialStep(${onboardingStep - 1})">ZPĚT</button>` : ''}<button onclick="showTutorialStep(${onboardingStep + 1})">${onboardingStep === steps.length - 1 ? escapeHtml(onboardingContent.finish_cta || 'ZAČÍT') : 'DALŠÍ'}</button></div></div></div>`;
+            const visualCue = step.visual ? `<div class="tutorial-visual-cue"><strong>HLEDEJTE</strong><span>${escapeHtml(step.visual)}</span></div>` : '';
+            overlay.innerHTML = `<div class="onboarding-card"><div class="tutorial-view"><div class="tutorial-progress" aria-label="Krok ${onboardingStep + 1} z ${steps.length}">${steps.map((_, i) => `<span class="${i <= onboardingStep ? 'complete' : ''}"></span>`).join('')}</div><div class="tutorial-content"><div class="tutorial-icon" aria-hidden="true">${escapeHtml(step.icon || '?')}</div><h2>${escapeHtml(step.title || '')}</h2>${visualCue}<p>${escapeHtml(step.text || '')}</p><div class="tutorial-counter">KROK ${onboardingStep + 1} / ${steps.length}</div></div><div class="onboarding-actions"><button class="onboarding-skip" onclick="finishOnboarding()">PŘESKOČIT</button>${onboardingStep ? `<button onclick="showTutorialStep(${onboardingStep - 1})">ZPĚT</button>` : ''}<button onclick="showTutorialStep(${onboardingStep + 1})">${onboardingStep === steps.length - 1 ? escapeHtml(onboardingContent.finish_cta || 'ZAČÍT') : 'DALŠÍ'}</button></div></div></div>`;
         }
 
         function finishOnboarding() {

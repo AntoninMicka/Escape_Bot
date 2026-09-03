@@ -2708,5 +2708,90 @@
     "event_history": [],
     "game_exclusions": {},
     "game_results": {}
+  },
+  "d4612a4686804cb8b583ccbc23bf57eb": {
+    "phase": "navigating",
+    "unlocked_discoveries": [],
+    "inventory": [],
+    "flags": {
+      "operations_started_at": "2026-09-03T15:30:23.330185+00:00",
+      "chronomap_unlocked": true
+    },
+    "chat_history": [
+      {
+        "role": "bot",
+        "channel": "captain",
+        "text": "*ššš*... Tady Kapitánka. Slyšíme se? Interkom konečně naběhl. Potvrď příjem!",
+        "voice_id": "captain_first_contact",
+        "audio_url": "/assets/voices/captain_first_contact.mp3"
+      },
+      {
+        "role": "player",
+        "channel": "captain",
+        "text": "ok"
+      },
+      {
+        "role": "bot",
+        "channel": "captain",
+        "text": "Výborně, spojení funguje. Při experimentu v Hotelu Kraskov zmizela doktorka Elara. Z poškozeného chronálního vysílače zůstal jediný nouzový záznam:\n\nNOSNÁ VLNA C-17\n━━  ━━  ●  ●  ●   /   ●  ●  ●  ━━  ━━   /   ●  ●  ●  ●  ━━\n\nZáznam tvoří tři oddělené skupiny. Obnovenou třícifernou frekvenci odešli do interkomu."
+      },
+      {
+        "role": "player",
+        "channel": "captain",
+        "text": "734"
+      },
+      {
+        "role": "bot",
+        "channel": "captain",
+        "text": "Frekvence 734 přijata! Zachytila jsem chronální ozvěnu. Přepojuji... *píp*"
+      },
+      {
+        "role": "bot",
+        "channel": "lost",
+        "text": "Haló? Tady doktorka Elara. Jsem pořád v Kraskově, ale hotel vypadá, jako by tu nikdo nebyl celá desetiletí. Stroj se rozpadl při přenosu. Slyšíte mě?",
+        "voice_id": "elara_first_contact",
+        "audio_url": "/assets/voices/elara_first_contact.mp3"
+      },
+      {
+        "role": "bot",
+        "channel": "lost",
+        "text": "Jsme ve stejném Kraskově, ale já jsem uvázla v jeho budoucí časové vrstvě. Interkom přenese jen hlas a data; ven mě dostane až stabilní koridor. Havárie vymrštila tři součásti stroje do vašeho času. CHRONOMAPA je online — najděte její první stabilní bod u recepčního archivu.",
+        "voice_id": "elara_temporal_reveal",
+        "audio_url": "/assets/voices/elara_temporal_reveal.mp3"
+      }
+    ],
+    "score": 1020,
+    "hints_used": {},
+    "checkpoint_states": {},
+    "unlocked_cipher_tools": [
+      "a1z26",
+      "morse"
+    ],
+    "paid_cipher_tools": [],
+    "puzzle_attempts": {},
+    "interactive_games": {},
+    "sokoban_games": {},
+    "karel_games": {},
+    "last_activity_at": "2026-09-03T15:31:54.895126+00:00",
+    "triad_games": {},
+    "archive_games": {},
+    "event_history": [
+      {
+        "at": "2026-09-03T15:31:40.513814+00:00",
+        "type": "player.message",
+        "details": {
+          "channel": "captain"
+        }
+      },
+      {
+        "at": "2026-09-03T15:31:54.895126+00:00",
+        "type": "player.message",
+        "details": {
+          "channel": "captain"
+        }
+      }
+    ],
+    "game_exclusions": {},
+    "game_results": {}
   }
 }

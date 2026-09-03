@@ -14,11 +14,11 @@
       "cta": "PŘIJMOUT MISI"
     },
     "tutorial": [
-      {"target": "intercom-tab-button", "icon": "▣", "title": "Interkom", "text": "Tady probíhá komunikace. Přepínejte kanály vlevo, napište odpověď do spodního pole a odešlete ji. První úkol už čeká ve zprávách."},
-      {"target": "chronomap-tab-button", "icon": "⌖", "title": "Chronomapa", "text": "Mapa ukazuje postup mise, dostupná místa a nalezené stopy. Nové části se odemykají postupně."},
-      {"target": "scanner-tab-button", "icon": "▦", "title": "Skener kotev", "text": "Na stanovištích hledejte QR kódy. Otevřete Skener, namiřte kameru na kód a vyčkejte na potvrzení terminálu."},
-      {"target": "cipher-toggle", "icon": "⌘", "title": "Pomůcky a nápověda", "text": "Šifrovací pomůcky otevřete plovoucím tlačítkem. Nápovědy jsou dostupné u úkolů, ale mohou odečíst body."},
-      {"target": "intercom-tab-button", "icon": "▶", "title": "Jste připraveni", "text": "Spolupracujte, čtěte zadání pozorně a sledujte nové zprávy. Teď potvrďte příjem Kapitánce v Interkomu."}
+      {"target": "intercom-tab-button", "icon": "▣", "title": "Interkom", "visual": "INTERKOM · první tyrkysová záložka v horní liště", "text": "Po otevření uvidíte vlevo seznam kanálů a vedle něj historii zpráv. Odpověď napište do dlouhého pole úplně dole a potvrďte tlačítkem Odeslat. První úkol už čeká ve zprávách."},
+      {"target": "chronomap-tab-button", "icon": "⌖", "title": "Chronomapa", "visual": "CHRONOMAPA [OFFLINE] · záložka uprostřed horní lišty", "text": "Zpočátku je tlačítko šedé a nese nápis OFFLINE. Po aktivaci se zde zobrazí mapa jako síť bodů: rozsvícené body jsou splněné, dostupné ukazují další cestu a karty pod mapou evidují nalezené stopy."},
+      {"target": "scanner-tab-button", "icon": "▦", "title": "Skener kotev", "visual": "SKENER (Kamera) · světlá záložka v horní liště", "text": "Na stanovištích hledejte čtvercové QR kódy. V této záložce se objeví obraz z kamery s rámečkem; QR držte uvnitř rámečku, dokud terminál nepotvrdí načtení."},
+      {"target": "cipher-toggle", "icon": "⌘", "title": "Pomůcky a nápověda", "visual": "ŠIFROVACÍ POMŮCKY · tlačítko vpravo v horní liště", "text": "Tlačítko otevře tmavý vysouvací panel s přehledem šifer. Nápovědy ke konkrétním úkolům hledejte přímo na jejich kartách pod zadáním; cena v bodech je vždy napsaná na tlačítku."},
+      {"target": "intercom-tab-button", "icon": "▶", "title": "Jste připraveni", "visual": "INTERKOM · právě zvýrazněná záložka nahoře", "text": "Po zavření tutoriálu se otevře Interkom. Najděte zprávu Kapitánky v hlavní historii, klikněte do spodního textového pole a potvrďte jí příjem."}
     ],
     "finish_cta": "OTEVŘÍT INTERKOM"
   },
