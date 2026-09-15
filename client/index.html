@@ -559,9 +559,7 @@
         .rescue-portal { position: absolute; left: 50%; top: 44%; width: min(42vw, 290px); aspect-ratio: 1; border: 7px solid #9ff; border-radius: 50%; box-shadow: 0 0 18px #fff, 0 0 55px #0ff, inset 0 0 45px #0ff; transform: translate(-50%,-50%) scale(.05); animation: portal-open 1.5s .2s cubic-bezier(.2,.8,.2,1) forwards, portal-hold 1s 1.7s ease-in-out infinite alternate; }
         .rescue-portal::before, .rescue-portal::after { content: ''; position: absolute; inset: -22px; border: 2px dashed #0ff; border-radius: 50%; animation: rescue-spin 2.4s linear infinite; }
         .rescue-portal::after { inset: 18px; border-color: #fff; animation-direction: reverse; }
-        .rescue-elara { position: absolute; z-index: 3; left: 50%; bottom: 12%; width: 74px; height: 190px; border-radius: 48% 48% 18% 18%; background: linear-gradient(90deg,#024,#dfffff 48%,#079); filter: drop-shadow(0 0 14px #0ff); opacity: 0; transform: translate(-50%,35px) scale(.82); animation: elara-arrives 2s 1.65s ease-out forwards; }
-        .rescue-elara::before { content: ''; position: absolute; left: 16px; top: -43px; width: 43px; height: 52px; border-radius: 50% 50% 43% 43%; background: #bfffff; box-shadow: 0 0 16px #0ff; }
-        .rescue-elara::after { content: ''; position: absolute; left: -25px; top: 48px; width: 124px; height: 10px; border-radius: 50%; background: #79ffff; box-shadow: 0 0 12px #0ff; transform: rotate(-7deg); }
+        .rescue-elara { position: absolute; z-index: 3; left: 50%; bottom: 1%; width: min(38vw, 235px); height: auto; max-height: 86%; object-fit: contain; filter: drop-shadow(0 0 14px #0ff) drop-shadow(0 18px 20px #000b); opacity: 0; transform: translate(-50%,35px) scale(.82); animation: elara-arrives 2s 1.65s ease-out forwards; }
         .rescue-caption { position: absolute; z-index: 6; left: 5%; right: 5%; bottom: 4%; opacity: 0; animation: rescue-caption 1s 3.3s ease-out forwards; }
         .rescue-caption strong { display: block; color: #fff; font-size: clamp(1.5rem,5vw,3rem); letter-spacing: .12em; text-shadow: 0 0 18px #0ff; }
         .rescue-caption span { display: block; margin-top: 8px; color: #7ff; font: 700 clamp(.7rem,2vw,1rem)/1.4 monospace; letter-spacing: .16em; }
@@ -3445,7 +3443,7 @@
             overlay.className = 'finale-overlay rescue-cinematic';
             overlay.setAttribute('role', 'dialog');
             overlay.setAttribute('aria-label', 'Záchrana doktorky Elary');
-            overlay.innerHTML = `<button class="rescue-skip" onclick="this.closest('.finale-overlay').remove()">PŘESKOČIT</button><div class="rescue-scene"><div class="rescue-portal"></div><div class="rescue-elara" aria-hidden="true"></div><div class="rescue-caption"><strong>ELARA JE ZPÁTKY</strong><span>ČASOVÉ VRSTVY STABILIZOVÁNY · MISE SPLNĚNA</span></div><div class="rescue-scanlines"></div></div>`;
+            overlay.innerHTML = `<button class="rescue-skip" onclick="this.closest('.finale-overlay').remove()">PŘESKOČIT</button><div class="rescue-scene"><div class="rescue-portal"></div><img class="rescue-elara" src="/assets/characters/elara-outro.png" alt="Doktorka Elara se vrací z časového portálu"><div class="rescue-caption"><strong>ELARA JE ZPÁTKY</strong><span>ČASOVÉ VRSTVY STABILIZOVÁNY · MISE SPLNĚNA</span></div><div class="rescue-scanlines"></div></div>`;
             playSound('success');
             if (!soundSettings.muted) {
                 if (activeVoiceAudio) activeVoiceAudio.pause();

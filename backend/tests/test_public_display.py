@@ -28,3 +28,16 @@ def test_public_display_hides_ranking_panel_from_runtime_setting() -> None:
     assert "sendAdmin('admin.display_leaderboard', {enabled:!displayLeaderboardEnabled})" in admin
     assert 'if msg.type == "admin.display_leaderboard":' in backend
     assert 'runtime_settings["display_leaderboard"] = bool(msg.payload.get("enabled"))' in backend
+
+
+def test_outro_uses_recognizable_elara_character_asset() -> None:
+    client = (ROOT / "client" / "index.html").read_text(encoding="utf-8")
+    service_worker = (ROOT / "client" / "sw.js").read_text(encoding="utf-8")
+    asset = ROOT / "client" / "assets" / "characters" / "elara-outro.png"
+    image = asset.read_bytes()
+
+    assert '<img class="rescue-elara" src="/assets/characters/elara-outro.png"' in client
+    assert ".rescue-elara::before" not in client
+    assert "./assets/characters/elara-outro.png" in service_worker
+    assert image.startswith(b"\x89PNG\r\n\x1a\n")
+    assert image[25] == 6  # PNG color type RGBA
