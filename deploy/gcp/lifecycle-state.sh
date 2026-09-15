@@ -11,7 +11,9 @@ temporary=$(mktemp)
 error_output=$(mktemp)
 trap 'rm -f "$temporary" "$error_output"' EXIT
 
-if ! gcloud storage cat "$object" --project="$project" >"$temporary" 2>"$error_output"; then
+# Snap-packaged gcloud can exit with code 120 when its stdout points directly
+# at a regular file. Keep gcloud on a pipe and let tee perform the local write.
+if ! gcloud storage cat "$object" --project="$project" 2>"$error_output" | tee "$temporary" >/dev/null; then
     if grep -Eqi 'not found|does not exist|no urls matched|status.?[=: ]+404|\b404\b' "$error_output"; then
         printf '{"phase":"unknown","deploy_count":0,"live_run_count":0,"archive_count":0,"history":[]}' >"$temporary"
     else
