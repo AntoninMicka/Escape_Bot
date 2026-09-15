@@ -701,7 +701,7 @@
         <section id="admin-tab-managed" class="admin-section hidden"><h2>[ REŽIM SPOUŠTĚNÍ ]</h2><div class="admin-toolbar"><button id="admin-mode-free" onclick="setLaunchMode('free')">VOLNÝ REŽIM</button><button id="admin-mode-managed" onclick="setLaunchMode('managed')">ŘÍZENÝ REŽIM</button></div><p>Přepnutí zachová všechny existující týmy i jejich pořadí. Řízený režim zakáže hráčům zakládat a spouštět hry.</p><h2>[ ŘÍZENÉ LOBBY ]</h2><div class="admin-toolbar"><input id="admin-new-team-name" maxlength="32" placeholder="Název nového týmu"><button onclick="createManagedTeam()">ZALOŽIT TÝM</button></div><div id="admin-managed-lights"></div><div id="admin-managed-grid" class="admin-grid"></div></section>
         <section id="admin-tab-analytics" class="admin-section admin-analytics hidden"><h2>[ TELEMETRIE OBTÍŽNOSTI ]</h2><div class="admin-toolbar"><label>OBDOBÍ <select id="analytics-period" onchange="renderAdminAnalytics()"><option value="all">Celá historie</option><option value="1">Posledních 24 hodin</option><option value="7">Posledních 7 dní</option><option value="30">Posledních 30 dní</option></select></label><button onclick="exportTelemetryCsv(true)">ANONYMIZOVANÉ CSV</button><button onclick="exportTelemetryCsv(false)">INTERNÍ CSV</button></div><div id="admin-analytics-summary" class="admin-summary"></div><div id="admin-analytics-content"></div></section>
         <section id="admin-tab-chats" class="admin-section hidden"><h2>[ PODPORA TÝMŮ ]</h2><div id="admin-chat-grid" class="admin-grid"></div></section>
-        <section id="admin-tab-display" class="admin-section hidden"><h2>[ OZNÁMENÍ NA VEŘEJNÉ OBRAZOVCE ]</h2><div id="display-health" class="cipher-note">Stav obrazovky se načítá…</div><p>Na jedné obrazovce se zobrazí hlavní oznámení a až dvě vedlejší. Oznámení lze ponechat jako koncept nebo naplánovat.</p><div id="display-announcement-editor"></div><div class="admin-toolbar"><button onclick="addDisplayAnnouncement()">+ PŘIDAT OZNÁMENÍ</button><button onclick="saveDisplayAnnouncements()">ULOŽIT ZMĚNY</button><button onclick="window.open('/display','_blank','noopener')">OTEVŘÍT NÁSTĚNKU</button></div><h2>[ ŽIVÝ NÁHLED ]</h2><div id="display-announcement-preview" class="admin-grid"></div></section>
+        <section id="admin-tab-display" class="admin-section hidden"><h2>[ VEŘEJNÁ NÁSTĚNKA ]</h2><div id="display-health" class="cipher-note">Stav obrazovky se načítá…</div><div class="admin-toolbar"><button id="admin-display-leaderboard-toggle" onclick="toggleDisplayLeaderboard()">POŘADÍ NA NÁSTĚNCE: ?</button><button onclick="window.open('/display','_blank','noopener')">OTEVŘÍT NÁSTĚNKU</button></div><p class="cipher-note">Pořadí lze během hry skrýt; fronta startů a oznámení zůstanou viditelné.</p><h2>[ OZNÁMENÍ NA VEŘEJNÉ OBRAZOVCE ]</h2><p>Na jedné obrazovce se zobrazí hlavní oznámení a až dvě vedlejší. Oznámení lze ponechat jako koncept nebo naplánovat.</p><div id="display-announcement-editor"></div><div class="admin-toolbar"><button onclick="addDisplayAnnouncement()">+ PŘIDAT OZNÁMENÍ</button><button onclick="saveDisplayAnnouncements()">ULOŽIT ZMĚNY</button></div><h2>[ ŽIVÝ NÁHLED ]</h2><div id="display-announcement-preview" class="admin-grid"></div></section>
         <section id="admin-tab-diplomas" class="admin-section hidden"><h2>[ DIPLOMY ČEKAJÍCÍ NA VYTIŠTĚNÍ ]</h2><p>Po vytištění řešitelského diplomu položka automaticky zmizí. Retisk zůstává dostupný v Síni slávy.</p><div id="admin-diploma-queue"></div></section>
         <section id="admin-tab-leaderboard" class="admin-section admin-leaderboard hidden"><h2>[ SPRÁVA SÍNĚ SLÁVY ]</h2><div id="admin-leaderboard"></div></section>
         <section id="admin-tab-tools" class="admin-section hidden"><h2>[ PROVOZ HRY ]</h2><button id="admin-operations-toggle" onclick="toggleAdminOperations()" style="width:100%;padding:22px;font-size:1.35rem">NAČÍTÁM STAV…</button><div class="admin-actions" style="margin:16px 0"><label>Max. týmů<input id="schedule-max-teams" type="number" min="1" max="100"></label><label>Hard rozestup (min)<input id="schedule-hard-interval" type="number" min="0" max="240"></label><label>Soft rozestup (min)<input id="schedule-soft-interval" type="number" min="0" max="240"></label><label>Délka hry (min)<input id="schedule-duration" type="number" min="15" max="720"></label><label>Postih za nedokončení<input id="schedule-deadline-penalty" type="number" min="0" max="1000"></label><label>Postih za opuštění<input id="schedule-abandonment-penalty" type="number" min="0" max="1000"></label><label>Bonus za dokončení<input id="schedule-completion-bonus" type="number" min="0" max="1000"></label><label>Otevření<input id="schedule-opening" type="time"></label><label>Uzavření<input id="schedule-closing" type="time"></label><label>Časová zóna<input id="schedule-timezone" value="Europe/Prague"></label><button onclick="saveScheduleSettings()">ULOŽIT PROVOZNÍ NASTAVENÍ</button></div><p id="admin-schedule-status"></p><h2>[ OZNÁMENÍ NA VEŘEJNÉ OBRAZOVCE ]</h2><p>Jednotlivá oznámení oddělte prázdným řádkem. Každé se zobrazí jako samostatná obrazovka.</p><textarea id="display-announcements" maxlength="10400" rows="8" style="width:100%;box-sizing:border-box" placeholder="Organizační pokyny…&#10;&#10;Další oznámení…"></textarea><button onclick="saveDisplayAnnouncements()" style="width:100%;margin-top:8px">ULOŽIT OZNÁMENÍ</button><h2>[ NÁSTROJE GAME MASTERA ]</h2><div class="admin-toolbar"><button onclick="requestAdminQrSet()">PŘIPRAVIT QR SADU</button><button onclick="exportAdminCsv()">EXPORT UDÁLOSTÍ A STATISTIK (CSV)</button><button id="admin-online-toggle" onclick="toggleAdminOnlineMode()">ONLINE REŽIM: ?</button></div></section>
@@ -924,6 +924,7 @@
         const cipherReferenceTranscripts = {};
         let onlineModeEnabled = false;
         let operationsEnabled = true;
+        let displayLeaderboardEnabled = true;
         let leaderboardFinalized = false;
         let runtimeAvailability = null;
         let runtimeCheckpoints = [];
@@ -1681,6 +1682,9 @@
             const action = operationsEnabled ? 'ZASTAVIT provoz a ukončit všechny aktivní hry' : 'SPUSTIT herní provoz';
             if (!window.confirm(`${action}?`)) return;
             sendAdmin('admin.operations', {enabled:!operationsEnabled});
+        }
+        function toggleDisplayLeaderboard() {
+            sendAdmin('admin.display_leaderboard', {enabled:!displayLeaderboardEnabled});
         }
         function setLaunchMode(mode) {
             if (!window.confirm(`Přepnout provoz do ${mode === 'managed' ? 'řízeného' : 'volného'} režimu? Existující týmy zůstanou zachované.`)) return;
@@ -2754,6 +2758,7 @@
                     const previousQueueItem = runtimeStartQueue.find(item => item.session_id === sessionId);
                     onlineModeEnabled = Boolean(msg.payload.online_mode);
                     operationsEnabled = Boolean(msg.payload.gameplay_enabled);
+                    displayLeaderboardEnabled = msg.payload.display_leaderboard !== false;
                     launchMode = msg.payload.launch_mode || 'free';
                     runtimeStartQueue = msg.payload.start_queue || [];
                     const currentQueueItem = runtimeStartQueue.find(item => item.session_id === sessionId);
@@ -2769,6 +2774,8 @@
                     if (toggle) toggle.textContent = `ONLINE REŽIM: ${onlineModeEnabled ? 'ZAPNUT' : 'VYPNUT'}`;
                     const operations = document.getElementById('admin-operations-toggle');
                     if (operations) { operations.textContent = operationsEnabled ? '■ ZASTAVIT HERNÍ PROVOZ' : '▶ SPUSTIT HERNÍ PROVOZ'; operations.classList.toggle('danger', operationsEnabled); }
+                    const displayLeaderboardToggle = document.getElementById('admin-display-leaderboard-toggle');
+                    if (displayLeaderboardToggle) { displayLeaderboardToggle.textContent = `POŘADÍ NA NÁSTĚNCE: ${displayLeaderboardEnabled ? 'ZAPNUTO' : 'SKRYTO'}`; displayLeaderboardToggle.classList.toggle('active', displayLeaderboardEnabled); }
                     const freeMode = document.getElementById('admin-mode-free'), managedMode = document.getElementById('admin-mode-managed');
                     if (freeMode) freeMode.classList.toggle('active', launchMode === 'free');
                     if (managedMode) managedMode.classList.toggle('active', launchMode === 'managed');

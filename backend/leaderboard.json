@@ -660,5 +660,19 @@
     "printed_diplomas": [
       0
     ]
+  },
+  {
+    "entry_id": "434bcbb65b5803e5",
+    "session_id": "04a178b814144fd387cc8d6719c4b83a",
+    "name": "Pokus4",
+    "players": [
+      "PC",
+      "Tony"
+    ],
+    "mode": "team",
+    "score": 1350,
+    "duration_seconds": 1142,
+    "completed_at": "2026-09-03T15:59:48.201184+00:00",
+    "diploma_eligible": true
   }
 ]

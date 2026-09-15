@@ -72,6 +72,8 @@ Poté otevřete `https://ADRESA-SERVERU:8088/admin` (případně `/?admin=1`). K
 
 Admin může globálně přepnout **ONLINE REŽIM**. V něm se fyzické QR checkpointy nahradí akčními tlačítky přímo v Chronomapě; používají stejnou kontrolu pořadí a odměn jako QR skener. Přepnutí se okamžitě projeví všem týmům a ukládá se do `backend/runtime_settings.json`. Tisk QR sady zůstává dostupný i v online režimu.
 
+V administraci v části **NÁSTĚNKA** lze během hry skrýt průběžné pořadí. Změna se okamžitě projeví na veřejné nástěnce a zůstane zachována po restartu; fronta startů a oznámení se zobrazují dál.
+
 ### Vývojový demo režim
 
 Pro ladění checkpointů bez kamery spusťte backend z kořene projektu:

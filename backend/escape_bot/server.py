@@ -70,7 +70,7 @@ runtime_settings = {"online_mode": False, "gameplay_enabled": True, "max_active_
                     "hard_start_interval_minutes": 5, "game_duration_minutes": 165,
                     "deadline_penalty": 100, "abandonment_penalty": 100, "completion_bonus": 100,
                     "opening_time": "08:00", "closing_time": "20:00", "timezone": "Europe/Prague",
-                    "display_announcements": [],
+                    "display_announcements": [], "display_leaderboard": True,
                     "leaderboard_finalized": False, "leaderboard_finalized_at": ""}
 
 def normalize_display_announcement(item: object) -> dict[str, object] | None:
@@ -913,7 +913,7 @@ async def websocket_endpoint(websocket: WebSocket):
                 data = json.loads(message_str)
                 msg = Message.from_json(data)
 
-                if msg.type in {"admin.list", "admin.penalty", "admin.score_adjustment", "admin.delete", "admin.qr_set", "admin.online_mode", "admin.launch_mode", "admin.operations", "admin.schedule_settings", "admin.display_announcements", "admin.team_create", "admin.team_add_player", "admin.queue_expedite", "admin.team_start", "admin.evaluate_team", "admin.session_extend", "admin.session_end", "admin.checkpoint", "admin.game_reset", "admin.game_player", "admin.player_recovery", "admin.diploma_printed", "admin.leaderboard_delete", "admin.leaderboard_finalize", "admin.support_join", "admin.support_leave", "admin.support_message", "admin.spectate_start", "admin.spectate_stop"}:
+                if msg.type in {"admin.list", "admin.penalty", "admin.score_adjustment", "admin.delete", "admin.qr_set", "admin.online_mode", "admin.launch_mode", "admin.operations", "admin.schedule_settings", "admin.display_announcements", "admin.display_leaderboard", "admin.team_create", "admin.team_add_player", "admin.queue_expedite", "admin.team_start", "admin.evaluate_team", "admin.session_extend", "admin.session_end", "admin.checkpoint", "admin.game_reset", "admin.game_player", "admin.player_recovery", "admin.diploma_printed", "admin.leaderboard_delete", "admin.leaderboard_finalize", "admin.support_join", "admin.support_leave", "admin.support_message", "admin.spectate_start", "admin.spectate_stop"}:
                     try:
                         require_admin(msg.payload)
                         authenticated_admin_sockets.add(websocket)
@@ -1048,6 +1048,14 @@ async def websocket_endpoint(websocket: WebSocket):
                                     item["override_until"] = (datetime.now(UTC) + timedelta(minutes=float(item["override_minutes"]))).isoformat()
                                 if item["priority"] != "emergency": item["override_until"] = ""
                             runtime_settings["display_announcements"] = announcements
+                            save_runtime_settings()
+                            update = Message("runtime.settings", runtime_payload())
+                            for active_socket in list(app.state.active_websockets):
+                                try: await send_message(active_socket, update)
+                                except Exception: pass
+                            continue
+                        if msg.type == "admin.display_leaderboard":
+                            runtime_settings["display_leaderboard"] = bool(msg.payload.get("enabled"))
                             save_runtime_settings()
                             update = Message("runtime.settings", runtime_payload())
                             for active_socket in list(app.state.active_websockets):

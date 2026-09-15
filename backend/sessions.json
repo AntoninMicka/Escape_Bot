@@ -2710,7 +2710,7 @@
     "game_results": {}
   },
   "04a178b814144fd387cc8d6719c4b83a": {
-    "phase": "searching_lost",
+    "phase": "portal_open",
     "unlocked_discoveries": [
       "bowling_diagnostics",
       "courtyard_alignment",
@@ -2721,6 +2721,7 @@
       "sports_cipher",
       "staircase_signal",
       "terrace_echo",
+      "time_machine_console",
       "timeline_calibration"
     ],
     "inventory": [
@@ -2820,6 +2821,14 @@
           "checkpoint_id": "future_archive",
           "previous_status": "locked",
           "status": "solved"
+        },
+        {
+          "action": "checkpoint",
+          "label": "Checkpoint time_machine_console: found · Technická chyba / uznat bez postihu",
+          "at": "2026-09-03T15:59:09.493807+00:00",
+          "checkpoint_id": "time_machine_console",
+          "previous_status": "locked",
+          "status": "found"
         }
       ],
       "bowling_route_unlocked": true,
@@ -2831,7 +2840,23 @@
       "temporal_nodes_aligned": true,
       "anchor_crystal_recovered": true,
       "future_archive_unlocked": true,
-      "return_vector_recovered": true
+      "return_vector_recovered": true,
+      "elara_rescued": true,
+      "game_completed": true,
+      "completed_at": "2026-09-03T15:59:48.201184+00:00",
+      "final_rating": "CHRONOMISTR",
+      "outcome_score_applied_completed": true,
+      "admin_score_adjustments": [
+        {
+          "delta": 100,
+          "amount": 100,
+          "reason": "Bonus za úspěšné dokončení hry",
+          "at": "2026-09-03T15:59:48.231000+00:00",
+          "score_before": 1250,
+          "score_after": 1350,
+          "automatic": true
+        }
+      ]
     },
     "chat_history": [
       {
@@ -3230,9 +3255,23 @@
         "role": "bot",
         "channel": "captain",
         "text": "Napájení archivu drží. V jeho výstupu se objevily dvě části tabulky; přesuňte se ke sportovní šifrovací kotvě a složte je dohromady."
+      },
+      {
+        "role": "bot",
+        "channel": "captain",
+        "text": "Vektor přijat. Spouštím desetisekundovou stabilizační sekvenci. Držte se dál od kotvy!",
+        "voice_id": "captain_final_countdown",
+        "audio_url": "/assets/voices/captain_final_countdown.mp3"
+      },
+      {
+        "role": "bot",
+        "channel": "lost",
+        "text": "Vidím vás! Časové vrstvy se překrývají… motor drží… jsem zpátky v Kraskově!",
+        "voice_id": "elara_returned",
+        "audio_url": "/assets/voices/elara_returned.mp3"
       }
     ],
-    "score": 1250,
+    "score": 1350,
     "hints_used": {},
     "checkpoint_states": {
       "reception_archive": {
@@ -3294,6 +3333,12 @@
         "first_scanned_at": "2026-09-03T15:56:14.478602+00:00",
         "admin_override_at": "2026-09-03T15:56:14.478602+00:00",
         "solved_at": "2026-09-03T15:56:14.478602+00:00"
+      },
+      "time_machine_console": {
+        "status": "solved",
+        "first_scanned_at": "2026-09-03T15:59:09.493784+00:00",
+        "admin_override_at": "2026-09-03T15:59:09.493784+00:00",
+        "solved_at": "2026-09-03T15:59:48.201184+00:00"
       }
     },
     "unlocked_cipher_tools": [
@@ -3305,7 +3350,9 @@
       "semaphore"
     ],
     "paid_cipher_tools": [],
-    "puzzle_attempts": {},
+    "puzzle_attempts": {
+      "time_machine_finale": 1
+    },
     "interactive_games": {
       "timeline_lines": {
         "players": {
@@ -4805,7 +4852,7 @@
         "deadline_at": "2026-09-03T15:44:53.338728+00:00"
       }
     },
-    "last_activity_at": "2026-09-03T15:56:14.478602+00:00",
+    "last_activity_at": "2026-09-03T15:59:48.201121+00:00",
     "triad_games": {
       "temporal_triad": {
         "players": {
@@ -4974,7 +5021,48 @@
         }
       }
     },
-    "archive_games": {},
+    "archive_games": {
+      "future_archive_cipher": {
+        "order": [
+          "tile_11",
+          "tile_4",
+          "tile_15",
+          "tile_1",
+          "tile_8",
+          "tile_13",
+          "tile_6",
+          "tile_16",
+          "tile_3",
+          "tile_10",
+          "tile_2",
+          "tile_12",
+          "tile_7",
+          "tile_14",
+          "tile_5",
+          "tile_9"
+        ],
+        "rotations": {
+          "tile_1": 0,
+          "tile_2": 0,
+          "tile_3": 0,
+          "tile_4": 0,
+          "tile_5": 0,
+          "tile_6": 0,
+          "tile_7": 0,
+          "tile_8": 0,
+          "tile_9": 0,
+          "tile_10": 0,
+          "tile_11": 0,
+          "tile_12": 0,
+          "tile_13": 0,
+          "tile_14": 0,
+          "tile_15": 0,
+          "tile_16": 0
+        },
+        "moves": 0,
+        "assembled": false
+      }
+    },
     "event_history": [
       {
         "at": "2026-09-03T15:41:21.897918+00:00",
@@ -5916,6 +6004,11 @@
           "puzzle_id": "sports_sokoban",
           "commands": "['left']"
         }
+      },
+      {
+        "at": "2026-09-03T15:59:48.201121+00:00",
+        "type": "finale.activate",
+        "details": {}
       }
     ],
     "game_exclusions": {},
