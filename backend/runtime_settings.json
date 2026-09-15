@@ -15,6 +15,7 @@
   "closing_time": "23:00",
   "timezone": "Europe/Prague",
   "display_announcements": [],
+  "display_leaderboard": false,
   "leaderboard_finalized": false,
   "leaderboard_finalized_at": ""
 }
