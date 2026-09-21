@@ -32,13 +32,15 @@ Velikost týmu upravuje skóre podle nejvyššího počtu registrovaných zaří
 
 Stránka `/terminal` pošle `terminal.register` a dostane jednorázový `terminal.ready` s QR hodnotou `escapebot://terminal/<code>`. QR načte telefon už připojeného hráče běžnou zprávou `qr.detected`. Server terminál naváže na stejnou relaci a identitu tohoto hráče, ale nepřidá jej do `Lobby.players`, nezvýší `max_players` a nezmění týmovou bodovou úpravu.
 
-Hádanka se na terminál směruje čistě konfigurací scénáře:
+Globální provozní nastavení `terminal_puzzle_ids` určuje katalog hádanek, které Game Master smí na terminál poslat. Výchozí katalog obsahuje pouze `time_machine_finale`; mění se centrálně zprávou `admin.terminal_catalog`.
+
+Scénář může zároveň určit výchozí prezentační režim:
 
 ```json
 "terminal": {"mode": "exclusive", "label": "Finální konzole"}
 ```
 
-Režim `exclusive` na hráčských zařízeních ponechá pouze pokyn přejít k terminálu; `mirror` zobrazí plně ovladatelnou hádanku na terminálu i hráčských zařízeních. Bez objektu `terminal` se hádanka na samostatném terminálu nezobrazuje. Game Master může výchozí hodnotu pro konkrétní tým za běhu přepsat zprávou `admin.terminal_puzzle` s `session_id`, `puzzle_id` a režimem `off`, `mirror` nebo `exclusive`; administrace nabízí stejnou volbu u každé hádanky. Nastavení lze použít pro libovolný typ hádanky bez změny protokolu jejího řešení.
+Po spárování terminál nic nevybírá a čeká na centrální příkaz. Administrace u připojeného týmu nabídne pouze hádanky z globálního katalogu, jejichž checkpoint je právě ve stavu `found`; vybranou jedinou hádanku odešle zprávou `admin.terminal_assign`. Režim `exclusive` potom na telefonech ponechá jen pokyn přejít k terminálu. Nové spárování předchozí přidělení zruší, takže o obsahu obrazovky vždy rozhoduje Game Master.
 
 ### `client.hello`
 

@@ -52,36 +52,41 @@ class StateMachineCheckpointTests(unittest.IsolatedAsyncioTestCase):
         self.assertNotIn("year", puzzle.get("finale", {}))
         self.assertNotIn("time", puzzle.get("finale", {}))
 
-        self.machine.admin_set_terminal_presentation("reception_deduction", "mirror")
-        reception = next(item for item in self.machine._state_message("alice").payload["puzzles"] if item["id"] == "reception_deduction")
-        self.assertEqual(reception["terminal"]["mode"], "mirror")
-
-        self.machine.admin_set_terminal_presentation("time_machine_finale", "off")
-        finale = next(item for item in self.machine._state_message("alice").payload["puzzles"] if item["id"] == "time_machine_finale")
-        self.assertNotIn("terminal", finale)
-
-        with self.assertRaisesRegex(ValueError, "Neplatný režim"):
-            self.machine.admin_set_terminal_presentation("reception_deduction", "unknown")
-
     def test_binding_terminal_reuses_player_identity_without_adding_lobby_player(self) -> None:
-        from escape_bot.server import bind_terminal, connection_info, lobby_registry, session_connections
+        from escape_bot.server import active_sessions, admin_overview, bind_terminal, connection_info, lobby_registry, runtime_settings, session_connections, state_message_for
         from escape_bot.team_lobby import Lobby
         terminal_socket = object()
         lobby = Lobby("terminal-session", "team", "alice", "Chrononauti", started=True)
         lobby.add_player("alice", "Alice")
         lobby_registry.by_session[lobby.session_id] = lobby
+        previous_machine = active_sessions.get(lobby.session_id)
+        active_sessions[lobby.session_id] = self.machine
+        original_catalog = list(runtime_settings.get("terminal_puzzle_ids", []))
         try:
             bind_terminal(terminal_socket, lobby.session_id, "alice")
+            runtime_settings["terminal_puzzle_ids"] = ["time_machine_finale"]
+            self.machine.state.flags["terminal_assignment"] = "time_machine_finale"
+            self.machine.state.checkpoint_states["time_machine_console"] = {"status": "found"}
 
             self.assertEqual(list(lobby.players), ["alice"])
             self.assertEqual(lobby.max_players, 1)
             self.assertEqual(connection_info[terminal_socket]["role"], "terminal")
             self.assertEqual(connection_info[terminal_socket]["client_id"], "alice")
             self.assertIn(terminal_socket, session_connections[lobby.session_id])
+            finale = next(item for item in state_message_for(terminal_socket, lobby.session_id, self.machine).payload["puzzles"] if item["id"] == "time_machine_finale")
+            self.assertTrue(finale["terminal"]["assigned"])
+            self.assertTrue(finale["terminal"]["device"])
+            team = next(item for item in admin_overview() if item["session_id"] == lobby.session_id)
+            self.assertEqual(team["terminal_options"], [{"id": "time_machine_finale", "title": "Finální konzole stroje času"}])
         finally:
+            runtime_settings["terminal_puzzle_ids"] = original_catalog
             connection_info.pop(terminal_socket, None)
             session_connections.pop(lobby.session_id, None)
             lobby_registry.by_session.pop(lobby.session_id, None)
+            if previous_machine is None:
+                active_sessions.pop(lobby.session_id, None)
+            else:
+                active_sessions[lobby.session_id] = previous_machine
 
     def test_team_line_games_are_independent_and_require_full_team_coverage(self) -> None:
         self.machine._team_mode = "team"

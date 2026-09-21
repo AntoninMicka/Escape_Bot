@@ -318,9 +318,9 @@
         .seven-segment .f { left: 5px; top: 9px; } .seven-segment .e { left: 5px; bottom: 9px; }
         .finale-led-separator { color: #f43; font-size: 3rem; text-shadow: 0 0 10px #f30; padding-bottom: 2px; }
         .finale-module-board { display: grid; grid-template-columns: repeat(3, minmax(100px, 1fr)); gap: 0; margin: 14px auto 22px; max-width: 780px; }
-        .finale-module-piece { min-width: 0; min-height: 150px; padding: 18px 12px; color: #dfffff; border: 2px solid #0aa; background: radial-gradient(circle at 50% 35%, #143e45, #071013 62%); clip-path: polygon(0 0,42% 0,42% 8%,58% 8%,58% 0,100% 0,100% 42%,92% 42%,92% 58%,100% 58%,100% 100%,58% 100%,58% 92%,42% 92%,42% 100%,0 100%,0 58%,8% 58%,8% 42%,0 42%); }
+        .finale-module-piece { min-width: 0; min-height: 190px; padding: 18px 12px; color: #fff; border: 2px solid #0aa; background-image: linear-gradient(180deg, transparent 0 48%, #02070be8 76%), url('/assets/puzzles/time-machine-jigsaw.png'); background-size: 100% 100%, 300% 100%; background-position: center, var(--module-image-position) center; background-repeat: no-repeat; clip-path: polygon(0 0,42% 0,42% 8%,58% 8%,58% 0,100% 0,100% 42%,92% 42%,92% 58%,100% 58%,100% 100%,58% 100%,58% 92%,42% 92%,42% 100%,0 100%,0 58%,8% 58%,8% 42%,0 42%); text-shadow: 0 2px 4px #000, 0 0 6px #000; }
         .finale-module-piece.selected { color: #fc0; border-color: #fc0; filter: drop-shadow(0 0 9px #fc0); transform: translateY(-6px); }
-        .finale-module-piece strong { display: block; margin-top: 64px; font-size: clamp(.72rem, 2vw, 1rem); }
+        .finale-module-piece strong { display: block; margin-top: 104px; font-size: clamp(.72rem, 2vw, 1rem); }
         .finale-module-piece small { display: block; color: #6ff; margin-top: 8px; }
         .finale-launch { display: block; width: min(100%, 780px); margin: auto; padding: 17px; font-size: 1.15rem; }
         .finale-overlay { position: fixed; inset: 0; z-index: 1500; display: grid; place-items: center; background: #001018e8; color: #fff; font-size: clamp(4rem, 24vw, 13rem); text-shadow: 0 0 25px #0ff; }
@@ -518,7 +518,7 @@
         body.terminal-device #puzzles-tab-button { flex: 1; font-size: 1.05rem; }
         body.terminal-device #cipher-panel { display: none !important; }
         body.terminal-device .puzzle-card { max-width: 1100px; margin: auto; }
-        @media (max-width: 700px) { .finale-module-board { grid-template-columns: 1fr; gap: 4px; } .finale-module-piece { min-height: 105px; } .finale-module-piece strong { margin-top: 34px; } }
+        @media (max-width: 700px) { .finale-module-board { grid-template-columns: 1fr; gap: 4px; } .finale-module-piece { min-height: 150px; background-size: 100% 100%, 300% 180%; } .finale-module-piece strong { margin-top: 74px; } }
         .puzzle-artifact { display: block; width: 100%; max-height: 68vh; object-fit: contain; margin: 16px 0; border: 1px solid #466; background: #000; }
         .puzzle-categories { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 10px; margin: 16px 0; }
         .puzzle-category { border: 1px solid #055; padding: 10px; background: #000; }
@@ -732,7 +732,7 @@
         <section id="admin-tab-display" class="admin-section hidden"><h2>[ VEŘEJNÁ NÁSTĚNKA ]</h2><div id="display-health" class="cipher-note">Stav obrazovky se načítá…</div><div class="admin-toolbar"><button id="admin-display-leaderboard-toggle" onclick="toggleDisplayLeaderboard()">POŘADÍ NA NÁSTĚNCE: ?</button><button onclick="window.open('/display','_blank','noopener')">OTEVŘÍT NÁSTĚNKU</button></div><p class="cipher-note">Pořadí lze během hry skrýt; fronta startů a oznámení zůstanou viditelné.</p><h2>[ OZNÁMENÍ NA VEŘEJNÉ OBRAZOVCE ]</h2><p>Na jedné obrazovce se zobrazí hlavní oznámení a až dvě vedlejší. Oznámení lze ponechat jako koncept nebo naplánovat.</p><div id="display-announcement-editor"></div><div class="admin-toolbar"><button onclick="addDisplayAnnouncement()">+ PŘIDAT OZNÁMENÍ</button><button onclick="saveDisplayAnnouncements()">ULOŽIT ZMĚNY</button></div><h2>[ ŽIVÝ NÁHLED ]</h2><div id="display-announcement-preview" class="admin-grid"></div></section>
         <section id="admin-tab-diplomas" class="admin-section hidden"><h2>[ DIPLOMY ČEKAJÍCÍ NA VYTIŠTĚNÍ ]</h2><p>Po vytištění řešitelského diplomu položka automaticky zmizí. Retisk zůstává dostupný v Síni slávy.</p><div id="admin-diploma-queue"></div></section>
         <section id="admin-tab-leaderboard" class="admin-section admin-leaderboard hidden"><h2>[ SPRÁVA SÍNĚ SLÁVY ]</h2><div id="admin-leaderboard"></div></section>
-        <section id="admin-tab-tools" class="admin-section hidden"><h2>[ PROVOZ HRY ]</h2><button id="admin-operations-toggle" onclick="toggleAdminOperations()" style="width:100%;padding:22px;font-size:1.35rem">NAČÍTÁM STAV…</button><div class="admin-actions" style="margin:16px 0"><label>Max. týmů<input id="schedule-max-teams" type="number" min="1" max="100"></label><label>Hard rozestup (min)<input id="schedule-hard-interval" type="number" min="0" max="240"></label><label>Soft rozestup (min)<input id="schedule-soft-interval" type="number" min="0" max="240"></label><label>Délka hry (min)<input id="schedule-duration" type="number" min="15" max="720"></label><label>Postih za nedokončení<input id="schedule-deadline-penalty" type="number" min="0" max="1000"></label><label>Postih za opuštění<input id="schedule-abandonment-penalty" type="number" min="0" max="1000"></label><label>Bonus za dokončení<input id="schedule-completion-bonus" type="number" min="0" max="1000"></label><label>Otevření<input id="schedule-opening" type="time"></label><label>Uzavření<input id="schedule-closing" type="time"></label><label>Časová zóna<input id="schedule-timezone" value="Europe/Prague"></label><button onclick="saveScheduleSettings()">ULOŽIT PROVOZNÍ NASTAVENÍ</button></div><p id="admin-schedule-status"></p><h2>[ OZNÁMENÍ NA VEŘEJNÉ OBRAZOVCE ]</h2><p>Jednotlivá oznámení oddělte prázdným řádkem. Každé se zobrazí jako samostatná obrazovka.</p><textarea id="display-announcements" maxlength="10400" rows="8" style="width:100%;box-sizing:border-box" placeholder="Organizační pokyny…&#10;&#10;Další oznámení…"></textarea><button onclick="saveDisplayAnnouncements()" style="width:100%;margin-top:8px">ULOŽIT OZNÁMENÍ</button><h2>[ NÁSTROJE GAME MASTERA ]</h2><div class="admin-toolbar"><button onclick="requestAdminQrSet()">PŘIPRAVIT QR SADU</button><button onclick="exportAdminCsv()">EXPORT UDÁLOSTÍ A STATISTIK (CSV)</button><button id="admin-online-toggle" onclick="toggleAdminOnlineMode()">ONLINE REŽIM: ?</button></div></section>
+        <section id="admin-tab-tools" class="admin-section hidden"><h2>[ PROVOZ HRY ]</h2><button id="admin-operations-toggle" onclick="toggleAdminOperations()" style="width:100%;padding:22px;font-size:1.35rem">NAČÍTÁM STAV…</button><div class="admin-actions" style="margin:16px 0"><label>Max. týmů<input id="schedule-max-teams" type="number" min="1" max="100"></label><label>Hard rozestup (min)<input id="schedule-hard-interval" type="number" min="0" max="240"></label><label>Soft rozestup (min)<input id="schedule-soft-interval" type="number" min="0" max="240"></label><label>Délka hry (min)<input id="schedule-duration" type="number" min="15" max="720"></label><label>Postih za nedokončení<input id="schedule-deadline-penalty" type="number" min="0" max="1000"></label><label>Postih za opuštění<input id="schedule-abandonment-penalty" type="number" min="0" max="1000"></label><label>Bonus za dokončení<input id="schedule-completion-bonus" type="number" min="0" max="1000"></label><label>Otevření<input id="schedule-opening" type="time"></label><label>Uzavření<input id="schedule-closing" type="time"></label><label>Časová zóna<input id="schedule-timezone" value="Europe/Prague"></label><button onclick="saveScheduleSettings()">ULOŽIT PROVOZNÍ NASTAVENÍ</button></div><p id="admin-schedule-status"></p><h2>[ HERNÍ TERMINÁL · GLOBÁLNÍ KATALOG ]</h2><p>Zaškrtnuté hádanky lze po připojení terminálu centrálně přidělit. Samotný terminál nic nevybírá.</p><div id="terminal-catalog-settings" class="admin-actions"></div><button onclick="saveTerminalCatalog()">ULOŽIT KATALOG TERMINÁLU</button><h2>[ OZNÁMENÍ NA VEŘEJNÉ OBRAZOVCE ]</h2><p>Jednotlivá oznámení oddělte prázdným řádkem. Každé se zobrazí jako samostatná obrazovka.</p><textarea id="display-announcements" maxlength="10400" rows="8" style="width:100%;box-sizing:border-box" placeholder="Organizační pokyny…&#10;&#10;Další oznámení…"></textarea><button onclick="saveDisplayAnnouncements()" style="width:100%;margin-top:8px">ULOŽIT OZNÁMENÍ</button><h2>[ NÁSTROJE GAME MASTERA ]</h2><div class="admin-toolbar"><button onclick="requestAdminQrSet()">PŘIPRAVIT QR SADU</button><button onclick="exportAdminCsv()">EXPORT UDÁLOSTÍ A STATISTIK (CSV)</button><button id="admin-online-toggle" onclick="toggleAdminOnlineMode()">ONLINE REŽIM: ?</button></div></section>
     </section>
     <div id="admin-spectator-bar" class="admin-spectator-bar hidden"><strong id="admin-spectator-label">NÁHLED HRY</strong><button onclick="stopAdminSpectate()">ZPĚT DO ADMINISTRACE</button></div>
     <section id="qr-print-sheet" class="qr-print-sheet"></section>
@@ -966,6 +966,8 @@
         let leaderboardFinalized = false;
         let runtimeAvailability = null;
         let runtimeCheckpoints = [];
+        let runtimePuzzleCatalog = [];
+        let runtimeTerminalPuzzleIds = [];
         let launchMode = 'free';
         let runtimeStartQueue = [];
         let latestScenarioProgress = null;
@@ -1882,10 +1884,23 @@
             sendAdmin('admin.checkpoint', {session_id:sessionId, checkpoint_id:checkpointId, status, penalty_preset:presetId});
         }
 
-        function setAdminTerminalPuzzle(sessionId, puzzleId) {
-            const select = document.getElementById(`admin-terminal-${sessionId}-${puzzleId}`);
-            if (!select) return;
-            sendAdmin('admin.terminal_puzzle', {session_id:sessionId, puzzle_id:puzzleId, mode:select.value});
+        function assignAdminTerminalPuzzle(sessionId) {
+            const select = document.getElementById(`admin-terminal-assignment-${sessionId}`);
+            if (!select?.value) { showNotification('Vyberte dostupnou hádanku.', 'error'); return; }
+            sendAdmin('admin.terminal_assign', {session_id:sessionId, puzzle_id:select.value});
+        }
+
+        function renderTerminalCatalogSettings() {
+            const target = document.getElementById('terminal-catalog-settings');
+            if (!target) return;
+            const enabled = new Set(runtimeTerminalPuzzleIds);
+            target.innerHTML = runtimePuzzleCatalog.map(puzzle => `<label><input type="checkbox" value="${escapeHtml(puzzle.id)}" ${enabled.has(puzzle.id) ? 'checked' : ''}> ${escapeHtml(puzzle.title)}</label>`).join('');
+        }
+
+        function saveTerminalCatalog() {
+            const puzzleIds = [...document.querySelectorAll('#terminal-catalog-settings input:checked')].map(input => input.value);
+            if (!puzzleIds.length) { showNotification('Globální katalog musí obsahovat alespoň jednu hádanku.', 'error'); return; }
+            sendAdmin('admin.terminal_catalog', {puzzle_ids:puzzleIds});
         }
 
         function resolveAdminCheckpoint(sessionId, checkpointId) {
@@ -2194,12 +2209,12 @@
                     const restartable = node.status === 'active' && ['line_game', 'mine_karel', 'triad', 'sokoban'].includes(node.puzzle_type);
                     const presetOptions = Object.entries(resolutionPresets).map(([id, preset]) => `<option value="${escapeHtml(id)}">${escapeHtml(preset.label)} (${Number(preset.penalty) ? `−${Number(preset.penalty)} b` : '0 b'})</option>`).join('');
                     const actions = !isCheckpoint ? '' : `<div class="admin-node-actions">${canFind ? `<button onclick="setAdminCheckpoint('${team.session_id}','${node.id}','found')">POTVRDIT NÁLEZ</button>` : ''}${restartable ? `<button onclick="resetAdminGame('${team.session_id}','${node.puzzle_id}')">RESTART MINIHRY</button>` : ''}${canSolve ? `<select id="admin-resolution-${team.session_id}-${node.id}">${presetOptions}</select><button class="danger" onclick="resolveAdminCheckpoint('${team.session_id}','${node.id}')">DOKONČIT PODLE VOLBY</button>` : ''}</div>`;
-                    const terminalMode = (team.terminal_presentations || {})[node.puzzle_id] || 'off';
-                    const terminalActions = node.puzzle_id ? `<div class="admin-node-actions"><label>OBRAZOVKA <select id="admin-terminal-${team.session_id}-${node.puzzle_id}"><option value="off" ${terminalMode === 'off' ? 'selected' : ''}>Telefony</option><option value="mirror" ${terminalMode === 'mirror' ? 'selected' : ''}>Terminál + telefony</option><option value="exclusive" ${terminalMode === 'exclusive' ? 'selected' : ''}>Pouze terminál</option></select></label><button onclick="setAdminTerminalPuzzle('${team.session_id}','${node.puzzle_id}')">NASTAVIT</button><span>${team.terminal_online ? '● TERMINÁL ONLINE' : '○ TERMINÁL OFFLINE'}</span></div>` : '';
                     const solutionId = `admin-solution-${team.session_id}-${node.id}`;
                     const solution = node.solution ? `<div><strong>SPRÁVNÉ ŘEŠENÍ:</strong> <span id="${solutionId}">${escapeHtml(node.solution)}</span> <button class="icon-action" type="button" onclick="copyAdminSolution('${solutionId}')" title="Kopírovat řešení" aria-label="Kopírovat řešení">📋</button></div>` : '';
-                    return `<li>${node.status === 'complete' ? '✓' : (node.status === 'active' ? '▶' : (node.status === 'available' ? '○' : '·'))} ${escapeHtml(node.label)} <small>[${escapeHtml(node.status)}]</small>${solution}</li>${actions}${terminalActions}`;
+                    return `<li>${node.status === 'complete' ? '✓' : (node.status === 'active' ? '▶' : (node.status === 'available' ? '○' : '·'))} ${escapeHtml(node.label)} <small>[${escapeHtml(node.status)}]</small>${solution}</li>${actions}`;
                 }).join('');
+                const terminalOptions = (team.terminal_options || []).map(puzzle => `<option value="${escapeHtml(puzzle.id)}" ${team.terminal_assignment === puzzle.id ? 'selected' : ''}>${escapeHtml(puzzle.title)}</option>`).join('');
+                const terminalPanel = `<div class="terminal-handoff"><strong>${team.terminal_online ? '● TERMINÁL ONLINE' : '○ TERMINÁL OFFLINE'}</strong>${team.terminal_online ? `<label>PŘIDĚLENÁ DOSTUPNÁ HÁDANKA <select id="admin-terminal-assignment-${team.session_id}"><option value="">— VYBERTE HÁDANKU —</option>${terminalOptions}</select></label><button onclick="assignAdminTerminalPuzzle('${team.session_id}')" ${terminalOptions ? '' : 'disabled'}>ODESLAT NA TERMINÁL</button>${terminalOptions ? '' : '<p>Žádná hádanka z globálního katalogu právě není dostupná.</p>'}` : '<p>Na tabletu otevřete /terminal a jeho QR načtěte telefonem týmu.</p>'}</div>`;
                 const hints = Object.entries(team.hints_used || {}).map(([id, count]) => `${escapeHtml(id)}: ${Number(count)}`).join(', ') || 'žádné';
                 const attempts = Object.entries(team.puzzle_attempts || {}).map(([id, count]) => `${escapeHtml(id)}: ${Number(count)}`).join(', ') || 'žádné';
                 const lineGame = ((team.game_metrics || {}).line || []).map(game => `Kalibrace · <strong>${escapeHtml(game.player_name)}</strong> [${game.excluded ? 'vyřazen' : escapeHtml(game.status)}]: ${game.swaps} výměn · cíle ${Object.entries(game.progress || {}).map(([length, count]) => `${length}×: ${count}`).join(', ')}${game.result ? ` · čas ${formatLineGameTime(game.result.elapsed_seconds)} · ${Number(game.result.score_delta) >= 0 ? '+' : ''}${Number(game.result.score_delta)} b` : ''} <button onclick="manageAdminGamePlayer('${team.session_id}','${game.id}','${game.player_id}','reset')">RESTART HRÁČE</button> <button onclick="manageAdminGamePlayer('${team.session_id}','${game.id}','${game.player_id}','${game.excluded ? 'include' : 'exclude'}')">${game.excluded ? 'VRÁTIT' : 'VYŘADIT'}</button>`).join('<br>') || 'Kalibrace dosud neaktivní';
@@ -2229,6 +2244,7 @@
                     <div class="admin-progress"><span style="width:${percent}%"></span></div>
                     <p>Postup: ${complete}/${total} (${percent} %) · aktuální: ${activeNodes}</p>
                     <p>Poslední aktivita: <strong>${lastActivity}</strong></p>
+                    ${terminalPanel}
                     <details data-detail="${team.session_id}:penalties"><summary>Bodové úpravy</summary><p>${penalties}</p></details>
                     <details class="admin-detail" data-detail="${team.session_id}:progress"><summary>Detail postupu a her</summary><ul class="admin-detail-list">${progressNodes}</ul><p><strong>Inventář:</strong> ${inventory}</p><p><strong>Pomůcky:</strong> ${tools}</p><p><strong>Nápovědy:</strong> ${hints}</p><p><strong>Pokusy:</strong> ${attempts}</p><p>${lineGame}</p><p>${karel}</p><p>${triad}</p><p>${sokoban}</p><p>${archive}</p></details>
                     <details class="admin-detail" data-detail="${team.session_id}:timeline"><summary>Časová osa</summary><ul class="admin-detail-list">${timeline}</ul></details>
@@ -2849,6 +2865,9 @@
                     leaderboardFinalized = Boolean(msg.payload.leaderboard_finalized);
                     runtimeAvailability = msg.payload.availability || null;
                     runtimeCheckpoints = msg.payload.checkpoints || [];
+                    runtimePuzzleCatalog = msg.payload.puzzle_catalog || [];
+                    runtimeTerminalPuzzleIds = msg.payload.terminal_puzzle_ids || [];
+                    renderTerminalCatalogSettings();
                     onboardingContent = msg.payload.onboarding || onboardingContent;
                     const toggle = document.getElementById('admin-online-toggle');
                     if (toggle) toggle.textContent = `ONLINE REŽIM: ${onlineModeEnabled ? 'ZAPNUT' : 'VYPNUT'}`;
@@ -3394,19 +3413,19 @@
             const container = document.getElementById('puzzle-container');
             const tabButton = document.getElementById('puzzles-tab-button');
             const found = puzzlesState.filter(puzzle => puzzle.status === 'found');
-            const visible = terminalModeRequested ? found.filter(puzzle => puzzle.terminal) : found;
+            const visible = terminalModeRequested ? found.filter(puzzle => puzzle.terminal?.assigned) : found;
             tabButton.disabled = terminalModeRequested ? false : visible.length === 0;
             tabButton.textContent = terminalModeRequested ? `TERMINÁLOVÉ HÁDANKY [${visible.length}]` : `HÁDANKY [${visible.length}]`;
             if (!visible.length) {
                 container.innerHTML = terminalModeRequested
-                    ? '<div class="terminal-handoff"><strong>TERMINÁL JE PŘIPRAVEN</strong>Čekám, až tým odemkne hádanku určenou pro tuto obrazovku.</div>'
+                    ? '<div class="terminal-handoff"><strong>TERMINÁL JE PŘIPRAVEN</strong>Čekám na centrální přidělení dostupné hádanky Game Masterem.</div>'
                     : '<p>Momentálně není rozehraná žádná hádanka.</p>';
                 updateTeamSokobanIntercomControls();
                 return;
             }
 
             container.innerHTML = visible.map(puzzle => {
-                if (!terminalModeRequested && puzzle.terminal?.mode === 'exclusive') {
+                if (!terminalModeRequested && puzzle.terminal?.assigned && puzzle.terminal.mode === 'exclusive') {
                     const state = puzzle.terminal.attached ? 'Terminál je online. Pokračujte na jeho obrazovce.' : 'Na herním terminálu zobrazte párovací QR a načtěte jej zde ve Skeneru.';
                     return `<article class="puzzle-card"><h3>${escapeHtml(puzzle.title)}</h3><div class="terminal-handoff"><strong>${escapeHtml(puzzle.terminal.label || 'HERNÍ TERMINÁL')}</strong>${escapeHtml(state)}</div></article>`;
                 }
@@ -3445,7 +3464,7 @@
             const digitColumn = (field, digit, index) => `<div class="finale-led-col"><button class="finale-step" onclick="changeFinaleDigit('${escapeHtml(puzzle.id)}','${field}',${index},1)" aria-label="Zvýšit číslici">+</button>${renderSevenSegment(digit)}<button class="finale-step" onclick="changeFinaleDigit('${escapeHtml(puzzle.id)}','${field}',${index},-1)" aria-label="Snížit číslici">−</button></div>`;
             const year = state.year.map((digit, index) => digitColumn('year', digit, index)).join('');
             const time = state.time.map((digit, index) => `${index === 2 ? '<span class="finale-led-separator">:</span>' : ''}${digitColumn('time', digit, index)}`).join('');
-            const pieces = state.modules.map((module, index) => `<button class="finale-module-piece ${state.selectedModule === index ? 'selected' : ''}" onclick="selectFinaleModule('${escapeHtml(puzzle.id)}',${index})"><small>DÍL ${index + 1}</small><strong>${escapeHtml(module)}</strong></button>`).join('');
+            const pieces = state.modules.map((module, index) => `<button class="finale-module-piece ${state.selectedModule === index ? 'selected' : ''}" style="--module-image-position:${finaleModuleImagePosition(module)}" onclick="selectFinaleModule('${escapeHtml(puzzle.id)}',${index})"><small>DÍL ${index + 1}</small><strong>${escapeHtml(module)}</strong></button>`).join('');
             return `<div class="finale-console"><h4 class="finale-console-title">NÁVRATOVÝ VEKTOR</h4><div class="finale-led-groups"><div class="finale-led-group"><strong>ROK</strong><div class="finale-led-row">${year}</div></div><div class="finale-led-group"><strong>ČAS</strong><div class="finale-led-row">${time}</div></div></div><strong>MODULY · VYBERTE DVA DÍLY PRO PROHOZENÍ</strong><div class="finale-module-board">${pieces}</div><button class="finale-launch" onclick="activateFinale('${escapeHtml(puzzle.id)}')">SPUSTIT STROJ ČASU</button></div>`;
         }
 
@@ -3455,6 +3474,13 @@
                 finaleUiState.set(puzzleId, {year:['2','0','0','0'], time:['0','0','0','0'], modules:scrambled, selectedModule:null});
             }
             return finaleUiState.get(puzzleId);
+        }
+
+        function finaleModuleImagePosition(module) {
+            const label = String(module || '').toLocaleUpperCase('cs-CZ');
+            if (label.includes('STABILIZÁTOR')) return '0%';
+            if (label.includes('MOTOR')) return '50%';
+            return '100%';
         }
 
         function renderSevenSegment(value) {
