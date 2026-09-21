@@ -518,10 +518,11 @@
         body.terminal-device #puzzles-tab-button { flex: 1; font-size: 1.05rem; }
         body.terminal-device #cipher-panel { display: none !important; }
         body.terminal-device .puzzle-card { max-width: 1100px; margin: auto; }
-        body.terminal-device::after { content: ''; position: fixed; inset: 0; z-index: 1450; pointer-events: none; background: #000; opacity: .72; transition: opacity 1.4s ease; }
-        body.terminal-device.terminal-awake::after { opacity: 0; transition-duration: .25s; }
+        #terminal-ambient-shade { display: none; }
+        body.terminal-device #terminal-ambient-shade { position: fixed; inset: 0; z-index: 1550; display: block; pointer-events: none; background: #000; opacity: .72; transition: opacity 1.4s ease; }
+        body.terminal-device.terminal-awake #terminal-ambient-shade { opacity: 0; transition-duration: .25s; }
         body.terminal-device:not(.terminal-awake) { cursor: none; }
-        @media (prefers-reduced-motion: reduce) { body.terminal-device::after { transition: none; } }
+        @media (prefers-reduced-motion: reduce) { body.terminal-device #terminal-ambient-shade { transition: none; } }
         @media (max-width: 700px) { .finale-module-board { grid-template-columns: 1fr; gap: 4px; } .finale-module-piece { min-height: 150px; background-size: 100% 100%, 300% 180%; } .finale-module-piece strong { margin-top: 74px; } }
         .puzzle-artifact { display: block; width: 100%; max-height: 68vh; object-fit: contain; margin: 16px 0; border: 1px solid #466; background: #000; }
         .puzzle-categories { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 10px; margin: 16px 0; }
@@ -743,6 +744,7 @@
     <dialog id="admin-access-dialog" class="recovery-dialog"><h2>[ PŘÍSTUP K ADMINISTRACI ]</h2><img id="admin-access-qr" class="join-qr" alt="QR odkaz na administraci"><p id="admin-access-url" style="overflow-wrap:anywhere"></p><p>QR obsahuje pouze adresu dashboardu. Pro přihlášení je stále nutné administrátorské heslo.</p><div class="admin-toolbar" style="justify-content:center"><button class="icon-action" type="button" onclick="copyAdminAccessUrl()" title="Kopírovat odkaz" aria-label="Kopírovat odkaz">📋</button><button type="button" onclick="document.getElementById('admin-access-dialog').close()">ZAVŘÍT</button></div></dialog>
     <dialog id="admin-player-scan-dialog" class="recovery-dialog"><h2>[ PŘIDAT HRÁČE DO TÝMU ]</h2><video id="admin-player-scan-video" class="reverse-scanner visible" autoplay playsinline></video><canvas id="admin-player-scan-canvas" style="display:none"></canvas><div class="admin-toolbar"><input id="admin-player-code" maxlength="64" placeholder="Hráčské ID"><button onclick="submitAdminPlayerCode()">PŘIDAT</button><button onclick="closeAdminPlayerScanner()">ZAVŘÍT</button></div></dialog>
     <dialog id="recovery-dialog" class="recovery-dialog"><h2>[ NÁVRAT HRÁČE ]</h2><p id="recovery-dialog-info"></p><img id="recovery-dialog-qr" class="join-qr" alt="Jednorázový návratový QR"><div id="recovery-dialog-code" class="join-code"></div><p>Kód platí 10 minut a lze ho použít pouze jednou.</p><button onclick="document.getElementById('recovery-dialog').close()">ZAVŘÍT</button></dialog>
+    <div id="terminal-ambient-shade" aria-hidden="true"></div>
     <section id="terminal-pair-overlay" class="terminal-pair-overlay hidden" aria-label="Párování herního terminálu">
         <div class="terminal-pair-card">
             <h1>[ HERNÍ TERMINÁL ]</h1>
@@ -3247,6 +3249,7 @@
                 }
                 else if (msg.type === 'effect.trigger') {
                     if (msg.payload.effect === 'finale') {
+                        wakeTerminalAmbient(Number(msg.payload.duration_ms || 10000) + 10000);
                         playSound('machine');
                         document.body.classList.add('glitch-active');
                         setTimeout(() => document.body.classList.remove('glitch-active'), 900);
