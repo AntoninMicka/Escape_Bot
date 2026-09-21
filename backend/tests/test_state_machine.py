@@ -52,8 +52,8 @@ class StateMachineCheckpointTests(unittest.IsolatedAsyncioTestCase):
         self.assertNotIn("year", puzzle.get("finale", {}))
         self.assertNotIn("time", puzzle.get("finale", {}))
 
-    def test_binding_terminal_reuses_player_identity_without_adding_lobby_player(self) -> None:
-        from escape_bot.server import active_sessions, admin_overview, available_terminal_puzzles, bind_terminal, connection_info, lobby_registry, runtime_settings, session_connections, state_message_for, terminal_eligible_team_count
+    async def test_binding_terminal_reuses_player_identity_without_adding_lobby_player(self) -> None:
+        from escape_bot.server import active_sessions, admin_overview, available_terminal_puzzles, bind_terminal, connection_info, lobby_registry, release_terminal_after_completion, runtime_settings, session_connections, state_message_for, terminal_eligible_team_count
         from escape_bot.team_lobby import Lobby
         terminal_socket = object()
         player_socket = object()
@@ -94,6 +94,11 @@ class StateMachineCheckpointTests(unittest.IsolatedAsyncioTestCase):
             self.assertTrue(finale["terminal"]["device"])
             team = next(item for item in admin_overview() if item["session_id"] == lobby.session_id)
             self.assertEqual(team["terminal_options"], [{"id": "time_machine_finale", "title": "Finální konzole stroje času"}])
+            await release_terminal_after_completion(terminal_socket, lobby.session_id, 0)
+            self.assertEqual(connection_info[terminal_socket]["role"], "terminal_waiting")
+            self.assertNotIn(terminal_socket, session_connections[lobby.session_id])
+            self.assertEqual(runtime_settings["terminal_reservations"]["terminal-test"]["puzzle_id"], "time_machine_finale")
+            self.assertNotIn("terminal_assignment", self.machine.state.flags)
         finally:
             runtime_settings["terminal_puzzle_ids"] = original_catalog
             runtime_settings["puzzle_play_modes"] = original_modes

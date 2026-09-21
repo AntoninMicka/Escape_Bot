@@ -2967,6 +2967,13 @@
                     openTab('tab-puzzles', document.getElementById('puzzles-tab-button'));
                     showNotification('Terminál odemčen a připojen ke hře.', 'success');
                 }
+                else if (msg.type === 'terminal.released') {
+                    terminalAttached = false;
+                    terminalAssignedPuzzleId = '';
+                    document.body.classList.remove('terminal-attached', 'terminal-puzzle-active');
+                    showNotification(msg.payload.reason || 'Terminál je znovu volný.', 'success');
+                    registerTerminal();
+                }
                 else if (msg.type === 'terminal.attach_result') {
                     if (msg.payload.success) stopScanner();
                     showNotification(msg.payload.success ? 'Herní terminál byl odemčen.' : (msg.payload.reason || 'Terminál nelze odemknout.'), msg.payload.success ? 'success' : 'error');

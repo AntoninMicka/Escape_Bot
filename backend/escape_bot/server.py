@@ -727,6 +727,51 @@ def bind_terminal(websocket: WebSocket, session_id: str, controller_id: str) -> 
     session_connections.setdefault(session_id, set()).add(websocket)
 
 
+async def release_terminal_after_completion(websocket: WebSocket, session_id: str, delay_seconds: float) -> None:
+    await asyncio.sleep(max(0, delay_seconds))
+    info = connection_info.get(websocket, {})
+    if info.get("role") != "terminal" or str(info.get("session_id", "")) != session_id:
+        return
+    session_connections.get(session_id, set()).discard(websocket)
+    terminal_id = str(info.get("terminal_id", ""))
+    terminal_label = str(info.get("terminal_label", ""))
+    connection_info[websocket] = {"role": "terminal_waiting", "terminal_id": terminal_id,
+                                  "terminal_label": terminal_label}
+    machine = active_sessions.get(session_id)
+    if machine and not connected_terminal_sockets(session_id):
+        machine.state.flags.pop("terminal_assignment", None)
+        save_sessions()
+    try:
+        await send_message(websocket, Message("terminal.released", {
+            "reason": "Hádanka byla dokončena. Terminál je znovu volný.",
+        }))
+    except Exception:
+        return
+    if machine:
+        await broadcast_session(session_id, [machine._state_message()])
+    for admin_socket in list(authenticated_admin_sockets):
+        try: await send_admin_overview(admin_socket)
+        except Exception: pass
+
+
+def schedule_completed_terminal_releases(session_id: str, state_machine: EscapeBotStateMachine) -> None:
+    assigned = str(state_machine.state.flags.get("terminal_assignment", ""))
+    puzzle = scenario.data.get("puzzles", {}).get(assigned, {})
+    checkpoint = state_machine.state.checkpoint_states.get(str(puzzle.get("checkpoint_id", "")), {})
+    if not assigned or checkpoint.get("status") != "solved":
+        return
+    delay = float(puzzle.get("countdown_seconds", 10)) + 8.5 if puzzle.get("type") == "finale" else 3.5
+    for terminal_socket in connected_terminal_sockets(session_id):
+        info = connection_info.get(terminal_socket, {})
+        if info.get("release_pending"):
+            continue
+        reservation = terminal_reservations().get(str(info.get("terminal_id", "")), {})
+        if str(reservation.get("puzzle_id", "")) != assigned:
+            continue
+        info["release_pending"] = True
+        asyncio.create_task(release_terminal_after_completion(terminal_socket, session_id, delay))
+
+
 async def send_message(websocket: WebSocket, message: Message) -> None:
     await websocket.send_text(json.dumps(message.to_json()))
 
@@ -1988,6 +2033,8 @@ async def websocket_endpoint(websocket: WebSocket):
                             "text": msg.payload.get("text", ""),
                         })], exclude=websocket)
                     save_sessions()
+                    if session_id:
+                        schedule_completed_terminal_releases(str(session_id), state_machine)
                     if session_id and any(response.type == "game.complete" for response in responses):
                         completion_update = apply_outcome_score(state_machine, "completed", int(runtime_settings.get("completion_bonus", 100)))
                         if completion_update:
