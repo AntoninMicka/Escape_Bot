@@ -520,7 +520,8 @@
         body.terminal-device .puzzle-card { max-width: 1100px; margin: auto; }
         #terminal-ambient-shade { display: none; }
         body.terminal-device #terminal-ambient-shade { position: fixed; inset: 0; z-index: 1650; display: block; pointer-events: none; background: #000; opacity: .72; transition: opacity 1.4s ease; }
-        body.terminal-device:not(.terminal-attached) #terminal-ambient-shade { opacity: .45; }
+        body.terminal-device:not(.terminal-attached) #terminal-ambient-shade { opacity: .82; }
+        body.terminal-device.terminal-team-eligible #terminal-ambient-shade { opacity: .35; }
         body.terminal-device.terminal-awake #terminal-ambient-shade,
         body.terminal-device.terminal-puzzle-active #terminal-ambient-shade { opacity: 0; transition-duration: .25s; }
         body.terminal-device:not(.terminal-awake) { cursor: none; }
@@ -988,6 +989,9 @@
         let terminalAmbientTimer = null;
         let terminalAmbientLastSignal = 0;
         let terminalAssignedPuzzleId = '';
+        let terminalEligibleTeamAvailable = null;
+        let terminalPairingRefreshTimer = null;
+        let terminalStatusTimer = null;
         let terminalWakeLock = null;
         let terminalWakeLockRequest = null;
         const finaleUiState = new Map();
@@ -2476,19 +2480,40 @@
             input.value = '';
         }
 
-        function registerTerminal() {
+        function registerTerminal(refresh = false) {
             terminalAttached = false;
             document.body.classList.add('terminal-device');
             document.body.classList.remove('terminal-attached', 'terminal-puzzle-active');
-            wakeTerminalAmbient(15000);
+            if (!refresh) {
+                terminalEligibleTeamAvailable = null;
+                document.body.classList.remove('terminal-team-eligible');
+                wakeTerminalAmbient(15000);
+            }
             ensureTerminalWakeLock();
             document.getElementById('lobby-overlay').classList.add('hidden');
             document.getElementById('terminal-pair-overlay').classList.remove('hidden');
-            document.getElementById('terminal-pair-code').textContent = 'GENERUJI…';
-            document.getElementById('terminal-pair-qr').removeAttribute('src');
-            document.getElementById('terminal-pair-status').textContent = 'Vytvářím jednorázové párování…';
+            if (!refresh) {
+                document.getElementById('terminal-pair-code').textContent = 'GENERUJI…';
+                document.getElementById('terminal-pair-qr').removeAttribute('src');
+                document.getElementById('terminal-pair-status').textContent = 'Vytvářím jednorázové párování…';
+            }
             if (!ws || ws.readyState !== WebSocket.OPEN) { connect(); return; }
             ws.send(JSON.stringify({type:'terminal.register', payload:{}}));
+        }
+
+        function updateTerminalEligibility(count) {
+            const available = Number(count || 0) > 0;
+            if (available && terminalEligibleTeamAvailable !== true) wakeTerminalAmbient(15000);
+            terminalEligibleTeamAvailable = available;
+            document.body.classList.toggle('terminal-team-eligible', available);
+            document.getElementById('terminal-pair-status').textContent = available
+                ? 'Tým v odpovídající fázi hry může tento QR načíst.'
+                : 'Čekám na tým v odpovídající fázi hry. QR se automaticky obnovuje.';
+        }
+
+        function requestTerminalStatus() {
+            if (!terminalModeRequested || terminalAttached || !ws || ws.readyState !== WebSocket.OPEN) return;
+            ws.send(JSON.stringify({type:'terminal.status', payload:{}}));
         }
 
         function wakeTerminalAmbient(duration = 12000) {
@@ -2860,11 +2885,25 @@
                 if (msg.type === 'terminal.ready') {
                     document.getElementById('terminal-pair-code').textContent = msg.payload.code || '';
                     document.getElementById('terminal-pair-qr').src = `/api/qr?data=${encodeURIComponent(msg.payload.value || '')}`;
-                    document.getElementById('terminal-pair-status').textContent = 'QR platí 10 minut. Načtěte jej telefonem člena týmu.';
+                    document.getElementById('terminal-pair-status').textContent = 'QR se automaticky obnovuje. Načtěte jej telefonem oprávněného týmu.';
+                    updateTerminalEligibility(msg.payload.eligible_team_count);
+                    clearTimeout(terminalPairingRefreshTimer);
+                    const refreshAfter = Math.max(30, Number(msg.payload.expires_in || 600) - 30) * 1000;
+                    terminalPairingRefreshTimer = setTimeout(() => {
+                        if (!terminalAttached) registerTerminal(true);
+                    }, refreshAfter);
+                    clearInterval(terminalStatusTimer);
+                    terminalStatusTimer = setInterval(requestTerminalStatus, 10000);
+                }
+                else if (msg.type === 'terminal.status') {
+                    updateTerminalEligibility(msg.payload.eligible_team_count);
                 }
                 else if (msg.type === 'terminal.attached') {
                     terminalAttached = true;
+                    clearTimeout(terminalPairingRefreshTimer);
+                    clearInterval(terminalStatusTimer);
                     document.body.classList.add('terminal-attached');
+                    document.body.classList.remove('terminal-team-eligible');
                     wakeTerminalAmbient(15000);
                     document.getElementById('terminal-pair-overlay').classList.add('hidden');
                     document.getElementById('team-status').textContent = `${msg.payload.team_name || 'Tým'} · terminál ovládá ${msg.payload.controller_name || 'hráč'}`;

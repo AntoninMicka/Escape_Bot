@@ -615,6 +615,32 @@ def connected_terminal_sockets(session_id: str) -> set[WebSocket]:
     }
 
 
+def available_terminal_puzzles(state_machine: EscapeBotStateMachine) -> list[dict[str, str]]:
+    """Return terminal-enabled puzzles that the team may currently open."""
+    allowed = set(runtime_settings.get("terminal_puzzle_ids", []))
+    options = []
+    for puzzle_id, puzzle in scenario.data.get("puzzles", {}).items():
+        checkpoint = state_machine.state.checkpoint_states.get(str(puzzle.get("checkpoint_id", "")), {})
+        if puzzle_id in allowed and checkpoint.get("status") == "found":
+            options.append({"id": puzzle_id, "title": str(puzzle.get("title", puzzle_id))})
+    return options
+
+
+def terminal_eligible_team_count() -> int:
+    """Count online teams whose current game state permits scanning a terminal."""
+    count = 0
+    for session_id, state_machine in active_sessions.items():
+        lobby = lobby_registry.by_session.get(session_id)
+        flags = state_machine.state.flags
+        if not lobby or not lobby.started or flags.get("game_completed") or flags.get("administratively_ended"):
+            continue
+        if connected_terminal_sockets(session_id) or not connected_client_ids(session_id):
+            continue
+        if available_terminal_puzzles(state_machine):
+            count += 1
+    return count
+
+
 def state_message_for(websocket: WebSocket, session_id: str, state_machine: EscapeBotStateMachine) -> Message:
     """Build a personalized snapshot and add presentation-only terminal status."""
     info = connection_info.get(websocket, {})
@@ -779,12 +805,7 @@ def admin_overview(watched_sessions: set[str] | None = None) -> list[dict[str, o
         game_completed = bool(flags.get("game_completed"))
         administratively_ended = bool(flags.get("administratively_ended"))
         activity_status = classify_activity(lobby.started, game_completed, inactive_seconds)
-        allowed_terminal_puzzles = set(runtime_settings.get("terminal_puzzle_ids", []))
-        terminal_options = []
-        for puzzle_id, puzzle in scenario.data.get("puzzles", {}).items():
-            checkpoint = checkpoint_states.get(str(puzzle.get("checkpoint_id", "")), {})
-            if puzzle_id in allowed_terminal_puzzles and checkpoint.get("status") == "found":
-                terminal_options.append({"id": puzzle_id, "title": str(puzzle.get("title", puzzle_id))})
+        terminal_options = available_terminal_puzzles(machine)
         teams.append({
             **lobby.public("", connected_client_ids(lobby.session_id)),
             "score": int(state.get("score", 1000)),
@@ -994,6 +1015,13 @@ async def websocket_endpoint(websocket: WebSocket):
                         "code": pairing_code,
                         "value": f"escapebot://terminal/{pairing_code}",
                         "expires_in": 600,
+                        "eligible_team_count": terminal_eligible_team_count(),
+                    }))
+                    continue
+
+                if msg.type == "terminal.status" and connection_info.get(websocket, {}).get("role") == "terminal_waiting":
+                    await send_message(websocket, Message("terminal.status", {
+                        "eligible_team_count": terminal_eligible_team_count(),
                     }))
                     continue
 
@@ -1706,8 +1734,9 @@ async def websocket_endpoint(websocket: WebSocket):
                         }))
                         continue
                     pairing_code = str(msg.payload.get("value", "")).rsplit("/", 1)[-1].strip().upper()
-                    pairing = terminal_pairings.pop(pairing_code, None)
+                    pairing = terminal_pairings.get(pairing_code)
                     if pairing is None or float(pairing.get("expires_at", 0)) < datetime.now(UTC).timestamp():
+                        terminal_pairings.pop(pairing_code, None)
                         await send_message(websocket, Message("terminal.attach_result", {
                             "success": False,
                             "reason": "Párovací QR terminálu už není platný. Na tabletu vytvořte nový.",
@@ -1727,6 +1756,19 @@ async def websocket_endpoint(websocket: WebSocket):
                             "reason": "Terminál může odemknout pouze člen týmu.",
                         }))
                         continue
+                    if connected_terminal_sockets(str(session_id)):
+                        await send_message(websocket, Message("terminal.attach_result", {
+                            "success": False,
+                            "reason": "Tento tým už má připojený herní terminál.",
+                        }))
+                        continue
+                    if not available_terminal_puzzles(state_machine):
+                        await send_message(websocket, Message("terminal.attach_result", {
+                            "success": False,
+                            "reason": "V aktuálním stavu hry tento tým ještě nemůže terminál načíst.",
+                        }))
+                        continue
+                    terminal_pairings.pop(pairing_code, None)
                     bind_terminal(terminal_socket, str(session_id), str(client_id))
                     state_machine.state.flags.pop("terminal_assignment", None)
                     save_sessions()
