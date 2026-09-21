@@ -1,1 +1,19 @@
-[]
+[
+  {
+    "session_id": "9849b23863314fd9be4747aae806f073",
+    "mode": "solo",
+    "creator_id": "c9da7eeb-0ca4-4a7e-8c9b-5c63d16f2638",
+    "team_name": "pokus",
+    "join_code": null,
+    "started": true,
+    "players": {
+      "c9da7eeb-0ca4-4a7e-8c9b-5c63d16f2638": {
+        "id": "c9da7eeb-0ca4-4a7e-8c9b-5c63d16f2638",
+        "name": "pokuas",
+        "joined_at": "2026-09-21T15:40:27.369294+00:00"
+      }
+    },
+    "max_players": 1,
+    "applied_score_adjustment": 20
+  }
+]

@@ -2708,5 +2708,843 @@
     "event_history": [],
     "game_exclusions": {},
     "game_results": {}
+  },
+  "9849b23863314fd9be4747aae806f073": {
+    "phase": "navigating",
+    "unlocked_discoveries": [
+      "bowling_diagnostics",
+      "courtyard_alignment",
+      "courtyard_minefield",
+      "future_archive",
+      "reception_archive",
+      "sports_archive",
+      "staircase_signal",
+      "terrace_echo",
+      "time_machine_console",
+      "timeline_calibration"
+    ],
+    "inventory": [
+      "TEMPORÁLNÍ MOTOR",
+      "FÁZOVÝ STABILIZÁTOR"
+    ],
+    "flags": {
+      "operations_started_at": "2026-09-21T15:40:27.369314+00:00",
+      "chronomap_unlocked": true,
+      "admin_actions": [
+        {
+          "action": "checkpoint",
+          "label": "Checkpoint reception_archive: found · Technická chyba / uznat bez postihu",
+          "at": "2026-09-21T15:41:59.479202+00:00",
+          "checkpoint_id": "reception_archive",
+          "previous_status": "locked",
+          "status": "found"
+        },
+        {
+          "action": "checkpoint",
+          "label": "Checkpoint reception_archive: solved · Technická chyba / uznat bez postihu",
+          "at": "2026-09-21T15:42:02.321036+00:00",
+          "checkpoint_id": "reception_archive",
+          "previous_status": "found",
+          "status": "solved"
+        },
+        {
+          "action": "checkpoint",
+          "label": "Checkpoint staircase_signal: found · Technická chyba / uznat bez postihu",
+          "at": "2026-09-21T15:42:05.846696+00:00",
+          "checkpoint_id": "staircase_signal",
+          "previous_status": "locked",
+          "status": "found"
+        },
+        {
+          "action": "checkpoint",
+          "label": "Checkpoint staircase_signal: solved · Technická chyba / uznat bez postihu",
+          "at": "2026-09-21T15:42:08.494706+00:00",
+          "checkpoint_id": "staircase_signal",
+          "previous_status": "found",
+          "status": "solved"
+        },
+        {
+          "action": "checkpoint",
+          "label": "Checkpoint courtyard_minefield: found · Technická chyba / uznat bez postihu",
+          "at": "2026-09-21T15:42:11.906037+00:00",
+          "checkpoint_id": "courtyard_minefield",
+          "previous_status": "locked",
+          "status": "found"
+        },
+        {
+          "action": "checkpoint",
+          "label": "Checkpoint courtyard_minefield: solved · Technická chyba / uznat bez postihu",
+          "at": "2026-09-21T15:42:15.553876+00:00",
+          "checkpoint_id": "courtyard_minefield",
+          "previous_status": "found",
+          "status": "solved"
+        },
+        {
+          "action": "checkpoint",
+          "label": "Checkpoint bowling_diagnostics: found · Technická chyba / uznat bez postihu",
+          "at": "2026-09-21T15:42:28.010678+00:00",
+          "checkpoint_id": "bowling_diagnostics",
+          "previous_status": "locked",
+          "status": "found"
+        },
+        {
+          "action": "checkpoint",
+          "label": "Checkpoint bowling_diagnostics: solved · Technická chyba / uznat bez postihu",
+          "at": "2026-09-21T15:42:30.682588+00:00",
+          "checkpoint_id": "bowling_diagnostics",
+          "previous_status": "found",
+          "status": "solved"
+        },
+        {
+          "action": "checkpoint",
+          "label": "Checkpoint timeline_calibration: found · Technická chyba / uznat bez postihu",
+          "at": "2026-09-21T15:42:33.986866+00:00",
+          "checkpoint_id": "timeline_calibration",
+          "previous_status": "locked",
+          "status": "found"
+        },
+        {
+          "action": "checkpoint",
+          "label": "Checkpoint timeline_calibration: solved · Technická chyba / uznat bez postihu",
+          "at": "2026-09-21T15:42:36.699729+00:00",
+          "checkpoint_id": "timeline_calibration",
+          "previous_status": "found",
+          "status": "solved"
+        },
+        {
+          "action": "checkpoint",
+          "label": "Checkpoint terrace_echo: found · Technická chyba / uznat bez postihu",
+          "at": "2026-09-21T15:42:40.368557+00:00",
+          "checkpoint_id": "terrace_echo",
+          "previous_status": "locked",
+          "status": "found"
+        },
+        {
+          "action": "checkpoint",
+          "label": "Checkpoint terrace_echo: solved · Technická chyba / uznat bez postihu",
+          "at": "2026-09-21T15:42:43.095061+00:00",
+          "checkpoint_id": "terrace_echo",
+          "previous_status": "found",
+          "status": "solved"
+        },
+        {
+          "action": "checkpoint",
+          "label": "Checkpoint courtyard_alignment: found · Technická chyba / uznat bez postihu",
+          "at": "2026-09-21T15:43:03.155390+00:00",
+          "checkpoint_id": "courtyard_alignment",
+          "previous_status": "locked",
+          "status": "found"
+        },
+        {
+          "action": "checkpoint",
+          "label": "Checkpoint courtyard_alignment: solved · Technická chyba / uznat bez postihu",
+          "at": "2026-09-21T15:43:06.071739+00:00",
+          "checkpoint_id": "courtyard_alignment",
+          "previous_status": "found",
+          "status": "solved"
+        },
+        {
+          "action": "checkpoint",
+          "label": "Checkpoint sports_archive: found · Technická chyba / uznat bez postihu",
+          "at": "2026-09-21T15:43:12.509820+00:00",
+          "checkpoint_id": "sports_archive",
+          "previous_status": "locked",
+          "status": "found"
+        },
+        {
+          "action": "checkpoint",
+          "label": "Checkpoint sports_archive: solved · Technická chyba / uznat bez postihu",
+          "at": "2026-09-21T15:43:15.034831+00:00",
+          "checkpoint_id": "sports_archive",
+          "previous_status": "found",
+          "status": "solved"
+        },
+        {
+          "action": "checkpoint",
+          "label": "Checkpoint future_archive: found · Technická chyba / uznat bez postihu",
+          "at": "2026-09-21T15:43:22.535127+00:00",
+          "checkpoint_id": "future_archive",
+          "previous_status": "locked",
+          "status": "found"
+        },
+        {
+          "action": "checkpoint",
+          "label": "Checkpoint future_archive: solved · Technická chyba / uznat bez postihu",
+          "at": "2026-09-21T15:43:36.634125+00:00",
+          "checkpoint_id": "future_archive",
+          "previous_status": "found",
+          "status": "solved"
+        },
+        {
+          "action": "checkpoint",
+          "label": "Checkpoint time_machine_console: found · Technická chyba / uznat bez postihu",
+          "at": "2026-09-21T15:43:41.087998+00:00",
+          "checkpoint_id": "time_machine_console",
+          "previous_status": "locked",
+          "status": "found"
+        },
+        {
+          "action": "terminal_puzzle",
+          "label": "Zobrazení time_machine_finale: mirror",
+          "at": "2026-09-21T15:43:51.494780+00:00",
+          "puzzle_id": "time_machine_finale",
+          "mode": "mirror"
+        }
+      ],
+      "reception_archive_unlocked": true,
+      "bowling_route_unlocked": true,
+      "courtyard_route_stable": true,
+      "temporal_motor_recovered": true,
+      "timeline_calibrated": true,
+      "phase_stabilizer_recovered": true,
+      "room_104_unlocked": true,
+      "temporal_nodes_aligned": true,
+      "return_vector_recovered": true,
+      "terminal_presentation": {
+        "time_machine_finale": "mirror"
+      }
+    },
+    "chat_history": [
+      {
+        "role": "bot",
+        "channel": "captain",
+        "text": "*ššš*... Tady Kapitánka. Slyšíme se? Interkom konečně naběhl. Potvrď příjem!",
+        "voice_id": "captain_first_contact",
+        "audio_url": "/assets/voices/captain_first_contact.mp3"
+      },
+      {
+        "role": "player",
+        "channel": "captain",
+        "text": "OK"
+      },
+      {
+        "role": "bot",
+        "channel": "captain",
+        "text": "Výborně, spojení funguje. Při experimentu v Hotelu Kraskov zmizela doktorka Elara. Z poškozeného chronálního vysílače zůstal jediný nouzový záznam:\n\nNOSNÁ VLNA C-17\n━━  ━━  ●  ●  ●   /   ●  ●  ●  ━━  ━━   /   ●  ●  ●  ●  ━━\n\nZáznam tvoří tři oddělené skupiny. Obnovenou třícifernou frekvenci odešli do interkomu."
+      },
+      {
+        "role": "player",
+        "channel": "captain",
+        "text": "734"
+      },
+      {
+        "role": "bot",
+        "channel": "captain",
+        "text": "Frekvence 734 přijata! Zachytila jsem chronální ozvěnu. Přepojuji... *píp*"
+      },
+      {
+        "role": "bot",
+        "channel": "lost",
+        "text": "Haló? Tady doktorka Elara. Jsem pořád v Kraskově, ale hotel vypadá, jako by tu nikdo nebyl celá desetiletí. Stroj se rozpadl při přenosu. Slyšíte mě?",
+        "voice_id": "elara_first_contact",
+        "audio_url": "/assets/voices/elara_first_contact.mp3"
+      },
+      {
+        "role": "bot",
+        "channel": "lost",
+        "text": "Jsme ve stejném Kraskově, ale já jsem uvázla v jeho budoucí časové vrstvě. Interkom přenese jen hlas a data; ven mě dostane až stabilní koridor. Havárie vymrštila tři součásti stroje do vašeho času. CHRONOMAPA je online — najděte její první stabilní bod u recepčního archivu.",
+        "voice_id": "elara_temporal_reveal",
+        "audio_url": "/assets/voices/elara_temporal_reveal.mp3"
+      },
+      {
+        "role": "bot",
+        "channel": "general",
+        "text": "Přístupový panel dveří 104 odemčen. Elektromagnetický zámek uvolněn."
+      },
+      {
+        "role": "bot",
+        "channel": "lost",
+        "text": "Slyšela jsem cvaknutí! Pokoj 104 je otevřený a archivní stopa zajištěná. Teď pokračujte ke schodišti a najděte tam další časovou kotvu."
+      }
+    ],
+    "score": 1020,
+    "hints_used": {},
+    "checkpoint_states": {
+      "reception_archive": {
+        "status": "solved",
+        "first_scanned_at": "2026-09-21T15:41:59.479190+00:00",
+        "admin_override_at": "2026-09-21T15:42:02.321020+00:00",
+        "solved_at": "2026-09-21T15:42:02.321020+00:00"
+      },
+      "staircase_signal": {
+        "status": "solved",
+        "first_scanned_at": "2026-09-21T15:42:05.846678+00:00",
+        "admin_override_at": "2026-09-21T15:42:08.494687+00:00",
+        "solved_at": "2026-09-21T15:42:08.494687+00:00"
+      },
+      "courtyard_minefield": {
+        "status": "solved",
+        "first_scanned_at": "2026-09-21T15:42:11.906019+00:00",
+        "admin_override_at": "2026-09-21T15:42:15.553857+00:00",
+        "solved_at": "2026-09-21T15:42:15.553857+00:00"
+      },
+      "bowling_diagnostics": {
+        "status": "solved",
+        "first_scanned_at": "2026-09-21T15:42:28.010665+00:00",
+        "admin_override_at": "2026-09-21T15:42:30.682571+00:00",
+        "solved_at": "2026-09-21T15:42:30.682571+00:00"
+      },
+      "timeline_calibration": {
+        "status": "solved",
+        "first_scanned_at": "2026-09-21T15:42:33.986848+00:00",
+        "admin_override_at": "2026-09-21T15:42:36.699717+00:00",
+        "solved_at": "2026-09-21T15:42:36.699717+00:00"
+      },
+      "terrace_echo": {
+        "status": "solved",
+        "first_scanned_at": "2026-09-21T15:42:40.368545+00:00",
+        "admin_override_at": "2026-09-21T15:42:43.095046+00:00",
+        "solved_at": "2026-09-21T15:42:43.095046+00:00"
+      },
+      "courtyard_alignment": {
+        "status": "solved",
+        "first_scanned_at": "2026-09-21T15:43:03.155377+00:00",
+        "admin_override_at": "2026-09-21T15:43:06.071725+00:00",
+        "solved_at": "2026-09-21T15:43:06.071725+00:00"
+      },
+      "sports_archive": {
+        "status": "solved",
+        "first_scanned_at": "2026-09-21T15:43:12.509807+00:00",
+        "admin_override_at": "2026-09-21T15:43:15.034814+00:00",
+        "solved_at": "2026-09-21T15:43:15.034814+00:00"
+      },
+      "future_archive": {
+        "status": "solved",
+        "first_scanned_at": "2026-09-21T15:43:22.535112+00:00",
+        "admin_override_at": "2026-09-21T15:43:36.634112+00:00",
+        "solved_at": "2026-09-21T15:43:36.634112+00:00"
+      },
+      "time_machine_console": {
+        "status": "found",
+        "first_scanned_at": "2026-09-21T15:43:41.087982+00:00",
+        "admin_override_at": "2026-09-21T15:43:41.087982+00:00"
+      }
+    },
+    "unlocked_cipher_tools": [
+      "a1z26",
+      "binary_ascii",
+      "classical",
+      "morse",
+      "pigpen",
+      "semaphore"
+    ],
+    "paid_cipher_tools": [],
+    "puzzle_attempts": {},
+    "interactive_games": {
+      "timeline_lines": {
+        "progress": {
+          "3": 0,
+          "4": 0,
+          "5": 0
+        },
+        "status": "playing",
+        "started_at": "2026-09-21T15:42:33.990763+00:00",
+        "deadline_at": "2026-09-21T15:47:33.990763+00:00",
+        "swaps": 0,
+        "rng": 1477420827,
+        "board": [
+          [
+            "cyan",
+            "red",
+            "cyan",
+            "amber",
+            "green",
+            "amber",
+            "violet"
+          ],
+          [
+            "amber",
+            "amber",
+            "cyan",
+            "violet",
+            "cyan",
+            "violet",
+            "cyan"
+          ],
+          [
+            "violet",
+            "green",
+            "red",
+            "violet",
+            "violet",
+            "green",
+            "violet"
+          ],
+          [
+            "green",
+            "amber",
+            "cyan",
+            "red",
+            "red",
+            "amber",
+            "red"
+          ],
+          [
+            "cyan",
+            "green",
+            "red",
+            "violet",
+            "green",
+            "red",
+            "amber"
+          ],
+          [
+            "violet",
+            "red",
+            "violet",
+            "violet",
+            "green",
+            "violet",
+            "violet"
+          ],
+          [
+            "red",
+            "cyan",
+            "cyan",
+            "green",
+            "amber",
+            "green",
+            "violet"
+          ]
+        ]
+      }
+    },
+    "sokoban_games": {
+      "sports_sokoban": {
+        "active_level_ids": [
+          "sector_a",
+          "sector_b",
+          "sector_c"
+        ],
+        "level_index": 0,
+        "completed_levels": [],
+        "awarded_points": 0,
+        "moves": 0,
+        "pushes": 0,
+        "total_moves": 0,
+        "total_pushes": 0,
+        "restarts": 0,
+        "status": "playing",
+        "command_history": [],
+        "player": [
+          5,
+          6
+        ],
+        "boxes": [
+          [
+            2,
+            5
+          ],
+          [
+            5,
+            5
+          ]
+        ],
+        "walls": [
+          [
+            0,
+            0
+          ],
+          [
+            0,
+            1
+          ],
+          [
+            0,
+            2
+          ],
+          [
+            0,
+            3
+          ],
+          [
+            0,
+            4
+          ],
+          [
+            0,
+            5
+          ],
+          [
+            0,
+            6
+          ],
+          [
+            0,
+            7
+          ],
+          [
+            1,
+            0
+          ],
+          [
+            1,
+            1
+          ],
+          [
+            1,
+            4
+          ],
+          [
+            1,
+            7
+          ],
+          [
+            2,
+            0
+          ],
+          [
+            2,
+            7
+          ],
+          [
+            3,
+            0
+          ],
+          [
+            3,
+            1
+          ],
+          [
+            3,
+            2
+          ],
+          [
+            3,
+            7
+          ],
+          [
+            4,
+            0
+          ],
+          [
+            4,
+            7
+          ],
+          [
+            5,
+            0
+          ],
+          [
+            5,
+            7
+          ],
+          [
+            6,
+            0
+          ],
+          [
+            6,
+            7
+          ],
+          [
+            7,
+            0
+          ],
+          [
+            7,
+            1
+          ],
+          [
+            7,
+            2
+          ],
+          [
+            7,
+            3
+          ],
+          [
+            7,
+            4
+          ],
+          [
+            7,
+            5
+          ],
+          [
+            7,
+            6
+          ],
+          [
+            7,
+            7
+          ]
+        ],
+        "targets": [
+          [
+            4,
+            4
+          ],
+          [
+            5,
+            3
+          ]
+        ],
+        "rows": 8,
+        "columns": 8,
+        "level_id": "sector_a",
+        "level_label": "Servisní sektor A",
+        "history": [],
+        "level_speakers": [],
+        "started_at": "2026-09-21T15:43:12.513888+00:00",
+        "deadline_at": "2026-09-21T15:45:12.513888+00:00"
+      }
+    },
+    "karel_games": {
+      "courtyard_karel": {
+        "active_level_ids": [
+          "field_a",
+          "field_b",
+          "field_c"
+        ],
+        "level_index": 0,
+        "completed_levels": [],
+        "awarded_points": 0,
+        "total_moves": 0,
+        "total_strikes": 0,
+        "restarts": 0,
+        "status": "playing",
+        "level_id": "field_a",
+        "level_label": "Pole A",
+        "rows": 7,
+        "columns": 7,
+        "mines": [
+          [
+            0,
+            3
+          ],
+          [
+            1,
+            1
+          ],
+          [
+            1,
+            5
+          ],
+          [
+            2,
+            3
+          ],
+          [
+            3,
+            1
+          ],
+          [
+            3,
+            5
+          ],
+          [
+            4,
+            3
+          ],
+          [
+            5,
+            1
+          ],
+          [
+            5,
+            5
+          ],
+          [
+            6,
+            3
+          ]
+        ],
+        "start": [
+          0,
+          0
+        ],
+        "exit": [
+          6,
+          6
+        ],
+        "player": [
+          0,
+          0
+        ],
+        "revealed": [
+          [
+            0,
+            1
+          ],
+          [
+            1,
+            0
+          ],
+          [
+            2,
+            2
+          ],
+          [
+            2,
+            4
+          ],
+          [
+            3,
+            3
+          ],
+          [
+            4,
+            2
+          ],
+          [
+            4,
+            4
+          ],
+          [
+            5,
+            6
+          ],
+          [
+            6,
+            5
+          ],
+          [
+            0,
+            0
+          ],
+          [
+            6,
+            6
+          ]
+        ],
+        "triggered_mines": [],
+        "moves": 0,
+        "strikes": 0,
+        "history": [],
+        "started_at": "2026-09-21T15:42:11.932483+00:00",
+        "deadline_at": "2026-09-21T15:45:11.932483+00:00"
+      }
+    },
+    "last_activity_at": "2026-09-21T15:43:41.087982+00:00",
+    "triad_games": {
+      "temporal_triad": {
+        "size": 6,
+        "board": [
+          [
+            null,
+            null,
+            null,
+            null,
+            null,
+            null
+          ],
+          [
+            null,
+            null,
+            null,
+            null,
+            null,
+            null
+          ],
+          [
+            null,
+            null,
+            null,
+            null,
+            null,
+            null
+          ],
+          [
+            null,
+            null,
+            null,
+            null,
+            null,
+            null
+          ],
+          [
+            null,
+            null,
+            null,
+            null,
+            null,
+            null
+          ],
+          [
+            null,
+            null,
+            null,
+            null,
+            null,
+            null
+          ]
+        ],
+        "blocked": [],
+        "completed_orientations": [],
+        "scored_lines": [],
+        "placements": 0,
+        "opponent_moves": 0,
+        "restarts": 0,
+        "status": "playing",
+        "started_at": "2026-09-21T15:43:03.179719+00:00",
+        "deadline_at": "2026-09-21T15:46:03.179719+00:00"
+      }
+    },
+    "archive_games": {
+      "future_archive_cipher": {
+        "order": [
+          "tile_11",
+          "tile_4",
+          "tile_15",
+          "tile_1",
+          "tile_8",
+          "tile_13",
+          "tile_6",
+          "tile_16",
+          "tile_3",
+          "tile_10",
+          "tile_2",
+          "tile_12",
+          "tile_7",
+          "tile_14",
+          "tile_5",
+          "tile_9"
+        ],
+        "rotations": {
+          "tile_1": 0,
+          "tile_2": 0,
+          "tile_3": 0,
+          "tile_4": 0,
+          "tile_5": 0,
+          "tile_6": 0,
+          "tile_7": 0,
+          "tile_8": 0,
+          "tile_9": 0,
+          "tile_10": 0,
+          "tile_11": 0,
+          "tile_12": 0,
+          "tile_13": 0,
+          "tile_14": 0,
+          "tile_15": 0,
+          "tile_16": 0
+        },
+        "moves": 0,
+        "assembled": false
+      }
+    },
+    "event_history": [
+      {
+        "at": "2026-09-21T15:40:48.609885+00:00",
+        "type": "player.message",
+        "details": {
+          "channel": "captain"
+        }
+      },
+      {
+        "at": "2026-09-21T15:41:38.963836+00:00",
+        "type": "player.message",
+        "details": {
+          "channel": "captain"
+        }
+      },
+      {
+        "at": "2026-09-21T15:42:53.205191+00:00",
+        "type": "room.unlock",
+        "details": {}
+      }
+    ],
+    "game_exclusions": {},
+    "game_results": {}
   }
 }
