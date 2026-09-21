@@ -383,6 +383,7 @@
       "title": "Finální konzole stroje času",
       "type": "finale",
       "checkpoint_id": "time_machine_console",
+      "terminal": {"mode": "exclusive", "label": "Finální konzole stroje času"},
       "instructions": "Vložte všechny tři fyzické moduly do základny. Potom zadejte návratový rok, čas a přesné pořadí modulů získané v Archivu budoucnosti.",
       "year": "2037",
       "time": "21:40",

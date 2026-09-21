@@ -265,6 +265,15 @@ class EscapeBotStateMachine:
                 "hints_unlocked": min(self.state.hints_used.get(f"puzzle.{puzzle_id}", 0), len(puzzle.get("hints", []))),
                 "hint_costs": [int(hint.get("penalty", 10)) for hint in puzzle.get("hints", [])],
             }
+            configured_terminal = puzzle.get("terminal") if isinstance(puzzle.get("terminal"), dict) else {}
+            overrides = self.state.flags.get("terminal_presentation", {})
+            override_mode = overrides.get(puzzle_id) if isinstance(overrides, dict) else None
+            terminal_mode = str(override_mode or configured_terminal.get("mode", "off"))
+            if terminal_mode in {"exclusive", "mirror"}:
+                item["terminal"] = {
+                    "mode": terminal_mode,
+                    "label": str(configured_terminal.get("label", puzzle.get("title", "Herní terminál")))[:80],
+                }
             if status in {"found", "solved"}:
                 item.update({
                     "instructions": puzzle.get("instructions", ""),
@@ -326,6 +335,18 @@ class EscapeBotStateMachine:
 
     def _apply_checkpoint_rewards(self, checkpoint: dict[str, Any]) -> None:
         self._apply_rewards(checkpoint.get("rewards", {}))
+
+    def admin_set_terminal_presentation(self, puzzle_id: str, mode: str) -> dict[str, str]:
+        if puzzle_id not in self.scenario.data.get("puzzles", {}):
+            raise ValueError("Neznámá hádanka.")
+        if mode not in {"off", "mirror", "exclusive"}:
+            raise ValueError("Neplatný režim herního terminálu.")
+        overrides = self.state.flags.setdefault("terminal_presentation", {})
+        if not isinstance(overrides, dict):
+            overrides = {}
+            self.state.flags["terminal_presentation"] = overrides
+        overrides[puzzle_id] = mode
+        return {"puzzle_id": puzzle_id, "mode": mode}
 
     def _navigation_message(self, checkpoint_id: str, message: Message) -> Message | None:
         navigation = self.scenario.data.get("checkpoints", {}).get(checkpoint_id, {}).get("navigation_message")

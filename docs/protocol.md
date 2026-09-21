@@ -28,6 +28,18 @@ Pro reverzní připojení notebook pošle `lobby.identify` a dostane `lobby.play
 
 Velikost týmu upravuje skóre podle nejvyššího počtu registrovaných zařízení: sólo `+20`, tým o dvou hráčích `+10`, tři hráči beze změny a každý hráč nad tři `−30`. Pozdější připojení pouze dorovná rozdíl proti již použité úpravě.
 
+### Samostatný herní terminál
+
+Stránka `/terminal` pošle `terminal.register` a dostane jednorázový `terminal.ready` s QR hodnotou `escapebot://terminal/<code>`. QR načte telefon už připojeného hráče běžnou zprávou `qr.detected`. Server terminál naváže na stejnou relaci a identitu tohoto hráče, ale nepřidá jej do `Lobby.players`, nezvýší `max_players` a nezmění týmovou bodovou úpravu.
+
+Hádanka se na terminál směruje čistě konfigurací scénáře:
+
+```json
+"terminal": {"mode": "exclusive", "label": "Finální konzole"}
+```
+
+Režim `exclusive` na hráčských zařízeních ponechá pouze pokyn přejít k terminálu; `mirror` zobrazí plně ovladatelnou hádanku na terminálu i hráčských zařízeních. Bez objektu `terminal` se hádanka na samostatném terminálu nezobrazuje. Game Master může výchozí hodnotu pro konkrétní tým za běhu přepsat zprávou `admin.terminal_puzzle` s `session_id`, `puzzle_id` a režimem `off`, `mirror` nebo `exclusive`; administrace nabízí stejnou volbu u každé hádanky. Nastavení lze použít pro libovolný typ hádanky bez změny protokolu jejího řešení.
+
 ### `client.hello`
 
 Starts a session.

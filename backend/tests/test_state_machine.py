@@ -45,6 +45,44 @@ class StateMachineCheckpointTests(unittest.IsolatedAsyncioTestCase):
             self.assertTrue(audio_path.is_file(), declaration["voice_id"])
             self.assertGreater(audio_path.stat().st_size, 10_000, declaration["voice_id"])
 
+    def test_terminal_presentation_is_scenario_driven_and_does_not_expose_solution(self) -> None:
+        puzzle = next(item for item in self.machine._state_message("alice").payload["puzzles"] if item["id"] == "time_machine_finale")
+
+        self.assertEqual(puzzle["terminal"], {"mode": "exclusive", "label": "Finální konzole stroje času"})
+        self.assertNotIn("year", puzzle.get("finale", {}))
+        self.assertNotIn("time", puzzle.get("finale", {}))
+
+        self.machine.admin_set_terminal_presentation("reception_deduction", "mirror")
+        reception = next(item for item in self.machine._state_message("alice").payload["puzzles"] if item["id"] == "reception_deduction")
+        self.assertEqual(reception["terminal"]["mode"], "mirror")
+
+        self.machine.admin_set_terminal_presentation("time_machine_finale", "off")
+        finale = next(item for item in self.machine._state_message("alice").payload["puzzles"] if item["id"] == "time_machine_finale")
+        self.assertNotIn("terminal", finale)
+
+        with self.assertRaisesRegex(ValueError, "Neplatný režim"):
+            self.machine.admin_set_terminal_presentation("reception_deduction", "unknown")
+
+    def test_binding_terminal_reuses_player_identity_without_adding_lobby_player(self) -> None:
+        from escape_bot.server import bind_terminal, connection_info, lobby_registry, session_connections
+        from escape_bot.team_lobby import Lobby
+        terminal_socket = object()
+        lobby = Lobby("terminal-session", "team", "alice", "Chrononauti", started=True)
+        lobby.add_player("alice", "Alice")
+        lobby_registry.by_session[lobby.session_id] = lobby
+        try:
+            bind_terminal(terminal_socket, lobby.session_id, "alice")
+
+            self.assertEqual(list(lobby.players), ["alice"])
+            self.assertEqual(lobby.max_players, 1)
+            self.assertEqual(connection_info[terminal_socket]["role"], "terminal")
+            self.assertEqual(connection_info[terminal_socket]["client_id"], "alice")
+            self.assertIn(terminal_socket, session_connections[lobby.session_id])
+        finally:
+            connection_info.pop(terminal_socket, None)
+            session_connections.pop(lobby.session_id, None)
+            lobby_registry.by_session.pop(lobby.session_id, None)
+
     def test_team_line_games_are_independent_and_require_full_team_coverage(self) -> None:
         self.machine._team_mode = "team"
         self.machine._participant_ids = ["alice", "bob"]
