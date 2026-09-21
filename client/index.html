@@ -518,6 +518,10 @@
         body.terminal-device #puzzles-tab-button { flex: 1; font-size: 1.05rem; }
         body.terminal-device #cipher-panel { display: none !important; }
         body.terminal-device .puzzle-card { max-width: 1100px; margin: auto; }
+        body.terminal-device::after { content: ''; position: fixed; inset: 0; z-index: 1450; pointer-events: none; background: #000; opacity: .72; transition: opacity 1.4s ease; }
+        body.terminal-device.terminal-awake::after { opacity: 0; transition-duration: .25s; }
+        body.terminal-device:not(.terminal-awake) { cursor: none; }
+        @media (prefers-reduced-motion: reduce) { body.terminal-device::after { transition: none; } }
         @media (max-width: 700px) { .finale-module-board { grid-template-columns: 1fr; gap: 4px; } .finale-module-piece { min-height: 150px; background-size: 100% 100%, 300% 180%; } .finale-module-piece strong { margin-top: 74px; } }
         .puzzle-artifact { display: block; width: 100%; max-height: 68vh; object-fit: contain; margin: 16px 0; border: 1px solid #466; background: #000; }
         .puzzle-categories { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 10px; margin: 16px 0; }
@@ -977,6 +981,9 @@
         const adminModeRequested = pageParams.get('admin') === '1' || window.location.pathname.replace(/\/$/, '') === '/admin';
         const terminalModeRequested = pageParams.get('terminal') === '1' || window.location.pathname.replace(/\/$/, '') === '/terminal';
         let terminalAttached = false;
+        let terminalAmbientTimer = null;
+        let terminalAmbientLastSignal = 0;
+        let terminalAssignedPuzzleId = '';
         const finaleUiState = new Map();
         let adminRefreshTimer = null;
         let adminPlayerScanSession = '';
@@ -2466,6 +2473,7 @@
         function registerTerminal() {
             terminalAttached = false;
             document.body.classList.add('terminal-device');
+            wakeTerminalAmbient(15000);
             document.getElementById('lobby-overlay').classList.add('hidden');
             document.getElementById('terminal-pair-overlay').classList.remove('hidden');
             document.getElementById('terminal-pair-code').textContent = 'GENERUJI…';
@@ -2474,6 +2482,20 @@
             if (!ws || ws.readyState !== WebSocket.OPEN) { connect(); return; }
             ws.send(JSON.stringify({type:'terminal.register', payload:{}}));
         }
+
+        function wakeTerminalAmbient(duration = 12000) {
+            if (!terminalModeRequested) return;
+            const now = Date.now();
+            if (now - terminalAmbientLastSignal < 200 && document.body.classList.contains('terminal-awake')) return;
+            terminalAmbientLastSignal = now;
+            document.body.classList.add('terminal-awake');
+            clearTimeout(terminalAmbientTimer);
+            terminalAmbientTimer = setTimeout(() => document.body.classList.remove('terminal-awake'), duration);
+        }
+
+        ['pointermove', 'pointerdown', 'touchstart', 'keydown'].forEach(eventName => {
+            window.addEventListener(eventName, () => wakeTerminalAmbient(), {passive:true});
+        });
 
         function beginLobbyConnection() {
             const savedName = localStorage.getItem('escapeBotPlayerName') || '';
@@ -2810,6 +2832,7 @@
                 }
                 else if (msg.type === 'terminal.attached') {
                     terminalAttached = true;
+                    wakeTerminalAmbient(15000);
                     document.getElementById('terminal-pair-overlay').classList.add('hidden');
                     document.getElementById('team-status').textContent = `${msg.payload.team_name || 'Tým'} · terminál ovládá ${msg.payload.controller_name || 'hráč'}`;
                     openTab('tab-puzzles', document.getElementById('puzzles-tab-button'));
@@ -3081,6 +3104,12 @@
                     renderPhaseHintButtons();
                     cipherToolsState = msg.payload.cipher_tools || [];
                     const incomingPuzzles = msg.payload.puzzles || [];
+                    if (terminalModeRequested) {
+                        const assignedPuzzle = incomingPuzzles.find(puzzle => puzzle.terminal?.assigned);
+                        const assignedPuzzleId = assignedPuzzle?.id || '';
+                        if (assignedPuzzleId && assignedPuzzleId !== terminalAssignedPuzzleId) wakeTerminalAmbient(15000);
+                        terminalAssignedPuzzleId = assignedPuzzleId;
+                    }
                     if (pendingSokobanAnimation) {
                         deferredPuzzlesState = incomingPuzzles;
                         if (!pendingSokobanAnimation.running) startSokobanAnimation();
