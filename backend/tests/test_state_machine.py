@@ -73,7 +73,7 @@ class StateMachineCheckpointTests(unittest.IsolatedAsyncioTestCase):
                 "terminal-test-2": {"puzzle_id": "time_machine_finale"},
             }
             self.machine.state.flags["terminal_assignment"] = "time_machine_finale"
-            self.machine.state.checkpoint_states["time_machine_console"] = {"status": "found"}
+            self.machine.state.checkpoint_states["future_archive"] = {"status": "solved"}
             connection_info[player_socket] = {"session_id": lobby.session_id, "client_id": "alice", "role": "player"}
             connection_info[terminal_socket] = {"role": "terminal_waiting", "terminal_id": "terminal-test", "terminal_label": "Testovací terminál"}
             session_connections[lobby.session_id] = {player_socket}
@@ -81,6 +81,10 @@ class StateMachineCheckpointTests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(available_terminal_puzzles(self.machine), [{"id": "time_machine_finale", "title": "Finální konzole stroje času"}])
             self.assertEqual(terminal_eligible_team_count("terminal-test"), 1)
             self.assertEqual(terminal_eligible_team_count("terminal-test-2"), 1)
+            terminal_checkpoint = self.scenario.data["checkpoints"]["time_machine_console"]
+            activation = await self.machine.handle(Message("qr.detected", {"value": f"escapebot://checkpoint/{terminal_checkpoint['token']}"}))
+            self.assertTrue(next(item for item in activation if item.type == "qr.result").payload["accepted"])
+            self.assertEqual(self.machine.state.checkpoint_states["time_machine_console"]["status"], "found")
             bind_terminal(terminal_socket, lobby.session_id, "alice")
 
             self.assertEqual(list(lobby.players), ["alice"])

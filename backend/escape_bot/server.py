@@ -632,12 +632,28 @@ def terminal_reservations() -> dict[str, dict[str, str]]:
     return value if isinstance(value, dict) else {}
 
 
+def terminal_puzzle_is_available(state_machine: EscapeBotStateMachine, puzzle_id: str) -> bool:
+    puzzle = scenario.data.get("puzzles", {}).get(puzzle_id, {})
+    checkpoint_id = str(puzzle.get("checkpoint_id", ""))
+    checkpoint = scenario.data.get("checkpoints", {}).get(checkpoint_id, {})
+    checkpoint_state = state_machine.state.checkpoint_states.get(checkpoint_id, {})
+    status = checkpoint_state.get("status")
+    if puzzle_play_mode(puzzle_id) == "phones" or status == "solved" or not checkpoint:
+        return False
+    if status == "found":
+        return True
+    required_phase = checkpoint.get("requires_phase")
+    if required_phase and state_machine.state.phase.value != required_phase:
+        return False
+    return all(state_machine.state.checkpoint_states.get(str(required), {}).get("status") == "solved"
+               for required in checkpoint.get("requires", []))
+
+
 def available_terminal_puzzles(state_machine: EscapeBotStateMachine) -> list[dict[str, str]]:
     """Return terminal-enabled puzzles that the team may currently open."""
     options = []
     for puzzle_id, puzzle in scenario.data.get("puzzles", {}).items():
-        checkpoint = state_machine.state.checkpoint_states.get(str(puzzle.get("checkpoint_id", "")), {})
-        if puzzle_play_mode(puzzle_id) != "phones" and checkpoint.get("status") == "found":
+        if terminal_puzzle_is_available(state_machine, puzzle_id):
             options.append({"id": puzzle_id, "title": str(puzzle.get("title", puzzle_id))})
     return options
 
@@ -1926,6 +1942,23 @@ async def websocket_endpoint(websocket: WebSocket):
                             "reason": "Tento terminál je vyhrazen jiné hádance, než má váš tým právě dostupnou.",
                         }))
                         continue
+                    puzzle = scenario.data.get("puzzles", {}).get(reserved_puzzle, {})
+                    checkpoint_id = str(puzzle.get("checkpoint_id", ""))
+                    if checkpoint_id not in state_machine.state.checkpoint_states:
+                        checkpoint = scenario.data.get("checkpoints", {}).get(checkpoint_id, {})
+                        token = str(checkpoint.get("token", ""))
+                        activation_responses = await state_machine.handle(Message("qr.detected", {
+                            "value": f"escapebot://checkpoint/{token}",
+                        }))
+                        result = next((response for response in activation_responses if response.type == "qr.result"), None)
+                        if result is None or not result.payload.get("accepted"):
+                            await send_message(websocket, Message("terminal.attach_result", {
+                                "success": False,
+                                "reason": str(result.payload.get("reason", "Hádanku zatím nelze na terminálu aktivovat.")) if result else "Hádanku zatím nelze na terminálu aktivovat.",
+                            }))
+                            continue
+                        save_sessions()
+                        await broadcast_session(str(session_id), activation_responses)
                     terminal_pairings.pop(pairing_code, None)
                     bind_terminal(terminal_socket, str(session_id), str(client_id))
                     state_machine.state.flags["terminal_assignment"] = reserved_puzzle
