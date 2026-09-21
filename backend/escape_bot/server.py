@@ -73,6 +73,8 @@ runtime_settings = {"online_mode": False, "gameplay_enabled": True, "max_active_
                     "opening_time": "08:00", "closing_time": "20:00", "timezone": "Europe/Prague",
                     "display_announcements": [], "display_leaderboard": True,
                     "terminal_puzzle_ids": ["time_machine_finale"],
+                    "puzzle_play_modes": {"time_machine_finale": "exclusive"},
+                    "terminal_reservations": {},
                     "leaderboard_finalized": False, "leaderboard_finalized_at": ""}
 
 def normalize_display_announcement(item: object) -> dict[str, object] | None:
@@ -184,7 +186,9 @@ def runtime_payload() -> dict[str, object]:
     return {**runtime_settings, "start_queue": queue_payload(), "availability": start_availability(),
             "checkpoints": build_demo_checkpoint_catalog(scenario),
             "puzzle_catalog": [
-                {"id": puzzle_id, "title": puzzle.get("title", puzzle_id)}
+                {"id": puzzle_id, "title": puzzle.get("title", puzzle_id),
+                 "type": puzzle.get("type", "unknown"), "checkpoint_id": puzzle.get("checkpoint_id", ""),
+                 "play_mode": puzzle_play_mode(puzzle_id)}
                 for puzzle_id, puzzle in scenario.data.get("puzzles", {}).items()
             ],
             "onboarding": scenario.data.get("onboarding", {})}
@@ -615,30 +619,72 @@ def connected_terminal_sockets(session_id: str) -> set[WebSocket]:
     }
 
 
+def puzzle_play_mode(puzzle_id: str) -> str:
+    configured = runtime_settings.get("puzzle_play_modes", {})
+    value = str(configured.get(puzzle_id, "")) if isinstance(configured, dict) else ""
+    if value in {"phones", "supplemental", "exclusive"}:
+        return value
+    return "exclusive" if puzzle_id in set(runtime_settings.get("terminal_puzzle_ids", [])) else "phones"
+
+
+def terminal_reservations() -> dict[str, dict[str, str]]:
+    value = runtime_settings.setdefault("terminal_reservations", {})
+    return value if isinstance(value, dict) else {}
+
+
 def available_terminal_puzzles(state_machine: EscapeBotStateMachine) -> list[dict[str, str]]:
     """Return terminal-enabled puzzles that the team may currently open."""
-    allowed = set(runtime_settings.get("terminal_puzzle_ids", []))
     options = []
     for puzzle_id, puzzle in scenario.data.get("puzzles", {}).items():
         checkpoint = state_machine.state.checkpoint_states.get(str(puzzle.get("checkpoint_id", "")), {})
-        if puzzle_id in allowed and checkpoint.get("status") == "found":
+        if puzzle_play_mode(puzzle_id) != "phones" and checkpoint.get("status") == "found":
             options.append({"id": puzzle_id, "title": str(puzzle.get("title", puzzle_id))})
     return options
 
 
-def terminal_eligible_team_count() -> int:
+def terminal_eligible_team_count(terminal_id: str = "") -> int:
     """Count online teams whose current game state permits scanning a terminal."""
+    reservation = terminal_reservations().get(terminal_id, {}) if terminal_id else {}
+    if not reservation:
+        return 0
     count = 0
     for session_id, state_machine in active_sessions.items():
+        if session_id != str(reservation.get("session_id", "")):
+            continue
         lobby = lobby_registry.by_session.get(session_id)
         flags = state_machine.state.flags
         if not lobby or not lobby.started or flags.get("game_completed") or flags.get("administratively_ended"):
             continue
-        if connected_terminal_sockets(session_id) or not connected_client_ids(session_id):
+        player_online = any(connection_info.get(sock, {}).get("role") != "terminal"
+                            for sock in session_connections.get(session_id, set()))
+        if not player_online:
             continue
-        if available_terminal_puzzles(state_machine):
+        available = {item["id"] for item in available_terminal_puzzles(state_machine)}
+        if str(reservation.get("puzzle_id", "")) in available:
             count += 1
     return count
+
+
+def terminal_overview() -> list[dict[str, object]]:
+    devices = []
+    seen = set()
+    for websocket, info in connection_info.items():
+        terminal_id = str(info.get("terminal_id", ""))
+        if not terminal_id or info.get("role") not in {"terminal_waiting", "terminal"} or terminal_id in seen:
+            continue
+        seen.add(terminal_id)
+        reservation = terminal_reservations().get(terminal_id, {})
+        session_id = str(info.get("session_id", reservation.get("session_id", "")))
+        lobby = lobby_registry.by_session.get(session_id)
+        devices.append({
+            "id": terminal_id,
+            "label": str(info.get("terminal_label", f"Terminál {terminal_id[-4:]}")),
+            "status": "attached" if info.get("role") == "terminal" else "free",
+            "session_id": session_id,
+            "team_name": lobby.team_name if lobby else "",
+            "puzzle_id": str(reservation.get("puzzle_id", "")),
+        })
+    return sorted(devices, key=lambda item: str(item["label"]).casefold())
 
 
 def state_message_for(websocket: WebSocket, session_id: str, state_machine: EscapeBotStateMachine) -> Message:
@@ -648,16 +694,16 @@ def state_message_for(websocket: WebSocket, session_id: str, state_machine: Esca
     message = state_machine._state_message(player_id)
     attached = bool(connected_terminal_sockets(session_id))
     terminal_device = info.get("role") == "terminal"
-    allowed = set(runtime_settings.get("terminal_puzzle_ids", []))
     assigned = str(state_machine.state.flags.get("terminal_assignment", ""))
     for puzzle in message.payload.get("puzzles", []):
         puzzle_id = str(puzzle.get("id", ""))
-        if puzzle_id not in allowed:
+        play_mode = puzzle_play_mode(puzzle_id)
+        if play_mode == "phones":
             puzzle.pop("terminal", None)
             continue
         configured = puzzle.get("terminal") if isinstance(puzzle.get("terminal"), dict) else {}
         puzzle["terminal"] = {
-            "mode": str(configured.get("mode", "exclusive")),
+            "mode": play_mode,
             "label": str(configured.get("label", puzzle.get("title", "Herní terminál"))),
             "attached": attached,
             "device": terminal_device,
@@ -671,11 +717,14 @@ def bind_terminal(websocket: WebSocket, session_id: str, controller_id: str) -> 
     previous = str(connection_info.get(websocket, {}).get("session_id", ""))
     if previous:
         session_connections.get(previous, set()).discard(websocket)
+    previous_info = connection_info.get(websocket, {})
     connection_info[websocket] = {
         "session_id": session_id,
         "client_id": controller_id,
         "demo": False,
         "role": "terminal",
+        "terminal_id": str(previous_info.get("terminal_id", "")),
+        "terminal_label": str(previous_info.get("terminal_label", "")),
     }
     session_connections.setdefault(session_id, set()).add(websocket)
 
@@ -875,6 +924,13 @@ async def send_admin_overview(websocket: WebSocket) -> None:
         "abandonment_thresholds": {"suspicious_seconds": 1800, "abandoned_seconds": 3600},
         "resolution_presets": ADMIN_RESOLUTION_PRESETS,
         "display_status": display_status_payload(),
+        "terminals": terminal_overview(),
+        "puzzle_catalog": [
+            {"id": puzzle_id, "title": puzzle.get("title", puzzle_id),
+             "type": puzzle.get("type", "unknown"), "checkpoint_id": puzzle.get("checkpoint_id", ""),
+             "instructions": puzzle.get("instructions", ""), "play_mode": puzzle_play_mode(puzzle_id)}
+            for puzzle_id, puzzle in scenario.data.get("puzzles", {}).items()
+        ],
     }))
 
 
@@ -1000,6 +1056,10 @@ async def websocket_endpoint(websocket: WebSocket):
                 msg = Message.from_json(data)
 
                 if msg.type == "terminal.register":
+                    terminal_id = str(msg.payload.get("terminal_id", "")).strip()[:64]
+                    if not terminal_id:
+                        terminal_id = secrets.token_hex(8)
+                    terminal_label = str(msg.payload.get("terminal_label", f"Terminál {terminal_id[-4:].upper()}"))[:48]
                     for pairing_code, pairing in list(terminal_pairings.items()):
                         if pairing.get("websocket") is websocket:
                             terminal_pairings.pop(pairing_code, None)
@@ -1009,19 +1069,26 @@ async def websocket_endpoint(websocket: WebSocket):
                     terminal_pairings[pairing_code] = {
                         "websocket": websocket,
                         "expires_at": datetime.now(UTC).timestamp() + 600,
+                        "terminal_id": terminal_id,
                     }
-                    connection_info[websocket] = {"role": "terminal_waiting", "pairing_code": pairing_code}
+                    connection_info[websocket] = {"role": "terminal_waiting", "pairing_code": pairing_code,
+                                                  "terminal_id": terminal_id, "terminal_label": terminal_label}
                     await send_message(websocket, Message("terminal.ready", {
                         "code": pairing_code,
                         "value": f"escapebot://terminal/{pairing_code}",
                         "expires_in": 600,
-                        "eligible_team_count": terminal_eligible_team_count(),
+                        "terminal_id": terminal_id,
+                        "eligible_team_count": terminal_eligible_team_count(terminal_id),
                     }))
+                    for admin_socket in list(authenticated_admin_sockets):
+                        try: await send_admin_overview(admin_socket)
+                        except Exception: pass
                     continue
 
                 if msg.type == "terminal.status" and connection_info.get(websocket, {}).get("role") == "terminal_waiting":
+                    terminal_id = str(connection_info.get(websocket, {}).get("terminal_id", ""))
                     await send_message(websocket, Message("terminal.status", {
-                        "eligible_team_count": terminal_eligible_team_count(),
+                        "eligible_team_count": terminal_eligible_team_count(terminal_id),
                     }))
                     continue
 
@@ -1031,7 +1098,7 @@ async def websocket_endpoint(websocket: WebSocket):
                     client_id = str(socket_info.get("client_id", ""))
                     state_machine = active_sessions.get(session_id)
 
-                if msg.type in {"admin.list", "admin.penalty", "admin.score_adjustment", "admin.delete", "admin.qr_set", "admin.online_mode", "admin.launch_mode", "admin.operations", "admin.schedule_settings", "admin.terminal_catalog", "admin.display_announcements", "admin.display_leaderboard", "admin.team_create", "admin.team_add_player", "admin.queue_expedite", "admin.team_start", "admin.evaluate_team", "admin.session_extend", "admin.session_end", "admin.checkpoint", "admin.game_reset", "admin.game_player", "admin.terminal_assign", "admin.player_recovery", "admin.diploma_printed", "admin.leaderboard_delete", "admin.leaderboard_finalize", "admin.support_join", "admin.support_leave", "admin.support_message", "admin.spectate_start", "admin.spectate_stop"}:
+                if msg.type in {"admin.list", "admin.penalty", "admin.score_adjustment", "admin.delete", "admin.qr_set", "admin.online_mode", "admin.launch_mode", "admin.operations", "admin.schedule_settings", "admin.terminal_catalog", "admin.scenario_play_modes", "admin.terminal_reserve", "admin.display_announcements", "admin.display_leaderboard", "admin.team_create", "admin.team_add_player", "admin.queue_expedite", "admin.team_start", "admin.evaluate_team", "admin.session_extend", "admin.session_end", "admin.checkpoint", "admin.game_reset", "admin.game_player", "admin.terminal_assign", "admin.player_recovery", "admin.diploma_printed", "admin.leaderboard_delete", "admin.leaderboard_finalize", "admin.support_join", "admin.support_leave", "admin.support_message", "admin.spectate_start", "admin.spectate_stop"}:
                     try:
                         require_admin(msg.payload)
                         authenticated_admin_sockets.add(websocket)
@@ -1051,6 +1118,10 @@ async def websocket_endpoint(websocket: WebSocket):
                             if not puzzle_ids or any(item not in known for item in puzzle_ids):
                                 raise ValueError("Vyberte alespoň jednu platnou hádanku pro terminál.")
                             runtime_settings["terminal_puzzle_ids"] = puzzle_ids
+                            runtime_settings["puzzle_play_modes"] = {
+                                puzzle_id: ("exclusive" if puzzle_id in puzzle_ids else "phones")
+                                for puzzle_id in known
+                            }
                             for machine in active_sessions.values():
                                 if str(machine.state.flags.get("terminal_assignment", "")) not in puzzle_ids:
                                     machine.state.flags.pop("terminal_assignment", None)
@@ -1061,6 +1132,50 @@ async def websocket_endpoint(websocket: WebSocket):
                                 except Exception: pass
                             for active_session, machine in active_sessions.items():
                                 await broadcast_session(active_session, [machine._state_message()])
+                            await send_admin_overview(websocket)
+                            continue
+                        if msg.type == "admin.scenario_play_modes":
+                            requested = msg.payload.get("modes", {})
+                            known = set(scenario.data.get("puzzles", {}))
+                            if not isinstance(requested, dict) or set(requested) != known:
+                                raise ValueError("Nastavení musí obsahovat všechny hádanky scénáře.")
+                            modes = {str(key): str(value) for key, value in requested.items()}
+                            if any(value not in {"phones", "supplemental", "exclusive"} for value in modes.values()):
+                                raise ValueError("Neplatný způsob hraní hádanky.")
+                            runtime_settings["puzzle_play_modes"] = modes
+                            runtime_settings["terminal_puzzle_ids"] = [key for key, value in modes.items() if value != "phones"]
+                            save_runtime_settings()
+                            update = Message("runtime.settings", runtime_payload())
+                            for active_socket in list(app.state.active_websockets):
+                                try: await send_message(active_socket, update)
+                                except Exception: pass
+                            for active_session, machine in active_sessions.items():
+                                await broadcast_session(active_session, [machine._state_message()])
+                            await send_admin_overview(websocket)
+                            continue
+                        if msg.type == "admin.terminal_reserve":
+                            terminal_id = str(msg.payload.get("terminal_id", "")).strip()
+                            terminal_socket = next((sock for sock, info in connection_info.items()
+                                                    if info.get("role") == "terminal_waiting" and info.get("terminal_id") == terminal_id), None)
+                            if terminal_socket is None:
+                                raise ValueError("Terminál už není volný nebo není online.")
+                            target_session = str(msg.payload.get("session_id", "")).strip()
+                            puzzle_id = str(msg.payload.get("puzzle_id", "")).strip()
+                            if not target_session and not puzzle_id:
+                                terminal_reservations().pop(terminal_id, None)
+                            else:
+                                lobby = lobby_registry.by_session.get(target_session)
+                                machine = active_sessions.get(target_session)
+                                if not lobby or not machine or not lobby.started:
+                                    raise ValueError("Vyberte rozehraný tým.")
+                                available = {item["id"] for item in available_terminal_puzzles(machine)}
+                                if puzzle_id not in available:
+                                    raise ValueError("Tato hádanka nyní není pro tým dostupná na terminálu.")
+                                terminal_reservations()[terminal_id] = {"session_id": target_session, "puzzle_id": puzzle_id}
+                            save_runtime_settings()
+                            await send_message(terminal_socket, Message("terminal.status", {
+                                "eligible_team_count": terminal_eligible_team_count(terminal_id),
+                            }))
                             await send_admin_overview(websocket)
                             continue
                         if msg.type == "admin.online_mode":
@@ -1743,6 +1858,7 @@ async def websocket_endpoint(websocket: WebSocket):
                         }))
                         continue
                     terminal_socket = pairing.get("websocket")
+                    terminal_id = str(pairing.get("terminal_id", ""))
                     if not isinstance(terminal_socket, WebSocket):
                         await send_message(websocket, Message("terminal.attach_result", {
                             "success": False,
@@ -1756,21 +1872,19 @@ async def websocket_endpoint(websocket: WebSocket):
                             "reason": "Terminál může odemknout pouze člen týmu.",
                         }))
                         continue
-                    if connected_terminal_sockets(str(session_id)):
+                    reservation = terminal_reservations().get(terminal_id, {})
+                    reserved_session = str(reservation.get("session_id", ""))
+                    reserved_puzzle = str(reservation.get("puzzle_id", ""))
+                    available = {item["id"] for item in available_terminal_puzzles(state_machine)}
+                    if reserved_session != str(session_id) or reserved_puzzle not in available:
                         await send_message(websocket, Message("terminal.attach_result", {
                             "success": False,
-                            "reason": "Tento tým už má připojený herní terminál.",
-                        }))
-                        continue
-                    if not available_terminal_puzzles(state_machine):
-                        await send_message(websocket, Message("terminal.attach_result", {
-                            "success": False,
-                            "reason": "V aktuálním stavu hry tento tým ještě nemůže terminál načíst.",
+                            "reason": "Tento terminál není pro váš tým a aktuální hádanku rezervován.",
                         }))
                         continue
                     terminal_pairings.pop(pairing_code, None)
                     bind_terminal(terminal_socket, str(session_id), str(client_id))
-                    state_machine.state.flags.pop("terminal_assignment", None)
+                    state_machine.state.flags["terminal_assignment"] = reserved_puzzle
                     save_sessions()
                     attached_payload = {
                         "success": True,
@@ -1782,6 +1896,9 @@ async def websocket_endpoint(websocket: WebSocket):
                     await send_message(terminal_socket, Message("terminal.attached", attached_payload))
                     await sync_started_client(terminal_socket, state_machine, False)
                     await broadcast_session(str(session_id), [state_machine._state_message()])
+                    for admin_socket in list(authenticated_admin_sockets):
+                        try: await send_admin_overview(admin_socket)
+                        except Exception: pass
                     continue
                 
                 # Zpracování požadavků na Síň slávy (mimo state machine)
@@ -1946,6 +2063,10 @@ async def websocket_endpoint(websocket: WebSocket):
             machine = active_sessions.get(disconnected_session)
             if machine and info.get("role") == "terminal":
                 await broadcast_session(disconnected_session, [machine._state_message()])
+        if info.get("role") in {"terminal", "terminal_waiting"}:
+            for admin_socket in list(authenticated_admin_sockets):
+                try: await send_admin_overview(admin_socket)
+                except Exception: pass
         logger.info(f"Klient odpojen (Relace: {session_id}).")
 
 # Servírování statických souborů (klienta) napřímo pod stejným portem

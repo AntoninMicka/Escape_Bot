@@ -63,15 +63,24 @@ class StateMachineCheckpointTests(unittest.IsolatedAsyncioTestCase):
         previous_machine = active_sessions.get(lobby.session_id)
         active_sessions[lobby.session_id] = self.machine
         original_catalog = list(runtime_settings.get("terminal_puzzle_ids", []))
+        original_modes = dict(runtime_settings.get("puzzle_play_modes", {}))
+        original_reservations = dict(runtime_settings.get("terminal_reservations", {}))
         try:
             runtime_settings["terminal_puzzle_ids"] = ["time_machine_finale"]
+            runtime_settings["puzzle_play_modes"] = {"time_machine_finale": "exclusive"}
+            runtime_settings["terminal_reservations"] = {
+                "terminal-test": {"session_id": lobby.session_id, "puzzle_id": "time_machine_finale"},
+                "terminal-test-2": {"session_id": lobby.session_id, "puzzle_id": "time_machine_finale"},
+            }
             self.machine.state.flags["terminal_assignment"] = "time_machine_finale"
             self.machine.state.checkpoint_states["time_machine_console"] = {"status": "found"}
             connection_info[player_socket] = {"session_id": lobby.session_id, "client_id": "alice", "role": "player"}
+            connection_info[terminal_socket] = {"role": "terminal_waiting", "terminal_id": "terminal-test", "terminal_label": "Testovací terminál"}
             session_connections[lobby.session_id] = {player_socket}
 
             self.assertEqual(available_terminal_puzzles(self.machine), [{"id": "time_machine_finale", "title": "Finální konzole stroje času"}])
-            self.assertEqual(terminal_eligible_team_count(), 1)
+            self.assertEqual(terminal_eligible_team_count("terminal-test"), 1)
+            self.assertEqual(terminal_eligible_team_count("terminal-test-2"), 1)
             bind_terminal(terminal_socket, lobby.session_id, "alice")
 
             self.assertEqual(list(lobby.players), ["alice"])
@@ -79,7 +88,7 @@ class StateMachineCheckpointTests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(connection_info[terminal_socket]["role"], "terminal")
             self.assertEqual(connection_info[terminal_socket]["client_id"], "alice")
             self.assertIn(terminal_socket, session_connections[lobby.session_id])
-            self.assertEqual(terminal_eligible_team_count(), 0)
+            self.assertEqual(terminal_eligible_team_count("terminal-test"), 1)
             finale = next(item for item in state_message_for(terminal_socket, lobby.session_id, self.machine).payload["puzzles"] if item["id"] == "time_machine_finale")
             self.assertTrue(finale["terminal"]["assigned"])
             self.assertTrue(finale["terminal"]["device"])
@@ -87,6 +96,8 @@ class StateMachineCheckpointTests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(team["terminal_options"], [{"id": "time_machine_finale", "title": "Finální konzole stroje času"}])
         finally:
             runtime_settings["terminal_puzzle_ids"] = original_catalog
+            runtime_settings["puzzle_play_modes"] = original_modes
+            runtime_settings["terminal_reservations"] = original_reservations
             connection_info.pop(terminal_socket, None)
             connection_info.pop(player_socket, None)
             session_connections.pop(lobby.session_id, None)
