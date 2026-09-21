@@ -986,6 +986,8 @@
         let terminalAmbientTimer = null;
         let terminalAmbientLastSignal = 0;
         let terminalAssignedPuzzleId = '';
+        let terminalWakeLock = null;
+        let terminalWakeLockRequest = null;
         const finaleUiState = new Map();
         let adminRefreshTimer = null;
         let adminPlayerScanSession = '';
@@ -2476,6 +2478,7 @@
             terminalAttached = false;
             document.body.classList.add('terminal-device');
             wakeTerminalAmbient(15000);
+            ensureTerminalWakeLock();
             document.getElementById('lobby-overlay').classList.add('hidden');
             document.getElementById('terminal-pair-overlay').classList.remove('hidden');
             document.getElementById('terminal-pair-code').textContent = 'GENERUJI…';
@@ -2495,8 +2498,32 @@
             terminalAmbientTimer = setTimeout(() => document.body.classList.remove('terminal-awake'), duration);
         }
 
+        async function ensureTerminalWakeLock() {
+            if (!terminalModeRequested || document.visibilityState !== 'visible') return;
+            if (terminalWakeLock && !terminalWakeLock.released) return;
+            if (terminalWakeLockRequest) return terminalWakeLockRequest;
+            if (!('wakeLock' in navigator)) {
+                console.warn('Screen Wake Lock API není v tomto prohlížeči dostupné.');
+                return;
+            }
+            terminalWakeLockRequest = navigator.wakeLock.request('screen').then(lock => {
+                terminalWakeLock = lock;
+                lock.addEventListener('release', () => {
+                    if (terminalWakeLock === lock) terminalWakeLock = null;
+                }, {once:true});
+            }).catch(error => {
+                console.warn('Terminál nemohl aktivovat Screen Wake Lock:', error);
+            }).finally(() => {
+                terminalWakeLockRequest = null;
+            });
+            return terminalWakeLockRequest;
+        }
+
         ['pointermove', 'pointerdown', 'touchstart', 'keydown'].forEach(eventName => {
-            window.addEventListener(eventName, () => wakeTerminalAmbient(), {passive:true});
+            window.addEventListener(eventName, () => {
+                wakeTerminalAmbient();
+                ensureTerminalWakeLock();
+            }, {passive:true});
         });
 
         function beginLobbyConnection() {
@@ -3318,9 +3345,15 @@
         }
 
         document.addEventListener('visibilitychange', () => {
-            if (document.visibilityState === 'visible') reviveClientAfterOffline();
+            if (document.visibilityState === 'visible') {
+                ensureTerminalWakeLock();
+                reviveClientAfterOffline();
+            }
         });
-        window.addEventListener('pageshow', reviveClientAfterOffline);
+        window.addEventListener('pageshow', () => {
+            ensureTerminalWakeLock();
+            reviveClientAfterOffline();
+        });
         window.addEventListener('online', reviveClientAfterOffline);
 
         function pressPin(num) {
