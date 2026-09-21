@@ -519,8 +519,10 @@
         body.terminal-device #cipher-panel { display: none !important; }
         body.terminal-device .puzzle-card { max-width: 1100px; margin: auto; }
         #terminal-ambient-shade { display: none; }
-        body.terminal-device #terminal-ambient-shade { position: fixed; inset: 0; z-index: 1550; display: block; pointer-events: none; background: #000; opacity: .72; transition: opacity 1.4s ease; }
-        body.terminal-device.terminal-awake #terminal-ambient-shade { opacity: 0; transition-duration: .25s; }
+        body.terminal-device #terminal-ambient-shade { position: fixed; inset: 0; z-index: 1650; display: block; pointer-events: none; background: #000; opacity: .72; transition: opacity 1.4s ease; }
+        body.terminal-device:not(.terminal-attached) #terminal-ambient-shade { opacity: .45; }
+        body.terminal-device.terminal-awake #terminal-ambient-shade,
+        body.terminal-device.terminal-puzzle-active #terminal-ambient-shade { opacity: 0; transition-duration: .25s; }
         body.terminal-device:not(.terminal-awake) { cursor: none; }
         @media (prefers-reduced-motion: reduce) { body.terminal-device #terminal-ambient-shade { transition: none; } }
         @media (max-width: 700px) { .finale-module-board { grid-template-columns: 1fr; gap: 4px; } .finale-module-piece { min-height: 150px; background-size: 100% 100%, 300% 180%; } .finale-module-piece strong { margin-top: 74px; } }
@@ -2477,6 +2479,7 @@
         function registerTerminal() {
             terminalAttached = false;
             document.body.classList.add('terminal-device');
+            document.body.classList.remove('terminal-attached', 'terminal-puzzle-active');
             wakeTerminalAmbient(15000);
             ensureTerminalWakeLock();
             document.getElementById('lobby-overlay').classList.add('hidden');
@@ -2861,6 +2864,7 @@
                 }
                 else if (msg.type === 'terminal.attached') {
                     terminalAttached = true;
+                    document.body.classList.add('terminal-attached');
                     wakeTerminalAmbient(15000);
                     document.getElementById('terminal-pair-overlay').classList.add('hidden');
                     document.getElementById('team-status').textContent = `${msg.payload.team_name || 'Tým'} · terminál ovládá ${msg.payload.controller_name || 'hráč'}`;
@@ -3138,6 +3142,7 @@
                         const assignedPuzzleId = assignedPuzzle?.id || '';
                         if (assignedPuzzleId && assignedPuzzleId !== terminalAssignedPuzzleId) wakeTerminalAmbient(15000);
                         terminalAssignedPuzzleId = assignedPuzzleId;
+                        document.body.classList.toggle('terminal-puzzle-active', Boolean(assignedPuzzleId));
                     }
                     if (pendingSokobanAnimation) {
                         deferredPuzzlesState = incomingPuzzles;
