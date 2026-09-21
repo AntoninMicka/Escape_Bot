@@ -1,5 +1,5 @@
 {
-  "online_mode": true,
+  "online_mode": false,
   "gameplay_enabled": true,
   "max_active_teams": 1,
   "launch_mode": "free",
@@ -16,6 +16,9 @@
   "timezone": "Europe/Prague",
   "display_announcements": [],
   "display_leaderboard": false,
+  "terminal_puzzle_ids": [
+    "time_machine_finale"
+  ],
   "leaderboard_finalized": false,
   "leaderboard_finalized_at": ""
 }

@@ -1,16 +1,17 @@
 [
   {
-    "session_id": "9849b23863314fd9be4747aae806f073",
+    "session_id": "93e55913bb194d52a055e4b306fba2d3",
     "mode": "solo",
-    "creator_id": "c9da7eeb-0ca4-4a7e-8c9b-5c63d16f2638",
+    "creator_id": "717cae3e-f2ef-4bcc-891c-31f1e3144353",
     "team_name": "pokus",
     "join_code": null,
     "started": true,
     "players": {
-      "c9da7eeb-0ca4-4a7e-8c9b-5c63d16f2638": {
-        "id": "c9da7eeb-0ca4-4a7e-8c9b-5c63d16f2638",
+      "717cae3e-f2ef-4bcc-891c-31f1e3144353": {
+        "id": "717cae3e-f2ef-4bcc-891c-31f1e3144353",
         "name": "pokuas",
-        "joined_at": "2026-09-21T15:40:27.369294+00:00"
+        "joined_at": "2026-09-21T16:01:12.475905+00:00",
+        "recovered_at": "2026-09-21T16:07:18.931030+00:00"
       }
     },
     "max_players": 1,
