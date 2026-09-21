@@ -663,6 +663,18 @@ def terminal_eligible_team_count(terminal_id: str = "") -> int:
     return count
 
 
+def terminal_status_payload(terminal_id: str) -> dict[str, object]:
+    reservation = terminal_reservations().get(terminal_id, {})
+    puzzle_id = str(reservation.get("puzzle_id", ""))
+    puzzle = scenario.data.get("puzzles", {}).get(puzzle_id, {})
+    return {
+        "eligible_team_count": terminal_eligible_team_count(terminal_id),
+        "puzzle_id": puzzle_id,
+        "puzzle_title": str(puzzle.get("title", puzzle_id)),
+        "reserved": bool(puzzle_id),
+    }
+
+
 def terminal_overview() -> list[dict[str, object]]:
     devices = []
     seen = set()
@@ -1121,7 +1133,7 @@ async def websocket_endpoint(websocket: WebSocket):
                         "value": f"escapebot://terminal/{pairing_code}",
                         "expires_in": 600,
                         "terminal_id": terminal_id,
-                        "eligible_team_count": terminal_eligible_team_count(terminal_id),
+                        **terminal_status_payload(terminal_id),
                     }))
                     for admin_socket in list(authenticated_admin_sockets):
                         try: await send_admin_overview(admin_socket)
@@ -1130,9 +1142,7 @@ async def websocket_endpoint(websocket: WebSocket):
 
                 if msg.type == "terminal.status" and connection_info.get(websocket, {}).get("role") == "terminal_waiting":
                     terminal_id = str(connection_info.get(websocket, {}).get("terminal_id", ""))
-                    await send_message(websocket, Message("terminal.status", {
-                        "eligible_team_count": terminal_eligible_team_count(terminal_id),
-                    }))
+                    await send_message(websocket, Message("terminal.status", terminal_status_payload(terminal_id)))
                     continue
 
                 socket_info = connection_info.get(websocket, {})
@@ -1210,9 +1220,7 @@ async def websocket_endpoint(websocket: WebSocket):
                                     raise ValueError("Vyberte hádanku povolenou pro terminály.")
                                 terminal_reservations()[terminal_id] = {"puzzle_id": puzzle_id}
                             save_runtime_settings()
-                            await send_message(terminal_socket, Message("terminal.status", {
-                                "eligible_team_count": terminal_eligible_team_count(terminal_id),
-                            }))
+                            await send_message(terminal_socket, Message("terminal.status", terminal_status_payload(terminal_id)))
                             await send_admin_overview(websocket)
                             continue
                         if msg.type == "admin.online_mode":

@@ -934,6 +934,7 @@
             <div id="qr-overlay" style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; box-shadow: inset 0 0 20px #0f0; pointer-events: none;"></div>
         </div>
         <p id="qr-status" style="text-align: center; margin-top: 10px;">Kliknutím na záložku aktivujte kameru.</p>
+        <button id="qr-retry" type="button" onclick="startScanner()" style="display:none;margin:10px auto">ZKUSIT SKEN ZNOVU</button>
     </div>
 
     <div id="tab-leaderboard" class="tab-content">
@@ -2558,14 +2559,17 @@
             ws.send(JSON.stringify({type:'terminal.register', payload:{terminal_id:terminalDeviceId, terminal_label:terminalDeviceLabel}}));
         }
 
-        function updateTerminalEligibility(count) {
-            const available = Number(count || 0) > 0;
+        function updateTerminalEligibility(payload) {
+            const available = Number(payload?.eligible_team_count || 0) > 0;
             if (available && terminalEligibleTeamAvailable !== true) wakeTerminalAmbient(15000);
             terminalEligibleTeamAvailable = available;
             document.body.classList.toggle('terminal-team-eligible', available);
-            document.getElementById('terminal-pair-status').textContent = available
-                ? 'Tým v odpovídající fázi hry může tento QR načíst.'
-                : 'Čekám na tým v odpovídající fázi hry. QR se automaticky obnovuje.';
+            const title = payload?.puzzle_title || '';
+            document.getElementById('terminal-pair-status').textContent = !payload?.reserved
+                ? 'Terminál zatím není v administraci vyhrazen žádné hádance.'
+                : (available
+                    ? `Vyhrazeno: ${title}. Tým v odpovídající fázi může QR načíst.`
+                    : `Vyhrazeno: ${title}. Čekám na tým v odpovídající fázi hry.`);
         }
 
         function requestTerminalStatus() {
@@ -2943,7 +2947,7 @@
                     document.getElementById('terminal-pair-code').textContent = msg.payload.code || '';
                     document.getElementById('terminal-pair-qr').src = `/api/qr?data=${encodeURIComponent(msg.payload.value || '')}`;
                     document.getElementById('terminal-pair-status').textContent = 'QR se automaticky obnovuje. Načtěte jej telefonem oprávněného týmu.';
-                    updateTerminalEligibility(msg.payload.eligible_team_count);
+                    updateTerminalEligibility(msg.payload);
                     clearTimeout(terminalPairingRefreshTimer);
                     const refreshAfter = Math.max(30, Number(msg.payload.expires_in || 600) - 30) * 1000;
                     terminalPairingRefreshTimer = setTimeout(() => {
@@ -2953,7 +2957,7 @@
                     terminalStatusTimer = setInterval(requestTerminalStatus, 10000);
                 }
                 else if (msg.type === 'terminal.status') {
-                    updateTerminalEligibility(msg.payload.eligible_team_count);
+                    updateTerminalEligibility(msg.payload);
                 }
                 else if (msg.type === 'terminal.attached') {
                     terminalAttached = true;
@@ -2975,7 +2979,11 @@
                     registerTerminal();
                 }
                 else if (msg.type === 'terminal.attach_result') {
-                    if (msg.payload.success) stopScanner();
+                    qrPendingValue = '';
+                    stopScanner();
+                    qrStatus.textContent = msg.payload.success ? 'Terminál byl úspěšně připojen.' : (msg.payload.reason || 'Terminál nelze odemknout.');
+                    qrStatus.style.color = msg.payload.success ? '#0f8' : '#f66';
+                    document.getElementById('qr-retry').style.display = msg.payload.success ? 'none' : 'block';
                     showNotification(msg.payload.success ? 'Herní terminál byl odemčen.' : (msg.payload.reason || 'Terminál nelze odemknout.'), msg.payload.success ? 'success' : 'error');
                 }
                 else if (msg.type === 'admin.overview') {
@@ -4225,6 +4233,7 @@
         const qrStatus = document.getElementById("qr-status");
         let qrScanning = false;
         let qrStreamRef = null;
+        let qrPendingValue = '';
 
         function renderDemoScanner(payload) {
             const panel = document.getElementById('demo-scanner-panel');
@@ -4347,6 +4356,9 @@
         function startScanner() {
             if (demoModeRequested || onlineModeEnabled) return;
             if (qrScanning) return;
+            qrPendingValue = '';
+            document.getElementById('qr-retry').style.display = 'none';
+            qrStatus.style.color = '';
             // Žádost o přístup k zadní kameře
             navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } }).then(function(stream) {
                 qrScanning = true;
@@ -4379,7 +4391,8 @@
                 
                 if (code) {
                     qrStatus.innerText = "Nalezen kód: " + code.data;
-                    if (ws && ws.readyState === WebSocket.OPEN) {
+                    if (ws && ws.readyState === WebSocket.OPEN && code.data !== qrPendingValue) {
+                        qrPendingValue = code.data;
                         showNotification('Optická shoda. Odesílám k analýze.', 'success');
                         ws.send(JSON.stringify({ type: 'qr.detected', payload: { value: code.data } }));
                     }
@@ -4387,8 +4400,10 @@
                     document.getElementById('scanner-container').style.borderColor = '#f00';
                     setTimeout(() => { 
                         document.getElementById('scanner-container').style.borderColor = '#0f0';
-                        qrStatus.innerText = "Skenování aktivní... Namiřte na QR kód.";
-                        if (qrScanning) requestAnimationFrame(tickScanner); 
+                        if (qrScanning) {
+                            qrStatus.innerText = "Skenování aktivní... Namiřte na QR kód.";
+                            requestAnimationFrame(tickScanner);
+                        }
                     }, 3000);
                     return; // Pauza ve skenování po detekci
                 }
