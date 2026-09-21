@@ -69,8 +69,8 @@ class StateMachineCheckpointTests(unittest.IsolatedAsyncioTestCase):
             runtime_settings["terminal_puzzle_ids"] = ["time_machine_finale"]
             runtime_settings["puzzle_play_modes"] = {"time_machine_finale": "exclusive"}
             runtime_settings["terminal_reservations"] = {
-                "terminal-test": {"session_id": lobby.session_id, "puzzle_id": "time_machine_finale"},
-                "terminal-test-2": {"session_id": lobby.session_id, "puzzle_id": "time_machine_finale"},
+                "terminal-test": {"puzzle_id": "time_machine_finale"},
+                "terminal-test-2": {"puzzle_id": "time_machine_finale"},
             }
             self.machine.state.flags["terminal_assignment"] = "time_machine_finale"
             self.machine.state.checkpoint_states["time_machine_console"] = {"status": "found"}

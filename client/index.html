@@ -736,7 +736,7 @@
         <section id="admin-tab-teams" class="admin-section"><div id="admin-summary" class="admin-summary"></div><div class="admin-filters"><input id="admin-team-search" type="search" placeholder="Hledat tým, hráče nebo kód…" oninput="applyAdminFilters()"><select id="admin-activity-filter" onchange="applyAdminFilters()"><option value="ongoing" selected>Neukončené týmy</option><option value="all">Všechny stavy</option><option value="active">Aktivní</option><option value="suspicious">Podezřelé</option><option value="abandoned">Opuštěné</option><option value="completed">Dokončené</option><option value="ended">Ukončené bez dokončení</option></select><select id="admin-online-filter" onchange="applyAdminFilters()"><option value="all">Online i offline</option><option value="online">Alespoň jeden online</option><option value="offline">Všichni offline</option></select></div><div id="admin-team-grid" class="admin-grid"></div></section>
         <section id="admin-tab-managed" class="admin-section hidden"><h2>[ REŽIM SPOUŠTĚNÍ ]</h2><div class="admin-toolbar"><button id="admin-mode-free" onclick="setLaunchMode('free')">VOLNÝ REŽIM</button><button id="admin-mode-managed" onclick="setLaunchMode('managed')">ŘÍZENÝ REŽIM</button></div><p>Přepnutí zachová všechny existující týmy i jejich pořadí. Řízený režim zakáže hráčům zakládat a spouštět hry.</p><h2>[ ŘÍZENÉ LOBBY ]</h2><div class="admin-toolbar"><input id="admin-new-team-name" maxlength="32" placeholder="Název nového týmu"><button onclick="createManagedTeam()">ZALOŽIT TÝM</button></div><div id="admin-managed-lights"></div><div id="admin-managed-grid" class="admin-grid"></div></section>
         <section id="admin-tab-scenario" class="admin-section hidden"><h2>[ NÁHLED A NASTAVENÍ SCÉNÁŘE ]</h2><p>Určete, na jakých zařízeních je každá hádanka hratelná. Změna neovlivní pořadí checkpointů.</p><div id="admin-scenario-grid" class="admin-grid"></div><button onclick="saveScenarioPlayModes()" style="width:100%;margin-top:14px">ULOŽIT ZPŮSOB HRANÍ</button></section>
-        <section id="admin-tab-terminals" class="admin-section hidden"><h2>[ TERMINÁLY AKTUÁLNÍCH HER ]</h2><p>Volný terminál rezervujte týmu a jeho právě dostupné hádance. Více terminálů může být rezervováno stejné hádance; tým každý převezme načtením jeho QR.</p><div id="admin-terminal-grid" class="admin-grid"></div></section>
+        <section id="admin-tab-terminals" class="admin-section hidden"><h2>[ TERMINÁLY AKTUÁLNÍ HRY ]</h2><p>Volný terminál vyhraďte hádance, nikoliv konkrétnímu týmu. Připojí se k prvnímu týmu, který načte jeho QR a má tuto hádanku právě dostupnou. Více terminálů může být vyhrazeno stejné hádance.</p><div id="admin-terminal-grid" class="admin-grid"></div></section>
         <section id="admin-tab-analytics" class="admin-section admin-analytics hidden"><h2>[ TELEMETRIE OBTÍŽNOSTI ]</h2><div class="admin-toolbar"><label>OBDOBÍ <select id="analytics-period" onchange="renderAdminAnalytics()"><option value="all">Celá historie</option><option value="1">Posledních 24 hodin</option><option value="7">Posledních 7 dní</option><option value="30">Posledních 30 dní</option></select></label><button onclick="exportTelemetryCsv(true)">ANONYMIZOVANÉ CSV</button><button onclick="exportTelemetryCsv(false)">INTERNÍ CSV</button></div><div id="admin-analytics-summary" class="admin-summary"></div><div id="admin-analytics-content"></div></section>
         <section id="admin-tab-chats" class="admin-section hidden"><h2>[ PODPORA TÝMŮ ]</h2><div id="admin-chat-grid" class="admin-grid"></div></section>
         <section id="admin-tab-display" class="admin-section hidden"><h2>[ VEŘEJNÁ NÁSTĚNKA ]</h2><div id="display-health" class="cipher-note">Stav obrazovky se načítá…</div><div class="admin-toolbar"><button id="admin-display-leaderboard-toggle" onclick="toggleDisplayLeaderboard()">POŘADÍ NA NÁSTĚNCE: ?</button><button onclick="window.open('/display','_blank','noopener')">OTEVŘÍT NÁSTĚNKU</button></div><p class="cipher-note">Pořadí lze během hry skrýt; fronta startů a oznámení zůstanou viditelné.</p><h2>[ OZNÁMENÍ NA VEŘEJNÉ OBRAZOVCE ]</h2><p>Na jedné obrazovce se zobrazí hlavní oznámení a až dvě vedlejší. Oznámení lze ponechat jako koncept nebo naplánovat.</p><div id="display-announcement-editor"></div><div class="admin-toolbar"><button onclick="addDisplayAnnouncement()">+ PŘIDAT OZNÁMENÍ</button><button onclick="saveDisplayAnnouncements()">ULOŽIT ZMĚNY</button></div><h2>[ ŽIVÝ NÁHLED ]</h2><div id="display-announcement-preview" class="admin-grid"></div></section>
@@ -1951,31 +1951,29 @@
         function renderTerminalAssignments() {
             const target = document.getElementById('admin-terminal-grid');
             if (!target || !latestAdminPayload) return;
-            const teams = (latestAdminPayload.teams || []).filter(team => team.started && !team.game_completed && !team.administratively_ended);
-            const choices = teams.flatMap(team => (team.terminal_options || []).map(puzzle => ({
-                value: `${team.session_id}|${puzzle.id}`,
-                label: `${team.team_name} — ${puzzle.title}`,
-            })));
+            const choices = (latestAdminPayload.puzzle_catalog || []).filter(puzzle => puzzle.play_mode !== 'phones').map(puzzle => ({
+                value: puzzle.id,
+                label: puzzle.title,
+            }));
             target.innerHTML = (latestAdminPayload.terminals || []).map(terminal => {
-                const selected = terminal.session_id && terminal.puzzle_id ? `${terminal.session_id}|${terminal.puzzle_id}` : '';
+                const selected = terminal.puzzle_id || '';
                 const options = choices.map(choice => `<option value="${escapeHtml(choice.value)}" ${choice.value === selected ? 'selected' : ''}>${escapeHtml(choice.label)}</option>`).join('');
                 const attached = terminal.status === 'attached';
                 return `<article class="admin-team ${attached ? '' : 'offline'}"><h2>${escapeHtml(terminal.label)}</h2>
                     <p><strong>${attached ? '● PŘIPOJENÝ' : '○ VOLNÝ'}</strong>${terminal.team_name ? ` · ${escapeHtml(terminal.team_name)}` : ''}</p>
-                    ${attached ? `<p>Terminál již převzal tým načtením QR.</p>` : `<label>REZERVACE PRO HRU A HÁDANKU <select id="terminal-reservation-${escapeHtml(terminal.id)}"><option value="">— BEZ REZERVACE —</option>${options}</select></label><div class="admin-actions"><button onclick="reserveAdminTerminal('${escapeHtml(terminal.id)}')" ${options ? '' : 'disabled'}>ULOŽIT REZERVACI</button><button onclick="clearAdminTerminalReservation('${escapeHtml(terminal.id)}')">UVOLNIT</button></div>${options ? '' : '<p>Žádný rozehraný tým nyní nemá terminálovou hádanku dostupnou.</p>'}`}
+                    ${attached ? `<p>Terminál již převzal tým načtením QR.</p>` : `<label>VYHRAZENÁ HÁDANKA <select id="terminal-reservation-${escapeHtml(terminal.id)}"><option value="">— BEZ REZERVACE —</option>${options}</select></label><div class="admin-actions"><button onclick="reserveAdminTerminal('${escapeHtml(terminal.id)}')" ${options ? '' : 'disabled'}>ULOŽIT REZERVACI</button><button onclick="clearAdminTerminalReservation('${escapeHtml(terminal.id)}')">UVOLNIT</button></div>${options ? '' : '<p>Ve scénáři zatím není žádná hádanka povolená pro terminál.</p>'}`}
                 </article>`;
             }).join('') || '<p>Žádný terminál není online. Na tabletu otevřete <strong>/terminal</strong>.</p>';
         }
 
         function reserveAdminTerminal(terminalId) {
             const value = document.getElementById(`terminal-reservation-${terminalId}`)?.value || '';
-            if (!value) { showNotification('Vyberte tým a dostupnou hádanku.', 'error'); return; }
-            const [sessionId, puzzleId] = value.split('|');
-            sendAdmin('admin.terminal_reserve', {terminal_id:terminalId, session_id:sessionId, puzzle_id:puzzleId});
+            if (!value) { showNotification('Vyberte hádanku.', 'error'); return; }
+            sendAdmin('admin.terminal_reserve', {terminal_id:terminalId, puzzle_id:value});
         }
 
         function clearAdminTerminalReservation(terminalId) {
-            sendAdmin('admin.terminal_reserve', {terminal_id:terminalId, session_id:'', puzzle_id:''});
+            sendAdmin('admin.terminal_reserve', {terminal_id:terminalId, puzzle_id:''});
         }
 
         function resolveAdminCheckpoint(sessionId, checkpointId) {

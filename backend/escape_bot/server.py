@@ -649,8 +649,6 @@ def terminal_eligible_team_count(terminal_id: str = "") -> int:
         return 0
     count = 0
     for session_id, state_machine in active_sessions.items():
-        if session_id != str(reservation.get("session_id", "")):
-            continue
         lobby = lobby_registry.by_session.get(session_id)
         flags = state_machine.state.flags
         if not lobby or not lobby.started or flags.get("game_completed") or flags.get("administratively_ended"):
@@ -674,7 +672,7 @@ def terminal_overview() -> list[dict[str, object]]:
             continue
         seen.add(terminal_id)
         reservation = terminal_reservations().get(terminal_id, {})
-        session_id = str(info.get("session_id", reservation.get("session_id", "")))
+        session_id = str(info.get("session_id", ""))
         lobby = lobby_registry.by_session.get(session_id)
         devices.append({
             "id": terminal_id,
@@ -1159,19 +1157,13 @@ async def websocket_endpoint(websocket: WebSocket):
                                                     if info.get("role") == "terminal_waiting" and info.get("terminal_id") == terminal_id), None)
                             if terminal_socket is None:
                                 raise ValueError("Terminál už není volný nebo není online.")
-                            target_session = str(msg.payload.get("session_id", "")).strip()
                             puzzle_id = str(msg.payload.get("puzzle_id", "")).strip()
-                            if not target_session and not puzzle_id:
+                            if not puzzle_id:
                                 terminal_reservations().pop(terminal_id, None)
                             else:
-                                lobby = lobby_registry.by_session.get(target_session)
-                                machine = active_sessions.get(target_session)
-                                if not lobby or not machine or not lobby.started:
-                                    raise ValueError("Vyberte rozehraný tým.")
-                                available = {item["id"] for item in available_terminal_puzzles(machine)}
-                                if puzzle_id not in available:
-                                    raise ValueError("Tato hádanka nyní není pro tým dostupná na terminálu.")
-                                terminal_reservations()[terminal_id] = {"session_id": target_session, "puzzle_id": puzzle_id}
+                                if puzzle_id not in scenario.data.get("puzzles", {}) or puzzle_play_mode(puzzle_id) == "phones":
+                                    raise ValueError("Vyberte hádanku povolenou pro terminály.")
+                                terminal_reservations()[terminal_id] = {"puzzle_id": puzzle_id}
                             save_runtime_settings()
                             await send_message(terminal_socket, Message("terminal.status", {
                                 "eligible_team_count": terminal_eligible_team_count(terminal_id),
@@ -1873,13 +1865,12 @@ async def websocket_endpoint(websocket: WebSocket):
                         }))
                         continue
                     reservation = terminal_reservations().get(terminal_id, {})
-                    reserved_session = str(reservation.get("session_id", ""))
                     reserved_puzzle = str(reservation.get("puzzle_id", ""))
                     available = {item["id"] for item in available_terminal_puzzles(state_machine)}
-                    if reserved_session != str(session_id) or reserved_puzzle not in available:
+                    if reserved_puzzle not in available:
                         await send_message(websocket, Message("terminal.attach_result", {
                             "success": False,
-                            "reason": "Tento terminál není pro váš tým a aktuální hádanku rezervován.",
+                            "reason": "Tento terminál je vyhrazen jiné hádance, než má váš tým právě dostupnou.",
                         }))
                         continue
                     terminal_pairings.pop(pairing_code, None)
