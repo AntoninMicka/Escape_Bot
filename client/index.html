@@ -2961,6 +2961,7 @@
                 }
                 else if (msg.type === 'terminal.attached') {
                     terminalAttached = true;
+                    resetFinaleUiState();
                     clearTimeout(terminalPairingRefreshTimer);
                     clearInterval(terminalStatusTimer);
                     document.body.classList.add('terminal-attached');
@@ -3651,10 +3652,24 @@
 
         function finaleStateFor(puzzleId, modules = []) {
             if (!finaleUiState.has(puzzleId)) {
-                const scrambled = modules.length === 3 ? [modules[1], modules[2], modules[0]] : [...modules];
-                finaleUiState.set(puzzleId, {year:['2','0','0','0'], time:['0','0','0','0'], modules:scrambled, selectedModule:null});
+                const now = new Date();
+                const year = String(now.getFullYear()).padStart(4, '0').slice(-4).split('');
+                const time = `${String(now.getHours()).padStart(2, '0')}${String(now.getMinutes()).padStart(2, '0')}`.split('');
+                const scrambled = [...modules];
+                for (let index = scrambled.length - 1; index > 0; index -= 1) {
+                    const target = Math.floor(Math.random() * (index + 1));
+                    [scrambled[index], scrambled[target]] = [scrambled[target], scrambled[index]];
+                }
+                if (scrambled.length > 1 && scrambled.every((module, index) => module === modules[index])) {
+                    [scrambled[0], scrambled[1]] = [scrambled[1], scrambled[0]];
+                }
+                finaleUiState.set(puzzleId, {year, time, modules:scrambled, selectedModule:null});
             }
             return finaleUiState.get(puzzleId);
+        }
+
+        function resetFinaleUiState() {
+            finaleUiState.clear();
         }
 
         function finaleModuleImagePosition(module) {
