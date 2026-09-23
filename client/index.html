@@ -998,6 +998,7 @@
         let terminalAmbientTimer = null;
         let terminalAmbientLastSignal = 0;
         let terminalAssignedPuzzleId = '';
+        let terminalAssignmentPendingReveal = false;
         let terminalEligibleTeamAvailable = null;
         let terminalPairingRefreshTimer = null;
         let terminalStatusTimer = null;
@@ -2961,20 +2962,20 @@
                 }
                 else if (msg.type === 'terminal.attached') {
                     terminalAttached = true;
-                    resetFinaleUiState();
+                    resetTerminalMiniGameUiState();
+                    terminalAssignmentPendingReveal = true;
                     clearTimeout(terminalPairingRefreshTimer);
                     clearInterval(terminalStatusTimer);
                     document.body.classList.add('terminal-attached');
                     document.body.classList.remove('terminal-team-eligible');
                     wakeTerminalAmbient(15000);
-                    document.getElementById('terminal-pair-overlay').classList.add('hidden');
                     document.getElementById('team-status').textContent = `${msg.payload.team_name || 'Tým'} · terminál ovládá ${msg.payload.controller_name || 'hráč'}`;
                     openTab('tab-puzzles', document.getElementById('puzzles-tab-button'));
-                    showNotification('Terminál odemčen a připojen ke hře.', 'success');
                 }
                 else if (msg.type === 'terminal.released') {
                     terminalAttached = false;
                     terminalAssignedPuzzleId = '';
+                    terminalAssignmentPendingReveal = false;
                     document.body.classList.remove('terminal-attached', 'terminal-puzzle-active');
                     showNotification(msg.payload.reason || 'Terminál je znovu volný.', 'success');
                     registerTerminal();
@@ -3269,6 +3270,11 @@
                         puzzlesState = incomingPuzzles;
                         renderPuzzles();
                         if (pendingTriadEffect) requestAnimationFrame(playTriadEffect);
+                    }
+                    if (terminalAssignmentPendingReveal && terminalAssignedPuzzleId) {
+                        terminalAssignmentPendingReveal = false;
+                        document.getElementById('terminal-pair-overlay').classList.add('hidden');
+                        showNotification('Terminál odemčen a připojen ke hře.', 'success');
                     }
                     if (document.getElementById('cipher-panel').classList.contains('open')) renderCipherTools();
                     const scoreDisplay = document.getElementById('score-display');
@@ -3668,7 +3674,18 @@
             return finaleUiState.get(puzzleId);
         }
 
-        function resetFinaleUiState() {
+        function resetTerminalMiniGameUiState() {
+            if (pendingSokobanAnimation?.timer) clearTimeout(pendingSokobanAnimation.timer);
+            if (pendingKarelAnimation?.timer) clearTimeout(pendingKarelAnimation.timer);
+            if (pendingLineAnimation?.timer) clearTimeout(pendingLineAnimation.timer);
+            pendingSokobanAnimation = null;
+            pendingKarelAnimation = null;
+            pendingLineAnimation = null;
+            pendingTriadEffect = null;
+            deferredPuzzlesState = null;
+            selectedLineCell = null;
+            selectedTriadSymbol = 'cyan';
+            currentPin = '';
             finaleUiState.clear();
         }
 

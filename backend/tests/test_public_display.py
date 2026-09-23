@@ -41,3 +41,35 @@ def test_outro_uses_recognizable_elara_character_asset() -> None:
     assert "./assets/characters/elara-outro.png" in service_worker
     assert image.startswith(b"\x89PNG\r\n\x1a\n")
     assert image[25] == 6  # PNG color type RGBA
+
+
+def test_terminal_resets_and_renders_minigame_before_revealing_it() -> None:
+    client = (ROOT / "client" / "index.html").read_text(encoding="utf-8")
+
+    attached = client.split("else if (msg.type === 'terminal.attached')", 1)[1].split(
+        "else if (msg.type === 'terminal.released')", 1
+    )[0]
+    assert attached.index("resetTerminalMiniGameUiState();") < attached.index(
+        "terminalAssignmentPendingReveal = true;"
+    )
+    assert "terminal-pair-overlay').classList.add('hidden')" not in attached
+
+    state = client.split("else if (msg.type === 'game.state')", 1)[1].split(
+        "else if (msg.type === 'cipher_tool.result')", 1
+    )[0]
+    assert state.index("renderPuzzles();") < state.index(
+        "if (terminalAssignmentPendingReveal && terminalAssignedPuzzleId)"
+    ) < state.index("terminal-pair-overlay').classList.add('hidden')")
+
+    reset = client.split("function resetTerminalMiniGameUiState()", 1)[1].split(
+        "function finaleModuleImagePosition", 1
+    )[0]
+    for transient_state in (
+        "pendingSokobanAnimation = null",
+        "pendingKarelAnimation = null",
+        "pendingLineAnimation = null",
+        "pendingTriadEffect = null",
+        "deferredPuzzlesState = null",
+        "finaleUiState.clear()",
+    ):
+        assert transient_state in reset
