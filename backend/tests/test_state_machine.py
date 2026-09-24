@@ -341,11 +341,11 @@ class StateMachineCheckpointTests(unittest.IsolatedAsyncioTestCase):
         with self.assertRaisesRegex(ValueError, "courtyard_minefield"):
             validate_checkpoint_navigation(Scenario(broken))
 
-    async def test_staircase_warns_when_room_104_was_skipped(self) -> None:
+    async def test_staircase_warns_when_room_108_was_skipped(self) -> None:
         self.machine.admin_set_checkpoint("reception_archive", "solved")
         scanned = await self.scan("staircase_signal")
         messages = [item.payload.get("text", "") for item in scanned if item.type == "bot.message"]
-        self.assertTrue(any("pokoj 104" in text for text in messages))
+        self.assertTrue(any("pokoj 108" in text for text in messages))
 
     async def test_checkpoint_order_is_enforced(self) -> None:
         responses = await self.scan("staircase_signal")
@@ -382,32 +382,32 @@ class StateMachineCheckpointTests(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(all(tool["status"] == "unlocked" for tool in payload["cipher_tools"]))
 
     async def test_room_requires_physical_checkpoint_even_with_correct_pin(self) -> None:
-        room_pin = self.scenario.data["rooms"]["104"]["pin"]
+        room_pin = self.scenario.data["rooms"]["108"]["pin"]
         denied = await self.machine.handle(Message("room.unlock", {"pin": room_pin}))
         self.assertFalse(self.response(denied, "room.unlock_result").payload["success"])
 
         await self.solve_reception()
         granted = await self.machine.handle(Message("room.unlock", {"pin": room_pin}))
         self.assertTrue(self.response(granted, "room.unlock_result").payload["success"])
-        self.assertTrue(self.machine.state.flags["room_104_unlocked"])
+        self.assertTrue(self.machine.state.flags["room_108_unlocked"])
 
     async def test_room_pin_has_locked_progressive_hints(self) -> None:
-        room = self.scenario.data["rooms"]["104"]
-        self.assertEqual(room["pin"], "1104")
+        room = self.scenario.data["rooms"]["108"]
+        self.assertEqual(room["pin"], "1108")
         self.assertNotIn(room["pin"], room["clue"])
 
-        locked = await self.machine.handle(Message("room.hint", {"room_id": "104"}))
+        locked = await self.machine.handle(Message("room.hint", {"room_id": "108"}))
         self.assertNotIn("Tři skupiny", self.response(locked, "bot.message").payload["text"])
 
         await self.solve_reception()
-        room_puzzle = next(item for item in self.machine._puzzle_state() if item["id"] == "room_104_panel")
+        room_puzzle = next(item for item in self.machine._puzzle_state() if item["id"] == "room_108_panel")
         self.assertEqual(room_puzzle["type"], "room_pin")
         self.assertEqual(room_puzzle["hint_count"], 3)
         score_before = self.machine.state.score
-        hint = await self.machine.handle(Message("room.hint", {"room_id": "104"}))
+        hint = await self.machine.handle(Message("room.hint", {"room_id": "108"}))
         self.assertIn("Tři skupiny", self.response(hint, "bot.message").payload["text"])
         self.assertEqual(self.machine.state.score, score_before - 10)
-        self.assertEqual(self.machine.state.hints_used["room_104"], 1)
+        self.assertEqual(self.machine.state.hints_used["room_108"], 1)
 
     def test_default_tools_survive_old_session_restore(self) -> None:
         self.machine.restore_state({"score": 900})
@@ -1150,7 +1150,7 @@ class StateMachineCheckpointTests(unittest.IsolatedAsyncioTestCase):
             "timeline_calibration", "terrace_echo", "courtyard_alignment", "sports_archive",
         ]:
             self.machine.admin_set_checkpoint(checkpoint_id, "solved")
-        await self.machine.handle(Message("room.unlock", {"pin": self.scenario.data["rooms"]["104"]["pin"]}))
+        await self.machine.handle(Message("room.unlock", {"pin": self.scenario.data["rooms"]["108"]["pin"]}))
 
         await self.scan("sports_cipher")
         pigpen = await self.machine.handle(Message("puzzle.submit", {"puzzle_id": "sports_pigpen", "answer": "HODINY"}))

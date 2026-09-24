@@ -64,8 +64,8 @@
     {"id": "sports_cipher", "label": "Sportovní šifrovací kotva", "kind": "checkpoint", "requires": ["sports_archive"]},
     {"id": "future_archive", "label": "Archiv budoucnosti", "kind": "checkpoint", "requires": ["sports_cipher"]},
     {"id": "time_machine_console", "label": "Finální konzole stroje času", "kind": "checkpoint", "requires": ["future_archive"]},
-    {"id": "room_104", "label": "Virtuální archiv 104", "kind": "room", "requires": ["reception_archive"], "completion_flag": "room_104_unlocked"},
-    {"id": "time_machine_finale", "label": "Návrat Elary", "kind": "finale", "requires": ["time_machine_console", "room_104"], "completion_flag": "game_completed"}
+    {"id": "room_108", "label": "Virtuální archiv 108", "kind": "room", "requires": ["reception_archive"], "completion_flag": "room_108_unlocked"},
+    {"id": "time_machine_finale", "label": "Návrat Elary", "kind": "finale", "requires": ["time_machine_console", "room_108"], "completion_flag": "game_completed"}
   ],
   "phases": {
     "comms_offline": {
@@ -118,18 +118,18 @@
     }
   },
   "rooms": {
-    "104": {
-      "pin": "1104",
+    "108": {
+      "pin": "1108",
       "requires_checkpoints": ["reception_archive"],
-      "clue": "SERVISNÍ OTISK PANELU\nI   |   X   |   IV\nKaždá oddělená skupina tvoří jednu část čtyřmístného přístupového kódu.",
+      "clue": "SERVISNÍ OTISK PANELU\nI   |   X   |   VIII\nKaždá oddělená skupina tvoří jednu část čtyřmístného přístupového kódu.",
       "hints": [
         {"text": "Tři skupiny zachovej oddělené a čti je zleva doprava.", "penalty": 10},
         {"text": "Znaky v servisním otisku jsou čísla zapsaná způsobem používaným ve starověkém Římě.", "penalty": 20},
-        {"text": "I = 1, X = 10 a IV = 4. Po spojení vznikne PIN 1104.", "penalty": 35}
+        {"text": "I = 1, X = 10 a VIII = 8. Po spojení vznikne PIN 1108.", "penalty": 35}
       ],
       "success_messages": [
-        {"text": "Přístupový panel dveří 104 odemčen. Elektromagnetický zámek uvolněn.", "mood": "success", "channel": "general"},
-        {"text": "Slyšela jsem cvaknutí! Pokoj 104 je otevřený a archivní stopa zajištěná. Teď pokračujte ke schodišti a najděte tam další časovou kotvu.", "mood": "relieved", "channel": "lost"}
+        {"text": "Přístupový panel dveří 108 odemčen. Elektromagnetický zámek uvolněn.", "mood": "success", "channel": "general"},
+        {"text": "Slyšela jsem cvaknutí! Pokoj 108 je otevřený a archivní stopa zajištěná. Teď pokračujte ke schodišti a najděte tam další časovou kotvu.", "mood": "relieved", "channel": "lost"}
       ]
     }
   },
@@ -391,7 +391,7 @@
       "module_labels": ["TEMPORÁLNÍ MOTOR", "FÁZOVÝ STABILIZÁTOR", "KRYSTAL ČASOVÉ KOTVY"],
       "requires_checkpoints": ["reception_archive", "staircase_signal", "courtyard_minefield", "bowling_diagnostics", "timeline_calibration", "terrace_echo", "courtyard_alignment", "sports_archive", "sports_cipher", "future_archive"],
       "requires_inventory": ["TEMPORÁLNÍ MOTOR", "FÁZOVÝ STABILIZÁTOR", "KRYSTAL ČASOVÉ KOTVY"],
-      "requires_flags": ["room_104_unlocked"],
+      "requires_flags": ["room_108_unlocked"],
       "countdown_seconds": 10,
       "rating_thresholds": {"1200": "CHRONOMISTR", "1000": "VÝZKUMNÝ TÝM", "0": "STABILIZOVÁNO"},
       "admin_solution": "2037 · 21:40 · TEMPORÁLNÍ MOTOR → FÁZOVÝ STABILIZÁTOR → KRYSTAL ČASOVÉ KOTVY",
@@ -410,7 +410,7 @@
       "requires_phase": "navigating",
       "puzzle_id": "reception_deduction",
       "next_checkpoint": "staircase_signal",
-      "navigation_message": {"text": "Než opustíte recepci, použijte obnovený servisní otisk k odemčení virtuálního pokoje 104. Potom pokračujte ke schodišti; tam leží další časová kotva.", "mood": "focused", "channel": "captain"},
+      "navigation_message": {"text": "Než opustíte recepci, použijte obnovený servisní otisk k odemčení virtuálního pokoje 108. Potom pokračujte ke schodišti; tam leží další časová kotva.", "mood": "focused", "channel": "captain"},
       "rewards": {"flags": ["reception_archive_unlocked"]},
       "message": {"text": "Časová kotva na recepci potvrzena. CHRONOMAPA obnovila recepční archiv.", "mood": "focused", "channel": "captain"}
     },
@@ -421,7 +421,7 @@
       "puzzle_id": "staircase_semaphore",
       "next_checkpoint": "courtyard_minefield",
       "navigation_message": {"text": "Záznam skutečně ukazuje na bowling, ale přímá trasa je přerušená. Nejdřív aktivujte nestabilní kotvu na nádvoří a proveďte Elaru minovým polem.", "mood": "alert", "channel": "captain"},
-      "warning_if_missing_flag": {"flag": "room_104_unlocked", "message": {"text": "Schodišťová kotva reaguje, ale pokoj 104 jste nechali zamčený. Než se dostanete k finále, vraťte se k virtuálnímu panelu a použijte servisní otisk z recepce.", "mood": "tense", "channel": "lost"}},
+      "warning_if_missing_flag": {"flag": "room_108_unlocked", "message": {"text": "Schodišťová kotva reaguje, ale pokoj 108 jste nechali zamčený. Než se dostanete k finále, vraťte se k virtuálnímu panelu a použijte servisní otisk z recepce.", "mood": "tense", "channel": "lost"}},
       "found_rewards": {"cipher_tools": ["semaphore"]},
       "rewards": {"flags": ["bowling_route_unlocked"]},
       "message": {"text": "Další časová kotva drží. Z trosek se podařilo obnovit poškozený obrazový záznam; jeho význam ale nedokážu z této vrstvy spolehlivě určit.", "mood": "relieved", "channel": "lost"}

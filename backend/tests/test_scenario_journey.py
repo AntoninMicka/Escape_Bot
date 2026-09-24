@@ -46,7 +46,7 @@ class CompleteScenarioJourneyTest(unittest.IsolatedAsyncioTestCase):
         await self.scan("reception_archive")
         solved = await self.send("puzzle.submit", puzzle_id="reception_deduction", answer="2147")
         self.assertTrue(self.response(solved, "puzzle.result").payload["correct"])
-        room = await self.send("room.unlock", pin="1104")
+        room = await self.send("room.unlock", pin="1108")
         self.assertTrue(self.response(room, "room.unlock_result").payload["success"])
 
         await self.scan("staircase_signal")

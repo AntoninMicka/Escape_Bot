@@ -302,21 +302,21 @@ class EscapeBotStateMachine:
                 elif puzzle.get("type") == "archive_vector":
                     item["archive_game"] = self._public_archive_game(puzzle_id, puzzle)
             result.append(item)
-        room = self.scenario.get_room_data("104")
+        room = self.scenario.get_room_data("108")
         reception_solved = self.state.checkpoint_states.get("reception_archive", {}).get("status") == "solved"
         if room and reception_solved:
             hints = room.get("hints", [])
             result.append({
-                "id": "room_104_panel",
-                "room_id": "104",
-                "title": "Přístupový panel dveří 104",
+                "id": "room_108_panel",
+                "room_id": "108",
+                "title": "Přístupový panel dveří 108",
                 "type": "room_pin",
-                "status": "solved" if self.state.flags.get("room_104_unlocked") else "found",
+                "status": "solved" if self.state.flags.get("room_108_unlocked") else "found",
                 "instructions": room.get("clue", ""),
                 "attempts": 0,
                 "has_hints": bool(hints),
                 "hint_count": len(hints),
-                "hints_unlocked": min(self.state.hints_used.get("room_104", 0), len(hints)),
+                "hints_unlocked": min(self.state.hints_used.get("room_108", 0), len(hints)),
                 "hint_costs": [int(hint.get("penalty", 10)) for hint in hints],
             })
         return result
