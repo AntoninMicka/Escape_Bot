@@ -21,7 +21,7 @@
       },
       "time_machine_console": {
         "status": "found",
-        "first_scanned_at": "2026-09-24T19:01:46.162983+00:00"
+        "first_scanned_at": "2026-09-25T16:31:00.034596+00:00"
       }
     },
     "unlocked_cipher_tools": [
@@ -33,7 +33,7 @@
     "interactive_games": {},
     "sokoban_games": {},
     "karel_games": {},
-    "last_activity_at": "2026-09-24T19:01:46.162951+00:00",
+    "last_activity_at": "2026-09-25T16:31:00.034548+00:00",
     "triad_games": {},
     "archive_games": {
       "future_archive_cipher": {
@@ -79,7 +79,7 @@
     },
     "event_history": [
       {
-        "at": "2026-09-24T19:01:46.162951+00:00",
+        "at": "2026-09-25T16:31:00.034548+00:00",
         "type": "qr.detected",
         "details": {
           "value": "escapebot://checkpoint/b9ae752e80e5d4d85965e805bbc4b62f"
