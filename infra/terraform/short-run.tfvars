@@ -10,5 +10,5 @@ data_disk_size_gb = 10
 enable_cloud_sql = false
 data_snapshot_retention_days = 7
 keep_snapshots_after_disk_delete = false
-initial_image = "europe-west3-docker.pkg.dev/ztracena/escape-bot/app@sha256:03ec6fc29379abc5b7aed70f786ca94eb2d2939cb93b1db9bde4d3f21a25310e"
+initial_image = "europe-west3-docker.pkg.dev/ztracena/escape-bot/app@sha256:c852084dbb45f0ff8059b8e275a48654e487ee0fd80f5a116a3b1e4164ccf1fc"
 labels = { lifecycle = "short-run", event = "event-2026" }

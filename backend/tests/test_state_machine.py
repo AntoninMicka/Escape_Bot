@@ -341,6 +341,11 @@ class StateMachineCheckpointTests(unittest.IsolatedAsyncioTestCase):
         with self.assertRaisesRegex(ValueError, "courtyard_minefield"):
             validate_checkpoint_navigation(Scenario(broken))
 
+    def test_alignment_checkpoint_points_to_childrens_playground(self) -> None:
+        navigation = self.scenario.data["checkpoints"]["terrace_echo"]["navigation_message"]["text"]
+        self.assertIn("dětské hřiště", navigation)
+        self.assertIn("Zarovnání časových uzlů", navigation)
+
     async def test_staircase_warns_when_room_108_was_skipped(self) -> None:
         self.machine.admin_set_checkpoint("reception_archive", "solved")
         scanned = await self.scan("staircase_signal")

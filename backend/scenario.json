@@ -443,7 +443,7 @@
       "requires": ["timeline_calibration"],
       "puzzle_id": "terrace_morse",
       "next_checkpoint": "courtyard_alignment",
-      "navigation_message": {"text": "HŘIŠTĚ potvrzeno. Ve sportovním areálu nejprve najděte kotvu zarovnání časových uzlů; až potom půjde otevřít samotný sportovní archiv.", "mood": "focused", "channel": "captain"},
+      "navigation_message": {"text": "HŘIŠTĚ potvrzeno. Ve sportovním areálu přejděte na dětské hřiště a najděte tam QR kotvu Zarovnání časových uzlů; až potom půjde otevřít samotný sportovní archiv.", "mood": "focused", "channel": "captain"},
       "rewards": {"inventory": ["FÁZOVÝ STABILIZÁTOR"], "flags": ["phase_stabilizer_recovered"]},
       "message": {"text": "Kotva u terasy zachytila noční světelný přenos. Obrazový záznam byl uložen do archivu hádanek.", "mood": "alert", "channel": "lost"}
     },
