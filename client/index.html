@@ -2338,7 +2338,7 @@
                 }).join('') || '<li>Žádné události</li>';
                 const recentMessages = (team.recent_messages || []).map(item => `<li><strong>${escapeHtml(item.channel || 'general')}</strong> · ${item.role === 'player' ? 'hráč' : 'systém'}: ${escapeHtml(String(item.text || '').slice(0, 180))}</li>`).join('') || '<li>Žádné zprávy</li>';
                 const endReasons = {deadline:'VYPRŠEL ČAS', abandoned:'OPUŠTĚNÁ HRA', technical:'TECHNICKY UKONČENO', manual:'RUČNĚ UKONČENO'};
-                const activityText = team.game_completed ? 'DOKONČENO' : (team.administratively_ended ? `${endReasons[team.end_reason] || 'UKONČENO'} · PŘIPRAVENO K VYHODNOCENÍ` : (team.activity_status === 'abandoned' ? 'PRAVDĚPODOBNĚ OPUŠTĚNÁ' : (team.activity_status === 'suspicious' ? 'PODEZŘELÁ NEAKTIVITA' : 'AKTIVNÍ')));
+                const activityText = team.out_of_competition ? 'MIMO SOUTĚŽ' : team.game_completed ? 'DOKONČENO' : (team.administratively_ended ? `${endReasons[team.end_reason] || 'UKONČENO'} · PŘIPRAVENO K VYHODNOCENÍ` : (team.activity_status === 'abandoned' ? 'PRAVDĚPODOBNĚ OPUŠTĚNÁ' : (team.activity_status === 'suspicious' ? 'PODEZŘELÁ NEAKTIVITA' : 'AKTIVNÍ')));
                 const inventory = ((team.progress || {}).inventory || []).map(escapeHtml).join(', ') || 'prázdný';
                 const tools = ((team.progress || {}).unlocked_cipher_tools || []).map(escapeHtml).join(', ') || 'žádné';
                 return `<article class="admin-team ${online ? '' : 'offline'} ${escapeHtml(team.activity_status)}">
@@ -3289,6 +3289,7 @@
                 }
                 else if (msg.type === 'game.state') {
                     const flags = msg.payload.flags || {};
+                    renderDeadlineChoice(flags);
                     phaseHintsState = msg.payload.phase_hints || null;
                     renderPhaseHintButtons();
                     cipherToolsState = msg.payload.cipher_tools || [];
@@ -3978,6 +3979,33 @@
             if (!puzzle?.game) return;
             pendingKarelAnimation = {puzzleId:puzzle.id, base:JSON.parse(JSON.stringify(puzzle.game)), frames:payload.frames || [], index:0, running:false, timer:null};
         }
+        function chooseDeadline(choice) {
+            if (ws?.readyState === WebSocket.OPEN) ws.send(JSON.stringify({type:'game.deadline_choice', payload:{choice}}));
+        }
+        function renderDeadlineChoice(flags) {
+            let panel = document.getElementById('deadline-choice');
+            if (!panel) {
+                panel = document.createElement('div');
+                panel.id = 'deadline-choice';
+                panel.style.cssText = 'position:fixed;inset:0;z-index:100000;background:rgba(0,0,0,.94);display:none;align-items:center;justify-content:center;text-align:center;padding:24px';
+                document.body.appendChild(panel);
+            }
+            panel.style.display = flags.deadline_choice_pending ? 'flex' : 'none';
+            panel.innerHTML = `<section role="dialog" aria-modal="true" aria-labelledby="deadline-title"><h2 id="deadline-title">Časový limit vypršel</h2><p>Chcete hru ukončit, nebo pokračovat mimo soutěž?</p><p>Dohrání mimo soutěž se nezapočítá do pořadí. Volba platí pro celý tým.</p><button onclick="chooseDeadline('end')">UKONČIT HRU</button> <button onclick="chooseDeadline('continue')">DOHRÁT MIMO SOUTĚŽ</button></section>`;
+            let badge = document.getElementById('overtime-badge');
+            if (!badge) {
+                badge = document.createElement('div'); badge.id = 'overtime-badge';
+                badge.style.cssText = 'position:fixed;bottom:8px;left:8px;z-index:9999;background:#222;color:#ffd966;padding:8px;pointer-events:none';
+                badge.textContent = 'DOHRÁVÁTE MIMO SOUTĚŽ'; document.body.appendChild(badge);
+            }
+            badge.hidden = !flags.out_of_competition;
+            if (flags.deadline_choice === 'continue' && !flags.administratively_ended) document.getElementById('lobby-overlay').classList.add('hidden');
+            if (flags.deadline_choice === 'end') {
+                document.getElementById('lobby-overlay').classList.remove('hidden');
+                document.getElementById('lobby-status').textContent = 'Hra byla ukončena po vypršení časového limitu.';
+            }
+        }
+
         function startKarelAnimation() { if (!pendingKarelAnimation || pendingKarelAnimation.running) return; pendingKarelAnimation.running = true; clearTimeout(pendingKarelAnimation.timer); advanceKarelAnimation(); }
         function pauseKarelAnimation() { if (!pendingKarelAnimation) return; pendingKarelAnimation.running = false; clearTimeout(pendingKarelAnimation.timer); renderPuzzles(); }
         function stepKarelAnimation() { if (!pendingKarelAnimation || pendingKarelAnimation.running) return; advanceKarelAnimation(); }

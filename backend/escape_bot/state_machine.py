@@ -183,6 +183,20 @@ class EscapeBotStateMachine:
             if text:
                 self.state.chat_history.append({"role": "player", "channel": channel, "text": text})
 
+        if message.type == "game.deadline_choice":
+            choice = message.payload.get("choice")
+            if not self.state.flags.get("deadline_choice_pending") or self.state.flags.get("administratively_ended_reason") != "deadline" or choice not in {"end", "continue"}:
+                return [Message("error", {"message": "Volba po vypršení času už není dostupná."}), self._state_message()]
+            self.state.flags["deadline_choice_pending"] = False
+            self.state.flags["deadline_choice"] = choice
+            if choice == "continue":
+                self.state.flags["out_of_competition"] = True
+                self.state.flags["administratively_ended"] = False
+            return [self._state_message()]
+
+        if self.state.flags.get("administratively_ended") and message.type != "client.hello":
+            return [Message("error", {"message": "Hra je ukončena. Po vypršení limitu můžete zvolit dohrání mimo soutěž."}), self._state_message()]
+
         handlers = {
             "client.hello": self._handle_hello,
             "player.message": self._handle_player_message,
