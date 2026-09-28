@@ -339,8 +339,23 @@ vlastní snapshot registrovaných hráčů, online stavu, skóre, postupu a akti
 Cloudflare; při běhu proti FastAPI zachová původní zprávu `admin.list`.
 
 Odpověď obsahuje `cloudflare_limited: true`. Klient proto nenabízí akce, které
-ještě nemají cloudový backend; z mutací zobrazuje pouze správcovské vyřazení.
+ještě nemají cloudový backend; z mutací zobrazuje správcovské vyřazení a
+vystavení návratového QR.
 Globální víceeventový index a úplná administrace patří do CF-05.
+
+### `POST /api/admin/player-recovery` a `lobby.recover` (Cloudflare)
+
+Autentizovaný správce pošle `session_id` a `player_id`. Worker vrátí náhodný
+šestnáctimístný hexadecimální token platný 10 minut; v Durable Objectu adresáře
+se ukládá pouze jeho SHA-256 hash. Nové zařízení odešle token z bootstrap
+WebSocketu zprávou `lobby.recover` spolu se svým `client_id`.
+
+Úspěšné použití token atomicky spotřebuje, přepíše identitu hráče v lobby a
+přenese jeho `line_game`/`triad` desky, výsledky, vyřazení, navigátorskou stopu
+Sokobanu a idempotency účtenky. Pokud šlo o zakladatele, přenese se také tato
+role. Starý socket dostane `admin.session_removed` a zavře se; nový bootstrap
+dostane `lobby.recovered` následované `lobby.route` do původního
+`GameSession`. Opakované použití tokenu je odmítnuto.
 
 ### `arg.verify`
 

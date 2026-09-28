@@ -6,6 +6,7 @@ import {
   buildScenarioProgress,
   presentGameState,
   startScenario,
+  transferPlayerIdentity,
   type RuntimeActor,
   type ScenarioDocument,
 } from "../src/scenario-runtime";
@@ -863,5 +864,21 @@ describe("deterministic Cloudflare scenario runtime", () => {
     expect(repeated.result).toMatchObject({ changed: false, team_complete: true });
     expect(repeated.state.score).toBe(1040);
     expect(repeated.messages).toHaveLength(1);
+  });
+
+  it("transfers every player-owned game reference to a recovered device identity", () => {
+    const transferred = transferPlayerIdentity({
+      interactive_games: { line: { players: { old: { board: [["cyan"]] } } } },
+      triad_games: { triad: { players: { old: { board: [["X"]] } } } },
+      sokoban_games: { sokoban: { level_speakers: ["alice", "old", "old"] } },
+      game_exclusions: { line: ["old"], triad: ["alice", "old"] },
+      game_results: { line: { old: { score_delta: 12 } } },
+    }, "old", "new");
+
+    expect(transferred.interactive_games.line.players).toEqual({ new: { board: [["cyan"]] } });
+    expect(transferred.triad_games.triad.players).toEqual({ new: { board: [["X"]] } });
+    expect(transferred.sokoban_games.sokoban.level_speakers).toEqual(["alice", "new"]);
+    expect(transferred.game_exclusions).toEqual({ line: ["new"], triad: ["alice", "new"] });
+    expect(transferred.game_results.line).toEqual({ new: { score_delta: 12 } });
   });
 });

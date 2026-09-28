@@ -5,6 +5,7 @@ import {
   buildScenarioProgress,
   presentGameState,
   startScenario,
+  transferPlayerIdentity,
   type GameStateDocument,
   type RuntimeActor,
   type ScenarioDocument,
@@ -36,6 +37,7 @@ interface LobbyPlayer {
   id: string;
   name: string;
   joinedAt: string;
+  recoveredAt?: string;
 }
 
 interface LobbySnapshot {
@@ -52,7 +54,7 @@ interface LobbySnapshot {
 }
 
 interface SessionSnapshot {
-  schemaVersion: 2;
+  schemaVersion: 3;
   sessionId: string;
   revision: number;
   lobby: LobbySnapshot;
@@ -60,16 +62,24 @@ interface SessionSnapshot {
   gameState: GameStateDocument;
   scenarioProgress: Record<string, unknown>;
   operationReceipts: Record<string, ProtocolMessage[]>;
+  identityRecoveryReceipts: Record<string, Record<string, unknown>>;
   deadlineAt: number | null;
   deadlineKind: "game" | "spike" | null;
   updatedAt: string;
 }
 
+interface RecoveryTokenRecord {
+  sessionId: string;
+  playerId: string;
+  expiresAt: number;
+}
+
 interface DirectorySnapshot {
-  schemaVersion: 1;
+  schemaVersion: 2;
   joinCodes: Record<string, string>;
   teamKeys: Record<string, string>;
   creatorKeys: Record<string, string>;
+  recoveryTokens: Record<string, RecoveryTokenRecord>;
 }
 
 interface RuntimeGame {
@@ -114,7 +124,7 @@ function protocolMessage(
 
 function defaultSnapshot(sessionId = ""): SessionSnapshot {
   return {
-    schemaVersion: 2,
+    schemaVersion: 3,
     sessionId,
     revision: 0,
     lobby: {
@@ -133,6 +143,7 @@ function defaultSnapshot(sessionId = ""): SessionSnapshot {
     gameState: { phase: "lobby", score: 0, flags: {} },
     scenarioProgress: { completed: [], available: [] },
     operationReceipts: {},
+    identityRecoveryReceipts: {},
     deadlineAt: null,
     deadlineKind: null,
     updatedAt: new Date(0).toISOString(),
@@ -150,7 +161,7 @@ function normalizeSnapshot(
   return {
     ...fallback,
     ...stored,
-    schemaVersion: 2,
+    schemaVersion: 3,
     lobby: { ...fallback.lobby, ...stored.lobby },
     gameState: { ...fallback.gameState, ...stored.gameState },
     scenarioProgress: { ...fallback.scenarioProgress, ...stored.scenarioProgress },
@@ -158,7 +169,12 @@ function normalizeSnapshot(
 }
 
 function defaultDirectory(): DirectorySnapshot {
-  return { schemaVersion: 1, joinCodes: {}, teamKeys: {}, creatorKeys: {} };
+  return { schemaVersion: 2, joinCodes: {}, teamKeys: {}, creatorKeys: {}, recoveryTokens: {} };
+}
+
+function normalizeDirectory(stored: Partial<DirectorySnapshot> | undefined): DirectorySnapshot {
+  const fallback = defaultDirectory();
+  return stored ? { ...fallback, ...stored, schemaVersion: 2 } : fallback;
 }
 
 function cleanText(value: unknown, maximum: number): string {
@@ -200,6 +216,18 @@ async function equalSecret(left: string, right: string): Promise<boolean> {
     difference |= leftBytes[index] ^ (rightBytes[index] ?? 0);
   }
   return difference === 0;
+}
+
+async function secretDigest(value: string): Promise<string> {
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(value));
+  return [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, "0")).join("");
+}
+
+function randomRecoveryToken(): string {
+  return [...crypto.getRandomValues(new Uint8Array(8))]
+    .map((byte) => byte.toString(16).padStart(2, "0"))
+    .join("")
+    .toUpperCase();
 }
 
 async function authorizeAdmin(request: Request, env: Env): Promise<Response | null> {
@@ -245,6 +273,27 @@ export class GameSession extends DurableObject<Env> {
         return json({ error: "not_found" }, 404);
       }
       return this.adminSessionSnapshot();
+    }
+    if (url.pathname === "/internal/admin/player-recovery" && request.method === "POST") {
+      if (request.headers.get("X-EscapeBot-Internal-Admin") !== "1") {
+        return json({ error: "not_found" }, 404);
+      }
+      const payload = await request.json<Record<string, unknown>>();
+      return this.serializeDirectory(() => this.createPlayerRecovery(payload));
+    }
+    if (url.pathname === "/internal/admin/player-recovery/validate" && request.method === "POST") {
+      if (request.headers.get("X-EscapeBot-Internal-Admin") !== "1") {
+        return json({ error: "not_found" }, 404);
+      }
+      const payload = await request.json<Record<string, unknown>>();
+      return this.validatePlayerRecovery(payload);
+    }
+    if (url.pathname === "/internal/lobby/recover" && request.method === "POST") {
+      if (request.headers.get("X-EscapeBot-Internal-Recovery") !== "1") {
+        return json({ error: "not_found" }, 404);
+      }
+      const payload = await request.json<Record<string, unknown>>();
+      return this.serializeState(() => this.recoverLobbyPlayer(payload));
     }
     if (url.pathname === "/internal/admin/game-player" && request.method === "POST") {
       if (request.headers.get("X-EscapeBot-Internal-Admin") !== "1") {
@@ -388,7 +437,7 @@ export class GameSession extends DurableObject<Env> {
       this.send(socket, "leaderboard.update", { entries: [] });
       return;
     }
-    if (!new Set(["lobby.solo", "lobby.create", "lobby.join"]).has(message.type)) {
+    if (!new Set(["lobby.solo", "lobby.create", "lobby.join", "lobby.recover"]).has(message.type)) {
       this.send(socket, "lobby.error", { message: "Nejprve založte tým nebo se k němu připojte." });
       return;
     }
@@ -402,7 +451,9 @@ export class GameSession extends DurableObject<Env> {
 
     try {
       await this.serializeDirectory(async () => {
-        if (message.type === "lobby.join") {
+        if (message.type === "lobby.recover") {
+          await this.routeLobbyRecovery(socket, attachment.clientId, payload);
+        } else if (message.type === "lobby.join") {
           await this.routeLobbyJoin(socket, attachment.clientId, payload);
         } else {
           await this.routeLobbyCreation(
@@ -442,7 +493,7 @@ export class GameSession extends DurableObject<Env> {
       throw new Error("Vybraná hra není pro tento typ lobby dostupná.");
     }
 
-    const directory = (await this.ctx.storage.get<DirectorySnapshot>(DIRECTORY_KEY)) ?? defaultDirectory();
+    const directory = normalizeDirectory(await this.ctx.storage.get<DirectorySnapshot>(DIRECTORY_KEY));
     const teamKey = normalizedTeamKey(lobbyType, scenarioId, teamName);
     const creatorKey = `${clientId}\u0000${mode}\u0000${teamKey}`;
     const existingForCreator = directory.creatorKeys[creatorKey];
@@ -509,7 +560,7 @@ export class GameSession extends DurableObject<Env> {
     const joinCode = cleanText(payload.join_code, 32).toUpperCase().replace("ESCAPEBOT://TEAM/", "");
     if (!name) throw new Error("Jméno hráče je povinné.");
     if (!JOIN_CODE_PATTERN.test(joinCode)) throw new Error("Připojovací kód není platný.");
-    const directory = (await this.ctx.storage.get<DirectorySnapshot>(DIRECTORY_KEY)) ?? defaultDirectory();
+    const directory = normalizeDirectory(await this.ctx.storage.get<DirectorySnapshot>(DIRECTORY_KEY));
     const sessionId = directory.joinCodes[joinCode];
     if (!sessionId) throw new Error("Připojovací kód není platný nebo relace už neexistuje.");
 
@@ -529,6 +580,67 @@ export class GameSession extends DurableObject<Env> {
       client_id: clientId,
       mode: "team",
       join_code: joinCode,
+    });
+  }
+
+  private async routeLobbyRecovery(
+    socket: WebSocket,
+    clientId: string,
+    payload: Record<string, unknown>,
+  ): Promise<void> {
+    const token = cleanText(payload.recovery_token, 64)
+      .toUpperCase()
+      .replace("ESCAPEBOT://RECOVER/", "");
+    if (!/^[A-F0-9]{16}$/.test(token)) {
+      throw new Error("Návratový kód není platný, už byl použit nebo vypršel.");
+    }
+    const directory = normalizeDirectory(await this.ctx.storage.get<DirectorySnapshot>(DIRECTORY_KEY));
+    const now = Date.now();
+    for (const [digest, recovery] of Object.entries(directory.recoveryTokens)) {
+      if (recovery.expiresAt <= now) delete directory.recoveryTokens[digest];
+    }
+    const digest = await secretDigest(token);
+    const recovery = directory.recoveryTokens[digest];
+    if (!recovery || recovery.expiresAt <= now) {
+      await this.ctx.storage.put(DIRECTORY_KEY, directory);
+      throw new Error("Návratový kód není platný, už byl použit nebo vypršel.");
+    }
+    const recovered = await this.runtimeEnv.GAME_SESSIONS.getByName(recovery.sessionId).fetch(
+      "https://internal/internal/lobby/recover",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-EscapeBot-Internal-Recovery": "1",
+        },
+        body: JSON.stringify({
+          old_client_id: recovery.playerId,
+          new_client_id: clientId,
+          recovery_id: digest,
+        }),
+      },
+    );
+    const result = await recovered.json<Record<string, any>>();
+    if (!recovered.ok) throw new Error(String(result.error || "Identitu hráče se nepodařilo obnovit."));
+    delete directory.recoveryTokens[digest];
+    if (result.creator_transferred) {
+      for (const [creatorKey, sessionId] of Object.entries(directory.creatorKeys)) {
+        if (sessionId !== recovery.sessionId || !creatorKey.startsWith(`${recovery.playerId}\u0000`)) continue;
+        const replacement = `${clientId}${creatorKey.slice(recovery.playerId.length)}`;
+        directory.creatorKeys[replacement] = sessionId;
+        delete directory.creatorKeys[creatorKey];
+      }
+    }
+    await this.ctx.storage.put(DIRECTORY_KEY, directory);
+    this.send(socket, "lobby.recovered", {
+      player_name: String(result.player_name || ""),
+      team_name: String(result.team_name || ""),
+    });
+    this.send(socket, "lobby.route", {
+      session_id: recovery.sessionId,
+      client_id: clientId,
+      mode: String(result.mode || "team"),
+      join_code: result.join_code ?? null,
     });
   }
 
@@ -691,8 +803,143 @@ export class GameSession extends DurableObject<Env> {
     }
   }
 
+  private async createPlayerRecovery(payload: Record<string, unknown>): Promise<Response> {
+    const sessionId = cleanText(payload.session_id, 128);
+    const playerId = cleanText(payload.player_id, 128);
+    if (!SESSION_ID_PATTERN.test(sessionId) || !CLIENT_ID_PATTERN.test(playerId)) {
+      return json({ error: "invalid_player_recovery_request" }, 400);
+    }
+    const directory = normalizeDirectory(await this.ctx.storage.get<DirectorySnapshot>(DIRECTORY_KEY));
+    const knownSessions = new Set([
+      ...Object.values(directory.teamKeys),
+      ...Object.values(directory.creatorKeys),
+      ...Object.values(directory.joinCodes),
+    ]);
+    if (!knownSessions.has(sessionId)) return json({ error: "session_not_found" }, 404);
+    const validation = await this.runtimeEnv.GAME_SESSIONS.getByName(sessionId).fetch(
+      "https://internal/internal/admin/player-recovery/validate",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-EscapeBot-Internal-Admin": "1",
+        },
+        body: JSON.stringify({ player_id: playerId }),
+      },
+    );
+    const player = await validation.json<Record<string, unknown>>();
+    if (!validation.ok) return json(player, validation.status);
+
+    const now = Date.now();
+    for (const [digest, recovery] of Object.entries(directory.recoveryTokens)) {
+      if (recovery.expiresAt <= now || (recovery.sessionId === sessionId && recovery.playerId === playerId)) {
+        delete directory.recoveryTokens[digest];
+      }
+    }
+    let token = randomRecoveryToken();
+    let digest = await secretDigest(token);
+    while (directory.recoveryTokens[digest]) {
+      token = randomRecoveryToken();
+      digest = await secretDigest(token);
+    }
+    directory.recoveryTokens[digest] = { sessionId, playerId, expiresAt: now + 600_000 };
+    await this.ctx.storage.put(DIRECTORY_KEY, directory);
+    return json({
+      token,
+      player_name: String(player.player_name || ""),
+      team_name: String(player.team_name || ""),
+      expires_in_seconds: 600,
+    });
+  }
+
+  private validatePlayerRecovery(payload: Record<string, unknown>): Response {
+    const playerId = cleanText(payload.player_id, 128);
+    const player = this.snapshot.lobby.players[playerId];
+    if (!player) return json({ error: "Hráč v této relaci neexistuje." }, 404);
+    return json({ player_name: player.name, team_name: this.snapshot.lobby.teamName });
+  }
+
+  private async recoverLobbyPlayer(payload: Record<string, unknown>): Promise<Response> {
+    const oldClientId = cleanText(payload.old_client_id, 128);
+    const newClientId = cleanText(payload.new_client_id, 128);
+    const recoveryId = cleanText(payload.recovery_id, 64).toLowerCase();
+    if (!CLIENT_ID_PATTERN.test(oldClientId) || !CLIENT_ID_PATTERN.test(newClientId) || !/^[a-f0-9]{64}$/.test(recoveryId)) {
+      return json({ error: "Chybí identifikátor nového zařízení." }, 400);
+    }
+    const previous = this.snapshot.identityRecoveryReceipts[recoveryId];
+    if (previous) {
+      if (previous.old_client_id !== oldClientId || previous.new_client_id !== newClientId) {
+        return json({ error: "Návratový kód neodpovídá požadovanému přenosu." }, 409);
+      }
+      return json(previous);
+    }
+    const player = this.snapshot.lobby.players[oldClientId];
+    if (!player) return json({ error: "Původní hráč v týmu neexistuje." }, 404);
+    if (newClientId !== oldClientId && this.snapshot.lobby.players[newClientId]) {
+      return json({ error: "Nové zařízení už v tomto týmu patří jinému hráči." }, 409);
+    }
+    const now = new Date().toISOString();
+    const creatorTransferred = this.snapshot.lobby.creatorId === oldClientId;
+    if (newClientId !== oldClientId) {
+      delete this.snapshot.lobby.players[oldClientId];
+      this.snapshot.lobby.players[newClientId] = {
+        ...player,
+        id: newClientId,
+        recoveredAt: now,
+      };
+      if (creatorTransferred) this.snapshot.lobby.creatorId = newClientId;
+      this.snapshot.gameState = transferPlayerIdentity(this.snapshot.gameState, oldClientId, newClientId);
+      const receipts: Record<string, ProtocolMessage[]> = {};
+      for (const [key, messages] of Object.entries(this.snapshot.operationReceipts)) {
+        const targetKey = key.startsWith(`${oldClientId}:`)
+          ? `${newClientId}:${key.slice(oldClientId.length + 1)}`
+          : key;
+        receipts[targetKey] = messages;
+      }
+      this.snapshot.operationReceipts = receipts;
+    } else {
+      player.recoveredAt = now;
+    }
+    const history = Array.isArray(this.snapshot.gameState.event_history)
+      ? this.snapshot.gameState.event_history
+      : [];
+    history.push({
+      at: now,
+      type: "player.identity_transferred",
+      details: { old_player_id: oldClientId, new_player_id: newClientId },
+    });
+    this.snapshot.gameState.event_history = history.slice(-500);
+    this.snapshot.revision += 1;
+    this.snapshot.updatedAt = now;
+    const recoveryResult = {
+      old_client_id: oldClientId,
+      new_client_id: newClientId,
+      player_name: player.name,
+      team_name: this.snapshot.lobby.teamName,
+      mode: this.snapshot.lobby.mode,
+      join_code: this.snapshot.lobby.joinCode,
+      creator_transferred: creatorTransferred,
+      revision: this.snapshot.revision,
+    };
+    this.snapshot.identityRecoveryReceipts[recoveryId] = recoveryResult;
+    while (Object.keys(this.snapshot.identityRecoveryReceipts).length > 20) {
+      delete this.snapshot.identityRecoveryReceipts[Object.keys(this.snapshot.identityRecoveryReceipts)[0]];
+    }
+    await this.ctx.storage.put(SNAPSHOT_KEY, this.snapshot);
+
+    for (const candidate of this.ctx.getWebSockets()) {
+      const attachment = candidate.deserializeAttachment() as SocketAttachment | null;
+      if (attachment?.role !== "session" || attachment.clientId !== oldClientId) continue;
+      this.send(candidate, "admin.session_removed", { message: "Identita hráče byla obnovena na novém zařízení." });
+      candidate.close(4002, "Player identity transferred");
+    }
+    this.broadcastLobbyState();
+    if (this.snapshot.lobby.started) await this.broadcastGameState();
+    return json(recoveryResult);
+  }
+
   private async adminOverview(): Promise<Response> {
-    const directory = (await this.ctx.storage.get<DirectorySnapshot>(DIRECTORY_KEY)) ?? defaultDirectory();
+    const directory = normalizeDirectory(await this.ctx.storage.get<DirectorySnapshot>(DIRECTORY_KEY));
     const sessionIds = [...new Set([
       ...Object.values(directory.teamKeys),
       ...Object.values(directory.creatorKeys),
@@ -1236,6 +1483,7 @@ export class GameSession extends DurableObject<Env> {
 
   private broadcastLobbyState(): void {
     for (const socket of this.ctx.getWebSockets()) {
+      if (socket.readyState !== WebSocket.OPEN) continue;
       const attachment = socket.deserializeAttachment() as SocketAttachment | null;
       if (attachment?.role === "session") {
         this.send(socket, "lobby.state", this.lobbyPayload(attachment.clientId));
@@ -1310,6 +1558,7 @@ export class GameSession extends DurableObject<Env> {
       : null;
     for (const socket of this.ctx.getWebSockets()) {
       if (socket === exclude) continue;
+      if (socket.readyState !== WebSocket.OPEN) continue;
       const attachment = socket.deserializeAttachment() as SocketAttachment | null;
       if (attachment?.role !== "session") continue;
       const state = scenario
@@ -1348,6 +1597,7 @@ export class GameSession extends DurableObject<Env> {
     );
     for (const socket of this.ctx.getWebSockets()) {
       if (socket === exclude) continue;
+      if (socket.readyState !== WebSocket.OPEN) continue;
       try {
         socket.send(encoded);
       } catch {
@@ -1373,6 +1623,27 @@ export default {
       return env.GAME_SESSIONS.getByName(DIRECTORY_OBJECT_NAME).fetch(
         "https://internal/internal/admin/overview",
         { headers: { "X-EscapeBot-Internal-Admin": "1" } },
+      );
+    }
+    if (url.pathname === "/api/admin/player-recovery" && request.method === "POST") {
+      const unauthorized = await authorizeAdmin(request, env);
+      if (unauthorized) return unauthorized;
+      let payload: Record<string, unknown>;
+      try {
+        payload = await request.json<Record<string, unknown>>();
+      } catch {
+        return json({ error: "invalid_json" }, 400);
+      }
+      return env.GAME_SESSIONS.getByName(DIRECTORY_OBJECT_NAME).fetch(
+        "https://internal/internal/admin/player-recovery",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "X-EscapeBot-Internal-Admin": "1",
+          },
+          body: JSON.stringify(payload),
+        },
       );
     }
     if (url.pathname === "/api/admin/game-player" && request.method === "POST") {

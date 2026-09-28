@@ -253,6 +253,162 @@ describe("Cloudflare spike router", () => {
     await closeSocket(bootstrap, "done");
   });
 
+  it("recovers a player onto a new device and transfers persisted game identity once", async () => {
+    const creatorBootstrap = await openSocket("https://example.test/ws?client_id=recover-alice");
+    const creatorRoutePromise = nextMessage(creatorBootstrap, "lobby.route");
+    send(creatorBootstrap, "lobby.create", {
+      client_id: "recover-alice",
+      name: "Alice",
+      team_name: "Recovery Team",
+      lobby_type: "online_doom",
+      scenario_id: "chronos_online",
+    });
+    const creatorRoute = await creatorRoutePromise;
+    const sessionId = String(creatorRoute.payload.session_id);
+    const joinCode = String(creatorRoute.payload.join_code);
+
+    const bobBootstrap = await openSocket("https://example.test/ws?client_id=recover-bob");
+    const bobRoutePromise = nextMessage(bobBootstrap, "lobby.route");
+    send(bobBootstrap, "lobby.join", {
+      client_id: "recover-bob",
+      name: "Bob",
+      join_code: joinCode,
+    });
+    await bobRoutePromise;
+    const creator = await openSocket(
+      `https://example.test/ws?session_id=${sessionId}&client_id=recover-alice`,
+    );
+    const bob = await openSocket(
+      `https://example.test/ws?session_id=${sessionId}&client_id=recover-bob`,
+    );
+    const startedState = nextMessage(creator, "game.state");
+    send(creator, "lobby.start");
+    await startedState;
+
+    const stub = env.GAME_SESSIONS.getByName(sessionId);
+    await runInDurableObject(stub, async (instance, state) => {
+      const target = instance as unknown as {
+        snapshot: {
+          gameState: Record<string, any>;
+          operationReceipts: Record<string, ProtocolMessage[]>;
+          identityRecoveryReceipts: Record<string, Record<string, unknown>>;
+        };
+      };
+      target.snapshot.gameState.interactive_games = {
+        timeline_lines: { players: { "recover-bob": { marker: "line-board" } } },
+      };
+      target.snapshot.gameState.triad_games = {
+        temporal_triad: { players: { "recover-bob": { marker: "triad-board" } } },
+      };
+      target.snapshot.gameState.sokoban_games = {
+        temporal_sokoban: { level_speakers: ["recover-alice", "recover-bob"] },
+      };
+      target.snapshot.gameState.game_exclusions = { timeline_lines: ["recover-bob"] };
+      target.snapshot.gameState.game_results = {
+        timeline_lines: { "recover-bob": { score_delta: 15 } },
+      };
+      target.snapshot.operationReceipts["recover-bob:move-1"] = [{
+        type: "line_game.result",
+        payload: { success: true },
+      }];
+      await state.storage.put("session-snapshot", target.snapshot);
+    });
+
+    const recoveryResponse = await SELF.fetch("https://example.test/api/admin/player-recovery", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: "Bearer local-test-admin-token",
+      },
+      body: JSON.stringify({ session_id: sessionId, player_id: "recover-bob" }),
+    });
+    expect(recoveryResponse.status).toBe(200);
+    const recovery = await recoveryResponse.json<Record<string, any>>();
+    expect(recovery).toMatchObject({ player_name: "Bob", team_name: "Recovery Team", expires_in_seconds: 600 });
+    expect(recovery.token).toMatch(/^[A-F0-9]{16}$/);
+    const storedRecoveryTokens = await runInDurableObject(
+      env.GAME_SESSIONS.getByName("__escape_bot_lobby_directory__"),
+      async (_instance, state) => {
+        const directory = await state.storage.get<Record<string, any>>("lobby-directory");
+        return directory?.recoveryTokens || {};
+      },
+    );
+    expect(Object.keys(storedRecoveryTokens)).toHaveLength(1);
+    expect(Object.keys(storedRecoveryTokens)).not.toContain(recovery.token);
+    expect(JSON.stringify(storedRecoveryTokens)).not.toContain(recovery.token);
+    const recoveryId = Object.keys(storedRecoveryTokens)[0];
+
+    const replacementBootstrap = await openSocket("https://example.test/ws?client_id=recover-bob-new");
+    const oldRemoved = nextMessage(bob, "admin.session_removed");
+    const recoveredMessage = nextMessage(replacementBootstrap, "lobby.recovered");
+    const replacementRoute = nextMessage(replacementBootstrap, "lobby.route");
+    send(replacementBootstrap, "lobby.recover", {
+      client_id: "recover-bob-new",
+      recovery_token: recovery.token,
+    });
+    expect((await oldRemoved).payload.message).toContain("novém zařízení");
+    expect((await recoveredMessage).payload).toMatchObject({ player_name: "Bob", team_name: "Recovery Team" });
+    expect((await replacementRoute).payload).toMatchObject({ session_id: sessionId, client_id: "recover-bob-new" });
+
+    const transferred = await runInDurableObject(stub, (instance) => {
+      const target = instance as unknown as {
+        snapshot: {
+          lobby: { players: Record<string, unknown> };
+          gameState: Record<string, any>;
+          operationReceipts: Record<string, ProtocolMessage[]>;
+          identityRecoveryReceipts: Record<string, Record<string, unknown>>;
+        };
+      };
+      return {
+        playerIds: Object.keys(target.snapshot.lobby.players),
+        line: target.snapshot.gameState.interactive_games.timeline_lines.players,
+        triad: target.snapshot.gameState.triad_games.temporal_triad.players,
+        speakers: target.snapshot.gameState.sokoban_games.temporal_sokoban.level_speakers,
+        exclusions: target.snapshot.gameState.game_exclusions.timeline_lines,
+        results: target.snapshot.gameState.game_results.timeline_lines,
+        receiptKeys: Object.keys(target.snapshot.operationReceipts),
+        recoveryReceiptCount: Object.keys(target.snapshot.identityRecoveryReceipts).length,
+      };
+    });
+    expect(transferred.playerIds).toEqual(["recover-alice", "recover-bob-new"]);
+    expect(transferred.line).toEqual({ "recover-bob-new": { marker: "line-board" } });
+    expect(transferred.triad).toEqual({ "recover-bob-new": { marker: "triad-board" } });
+    expect(transferred.speakers).toEqual(["recover-alice", "recover-bob-new"]);
+    expect(transferred.exclusions).toEqual(["recover-bob-new"]);
+    expect(transferred.results).toEqual({ "recover-bob-new": { score_delta: 15 } });
+    expect(transferred.receiptKeys).toContain("recover-bob-new:move-1");
+    expect(transferred.receiptKeys).not.toContain("recover-bob:move-1");
+    expect(transferred.recoveryReceiptCount).toBe(1);
+
+    const retry = await stub.fetch("https://internal/internal/lobby/recover", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-EscapeBot-Internal-Recovery": "1",
+      },
+      body: JSON.stringify({
+        old_client_id: "recover-bob",
+        new_client_id: "recover-bob-new",
+        recovery_id: recoveryId,
+      }),
+    });
+    expect(retry.status).toBe(200);
+    expect(await retry.json()).toMatchObject({ revision: 4, new_client_id: "recover-bob-new" });
+
+    const reused = nextMessage(replacementBootstrap, "lobby.error");
+    send(replacementBootstrap, "lobby.recover", {
+      client_id: "recover-bob-new",
+      recovery_token: recovery.token,
+    });
+    expect((await reused).payload.message).toContain("už byl použit");
+    await Promise.all([
+      closeSocket(creatorBootstrap, "done"),
+      closeSocket(bobBootstrap, "done"),
+      closeSocket(creator, "done"),
+      closeSocket(replacementBootstrap, "done"),
+    ]);
+  });
+
   it("rejects invalid session routing", async () => {
     const response = await SELF.fetch("https://example.test/ws?session_id=x&client_id=phone", {
       headers: { Upgrade: "websocket" },

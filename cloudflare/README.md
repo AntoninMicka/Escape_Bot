@@ -28,6 +28,7 @@ secrety. Názvy prostředí jsou `escape-bot-cf-development`,
 - service worker a fingerprintovaný WebGL build;
 - Worker-first směrování `/api/*` a `/ws`;
 - autentizované načtení týmů do omezeného cloudového admin přehledu;
+- jednorázové obnovení hráčské identity na novém zařízení;
 - autentizované správcovské vyřazení registrovaného hráče, i když je offline.
 
 Zprávy `spike.*` jsou pouze testovací kontrakt. Nejsou součástí produkčního
@@ -105,8 +106,15 @@ postihu zmrazí soutěžní skóre a tým může hru ukončit nebo pokračovat m
 soutěž. Hráči smějí v aktivní týmové minihře pouze obnovit správcem vyřazeného
 spoluhráče; sami nikoho vyřadit nemohou.
 
-Cloudový přehled je záměrně označený jako omezená správa a nezobrazuje tlačítka
-pro dosud nepřenesené zásahy. Úplný víceeventový přehled bude používat
+Správce může z cloudového přehledu vystavit návratový QR platný 10 minut.
+Adresář ukládá pouze hash jednorázového tokenu. Po použití se nové zařízení
+přesměruje do stejného `GameSession`, zatímco staré se odpojí; přenesou se
+soukromé desky, výsledky, vyřazení, navigátor i idempotency účtenky a počet
+registrovaných hráčů se nezmění.
+
+Cloudový přehled je záměrně označený jako omezená správa a kromě vyřazení a
+vystavení návratového QR nezobrazuje tlačítka pro dosud nepřenesené zásahy.
+Úplný víceeventový přehled bude používat
 `EventCoordinator` v CF-05; současné načtení z adresáře lobby je mezikrok CF-04.
 
 Produkční deploy má samostatný explicitní příkaz `npm run deploy:production`.

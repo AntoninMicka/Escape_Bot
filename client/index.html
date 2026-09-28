@@ -2505,8 +2505,23 @@
             container.innerHTML = finalization + games.map(game=>`<h2>${escapeHtml(game.title)}</h2><div class="leaderboard-lists"><section>${table(game.rows.filter(entry=>entry.mode==='team'),'team','TÝMY')}</section><section>${table(game.rows.filter(entry=>entry.mode==='solo'),'solo','JEDNOTLIVCI')}</section></div>`).join('');
         }
 
-        function requestPlayerRecovery(sessionId, playerId) {
+        async function requestPlayerRecovery(sessionId, playerId) {
             if (!window.confirm('Vystavit tomuto hráči jednorázový návratový QR?')) return;
+            if (latestAdminPayload?.cloudflare_limited) {
+                try {
+                    const response = await fetch('/api/admin/player-recovery', {
+                        method: 'POST',
+                        headers: {'Content-Type':'application/json',Authorization:`Bearer ${adminToken()}`},
+                        body: JSON.stringify({session_id:sessionId,player_id:playerId}),
+                    });
+                    const result = await response.json().catch(() => ({}));
+                    if (!response.ok) throw new Error(result.error || 'Návratový kód se nepodařilo vystavit.');
+                    renderPlayerRecovery(result);
+                } catch (error) {
+                    showNotification(error.message || 'Návratový kód se nepodařilo vystavit.', 'error');
+                }
+                return;
+            }
             sendAdmin('admin.player_recovery', {session_id:sessionId, player_id:playerId});
         }
 
@@ -2628,7 +2643,7 @@
                 const complete = Number(team.completed_nodes || 0);
                 const total = Number(team.total_nodes || 0);
                 const percent = total ? Math.round(complete * 100 / total) : 0;
-                const players = (team.players || []).map(player => `<span>${player.connected ? '●' : '○'} ${escapeHtml(player.name)}${cloudflareLimited ? '' : ` <button onclick="requestPlayerRecovery('${team.session_id}','${player.id}')">NÁVRATOVÝ QR</button>`}</span>`).join('<br>');
+                const players = (team.players || []).map(player => `<span>${player.connected ? '●' : '○'} ${escapeHtml(player.name)} <button onclick="requestPlayerRecovery('${team.session_id}','${player.id}')">NÁVRATOVÝ QR</button></span>`).join('<br>');
                 const activeNodes = ((team.progress || {}).nodes || []).filter(node => node.status === 'active' || node.status === 'available').map(node => escapeHtml(node.label)).join(', ') || '—';
                 const adjustments = (team.admin_score_adjustments || []).map(item => `${Number(item.delta) >= 0 ? '+' : ''}${Number(item.delta)}: ${escapeHtml(item.reason)}`).join('<br>');
                 const penalties = adjustments || (team.admin_penalties || []).map(item => `−${Number(item.amount)}: ${escapeHtml(item.reason)}`).join('<br>') || 'žádné';

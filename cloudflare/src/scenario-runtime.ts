@@ -60,6 +60,47 @@ export interface AdminGamePlayerResult extends ScenarioCommandResult {
   result: Record<string, unknown>;
 }
 
+export function transferPlayerIdentity(
+  currentState: GameStateDocument,
+  oldPlayerId: string,
+  newPlayerId: string,
+): GameStateDocument {
+  const state = clone(currentState);
+  for (const storeName of ["interactive_games", "triad_games"]) {
+    const store = record(state[storeName]);
+    for (const containerValue of Object.values(store)) {
+      const players = record(record(containerValue).players);
+      if (Object.hasOwn(players, oldPlayerId)) {
+        players[newPlayerId] = players[oldPlayerId];
+        delete players[oldPlayerId];
+      }
+    }
+  }
+  const exclusions = record(state.game_exclusions);
+  for (const [puzzleId, excludedValue] of Object.entries(exclusions)) {
+    if (!Array.isArray(excludedValue)) continue;
+    exclusions[puzzleId] = [...new Set(excludedValue.map(String).map(
+      (playerId) => playerId === oldPlayerId ? newPlayerId : playerId,
+    ))];
+  }
+  for (const resultsValue of Object.values(record(state.game_results))) {
+    const results = record(resultsValue);
+    if (Object.hasOwn(results, oldPlayerId)) {
+      results[newPlayerId] = results[oldPlayerId];
+      delete results[oldPlayerId];
+    }
+  }
+  for (const gameValue of Object.values(record(state.sokoban_games))) {
+    const game = record(gameValue);
+    if (Array.isArray(game.level_speakers)) {
+      game.level_speakers = [...new Set(game.level_speakers.map(String).map(
+        (playerId: string) => playerId === oldPlayerId ? newPlayerId : playerId,
+      ))];
+    }
+  }
+  return state;
+}
+
 function record(value: unknown): Record<string, any> {
   return value && typeof value === "object" && !Array.isArray(value)
     ? (value as Record<string, any>)
