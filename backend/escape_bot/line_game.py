@@ -140,18 +140,57 @@ def completion_time_score(
 
 def _find_runs(board: list[list[str]]) -> list[tuple[str, list[tuple[int, int]]]]:
     size = len(board)
-    runs: list[tuple[str, list[tuple[int, int]]]] = []
+    segments: list[tuple[str, str, list[tuple[int, int]]]] = []
     for row in range(size):
-        _scan_line([(row, column) for column in range(size)], board, runs)
+        _scan_line([(row, column) for column in range(size)], board, segments, "horizontal")
     for column in range(size):
-        _scan_line([(row, column) for row in range(size)], board, runs)
+        _scan_line([(row, column) for row in range(size)], board, segments, "vertical")
+
+    intersections: dict[int, set[int]] = {index: set() for index in range(len(segments))}
+    for left_index, (left_color, left_orientation, left_cells) in enumerate(segments):
+        left_set = set(left_cells)
+        for right_index in range(left_index + 1, len(segments)):
+            right_color, right_orientation, right_cells = segments[right_index]
+            if (
+                left_color == right_color
+                and left_orientation != right_orientation
+                and left_set.intersection(right_cells)
+            ):
+                intersections[left_index].add(right_index)
+                intersections[right_index].add(left_index)
+
+    runs: list[tuple[str, list[tuple[int, int]]]] = []
+    merged: set[int] = set()
+    visited: set[int] = set()
+    for index in range(len(segments)):
+        if index in visited:
+            continue
+        component: set[int] = set()
+        pending = [index]
+        while pending:
+            current = pending.pop()
+            if current in component:
+                continue
+            component.add(current)
+            pending.extend(intersections[current] - component)
+        visited.update(component)
+        if len(component) < 2 or not any(len(segments[item][2]) >= 3 for item in component):
+            continue
+        cells = sorted({cell for item in component for cell in segments[item][2]})
+        runs.append((segments[index][0], cells))
+        merged.update(component)
+
+    for index, (color, _orientation, cells) in enumerate(segments):
+        if index not in merged and len(cells) >= 3:
+            runs.append((color, cells))
     return runs
 
 
 def _scan_line(
     coordinates: list[tuple[int, int]],
     board: list[list[str]],
-    runs: list[tuple[str, list[tuple[int, int]]]],
+    segments: list[tuple[str, str, list[tuple[int, int]]]],
+    orientation: str,
 ) -> None:
     start = 0
     while start < len(coordinates):
@@ -159,8 +198,8 @@ def _scan_line(
         end = start + 1
         while end < len(coordinates) and board[coordinates[end][0]][coordinates[end][1]] == color:
             end += 1
-        if color and end - start >= 3:
-            runs.append((color, coordinates[start:end]))
+        if color and end - start >= 2:
+            segments.append((color, orientation, coordinates[start:end]))
         start = end
 
 
@@ -182,14 +221,24 @@ def _refill(state: dict[str, Any], config: dict[str, Any], avoid_initial_matches
                 continue
             candidates = list(colors)
             if avoid_initial_matches:
-                if column >= 2 and board[row][column - 1] == board[row][column - 2]:
-                    candidates.remove(board[row][column - 1])
-                if row >= 2 and board[row - 1][column] == board[row - 2][column]:
-                    forbidden = board[row - 1][column]
-                    if forbidden in candidates:
-                        candidates.remove(forbidden)
+                candidates = [
+                    color for color in candidates
+                    if not _candidate_creates_run(board, row, column, color)
+                ]
+                if not candidates:
+                    raise ValueError("Initial board cannot be generated without a matching line.")
             state["rng"] = (1103515245 * state["rng"] + 12345) & 0x7FFFFFFF
             board[row][column] = candidates[state["rng"] % len(candidates)]
+
+
+def _candidate_creates_run(
+    board: list[list[str]], row: int, column: int, color: str
+) -> bool:
+    board[row][column] = color
+    try:
+        return any((row, column) in cells for _matched_color, cells in _find_runs(board))
+    finally:
+        board[row][column] = ""
 
 
 def _parse_time(value: str) -> datetime:

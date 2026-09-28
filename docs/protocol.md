@@ -176,7 +176,11 @@ Vyžádá další stupňovanou nápovědu. Každý stupeň odečte body pouze p�
 
 ### `line_game.move`
 
-Prohodí dvě ortogonálně sousední barvy v interaktivní kalibrační mřížce. Souřadnice jsou indexované od nuly; backend kontroluje odemčení checkpointu, časový limit a to, zda výměna vytvořila alespoň jednu řadu.
+Prohodí dvě ortogonálně sousední barvy v interaktivní kalibrační mřížce.
+Souřadnice jsou indexované od nuly; backend kontroluje odemčení checkpointu,
+časový limit a to, zda výměna vytvořila alespoň jednu řadu. Řada může být přímá
+nebo pravoúhle lomená přes libovolný společný kámen. Ramena 3 + 2 se počítají
+jako čtveřice a ramena 3 + 3 jako pětice; samotné spojení 2 + 2 neboduje.
 
 ```json
 {
