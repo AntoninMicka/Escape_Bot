@@ -1,4 +1,4 @@
-import { env, runInDurableObject, SELF } from "cloudflare:test";
+import { env, runDurableObjectAlarm, runInDurableObject, SELF } from "cloudflare:test";
 import { describe, expect, it } from "vitest";
 
 type ProtocolMessage = {
@@ -130,6 +130,167 @@ describe("Cloudflare spike router", () => {
     const response = await SELF.fetch("https://example.test/api/unknown");
     expect(response.status).toBe(404);
     expect(await response.json()).toEqual({ error: "not_found" });
+  });
+
+  it("reserves a terminal for a puzzle, attaches it without adding a player, and releases it safely", async () => {
+    const bootstrap = await openSocket("https://example.test/ws?client_id=terminal-player");
+    const routePromise = nextMessage(bootstrap, "lobby.route");
+    send(bootstrap, "lobby.solo", {
+      client_id: "terminal-player",
+      name: "Alice",
+      team_name: "Terminal Team",
+      lobby_type: "on_site_qr",
+      scenario_id: "hotel_kraskov",
+    });
+    const route = await routePromise;
+    const sessionId = String(route.payload.session_id);
+    const player = await openSocket(`https://example.test/ws?session_id=${sessionId}&client_id=terminal-player`);
+    const playerLobby = nextMessage(player, "lobby.state");
+    send(player, "lobby.resume", { session_id: sessionId });
+    expect((await playerLobby).payload.player_count).toBe(1);
+
+    const stub = env.GAME_SESSIONS.getByName(sessionId);
+    await runInDurableObject(stub, async (instance, state) => {
+      const target = instance as unknown as {
+        snapshot: {
+          gameState: { phase: string; checkpoint_states: Record<string, Record<string, unknown>> };
+        };
+      };
+      target.snapshot.gameState.phase = "navigating";
+      target.snapshot.gameState.checkpoint_states.future_archive = { status: "solved" };
+      await state.storage.put("session-snapshot", target.snapshot);
+    });
+
+    const waitingTerminal = await openSocket("https://example.test/ws?client_id=terminal-device-1");
+    const readyPromise = nextMessage(waitingTerminal, "terminal.ready");
+    send(waitingTerminal, "terminal.register", {
+      terminal_id: "terminal-device-1",
+      terminal_label: "Tablet A",
+    });
+    const ready = await readyPromise;
+    expect(ready.payload.value).toMatch(/^escapebot:\/\/terminal\/[A-F0-9]{16}$/);
+    expect(ready.payload.reserved).toBe(false);
+
+    const reserved = await SELF.fetch("https://example.test/api/admin/terminal-reserve", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: "Bearer local-test-admin-token",
+      },
+      body: JSON.stringify({ terminal_id: "terminal-device-1", puzzle_id: "time_machine_finale" }),
+    });
+    expect(reserved.status).toBe(200);
+
+    const terminalRoutePromise = nextMessage(waitingTerminal, "terminal.route");
+    const attachResultPromise = nextMessage(player, "terminal.attach_result");
+    send(player, "qr.detected", { value: ready.payload.value });
+    expect((await attachResultPromise).payload).toMatchObject({ success: true, session_id: sessionId });
+    const terminalRoute = await terminalRoutePromise;
+    const routedTerminal = await openSocket(
+      `https://example.test/ws?session_id=${sessionId}&client_id=terminal-device-1&terminal_id=terminal-device-1&terminal_token=${terminalRoute.payload.attach_token}`,
+    );
+    const attachedPromise = nextMessage(routedTerminal, "terminal.attached");
+    const terminalStatePromise = nextMessage(routedTerminal, "game.state");
+    expect((await attachedPromise).payload.team_name).toBe("Terminal Team");
+    const terminalState = await terminalStatePromise;
+    expect((terminalState.payload.puzzles as Array<Record<string, any>>).find(
+      (puzzle) => puzzle.id === "time_machine_finale",
+    )?.terminal).toMatchObject({ device: true, assigned: true, attached: true });
+
+    const overview = await SELF.fetch("https://example.test/api/admin/overview", {
+      headers: { Authorization: "Bearer local-test-admin-token" },
+    });
+    const overviewPayload = await overview.json<Record<string, any>>();
+    expect(overviewPayload.teams.find((team: Record<string, unknown>) => team.session_id === sessionId)).toMatchObject({
+      player_count: 1,
+      registered_players: 1,
+      terminal_online: true,
+      terminal_assignment: "time_machine_finale",
+    });
+    expect(overviewPayload.terminals).toContainEqual(expect.objectContaining({
+      id: "terminal-device-1",
+      status: "attached",
+      puzzle_id: "time_machine_finale",
+    }));
+
+    await Promise.all([
+      closeSocket(waitingTerminal, "routed"),
+      closeSocket(routedTerminal, "connection lost"),
+    ]);
+    const replacementTerminal = await openSocket("https://example.test/ws?client_id=terminal-device-1");
+    const replacementReadyPromise = nextMessage(replacementTerminal, "terminal.ready");
+    send(replacementTerminal, "terminal.register", {
+      terminal_id: "terminal-device-1",
+      terminal_label: "Tablet A",
+    });
+    const replacementReady = await replacementReadyPromise;
+    expect(replacementReady.payload).toMatchObject({
+      reserved: true,
+      puzzle_id: "time_machine_finale",
+    });
+    const replacementRoutePromise = nextMessage(replacementTerminal, "terminal.route");
+    const replacementAttachResultPromise = nextMessage(player, "terminal.attach_result");
+    send(player, "qr.detected", { value: replacementReady.payload.value });
+    expect((await replacementAttachResultPromise).payload.success).toBe(true);
+    const replacementRoute = await replacementRoutePromise;
+    const replacementRoutedTerminal = await openSocket(
+      `https://example.test/ws?session_id=${sessionId}&client_id=terminal-device-1&terminal_id=terminal-device-1&terminal_token=${replacementRoute.payload.attach_token}`,
+    );
+    const replacementAttachedPromise = nextMessage(replacementRoutedTerminal, "terminal.attached");
+    const replacementStatePromise = nextMessage(replacementRoutedTerminal, "game.state");
+    await replacementAttachedPromise;
+    await replacementStatePromise;
+
+    await runInDurableObject(stub, async (instance, state) => {
+      const target = instance as unknown as {
+        snapshot: {
+          gameState: { checkpoint_states: Record<string, Record<string, unknown>> };
+        };
+      };
+      target.snapshot.gameState.checkpoint_states.time_machine_console = { status: "solved" };
+      await state.storage.put("session-snapshot", target.snapshot);
+    });
+    const releaseScheduledState = nextMessage(player, "game.state");
+    const releaseScheduledProgress = nextMessage(player, "scenario.progress");
+    player.send(JSON.stringify({
+      type: "player.message",
+      operation_id: "schedule-terminal-release",
+      payload: { text: "Terminál dokončen", channel: "general" },
+    }));
+    await releaseScheduledState;
+    await releaseScheduledProgress;
+    expect(await runInDurableObject(stub, (instance) => {
+      const target = instance as unknown as { snapshot: { terminalReleaseAt: number | null } };
+      return target.snapshot.terminalReleaseAt;
+    })).not.toBeNull();
+    const releasedPromise = nextMessage(replacementRoutedTerminal, "terminal.released");
+    expect(await runDurableObjectAlarm(stub)).toBe(true);
+    expect((await releasedPromise).payload.reason).toContain("dokončena");
+
+    const rereadyPromise = nextMessage(replacementTerminal, "terminal.ready");
+    send(replacementTerminal, "terminal.register", {
+      terminal_id: "terminal-device-1",
+      terminal_label: "Tablet A",
+    });
+    expect((await rereadyPromise).payload).toMatchObject({
+      reserved: true,
+      puzzle_id: "time_machine_finale",
+    });
+
+    const releasedOverview = await SELF.fetch("https://example.test/api/admin/overview", {
+      headers: { Authorization: "Bearer local-test-admin-token" },
+    });
+    const releasedPayload = await releasedOverview.json<Record<string, any>>();
+    expect(releasedPayload.terminals).toContainEqual(expect.objectContaining({
+      id: "terminal-device-1",
+      status: "free",
+      puzzle_id: "time_machine_finale",
+    }));
+    await Promise.all([
+      closeSocket(bootstrap, "done"),
+      closeSocket(player, "done"),
+      closeSocket(replacementTerminal, "done"),
+    ]);
   });
 
   it("authenticates admin exclusion and persists it for an offline registered player", async () => {

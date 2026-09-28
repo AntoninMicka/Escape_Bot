@@ -881,7 +881,7 @@
             <button type="button" onclick="window.open('/display','_blank','noopener')">VEŘEJNÁ OBRAZOVKA</button>
             <span id="admin-status">Čekám na spojení…</span>
         </div>
-        <nav class="admin-nav"><button class="active" onclick="openAdminTab('teams',this)">TÝMY</button><button onclick="openAdminTab('analytics',this)">ANALYTIKA</button><button id="admin-chats-tab-button" onclick="openAdminTab('chats',this)">CHATY <span id="admin-chat-unread" class="unread-badge"></span></button><button onclick="openAdminTab('display',this)">NÁSTĚNKA</button><button onclick="openAdminTab('leaderboard',this)">SÍŇ SLÁVY</button><button onclick="openAdminTab('scenarios',this)">EDITOR HER</button><button onclick="openAdminTab('tools',this)">NÁSTROJE</button></nav>
+        <nav class="admin-nav"><button class="active" onclick="openAdminTab('teams',this)">TÝMY</button><button onclick="openAdminTab('terminals',this)">TERMINÁLY</button><button onclick="openAdminTab('analytics',this)">ANALYTIKA</button><button id="admin-chats-tab-button" onclick="openAdminTab('chats',this)">CHATY <span id="admin-chat-unread" class="unread-badge"></span></button><button onclick="openAdminTab('display',this)">NÁSTĚNKA</button><button onclick="openAdminTab('leaderboard',this)">SÍŇ SLÁVY</button><button onclick="openAdminTab('scenarios',this)">EDITOR HER</button><button onclick="openAdminTab('tools',this)">NÁSTROJE</button></nav>
         <section id="admin-tab-teams" class="admin-section"><div id="admin-summary" class="admin-summary"></div><div class="admin-filters"><input id="admin-team-search" type="search" placeholder="Hledat tým, hráče nebo kód…" oninput="applyAdminFilters()"><select id="admin-activity-filter" onchange="applyAdminFilters()"><option value="ongoing" selected>Neukončené týmy</option><option value="all">Všechny stavy</option><option value="active">Aktivní</option><option value="suspicious">Podezřelé</option><option value="abandoned">Opuštěné</option><option value="completed">Dokončené</option><option value="ended">Ukončené bez dokončení</option></select><select id="admin-online-filter" onchange="applyAdminFilters()"><option value="all">Online i offline</option><option value="online">Alespoň jeden online</option><option value="offline">Všichni offline</option></select></div><div id="admin-team-grid" class="admin-grid"></div></section>
         <section id="admin-tab-managed" class="admin-section hidden"><h2>[ REŽIM SPOUŠTĚNÍ ]</h2><div class="admin-toolbar"><button id="admin-mode-free" onclick="setLaunchMode('free')">VOLNÝ REŽIM</button><button id="admin-mode-managed" onclick="setLaunchMode('managed')">ŘÍZENÝ REŽIM</button></div><p>Přepnutí zachová všechny existující týmy i jejich pořadí. Řízený režim zakáže hráčům zakládat a spouštět hry.</p><h2>[ ŘÍZENÉ LOBBY ]</h2><div class="admin-toolbar"><input id="admin-new-team-name" maxlength="32" placeholder="Název nového týmu"><button onclick="createManagedTeam()">ZALOŽIT TÝM</button></div><div id="admin-managed-lights"></div><div id="admin-managed-grid" class="admin-grid"></div></section>
         <section id="admin-tab-scenario" class="admin-section hidden"><h2>[ NÁHLED A NASTAVENÍ SCÉNÁŘE ]</h2><p>Určete, na jakých zařízeních je každá hádanka hratelná. Změna neovlivní pořadí checkpointů.</p><div id="admin-scenario-grid" class="admin-grid"></div><button onclick="saveScenarioPlayModes()" style="width:100%;margin-top:14px">ULOŽIT ZPŮSOB HRANÍ</button></section>
@@ -1274,6 +1274,9 @@
         }
         const terminalDeviceLabel = terminalModeRequested ? `Terminál ${terminalDeviceId.slice(-4).toUpperCase()}` : '';
         let terminalAttached = false;
+        let terminalRoutedSessionId = '';
+        let terminalRouteToken = '';
+        let terminalRoutingReconnect = false;
         let terminalAmbientTimer = null;
         let terminalAmbientLastSignal = 0;
         let terminalAssignedPuzzleId = '';
@@ -2319,14 +2322,31 @@
             }).join('') || '<p>Žádný terminál není online. Na tabletu otevřete <strong>/terminal</strong>.</p>';
         }
 
+        async function updateCloudflareTerminalReservation(terminalId, puzzleId) {
+            const token = adminToken();
+            if (!token) { showNotification('Zadejte administrátorské heslo.', 'error'); return; }
+            const response = await fetch('/api/admin/terminal-reserve', {
+                method:'POST',
+                headers:{'Content-Type':'application/json', Authorization:`Bearer ${token}`},
+                body:JSON.stringify({terminal_id:terminalId, puzzle_id:puzzleId}),
+            });
+            const payload = await response.json().catch(() => ({}));
+            if (!response.ok) throw new Error(payload.error === 'terminal_attached' ? 'Připojený terminál nelze přerezervovat.' : (payload.error || 'Rezervaci se nepodařilo uložit.'));
+            await loadAdminOverview();
+        }
+
         function reserveAdminTerminal(terminalId) {
             const value = document.getElementById(`terminal-reservation-${terminalId}`)?.value || '';
             if (!value) { showNotification('Vyberte hádanku.', 'error'); return; }
-            sendAdmin('admin.terminal_reserve', {terminal_id:terminalId, puzzle_id:value});
+            if (latestAdminPayload?.cloudflare_limited) {
+                updateCloudflareTerminalReservation(terminalId, value).catch(error => showNotification(error.message, 'error'));
+            } else sendAdmin('admin.terminal_reserve', {terminal_id:terminalId, puzzle_id:value});
         }
 
         function clearAdminTerminalReservation(terminalId) {
-            sendAdmin('admin.terminal_reserve', {terminal_id:terminalId, puzzle_id:''});
+            if (latestAdminPayload?.cloudflare_limited) {
+                updateCloudflareTerminalReservation(terminalId, '').catch(error => showNotification(error.message, 'error'));
+            } else sendAdmin('admin.terminal_reserve', {terminal_id:terminalId, puzzle_id:''});
         }
 
         function resolveAdminCheckpoint(sessionId, checkpointId) {
@@ -2357,6 +2377,7 @@
                 renderAdminChats(latestAdminPayload.teams || []);
             }
             if (name === 'analytics') renderAdminAnalytics();
+            if (name === 'terminals') renderTerminalAssignments();
         }
 
         function startAdminSpectate(sessionId) { sendAdmin('admin.spectate_start', {session_id:sessionId}); }
@@ -2631,6 +2652,7 @@
             renderAdminChats(allTeams);
             renderAdminAnalytics();
             renderScenarioEditorCatalog();
+            renderTerminalAssignments();
             if (!teams.length) {
                 grid.innerHTML = `<p>${allTeams.length ? 'Filtrům neodpovídá žádný tým.' : 'Nejsou evidované žádné týmy.'}</p>`;
                 return;
@@ -3309,8 +3331,15 @@
             if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) return;
             const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
             const routeParams = new URLSearchParams({client_id:clientId});
-            const targetSessionId = routedSessionId || ((!requestedJoinCode && !requestedRecoveryToken) ? savedLobby?.session_id : '');
+            if (terminalModeRequested) routeParams.set('client_id', terminalDeviceId);
+            const targetSessionId = terminalModeRequested
+                ? terminalRoutedSessionId
+                : (routedSessionId || ((!requestedJoinCode && !requestedRecoveryToken) ? savedLobby?.session_id : ''));
             if (targetSessionId) routeParams.set('session_id', targetSessionId);
+            if (terminalRoutedSessionId && terminalRouteToken) {
+                routeParams.set('terminal_id', terminalDeviceId);
+                routeParams.set('terminal_token', terminalRouteToken);
+            }
             ws = new WebSocket(`${wsProtocol}//${window.location.host}/ws?${routeParams}`);
 
             ws.onopen = () => {
@@ -3325,9 +3354,9 @@
                     if (adminToken()) loadAdminOverview();
                     clearInterval(adminRefreshTimer);
                     adminRefreshTimer = setInterval(() => {
-                        if (adminToken() && ['teams','display'].includes(activeAdminTab) && !document.getElementById('admin-overlay').classList.contains('hidden')) loadAdminOverview();
+                        if (adminToken() && ['teams','terminals','display'].includes(activeAdminTab) && !document.getElementById('admin-overlay').classList.contains('hidden')) loadAdminOverview();
                     }, 5000);
-                } else if (terminalModeRequested) {
+                } else if (terminalModeRequested && !terminalRoutedSessionId) {
                     registerTerminal();
                 } else {
                     ws.send(JSON.stringify({ type: 'leaderboard.get', payload: {} }));
@@ -3358,6 +3387,12 @@
                     clearInterval(terminalStatusTimer);
                     terminalStatusTimer = setInterval(requestTerminalStatus, 10000);
                 }
+                else if (msg.type === 'terminal.route') {
+                    terminalRoutedSessionId = msg.payload.session_id || '';
+                    terminalRouteToken = msg.payload.attach_token || '';
+                    terminalRoutingReconnect = true;
+                    if (ws && ws.readyState === WebSocket.OPEN) ws.close(1000, 'Přechod do herní relace');
+                }
                 else if (msg.type === 'terminal.status') {
                     updateTerminalEligibility(msg.payload);
                 }
@@ -3366,6 +3401,7 @@
                 }
                 else if (msg.type === 'terminal.attached') {
                     terminalAttached = true;
+                    sessionId = msg.payload.session_id || terminalRoutedSessionId;
                     resetTerminalMiniGameUiState();
                     terminalAssignmentPendingReveal = true;
                     clearTimeout(terminalPairingRefreshTimer);
@@ -3378,11 +3414,15 @@
                 }
                 else if (msg.type === 'terminal.released') {
                     terminalAttached = false;
+                    sessionId = '';
+                    terminalRoutedSessionId = '';
+                    terminalRouteToken = '';
+                    terminalRoutingReconnect = false;
                     terminalAssignedPuzzleId = '';
                     terminalAssignmentPendingReveal = false;
                     document.body.classList.remove('terminal-attached', 'terminal-puzzle-active');
                     showNotification(msg.payload.reason || 'Terminál je znovu volný.', 'success');
-                    registerTerminal();
+                    if (ws && ws.readyState === WebSocket.OPEN) ws.close(1000, 'Terminál uvolněn');
                 }
                 else if (msg.type === 'terminal.attach_result') {
                     qrPendingValue = '';
@@ -3877,6 +3917,14 @@
             };
 
             ws.onclose = (e) => {
+                if (terminalModeRequested && terminalRoutingReconnect) {
+                    terminalRoutingReconnect = false;
+                } else if (terminalModeRequested && terminalRoutedSessionId) {
+                    terminalAttached = false;
+                    sessionId = '';
+                    terminalRoutedSessionId = '';
+                    terminalRouteToken = '';
+                }
                 console.warn("Spojení ztraceno. Pokus o znovupřipojení za 3 sekundy...", e.reason);
                 statusIndicator.classList.remove('online');
                 document.getElementById('typing-indicator').style.display = 'none';

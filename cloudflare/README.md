@@ -97,8 +97,12 @@ následná správná textová odpověď. `finale.activate` ověřuje úplnou tra
 inventář, servisní příznaky, rok, čas a pořadí modulů; při úspěchu uloží konečné
 hodnocení, dokončení hry a rozešle finální efekt. Cloudový admin po ověření
 tokenu načte z lobby adresáře týmy, jejich hráče, online stav, skóre, postup a
-stav podporovaných týmových miniher. Terminálové rezervace, eventový admin
-overview a další správcovské operace ještě čekají na další části CF-04 a CF-05.
+stav podporovaných týmových miniher. Samostatný terminál se registruje v lobby
+adresáři, správce jej rezervuje pro hádanku a první způsobilý tým jej
+jednorázovým QR přesměruje do svého `GameSession`. Terminál nezvyšuje počet
+hráčů a po dokončení, odpojení nebo nové registraci se bezpečně uvolní při
+zachování rezervace. Eventový admin overview a další správcovské operace ještě
+čekají na další části CF-04 a CF-05.
 Samostatné API už dovoluje správci vyřadit registrovaného hráče z aktivní
 `line_game` nebo `triad` i bez jeho WebSocketového připojení. Produkční deadline
 už používá Durable Object alarm: po jednorázovém

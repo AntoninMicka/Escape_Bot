@@ -67,7 +67,10 @@ Velikost týmu upravuje skóre podle nejvyššího počtu registrovaných zaří
 
 Stránka `/terminal` pošle `terminal.register` a dostane jednorázový `terminal.ready` s QR hodnotou `escapebot://terminal/<code>`. QR načte telefon už připojeného hráče běžnou zprávou `qr.detected`. Server terminál naváže na stejnou relaci a identitu tohoto hráče, ale nepřidá jej do `Lobby.players`, nezvýší `max_players` a nezmění týmovou bodovou úpravu.
 
-Globální provozní nastavení `terminal_puzzle_ids` určuje katalog hádanek, které Game Master smí na terminál poslat. Výchozí katalog obsahuje pouze `time_machine_finale`; mění se centrálně zprávou `admin.terminal_catalog`.
+Rezervace váže pouze zařízení na hádanku, nikdy zařízení na konkrétní tým. V
+Cloudflare runtime ji adresář Durable Objectů spravuje autentizovaným API
+`POST /api/admin/terminal-reserve`; párovací i přesměrovací tokeny jsou
+jednorázové a v úložišti jsou pouze jejich SHA-256 otisky.
 
 Scénář může zároveň určit výchozí prezentační režim:
 
@@ -75,7 +78,12 @@ Scénář může zároveň určit výchozí prezentační režim:
 "terminal": {"mode": "exclusive", "label": "Finální konzole"}
 ```
 
-Po spárování terminál nic nevybírá a čeká na centrální příkaz. Administrace u připojeného týmu nabídne pouze hádanky z globálního katalogu, jejichž checkpoint je právě ve stavu `found`; vybranou jedinou hádanku odešle zprávou `admin.terminal_assign`. Režim `exclusive` potom na telefonech ponechá jen pokyn přejít k terminálu. Nové spárování předchozí přidělení zruší, takže o obsahu obrazovky vždy rozhoduje Game Master.
+První tým, který načte QR a má rezervovanou hádanku právě dostupnou, terminál
+převezme. Terminálový QR podle potřeby sám aktivuje checkpoint. Režim
+`exclusive` potom na telefonech ponechá jen pokyn přejít k terminálu. Dokončení
+hádanky terminál uvolní po prezentační prodlevě; odpojení nebo nová registrace
+jej uvolní okamžitě. Ve všech případech rezervace `terminál → hádanka` zůstává
+zachována pro další tým.
 
 ### `client.hello`
 

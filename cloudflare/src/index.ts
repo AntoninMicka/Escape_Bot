@@ -23,7 +23,9 @@ interface Env {
 interface SocketAttachment {
   clientId: string;
   connectedAt: string;
-  role: "bootstrap" | "session";
+  role: "bootstrap" | "session" | "terminal_waiting" | "terminal";
+  terminalId?: string;
+  terminalLabel?: string;
 }
 
 interface ProtocolMessage {
@@ -54,7 +56,7 @@ interface LobbySnapshot {
 }
 
 interface SessionSnapshot {
-  schemaVersion: 3;
+  schemaVersion: 4;
   sessionId: string;
   revision: number;
   lobby: LobbySnapshot;
@@ -65,6 +67,7 @@ interface SessionSnapshot {
   identityRecoveryReceipts: Record<string, Record<string, unknown>>;
   deadlineAt: number | null;
   deadlineKind: "game" | "spike" | null;
+  terminalReleaseAt: number | null;
   updatedAt: string;
 }
 
@@ -74,12 +77,39 @@ interface RecoveryTokenRecord {
   expiresAt: number;
 }
 
+interface TerminalDeviceRecord {
+  id: string;
+  label: string;
+  status: "free" | "routing" | "attached";
+  puzzleId: string;
+  sessionId: string;
+  controllerId: string;
+  online: boolean;
+  updatedAt: string;
+}
+
+interface TerminalPairingRecord {
+  terminalId: string;
+  expiresAt: number;
+}
+
+interface TerminalRouteRecord {
+  terminalId: string;
+  sessionId: string;
+  controllerId: string;
+  puzzleId: string;
+  expiresAt: number;
+}
+
 interface DirectorySnapshot {
-  schemaVersion: 2;
+  schemaVersion: 3;
   joinCodes: Record<string, string>;
   teamKeys: Record<string, string>;
   creatorKeys: Record<string, string>;
   recoveryTokens: Record<string, RecoveryTokenRecord>;
+  terminalDevices: Record<string, TerminalDeviceRecord>;
+  terminalPairings: Record<string, TerminalPairingRecord>;
+  terminalRoutes: Record<string, TerminalRouteRecord>;
 }
 
 interface RuntimeGame {
@@ -98,6 +128,7 @@ const DIRECTORY_OBJECT_NAME = "__escape_bot_lobby_directory__";
 const SESSION_ID_PATTERN = /^[A-Za-z0-9_-]{8,128}$/;
 const CLIENT_ID_PATTERN = /^[A-Za-z0-9_-]{1,128}$/;
 const JOIN_CODE_PATTERN = /^[A-F0-9]{8}$/;
+const TERMINAL_CODE_PATTERN = /^[A-F0-9]{16}$/;
 
 function json(data: unknown, status = 200): Response {
   const response = Response.json(data, { status });
@@ -124,7 +155,7 @@ function protocolMessage(
 
 function defaultSnapshot(sessionId = ""): SessionSnapshot {
   return {
-    schemaVersion: 3,
+    schemaVersion: 4,
     sessionId,
     revision: 0,
     lobby: {
@@ -146,6 +177,7 @@ function defaultSnapshot(sessionId = ""): SessionSnapshot {
     identityRecoveryReceipts: {},
     deadlineAt: null,
     deadlineKind: null,
+    terminalReleaseAt: null,
     updatedAt: new Date(0).toISOString(),
   };
 }
@@ -161,7 +193,7 @@ function normalizeSnapshot(
   return {
     ...fallback,
     ...stored,
-    schemaVersion: 3,
+    schemaVersion: 4,
     lobby: { ...fallback.lobby, ...stored.lobby },
     gameState: { ...fallback.gameState, ...stored.gameState },
     scenarioProgress: { ...fallback.scenarioProgress, ...stored.scenarioProgress },
@@ -169,12 +201,21 @@ function normalizeSnapshot(
 }
 
 function defaultDirectory(): DirectorySnapshot {
-  return { schemaVersion: 2, joinCodes: {}, teamKeys: {}, creatorKeys: {}, recoveryTokens: {} };
+  return {
+    schemaVersion: 3,
+    joinCodes: {},
+    teamKeys: {},
+    creatorKeys: {},
+    recoveryTokens: {},
+    terminalDevices: {},
+    terminalPairings: {},
+    terminalRoutes: {},
+  };
 }
 
 function normalizeDirectory(stored: Partial<DirectorySnapshot> | undefined): DirectorySnapshot {
   const fallback = defaultDirectory();
-  return stored ? { ...fallback, ...stored, schemaVersion: 2 } : fallback;
+  return stored ? { ...fallback, ...stored, schemaVersion: 3 } : fallback;
 }
 
 function cleanText(value: unknown, maximum: number): string {
@@ -228,6 +269,27 @@ function randomRecoveryToken(): string {
     .map((byte) => byte.toString(16).padStart(2, "0"))
     .join("")
     .toUpperCase();
+}
+
+function terminalPuzzleAvailable(
+  scenario: ScenarioDocument,
+  state: GameStateDocument,
+  puzzleId: string,
+): boolean {
+  const flags = objectRecord(state.flags);
+  if (flags.game_completed || flags.administratively_ended) return false;
+  const puzzle = objectRecord(objectRecord(scenario.puzzles)[puzzleId]);
+  const terminal = objectRecord(puzzle.terminal);
+  const checkpointId = String(puzzle.checkpoint_id || "");
+  const checkpoint = objectRecord(objectRecord(scenario.checkpoints)[checkpointId]);
+  const checkpointState = objectRecord(objectRecord(state.checkpoint_states)[checkpointId]);
+  if (!checkpointId || !Object.keys(checkpoint).length || String(terminal.mode || "phones") === "phones") return false;
+  if (checkpointState.status === "solved") return false;
+  if (checkpointState.status === "found") return true;
+  if (checkpoint.requires_phase && String(state.phase || "") !== String(checkpoint.requires_phase)) return false;
+  return (Array.isArray(checkpoint.requires) ? checkpoint.requires : []).every(
+    (required) => objectRecord(objectRecord(state.checkpoint_states)[String(required)]).status === "solved",
+  );
 }
 
 async function authorizeAdmin(request: Request, env: Env): Promise<Response | null> {
@@ -288,6 +350,64 @@ export class GameSession extends DurableObject<Env> {
       const payload = await request.json<Record<string, unknown>>();
       return this.validatePlayerRecovery(payload);
     }
+    if (url.pathname === "/internal/admin/terminal-reserve" && request.method === "POST") {
+      if (request.headers.get("X-EscapeBot-Internal-Admin") !== "1") {
+        return json({ error: "not_found" }, 404);
+      }
+      const payload = await request.json<Record<string, unknown>>();
+      return this.serializeDirectory(() => this.reserveTerminal(payload));
+    }
+    if (url.pathname === "/internal/terminal/claim" && request.method === "POST") {
+      if (request.headers.get("X-EscapeBot-Internal-Terminal") !== "1") {
+        return json({ error: "not_found" }, 404);
+      }
+      const payload = await request.json<Record<string, unknown>>();
+      return this.serializeDirectory(() => this.claimTerminal(payload));
+    }
+    if (url.pathname === "/internal/terminal/consume-route" && request.method === "POST") {
+      if (request.headers.get("X-EscapeBot-Internal-Terminal") !== "1") {
+        return json({ error: "not_found" }, 404);
+      }
+      const payload = await request.json<Record<string, unknown>>();
+      return this.serializeDirectory(() => this.consumeTerminalRoute(payload));
+    }
+    if (url.pathname === "/internal/terminal/dispatch-route" && request.method === "POST") {
+      if (request.headers.get("X-EscapeBot-Internal-Terminal") !== "1") {
+        return json({ error: "not_found" }, 404);
+      }
+      const payload = await request.json<Record<string, unknown>>();
+      return this.serializeDirectory(() => this.dispatchTerminalRoute(payload));
+    }
+    if (url.pathname === "/internal/terminal/released" && request.method === "POST") {
+      if (request.headers.get("X-EscapeBot-Internal-Terminal") !== "1") {
+        return json({ error: "not_found" }, 404);
+      }
+      const payload = await request.json<Record<string, unknown>>();
+      return this.serializeDirectory(() => this.markTerminalReleased(payload));
+    }
+    if (url.pathname === "/internal/terminal/release" && request.method === "POST") {
+      if (request.headers.get("X-EscapeBot-Internal-Terminal") !== "1") {
+        return json({ error: "not_found" }, 404);
+      }
+      const payload = await request.json<Record<string, unknown>>();
+      await this.serializeState(() => this.releaseTerminalById(
+        cleanText(payload.terminal_id, 128),
+        "Terminál byl znovu zaregistrován.",
+        false,
+      ));
+      return json({ success: true });
+    }
+    if (url.pathname === "/internal/terminal/available" && request.method === "POST") {
+      if (request.headers.get("X-EscapeBot-Internal-Terminal") !== "1") {
+        return json({ error: "not_found" }, 404);
+      }
+      const payload = await request.json<Record<string, unknown>>();
+      if (!this.snapshot.lobby.started || objectRecord(this.snapshot.gameState.flags).game_completed) {
+        return json({ available: false });
+      }
+      const scenario = await this.loadScenario(this.snapshot.lobby.scenarioId);
+      return json({ available: terminalPuzzleAvailable(scenario, this.snapshot.gameState, cleanText(payload.puzzle_id, 128)) });
+    }
     if (url.pathname === "/internal/lobby/recover" && request.method === "POST") {
       if (request.headers.get("X-EscapeBot-Internal-Recovery") !== "1") {
         return json({ error: "not_found" }, 404);
@@ -314,9 +434,25 @@ export class GameSession extends DurableObject<Env> {
       return json({ error: "websocket_upgrade_required" }, 426);
     }
 
-    const clientId = url.searchParams.get("client_id") ?? "";
+    let clientId = url.searchParams.get("client_id") ?? "";
     const bootstrap = request.headers.get("X-EscapeBot-Bootstrap") === "1";
     const sessionId = request.headers.get("X-EscapeBot-Session-Id") ?? "";
+    const terminalId = cleanText(url.searchParams.get("terminal_id"), 128);
+    const terminalToken = cleanText(url.searchParams.get("terminal_token"), 64).toUpperCase();
+    let terminalRoute: Record<string, unknown> | null = null;
+    if (!bootstrap && terminalId && terminalToken) {
+      const response = await this.runtimeEnv.GAME_SESSIONS.getByName(DIRECTORY_OBJECT_NAME).fetch(
+        "https://internal/internal/terminal/consume-route",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "X-EscapeBot-Internal-Terminal": "1" },
+          body: JSON.stringify({ terminal_id: terminalId, session_id: sessionId, token: terminalToken }),
+        },
+      );
+      terminalRoute = await response.json<Record<string, unknown>>();
+      if (!response.ok) return json(terminalRoute, response.status);
+      clientId = String(terminalRoute.controller_id || "");
+    }
     if (!CLIENT_ID_PATTERN.test(clientId) || (!bootstrap && !SESSION_ID_PATTERN.test(sessionId))) {
       return json({ error: "invalid_session_or_client_id" }, 400);
     }
@@ -334,7 +470,11 @@ export class GameSession extends DurableObject<Env> {
     const attachment: SocketAttachment = {
       clientId,
       connectedAt: new Date().toISOString(),
-      role: bootstrap ? "bootstrap" : "session",
+      role: terminalRoute ? "terminal" : bootstrap ? "bootstrap" : "session",
+      ...(terminalRoute ? {
+        terminalId,
+        terminalLabel: String(terminalRoute.terminal_label || terminalId),
+      } : {}),
     };
     server.serializeAttachment(attachment);
     this.ctx.acceptWebSocket(server);
@@ -347,6 +487,9 @@ export class GameSession extends DurableObject<Env> {
       }),
     );
     if (bootstrap) await this.sendRuntimeSettings(server);
+    if (terminalRoute) {
+      await this.attachTerminal(server, attachment, String(terminalRoute.puzzle_id || ""));
+    }
 
     return new Response(null, { status: 101, webSocket: client });
   }
@@ -371,6 +514,24 @@ export class GameSession extends DurableObject<Env> {
 
     if (attachment.role === "bootstrap") {
       await this.handleBootstrapMessage(socket, attachment, message);
+      return;
+    }
+
+    if (attachment.role === "terminal_waiting") {
+      if (message.type === "terminal.register") {
+        await this.registerTerminal(socket, attachment, message.payload ?? {});
+      } else if (message.type === "terminal.status") {
+        await this.sendTerminalStatus(socket, attachment);
+      }
+      return;
+    }
+
+    if (message.type === "qr.detected" && String(message.payload?.value || "").toLowerCase().startsWith("escapebot://terminal/")) {
+      if (attachment.role !== "session") {
+        this.send(socket, "terminal.attach_result", { success: false, reason: "Terminál může odemknout pouze hráč." });
+        return;
+      }
+      await this.handleTerminalClaim(socket, attachment, message.payload ?? {});
       return;
     }
 
@@ -433,6 +594,14 @@ export class GameSession extends DurableObject<Env> {
     attachment: SocketAttachment,
     message: ProtocolMessage,
   ): Promise<void> {
+    if (message.type === "terminal.register") {
+      await this.serializeDirectory(() => this.registerTerminal(socket, attachment, message.payload ?? {}));
+      return;
+    }
+    if (message.type === "terminal.status" && attachment.role === "terminal_waiting") {
+      await this.sendTerminalStatus(socket, attachment);
+      return;
+    }
     if (message.type === "leaderboard.get") {
       this.send(socket, "leaderboard.update", { entries: [] });
       return;
@@ -642,6 +811,262 @@ export class GameSession extends DurableObject<Env> {
       mode: String(result.mode || "team"),
       join_code: result.join_code ?? null,
     });
+  }
+
+  private async registerTerminal(
+    socket: WebSocket,
+    attachment: SocketAttachment,
+    payload: Record<string, unknown>,
+  ): Promise<void> {
+    const terminalId = cleanText(payload.terminal_id, 128);
+    const terminalLabel = cleanText(payload.terminal_label || `Terminál ${terminalId.slice(-4)}`, 64);
+    if (!CLIENT_ID_PATTERN.test(terminalId)) {
+      this.send(socket, "terminal.status", { reserved: false, reason: "Neplatné ID terminálu." });
+      return;
+    }
+    const directory = normalizeDirectory(await this.ctx.storage.get<DirectorySnapshot>(DIRECTORY_KEY));
+    const previous = directory.terminalDevices[terminalId];
+    if (previous?.sessionId && SESSION_ID_PATTERN.test(previous.sessionId)) {
+      await this.runtimeEnv.GAME_SESSIONS.getByName(previous.sessionId).fetch(
+        "https://internal/internal/terminal/release",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "X-EscapeBot-Internal-Terminal": "1" },
+          body: JSON.stringify({ terminal_id: terminalId }),
+        },
+      );
+    }
+    for (const candidate of this.ctx.getWebSockets()) {
+      if (candidate === socket) continue;
+      const existing = candidate.deserializeAttachment() as SocketAttachment | null;
+      if (existing?.terminalId === terminalId) candidate.close(4003, "Terminal registered elsewhere");
+    }
+    for (const [digest, pairing] of Object.entries(directory.terminalPairings)) {
+      if (pairing.terminalId === terminalId || pairing.expiresAt <= Date.now()) delete directory.terminalPairings[digest];
+    }
+    for (const [digest, route] of Object.entries(directory.terminalRoutes)) {
+      if (route.terminalId === terminalId || route.expiresAt <= Date.now()) delete directory.terminalRoutes[digest];
+    }
+    const code = randomRecoveryToken();
+    const expiresAt = Date.now() + 10 * 60_000;
+    directory.terminalPairings[await secretDigest(code)] = { terminalId, expiresAt };
+    directory.terminalDevices[terminalId] = {
+      id: terminalId,
+      label: terminalLabel,
+      status: "free",
+      puzzleId: previous?.puzzleId || "",
+      sessionId: "",
+      controllerId: "",
+      online: true,
+      updatedAt: new Date().toISOString(),
+    };
+    await this.ctx.storage.put(DIRECTORY_KEY, directory);
+    const nextAttachment: SocketAttachment = {
+      ...attachment,
+      role: "terminal_waiting",
+      terminalId,
+      terminalLabel,
+    };
+    socket.serializeAttachment(nextAttachment);
+    const status = await this.terminalStatus(directory, terminalId);
+    this.send(socket, "terminal.ready", {
+      code,
+      value: `escapebot://terminal/${code}`,
+      expires_in: 600,
+      ...status,
+    });
+  }
+
+  private async sendTerminalStatus(socket: WebSocket, attachment: SocketAttachment): Promise<void> {
+    const directory = normalizeDirectory(await this.ctx.storage.get<DirectorySnapshot>(DIRECTORY_KEY));
+    this.send(socket, "terminal.status", await this.terminalStatus(directory, attachment.terminalId || ""));
+  }
+
+  private async terminalStatus(directory: DirectorySnapshot, terminalId: string): Promise<Record<string, unknown>> {
+    const device = directory.terminalDevices[terminalId];
+    const puzzleId = device?.puzzleId || "";
+    let puzzleTitle = puzzleId;
+    let eligibleTeamCount = 0;
+    if (puzzleId) {
+      const games = await this.loadRuntimeGames();
+      for (const game of games) {
+        const scenario = await this.loadScenario(game.id);
+        const puzzle = objectRecord(objectRecord(scenario.puzzles)[puzzleId]);
+        if (puzzle.title) puzzleTitle = String(puzzle.title);
+      }
+      const sessionIds = [...new Set([...Object.values(directory.teamKeys), ...Object.values(directory.creatorKeys)])];
+      const availability = await Promise.all(sessionIds.filter((id) => SESSION_ID_PATTERN.test(id)).map(async (sessionId) => {
+        try {
+          const response = await this.runtimeEnv.GAME_SESSIONS.getByName(sessionId).fetch(
+            "https://internal/internal/terminal/available",
+            {
+              method: "POST",
+              headers: { "Content-Type": "application/json", "X-EscapeBot-Internal-Terminal": "1" },
+              body: JSON.stringify({ puzzle_id: puzzleId }),
+            },
+          );
+          return response.ok && Boolean((await response.json<Record<string, unknown>>()).available);
+        } catch {
+          return false;
+        }
+      }));
+      eligibleTeamCount = availability.filter(Boolean).length;
+    }
+    return { reserved: Boolean(puzzleId), puzzle_id: puzzleId, puzzle_title: puzzleTitle, eligible_team_count: eligibleTeamCount };
+  }
+
+  private async reserveTerminal(payload: Record<string, unknown>): Promise<Response> {
+    const terminalId = cleanText(payload.terminal_id, 128);
+    const puzzleId = cleanText(payload.puzzle_id, 128);
+    const directory = normalizeDirectory(await this.ctx.storage.get<DirectorySnapshot>(DIRECTORY_KEY));
+    const device = directory.terminalDevices[terminalId];
+    if (!device) return json({ error: "terminal_not_found" }, 404);
+    if (device.status !== "free") return json({ error: "terminal_attached" }, 409);
+    const catalog = await this.terminalCatalog();
+    if (puzzleId && !catalog.some((puzzle) => puzzle.id === puzzleId)) return json({ error: "invalid_puzzle_id" }, 400);
+    device.puzzleId = puzzleId;
+    device.updatedAt = new Date().toISOString();
+    await this.ctx.storage.put(DIRECTORY_KEY, directory);
+    for (const socket of this.ctx.getWebSockets()) {
+      const attachment = socket.deserializeAttachment() as SocketAttachment | null;
+      if (attachment?.role === "terminal_waiting" && attachment.terminalId === terminalId && socket.readyState === WebSocket.OPEN) {
+        this.send(socket, "terminal.status", await this.terminalStatus(directory, terminalId));
+      }
+    }
+    return json({ success: true, terminal_id: terminalId, puzzle_id: puzzleId });
+  }
+
+  private async terminalCatalog(): Promise<Array<{ id: string; title: string; play_mode: string }>> {
+    const catalog = new Map<string, { id: string; title: string; play_mode: string }>();
+    for (const game of await this.loadRuntimeGames()) {
+      const scenario = await this.loadScenario(game.id);
+      for (const [id, value] of Object.entries(objectRecord(scenario.puzzles))) {
+        const puzzle = objectRecord(value);
+        const terminal = objectRecord(puzzle.terminal);
+        const mode = String(terminal.mode || "phones");
+        if (mode === "phones") continue;
+        catalog.set(id, { id, title: String(puzzle.title || id), play_mode: mode });
+      }
+    }
+    return [...catalog.values()].sort((left, right) => left.title.localeCompare(right.title, "cs"));
+  }
+
+  private async claimTerminal(payload: Record<string, unknown>): Promise<Response> {
+    const code = cleanText(payload.code, 64).toUpperCase();
+    const sessionId = cleanText(payload.session_id, 128);
+    const controllerId = cleanText(payload.controller_id, 128);
+    const eligible = new Set(Array.isArray(payload.eligible_puzzle_ids) ? payload.eligible_puzzle_ids.map(String) : []);
+    if (!TERMINAL_CODE_PATTERN.test(code) || !SESSION_ID_PATTERN.test(sessionId) || !CLIENT_ID_PATTERN.test(controllerId)) {
+      return json({ error: "invalid_terminal_pairing" }, 400);
+    }
+    const directory = normalizeDirectory(await this.ctx.storage.get<DirectorySnapshot>(DIRECTORY_KEY));
+    const now = Date.now();
+    for (const [digest, pairing] of Object.entries(directory.terminalPairings)) {
+      if (pairing.expiresAt <= now) delete directory.terminalPairings[digest];
+    }
+    const digest = await secretDigest(code);
+    const pairing = directory.terminalPairings[digest];
+    const device = pairing ? directory.terminalDevices[pairing.terminalId] : null;
+    if (!pairing || !device || pairing.expiresAt <= now || device.status !== "free") {
+      await this.ctx.storage.put(DIRECTORY_KEY, directory);
+      return json({ error: "expired", reason: "Párovací QR terminálu už není platný. Na tabletu vytvořte nový." }, 410);
+    }
+    if (!device.puzzleId || !eligible.has(device.puzzleId)) {
+      return json({ error: "puzzle_unavailable", reason: "Tento terminál je vyhrazen jiné hádance, než má váš tým právě dostupnou." }, 409);
+    }
+    const token = randomRecoveryToken();
+    directory.terminalRoutes[await secretDigest(token)] = {
+      terminalId: device.id,
+      sessionId,
+      controllerId,
+      puzzleId: device.puzzleId,
+      expiresAt: now + 60_000,
+    };
+    delete directory.terminalPairings[digest];
+    device.status = "routing";
+    device.online = true;
+    device.sessionId = sessionId;
+    device.controllerId = controllerId;
+    device.updatedAt = new Date().toISOString();
+    await this.ctx.storage.put(DIRECTORY_KEY, directory);
+    return json({
+      success: true,
+      terminal_id: device.id,
+      puzzle_id: device.puzzleId,
+      terminal_label: device.label,
+      attach_token: token,
+    });
+  }
+
+  private async dispatchTerminalRoute(payload: Record<string, unknown>): Promise<Response> {
+    const token = cleanText(payload.token, 64).toUpperCase();
+    const sessionId = cleanText(payload.session_id, 128);
+    if (!TERMINAL_CODE_PATTERN.test(token) || !SESSION_ID_PATTERN.test(sessionId)) {
+      return json({ error: "invalid_terminal_route" }, 400);
+    }
+    const directory = normalizeDirectory(await this.ctx.storage.get<DirectorySnapshot>(DIRECTORY_KEY));
+    const route = directory.terminalRoutes[await secretDigest(token)];
+    const device = route ? directory.terminalDevices[route.terminalId] : null;
+    if (!route || !device || route.expiresAt <= Date.now() || route.sessionId !== sessionId) {
+      return json({ error: "invalid_terminal_route" }, 410);
+    }
+    const socket = this.ctx.getWebSockets().find((candidate) => {
+      const attachment = candidate.deserializeAttachment() as SocketAttachment | null;
+      return attachment?.role === "terminal_waiting" && attachment.terminalId === device.id && candidate.readyState === WebSocket.OPEN;
+    });
+    if (!socket) {
+      delete directory.terminalRoutes[await secretDigest(token)];
+      device.status = "free";
+      device.sessionId = "";
+      device.controllerId = "";
+      device.online = false;
+      await this.ctx.storage.put(DIRECTORY_KEY, directory);
+      return json({ error: "terminal_offline" }, 410);
+    }
+    this.send(socket, "terminal.route", { session_id: sessionId, terminal_id: device.id, attach_token: token });
+    return json({ success: true });
+  }
+
+  private async consumeTerminalRoute(payload: Record<string, unknown>): Promise<Response> {
+    const terminalId = cleanText(payload.terminal_id, 128);
+    const sessionId = cleanText(payload.session_id, 128);
+    const token = cleanText(payload.token, 64).toUpperCase();
+    if (!TERMINAL_CODE_PATTERN.test(token)) return json({ error: "invalid_terminal_route" }, 400);
+    const directory = normalizeDirectory(await this.ctx.storage.get<DirectorySnapshot>(DIRECTORY_KEY));
+    const digest = await secretDigest(token);
+    const route = directory.terminalRoutes[digest];
+    const device = directory.terminalDevices[terminalId];
+    if (!route || !device || route.expiresAt <= Date.now() || route.terminalId !== terminalId || route.sessionId !== sessionId) {
+      delete directory.terminalRoutes[digest];
+      await this.ctx.storage.put(DIRECTORY_KEY, directory);
+      return json({ error: "invalid_terminal_route" }, 410);
+    }
+    delete directory.terminalRoutes[digest];
+    device.status = "attached";
+    device.online = true;
+    device.updatedAt = new Date().toISOString();
+    await this.ctx.storage.put(DIRECTORY_KEY, directory);
+    return json({
+      controller_id: route.controllerId,
+      puzzle_id: route.puzzleId,
+      terminal_label: device.label,
+    });
+  }
+
+  private async markTerminalReleased(payload: Record<string, unknown>): Promise<Response> {
+    const terminalId = cleanText(payload.terminal_id, 128);
+    const sessionId = cleanText(payload.session_id, 128);
+    const directory = normalizeDirectory(await this.ctx.storage.get<DirectorySnapshot>(DIRECTORY_KEY));
+    const device = directory.terminalDevices[terminalId];
+    if (device && (!sessionId || device.sessionId === sessionId)) {
+      device.status = "free";
+      device.sessionId = "";
+      device.controllerId = "";
+      device.online = false;
+      device.updatedAt = new Date().toISOString();
+      await this.ctx.storage.put(DIRECTORY_KEY, directory);
+    }
+    return json({ success: true });
   }
 
   private async initializeLobby(payload: Record<string, unknown>): Promise<Response> {
@@ -959,6 +1384,18 @@ export class GameSession extends DurableObject<Env> {
     const teams = snapshots
       .filter((snapshot): snapshot is Record<string, unknown> => snapshot !== null)
       .sort((left, right) => String(left.team_name || "").localeCompare(String(right.team_name || ""), "cs"));
+    const terminalCatalog = await this.terminalCatalog();
+    const terminals = Object.values(directory.terminalDevices)
+      .filter((device) => device.online)
+      .map((device) => ({
+        id: device.id,
+        label: device.label,
+        status: device.status === "free" ? "free" : "attached",
+        session_id: device.sessionId,
+        team_name: teams.find((team) => team.session_id === device.sessionId)?.team_name || "",
+        puzzle_id: device.puzzleId,
+      }))
+      .sort((left, right) => left.label.localeCompare(right.label, "cs"));
     return json({
       cloudflare_limited: true,
       teams,
@@ -966,6 +1403,8 @@ export class GameSession extends DurableObject<Env> {
       resolution_presets: {},
       scenario_catalog: [],
       scenario_errors: [],
+      puzzle_catalog: terminalCatalog,
+      terminals,
       display_status: { online: false, mode: "cloudflare", screen: "not_migrated", fullscreen: false, wake_lock: false },
     });
   }
@@ -1051,8 +1490,11 @@ export class GameSession extends DurableObject<Env> {
       out_of_competition: Boolean(flags.out_of_competition),
       end_reason: String(flags.administratively_ended_reason || (gameCompleted ? "completed" : "")),
       administratively_evaluated: Boolean(flags.administratively_evaluated),
-      terminal_online: false,
-      terminal_assignment: "",
+      terminal_online: this.ctx.getWebSockets().some((socket) => {
+        const attachment = socket.deserializeAttachment() as SocketAttachment | null;
+        return attachment?.role === "terminal" && socket.readyState === WebSocket.OPEN;
+      }),
+      terminal_assignment: String(flags.terminal_assignment || ""),
       terminal_options: [],
       timeline,
       hints_used: objectRecord(state.hints_used),
@@ -1160,6 +1602,177 @@ export class GameSession extends DurableObject<Env> {
     }
   }
 
+  private async handleTerminalClaim(
+    socket: WebSocket,
+    attachment: SocketAttachment,
+    payload: Record<string, unknown>,
+  ): Promise<void> {
+    await this.serializeState(async () => {
+      if (!this.snapshot.lobby.started || !this.snapshot.lobby.players[attachment.clientId]) {
+        this.send(socket, "terminal.attach_result", { success: false, reason: "Nejprve se připojte k rozehrané týmové relaci." });
+        return;
+      }
+      const code = cleanText(payload.value, 128).toUpperCase().replace("ESCAPEBOT://TERMINAL/", "");
+      if (!TERMINAL_CODE_PATTERN.test(code)) {
+        this.send(socket, "terminal.attach_result", { success: false, reason: "Párovací QR terminálu není platný." });
+        return;
+      }
+      const scenario = await this.loadScenario(this.snapshot.lobby.scenarioId);
+      const previousGameState = structuredClone(this.snapshot.gameState);
+      const eligiblePuzzleIds = Object.keys(objectRecord(scenario.puzzles)).filter(
+        (puzzleId) => terminalPuzzleAvailable(scenario, this.snapshot.gameState, puzzleId),
+      );
+      const response = await this.runtimeEnv.GAME_SESSIONS.getByName(DIRECTORY_OBJECT_NAME).fetch(
+        "https://internal/internal/terminal/claim",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "X-EscapeBot-Internal-Terminal": "1" },
+          body: JSON.stringify({
+            code,
+            session_id: this.snapshot.sessionId,
+            controller_id: attachment.clientId,
+            eligible_puzzle_ids: eligiblePuzzleIds,
+          }),
+        },
+      );
+      const result = await response.json<Record<string, unknown>>();
+      if (!response.ok) {
+        this.send(socket, "terminal.attach_result", { success: false, reason: String(result.reason || "Terminál nelze odemknout.") });
+        return;
+      }
+      const puzzleId = String(result.puzzle_id || "");
+      const puzzle = objectRecord(objectRecord(scenario.puzzles)[puzzleId]);
+      const checkpointId = String(puzzle.checkpoint_id || "");
+      let activationMessages: Array<{ type: string; payload: Record<string, unknown> }> = [];
+      if (!Object.hasOwn(objectRecord(this.snapshot.gameState.checkpoint_states), checkpointId)) {
+        const checkpoint = objectRecord(objectRecord(scenario.checkpoints)[checkpointId]);
+        const activation = applyScenarioCommand(
+          scenario,
+          this.snapshot.gameState,
+          "qr.detected",
+          { value: `escapebot://checkpoint/${String(checkpoint.token || "")}` },
+          new Date().toISOString(),
+          this.runtimeActor(attachment.clientId),
+        );
+        this.snapshot.gameState = activation.state;
+        activationMessages = activation.messages;
+      }
+      this.snapshot.gameState.flags = { ...this.snapshot.gameState.flags, terminal_assignment: puzzleId };
+      this.snapshot.scenarioProgress = buildScenarioProgress(scenario, this.snapshot.gameState);
+      this.snapshot.revision += 1;
+      this.snapshot.updatedAt = new Date().toISOString();
+      await this.ctx.storage.put(SNAPSHOT_KEY, this.snapshot);
+      const dispatched = await this.runtimeEnv.GAME_SESSIONS.getByName(DIRECTORY_OBJECT_NAME).fetch(
+        "https://internal/internal/terminal/dispatch-route",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "X-EscapeBot-Internal-Terminal": "1" },
+          body: JSON.stringify({ token: result.attach_token, session_id: this.snapshot.sessionId }),
+        },
+      );
+      if (!dispatched.ok) {
+        this.snapshot.gameState = previousGameState;
+        this.snapshot.scenarioProgress = buildScenarioProgress(scenario, previousGameState);
+        this.snapshot.revision += 1;
+        this.snapshot.updatedAt = new Date().toISOString();
+        await this.ctx.storage.put(SNAPSHOT_KEY, this.snapshot);
+        this.send(socket, "terminal.attach_result", { success: false, reason: "Terminál už není připojený." });
+        await this.broadcastGameState(scenario);
+        return;
+      }
+      for (const message of activationMessages) this.broadcastProtocol(message);
+      this.send(socket, "terminal.attach_result", {
+        success: true,
+        session_id: this.snapshot.sessionId,
+        team_name: this.snapshot.lobby.teamName,
+        controller_name: this.snapshot.lobby.players[attachment.clientId].name,
+      });
+      await this.broadcastGameState(scenario);
+    });
+  }
+
+  private async attachTerminal(socket: WebSocket, attachment: SocketAttachment, puzzleId: string): Promise<void> {
+    if (!this.snapshot.lobby.started || !this.snapshot.lobby.players[attachment.clientId]) {
+      socket.close(4003, "Terminal controller is no longer a team member");
+      return;
+    }
+    this.snapshot.gameState.flags = { ...this.snapshot.gameState.flags, terminal_assignment: puzzleId };
+    this.snapshot.terminalReleaseAt = null;
+    this.snapshot.revision += 1;
+    this.snapshot.updatedAt = new Date().toISOString();
+    await this.ctx.storage.put(SNAPSHOT_KEY, this.snapshot);
+    this.send(socket, "terminal.attached", {
+      success: true,
+      session_id: this.snapshot.sessionId,
+      team_name: this.snapshot.lobby.teamName,
+      controller_name: this.snapshot.lobby.players[attachment.clientId].name,
+    });
+    await this.sendAuthoritativeSnapshot(socket, false);
+    await this.broadcastGameState();
+  }
+
+  private async releaseTerminalById(terminalId: string, reason: string, notifyDirectory = true): Promise<void> {
+    const terminals = this.ctx.getWebSockets().filter((candidate) => {
+      const attachment = candidate.deserializeAttachment() as SocketAttachment | null;
+      return attachment?.role === "terminal" && (!terminalId || attachment.terminalId === terminalId);
+    });
+    if (!notifyDirectory) return;
+    for (const terminal of terminals) {
+      if (terminal.readyState === WebSocket.OPEN) this.send(terminal, "terminal.released", { reason });
+      terminal.close(4003, "Terminal released");
+    }
+    const remaining = this.ctx.getWebSockets().some((candidate) => {
+      if (terminals.includes(candidate)) return false;
+      const attachment = candidate.deserializeAttachment() as SocketAttachment | null;
+      return attachment?.role === "terminal" && candidate.readyState === WebSocket.OPEN;
+    });
+    if (!remaining && this.snapshot.gameState.flags.terminal_assignment) {
+      const flags = { ...this.snapshot.gameState.flags };
+      delete flags.terminal_assignment;
+      this.snapshot.gameState = { ...this.snapshot.gameState, flags };
+      this.snapshot.terminalReleaseAt = null;
+      this.snapshot.revision += 1;
+      this.snapshot.updatedAt = new Date().toISOString();
+      await this.ctx.storage.put(SNAPSHOT_KEY, this.snapshot);
+      await this.scheduleNextAlarm();
+      await this.broadcastGameState();
+    }
+    for (const terminal of terminals) {
+      const attachment = terminal.deserializeAttachment() as SocketAttachment | null;
+      if (attachment?.terminalId) await this.notifyTerminalReleased(attachment.terminalId);
+    }
+  }
+
+  private async notifyTerminalReleased(terminalId: string): Promise<void> {
+    await this.runtimeEnv.GAME_SESSIONS.getByName(DIRECTORY_OBJECT_NAME).fetch(
+      "https://internal/internal/terminal/released",
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-EscapeBot-Internal-Terminal": "1" },
+        body: JSON.stringify({ terminal_id: terminalId, session_id: this.snapshot.sessionId }),
+      },
+    );
+  }
+
+  private async scheduleTerminalRelease(scenario: ScenarioDocument): Promise<void> {
+    const puzzleId = String(this.snapshot.gameState.flags.terminal_assignment || "");
+    if (!puzzleId || this.snapshot.terminalReleaseAt !== null) return;
+    const puzzle = objectRecord(objectRecord(scenario.puzzles)[puzzleId]);
+    const checkpoint = objectRecord(objectRecord(this.snapshot.gameState.checkpoint_states)[String(puzzle.checkpoint_id || "")]);
+    if (checkpoint.status !== "solved") return;
+    const delaySeconds = String(puzzle.type || "") === "finale" ? Number(puzzle.countdown_seconds || 10) + 8.5 : 3.5;
+    this.snapshot.terminalReleaseAt = Date.now() + Math.round(delaySeconds * 1000);
+    await this.ctx.storage.put(SNAPSHOT_KEY, this.snapshot);
+    await this.scheduleNextAlarm();
+  }
+
+  private async scheduleNextAlarm(): Promise<void> {
+    const candidates = [this.snapshot.deadlineAt, this.snapshot.terminalReleaseAt]
+      .filter((value): value is number => value !== null);
+    if (candidates.length) await this.ctx.storage.setAlarm(Math.min(...candidates));
+    else await this.ctx.storage.deleteAlarm();
+  }
+
   private async handleGameCommand(
     socket: WebSocket,
     attachment: SocketAttachment,
@@ -1231,7 +1844,7 @@ export class GameSession extends DurableObject<Env> {
         {
           type: "game.state",
           payload: this.gameStatePayload(
-            presentGameState(scenario, this.snapshot.gameState, this.runtimeActor(attachment.clientId), now),
+            this.presentState(scenario, attachment, now),
           ),
           operation_id: operationId,
         },
@@ -1246,6 +1859,7 @@ export class GameSession extends DurableObject<Env> {
         delete this.snapshot.operationReceipts[Object.keys(this.snapshot.operationReceipts)[0]];
       }
       await this.ctx.storage.put(SNAPSHOT_KEY, this.snapshot);
+      await this.scheduleTerminalRelease(scenario);
 
       if (teamMessage) this.broadcastProtocol(teamMessage, socket);
       for (const response of responses) {
@@ -1298,16 +1912,65 @@ export class GameSession extends DurableObject<Env> {
   }
 
   webSocketClose(socket: WebSocket, code: number, reason: string): void {
+    const attachment = socket.deserializeAttachment() as SocketAttachment | null;
+    if (attachment?.role === "terminal_waiting" && attachment.terminalId) {
+      this.ctx.waitUntil(this.serializeDirectory(async () => {
+        const directory = normalizeDirectory(await this.ctx.storage.get<DirectorySnapshot>(DIRECTORY_KEY));
+        const device = directory.terminalDevices[attachment.terminalId || ""];
+        const anotherWaiting = this.ctx.getWebSockets().some((candidate) => {
+          if (candidate === socket) return false;
+          const current = candidate.deserializeAttachment() as SocketAttachment | null;
+          return current?.role === "terminal_waiting" && current.terminalId === attachment.terminalId && candidate.readyState === WebSocket.OPEN;
+        });
+        if (device && device.status === "free" && !anotherWaiting) device.online = false;
+        for (const [digest, pairing] of Object.entries(directory.terminalPairings)) {
+          if (pairing.terminalId === attachment.terminalId) delete directory.terminalPairings[digest];
+        }
+        await this.ctx.storage.put(DIRECTORY_KEY, directory);
+      }));
+    }
+    if (attachment?.role === "terminal" && attachment.terminalId) {
+      this.ctx.waitUntil(this.serializeState(async () => {
+        await this.notifyTerminalReleased(attachment.terminalId || "");
+        const hasAnother = this.ctx.getWebSockets().some((candidate) => {
+          if (candidate === socket) return false;
+          const current = candidate.deserializeAttachment() as SocketAttachment | null;
+          return current?.role === "terminal" && candidate.readyState === WebSocket.OPEN;
+        });
+        if (!hasAnother && this.snapshot.gameState.flags.terminal_assignment) {
+          const flags = { ...this.snapshot.gameState.flags };
+          delete flags.terminal_assignment;
+          this.snapshot.gameState = { ...this.snapshot.gameState, flags };
+          this.snapshot.terminalReleaseAt = null;
+          this.snapshot.revision += 1;
+          this.snapshot.updatedAt = new Date().toISOString();
+          await this.ctx.storage.put(SNAPSHOT_KEY, this.snapshot);
+          await this.scheduleNextAlarm();
+          await this.broadcastGameState();
+        }
+      }));
+    }
     socket.close(code, reason);
   }
 
   async alarm(): Promise<void> {
+    if (
+      this.snapshot.terminalReleaseAt !== null &&
+      (this.snapshot.deadlineAt === null || this.snapshot.terminalReleaseAt <= this.snapshot.deadlineAt)
+    ) {
+      this.snapshot.terminalReleaseAt = null;
+      await this.ctx.storage.put(SNAPSHOT_KEY, this.snapshot);
+      await this.releaseTerminalById("", "Hádanka byla dokončena. Terminál je znovu volný.");
+      await this.scheduleNextAlarm();
+      return;
+    }
     if (this.snapshot.deadlineAt === null) return;
     if (this.snapshot.deadlineKind === "game") {
       const flags = { ...this.snapshot.gameState.flags };
       if (flags.game_completed || flags.deadline_reached_at || flags.out_of_competition) {
         this.snapshot = { ...this.snapshot, deadlineAt: null, deadlineKind: null };
         await this.ctx.storage.put(SNAPSHOT_KEY, this.snapshot);
+        await this.scheduleNextAlarm();
         return;
       }
       const now = new Date().toISOString();
@@ -1375,6 +2038,7 @@ export class GameSession extends DurableObject<Env> {
       });
       await this.broadcastGameState(scenario);
       this.broadcast("scenario.progress", this.snapshot.scenarioProgress);
+      await this.scheduleNextAlarm();
       return;
     }
     this.snapshot = {
@@ -1394,6 +2058,7 @@ export class GameSession extends DurableObject<Env> {
       revision: this.snapshot.revision,
     });
     await this.broadcastGameState();
+    await this.scheduleNextAlarm();
   }
 
   private async applyStatePatch(
@@ -1440,7 +2105,7 @@ export class GameSession extends DurableObject<Env> {
       updatedAt: new Date().toISOString(),
     };
     await this.ctx.storage.put(SNAPSHOT_KEY, this.snapshot);
-    await this.ctx.storage.setAlarm(deadlineAt);
+    await this.scheduleNextAlarm();
     this.send(socket, "spike.deadline.scheduled", { deadline_at: deadlineAt });
   }
 
@@ -1512,14 +2177,9 @@ export class GameSession extends DurableObject<Env> {
     if (includeLobby) this.send(socket, "lobby.state", this.lobbyPayload(attachment?.clientId ?? ""));
     this.send(socket, "chat.history", { messages: this.snapshot.chatHistory });
     let gameState = this.snapshot.gameState;
-    if (this.snapshot.lobby.started && attachment?.role === "session") {
+    if (this.snapshot.lobby.started && (attachment?.role === "session" || attachment?.role === "terminal")) {
       const scenario = scenarioValue ?? await this.loadScenario(this.snapshot.lobby.scenarioId);
-      gameState = presentGameState(
-        scenario,
-        this.snapshot.gameState,
-        this.runtimeActor(attachment.clientId),
-        new Date().toISOString(),
-      );
+      gameState = this.presentState(scenario, attachment, new Date().toISOString());
     }
     this.send(socket, "game.state", this.gameStatePayload(gameState));
     this.send(socket, "scenario.progress", {
@@ -1548,6 +2208,39 @@ export class GameSession extends DurableObject<Env> {
     };
   }
 
+  private presentState(
+    scenario: ScenarioDocument,
+    attachment: SocketAttachment,
+    now: string,
+  ): GameStateDocument {
+    const state = presentGameState(scenario, this.snapshot.gameState, this.runtimeActor(attachment.clientId), now);
+    const attached = this.ctx.getWebSockets().some((socket) => {
+      const current = socket.deserializeAttachment() as SocketAttachment | null;
+      return current?.role === "terminal" && socket.readyState === WebSocket.OPEN;
+    });
+    const assigned = String(this.snapshot.gameState.flags.terminal_assignment || "");
+    if (Array.isArray(state.puzzles)) {
+      state.puzzles = state.puzzles.map((value: unknown) => {
+        const puzzle = objectRecord(value);
+        const configured = objectRecord(puzzle.terminal);
+        const mode = String(configured.mode || "phones");
+        if (mode === "phones") {
+          delete puzzle.terminal;
+          return puzzle;
+        }
+        puzzle.terminal = {
+          mode,
+          label: String(configured.label || puzzle.title || "Herní terminál"),
+          attached,
+          device: attachment.role === "terminal",
+          assigned: String(puzzle.id || "") === assigned,
+        };
+        return puzzle;
+      });
+    }
+    return state;
+  }
+
   private async broadcastGameState(
     scenarioValue?: ScenarioDocument,
     exclude?: WebSocket,
@@ -1560,9 +2253,9 @@ export class GameSession extends DurableObject<Env> {
       if (socket === exclude) continue;
       if (socket.readyState !== WebSocket.OPEN) continue;
       const attachment = socket.deserializeAttachment() as SocketAttachment | null;
-      if (attachment?.role !== "session") continue;
+      if (attachment?.role !== "session" && attachment?.role !== "terminal") continue;
       const state = scenario
-        ? presentGameState(scenario, this.snapshot.gameState, this.runtimeActor(attachment.clientId), now)
+        ? this.presentState(scenario, attachment, now)
         : this.snapshot.gameState;
       this.send(socket, "game.state", this.gameStatePayload(state));
     }
@@ -1642,6 +2335,24 @@ export default {
             "Content-Type": "application/json",
             "X-EscapeBot-Internal-Admin": "1",
           },
+          body: JSON.stringify(payload),
+        },
+      );
+    }
+    if (url.pathname === "/api/admin/terminal-reserve" && request.method === "POST") {
+      const unauthorized = await authorizeAdmin(request, env);
+      if (unauthorized) return unauthorized;
+      let payload: Record<string, unknown>;
+      try {
+        payload = await request.json<Record<string, unknown>>();
+      } catch {
+        return json({ error: "invalid_json" }, 400);
+      }
+      return env.GAME_SESSIONS.getByName(DIRECTORY_OBJECT_NAME).fetch(
+        "https://internal/internal/admin/terminal-reserve",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "X-EscapeBot-Internal-Admin": "1" },
           body: JSON.stringify(payload),
         },
       );

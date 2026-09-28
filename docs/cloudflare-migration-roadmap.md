@@ -142,7 +142,7 @@ Akceptace:
 
 **Odhad: 8–12 pracovních dnů**
 
-**Stav: třináctá vertikální část lokálně implementována.** Bootstrap načte katalog
+**Stav: čtrnáctá vertikální část lokálně implementována.** Bootstrap načte katalog
 ze stejných realizací jako současný backend, založí sólo nebo týmovou lobby,
 vyřeší osmimístný join kód a přesměruje klienta do konkrétního `GameSession`.
 Build skládá skutečné runtime scénáře z šablon a realizací. Lobby, seznam
@@ -169,8 +169,13 @@ vyřazeného spoluhráče, ale vyřazení zůstává pouze správcovskou pravomo
 Autentizované správcovské API umí vyřadit i registrovaného offline hráče a
 změnu uloží před odpovědí. Omezený cloudový admin načte týmy z lobby adresáře a
 z jejich Durable Objectů sestaví stav hráčů, skóre, postup a aktivní týmové
-minihry. Eventový admin overview, další správcovské operace a terminálové
-rezervace ještě nejsou přeneseny. Jednorázový návratový kód už bezpečně přenese
+minihry. Eventový admin overview a další správcovské operace ještě nejsou
+přeneseny. Terminálové rezervace už adresář ukládá odděleně od týmů jako vazbu
+zařízení na hádanku. Jednorázový hashovaný párovací kód může převzít první
+způsobilý tým; terminál se připojí do jeho `GameSession` pod identitou
+skenujícího hráče, aniž by změnil počet hráčů nebo bodovou úpravu. Po odpojení,
+nové registraci nebo dokončení přidělené hádanky se bezpečně uvolní, ale
+rezervace zařízení zůstane. Jednorázový návratový kód už bezpečně přenese
 hráčskou identitu na nové zařízení včetně soukromých miniher, výsledků,
 vyřazení, navigátora a idempotency účtenek; staré zařízení odpojí.
 
