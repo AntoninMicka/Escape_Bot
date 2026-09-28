@@ -2607,7 +2607,7 @@
                 const sokoban = ((team.game_metrics || {}).sokoban || []).map(game => `Sokoban ${escapeHtml(game.level)}: pozice ${escapeHtml((game.player || []).join(','))}, články na cíli ${(game.boxes || []).filter(box => (game.targets || []).some(target => target[0] === box[0] && target[1] === box[1])).length}/${(game.boxes || []).length}, ${game.moves} kroků, ${game.pushes} zatlačení, ${game.restarts} restartů`).join('<br>') || 'Sokoban dosud neaktivní';
                 const triad = ((team.game_metrics || {}).triad || []).map(game => `Tři v řadě · <strong>${escapeHtml(game.player_name)}</strong> [${game.connected ? 'online' : 'offline'} · ${game.excluded ? 'vyřazen' : escapeHtml(game.status)}]: ${game.placements} kamenů · směry ${(game.completed_orientations || []).map(escapeHtml).join(', ') || 'žádné'}${game.result ? ` · čas ${formatLineGameTime(game.result.elapsed_seconds)} · +${Number(game.result.score_delta)} b` : ''} <button onclick="manageAdminGamePlayer('${team.session_id}','${game.id}','${game.player_id}','reset')">RESTART HRÁČE</button> <button onclick="manageAdminGamePlayer('${team.session_id}','${game.id}','${game.player_id}','${game.excluded ? 'include' : 'exclude'}')">${game.excluded ? 'VRÁTIT' : 'VYŘADIT'}</button>`).join('<br>') || 'Tři v řadě dosud neaktivní';
                 const archive = ((team.game_metrics || {}).archive || []).map(game => `Jigsaw stroje času: ${game.assembled ? 'sestaven' : 'rozložen'} · ${game.moves} prohození · pořadí ${(game.order || []).map(escapeHtml).join(' → ')}`).join('<br>') || 'Archiv budoucnosti dosud neaktivní';
-                const eventLabels = {'checkpoint_solved':'checkpoint vyřešen', 'checkpoint_found':'checkpoint nalezen', 'admin_action':'zásah GM', 'admin_penalty':'malus GM', 'admin_score_adjustment':'úprava skóre GM', 'player.message':'zpráva hráče', 'qr.detected':'načten QR', 'arg.verify':'ověření stopy', 'room.unlock':'odemčení místnosti', 'cipher_tool.unlock':'odemčení pomůcky', 'puzzle.submit':'odpověď na hádanku', 'puzzle.hint':'vyžádána nápověda', 'line_game.move':'tah kalibrace', 'line_game.reset':'restart kalibrace', 'sokoban.command':'povel Sokobanu', 'sokoban.undo':'vrácení tahu Sokobanu', 'sokoban.reset':'restart Sokobanu', 'karel.command':'povel Karlovi', 'karel.reset':'restart Karla', 'triad.place':'tah Tři v řadě', 'triad.reset':'restart Tři v řadě', 'finale.activate':'aktivace finále', 'archive.arrange':'pohyb v archivu'};
+                const eventLabels = {'checkpoint_solved':'checkpoint vyřešen', 'checkpoint_found':'checkpoint nalezen', 'admin_action':'zásah GM', 'admin_penalty':'malus GM', 'admin_score_adjustment':'úprava skóre GM', 'player.message':'zpráva hráče', 'qr.detected':'načten QR', 'arg.verify':'ověření stopy', 'room.unlock':'odemčení místnosti', 'cipher_tool.unlock':'odemčení pomůcky', 'puzzle.submit':'odpověď na hádanku', 'puzzle.hint':'vyžádána nápověda', 'line_game.move':'tah kalibrace', 'line_game.reset':'restart kalibrace', 'sokoban.command':'povel Sokobanu', 'sokoban.undo':'vrácení tahu Sokobanu', 'sokoban.reset':'restart Sokobanu', 'karel.command':'povel Karlovi', 'karel.reset':'restart Karla', 'triad.place':'tah Tři v řadě', 'triad.reset':'restart Tři v řadě', 'finale.activate':'aktivace finále', 'archive.arrange':'pohyb v archivu', 'game.deadline_choice':'volba po limitu', 'team_game.player.restore':'obnova spoluhráče'};
                 const timeline = (team.timeline || []).map(item => {
                     const details = Object.entries(item.details || {}).map(([key, value]) => `${key}: ${value}`).join(' · ');
                     const label = item.label || details || '—';
@@ -3723,6 +3723,11 @@
                     else if (msg.payload.assembled) showNotification('Obraz je kompletní. Archiv odhalil klíč.', 'success', 'puzzle');
                     else playSound('jigsaw');
                 }
+                else if (msg.type === 'team_game.player.result') {
+                    if (!msg.payload.success) showNotification(msg.payload.reason || 'Spoluhráče se nepodařilo obnovit.', 'error');
+                    else if (msg.payload.restored) showNotification(`${msg.payload.player_name || 'Spoluhráč'} byl vrácen do minihry.`, 'success');
+                    else showNotification('Spoluhráč už je v minihře aktivní.', 'info');
+                }
                 else if (msg.type === 'line_game.result') {
                     if (!msg.payload.success) {
                         showNotification(msg.payload.reason || 'Tah nelze provést.', 'error');
@@ -4451,11 +4456,19 @@
             const players = progress.players.map(player => {
                 const result = player.result ? ` · ${formatLineGameTime(player.result.elapsed_seconds)} · ${Number(player.result.score_delta) >= 0 ? '+' : ''}${Number(player.result.score_delta)} b` : '';
                 const conditions = (player.conditions || []).map(item => labels[item] || item).join(', ') || 'zatím nic';
-                return `<li><strong>${escapeHtml(player.name)}</strong>: ${player.status === 'excluded' ? 'VYŘAZEN GM' : (player.status === 'complete' ? 'HOTOVO' : 'HRAJE')} · ${escapeHtml(conditions)}${result}</li>`;
+                const restore = !solved && player.status === 'excluded' && player.id !== clientId
+                    ? ` <button onclick="restoreTeamGamePlayer('${escapeHtml(puzzle.id)}','${escapeHtml(player.id)}')">OBNOVIT SPOLUHRÁČE</button>`
+                    : '';
+                return `<li><strong>${escapeHtml(player.name)}</strong>: ${player.status === 'excluded' ? 'VYŘAZEN SPRÁVCEM' : (player.status === 'complete' ? 'HOTOVO' : 'HRAJE')} · ${escapeHtml(conditions)}${result}${restore}</li>`;
             }).join('');
             const covered = (progress.covered_conditions || []).map(item => labels[item] || item).join(', ') || 'zatím žádná';
             const recommendation = progress.recommendation && !solved ? `<p class="cipher-note">Týmu chybí poslední podmínka: <strong>${escapeHtml(labels[progress.recommendation] || progress.recommendation)}</strong>. Nedokončení hráči se na ni nyní mohou zaměřit.</p>` : '';
             return `<div class="team-game-progress"><strong>${solved ? 'VÝSLEDNÝ PŘÍNOS TÝMU' : 'TÝMOVÝ POSTUP'}</strong><ul>${players}</ul><p>Společně pokryto: <strong>${escapeHtml(covered)}</strong></p>${recommendation}</div>`;
+        }
+
+        function restoreTeamGamePlayer(puzzleId, playerId) {
+            if (!window.confirm('Vrátit tohoto spoluhráče do týmové minihry?')) return;
+            if (ws?.readyState === WebSocket.OPEN) sendGameCommand('team_game.player.restore', {puzzle_id:puzzleId, player_id:playerId});
         }
 
         function renderLineGame(puzzle, solved) {

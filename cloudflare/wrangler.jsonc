@@ -30,7 +30,9 @@
     }
   },
   "vars": {
-    "APP_ENV": "local"
+    "APP_ENV": "local",
+    "GAME_DURATION_MINUTES": "165",
+    "DEADLINE_PENALTY": "100"
   },
   "env": {
     "development": {
@@ -44,7 +46,9 @@
         ]
       },
       "vars": {
-        "APP_ENV": "development"
+        "APP_ENV": "development",
+        "GAME_DURATION_MINUTES": "165",
+        "DEADLINE_PENALTY": "100"
       }
     },
     "staging": {
@@ -58,7 +62,9 @@
         ]
       },
       "vars": {
-        "APP_ENV": "staging"
+        "APP_ENV": "staging",
+        "GAME_DURATION_MINUTES": "165",
+        "DEADLINE_PENALTY": "100"
       }
     },
     "production": {
@@ -72,7 +78,9 @@
         ]
       },
       "vars": {
-        "APP_ENV": "production"
+        "APP_ENV": "production",
+        "GAME_DURATION_MINUTES": "165",
+        "DEADLINE_PENALTY": "100"
       }
     }
   }

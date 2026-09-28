@@ -699,4 +699,113 @@ describe("deterministic Cloudflare scenario runtime", () => {
     expect(replay.state.flags.completed_at).toBe(completedAt);
     expect(replay.state.puzzle_attempts.time_machine_finale).toBe(2);
   });
+
+  it("continues after the deadline without changing the frozen competitive score", async () => {
+    const scenario = await chronosScenario();
+    let state = startScenario(scenario, -100, "2026-09-28T12:00:00.000Z").state;
+    state.flags = {
+      ...state.flags,
+      deadline_choice_pending: true,
+      administratively_ended: true,
+      administratively_ended_reason: "deadline",
+      competition_score: 900,
+      competition_score_frozen_at: "2026-09-28T12:10:00.000Z",
+    };
+    const blocked = applyScenarioCommand(
+      scenario,
+      state,
+      "phase.hint",
+      { phase_id: "comms_offline", hint_index: 0 },
+      "2026-09-28T12:10:01.000Z",
+    );
+    expect(blocked.messages[0]).toMatchObject({ type: "error", payload: { message: expect.stringContaining("Hra je ukončena") } });
+
+    const continued = applyScenarioCommand(
+      scenario,
+      blocked.state,
+      "game.deadline_choice",
+      { choice: "continue" },
+      "2026-09-28T12:10:02.000Z",
+    );
+    expect(continued.state.flags).toMatchObject({
+      deadline_choice_pending: false,
+      deadline_choice: "continue",
+      out_of_competition: true,
+      administratively_ended: false,
+      competition_score: 900,
+    });
+
+    const laterPenalty = applyScenarioCommand(
+      scenario,
+      continued.state,
+      "phase.hint",
+      { phase_id: "comms_offline", hint_index: 0 },
+      "2026-09-28T12:10:03.000Z",
+    );
+    expect(laterPenalty.state.score).toBe(895);
+    expect(laterPenalty.state.flags.competition_score).toBe(900);
+    const duplicate = applyScenarioCommand(
+      scenario,
+      laterPenalty.state,
+      "game.deadline_choice",
+      { choice: "end" },
+      "2026-09-28T12:10:04.000Z",
+    );
+    expect(duplicate.messages[0]).toMatchObject({ type: "error", payload: { message: expect.stringContaining("už není dostupná") } });
+  });
+
+  it("lets a player restore, but never exclude, an administratively excluded teammate", async () => {
+    const scenario = await chronosScenario();
+    const actor: RuntimeActor = {
+      clientId: "alice",
+      participantIds: ["alice", "bob"],
+      participantNames: { alice: "Alice", bob: "Bob" },
+      teamMode: "team",
+    };
+    let state = startScenario(scenario, 0, "2026-09-28T12:00:00.000Z", actor).state;
+    state.checkpoint_states.timeline_calibration = { status: "found" };
+    state.game_exclusions.timeline_lines = ["bob"];
+    state = presentGameState(scenario, state, actor, "2026-09-28T12:00:01.000Z");
+
+    const restored = applyScenarioCommand(
+      scenario,
+      state,
+      "team_game.player.restore",
+      { puzzle_id: "timeline_lines", player_id: "bob" },
+      "2026-09-28T12:00:02.000Z",
+      actor,
+    );
+    expect(restored.messages[0]).toMatchObject({
+      type: "team_game.player.result",
+      payload: { success: true, restored: true, player_id: "bob", player_name: "Bob" },
+    });
+    expect(restored.state.game_exclusions.timeline_lines).toEqual([]);
+    const puzzle = restored.state.puzzles.find((item: Record<string, unknown>) => item.id === "timeline_lines");
+    expect(puzzle.team_progress.players).toEqual(expect.arrayContaining([
+      expect.objectContaining({ id: "bob", status: "playing" }),
+    ]));
+
+    const selfRestore = applyScenarioCommand(
+      scenario,
+      restored.state,
+      "team_game.player.restore",
+      { puzzle_id: "timeline_lines", player_id: "alice" },
+      "2026-09-28T12:00:03.000Z",
+      actor,
+    );
+    expect(selfRestore.messages[0]).toMatchObject({
+      type: "team_game.player.result",
+      payload: { success: false, reason: expect.stringContaining("spoluhráč") },
+    });
+    const forbidden = applyScenarioCommand(
+      scenario,
+      restored.state,
+      "team_game.player.exclude",
+      { puzzle_id: "timeline_lines", player_id: "bob" },
+      "2026-09-28T12:00:04.000Z",
+      actor,
+    );
+    expect(forbidden.messages[0]).toMatchObject({ type: "command.rejected" });
+    expect(forbidden.state.game_exclusions.timeline_lines).toEqual([]);
+  });
 });

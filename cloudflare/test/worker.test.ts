@@ -488,6 +488,27 @@ describe("Cloudflare spike router", () => {
     await creatorFinaleProgress;
     await teammateFinaleProgress;
 
+    const creatorRestore = nextMessage(creator, "team_game.player.result");
+    const creatorRestoreState = nextMessage(creator, "game.state");
+    const creatorRestoreProgress = nextMessage(creator, "scenario.progress");
+    const teammateRestore = nextMessage(player, "team_game.player.result");
+    const teammateRestoreState = nextMessage(player, "game.state");
+    const teammateRestoreProgress = nextMessage(player, "scenario.progress");
+    creator.send(JSON.stringify({
+      type: "team_game.player.restore",
+      operation_id: "early-player-restore-1",
+      payload: { puzzle_id: "timeline_lines", player_id: "second-phone" },
+    }));
+    expect((await creatorRestore).payload).toMatchObject({
+      success: false,
+      reason: "Spoluhráče lze obnovit pouze v aktivní týmové minihře.",
+    });
+    expect((await teammateRestore).payload).toMatchObject({ success: false });
+    await creatorRestoreState;
+    await teammateRestoreState;
+    await creatorRestoreProgress;
+    await teammateRestoreProgress;
+
     const creatorTriad = nextMessage(creator, "triad.result");
     const creatorTriadState = nextMessage(creator, "game.state");
     const creatorTriadProgress = nextMessage(creator, "scenario.progress");

@@ -48,6 +48,9 @@ Cloudflare Vitest runner otevírá lokální loopback port. V omezeném sandboxu
 proto může vyžadovat povolení síťového socketu, přestože nekontaktuje produkční
 službu.
 
+Délku celé hry a jednorázový postih určují pro každé prostředí Wrangler
+proměnné `GAME_DURATION_MINUTES` a `DEADLINE_PENALTY`.
+
 Lokální vývojový server:
 
 ```bash
@@ -81,7 +84,11 @@ a pořadí modulů odhalí až po správném sestavení obrazu; checkpoint dokon
 následná správná textová odpověď. `finale.activate` ověřuje úplnou trasu,
 inventář, servisní příznaky, rok, čas a pořadí modulů; při úspěchu uloží konečné
 hodnocení, dokončení hry a rozešle finální efekt. Terminálové rezervace,
-deadline celé hry a administrace ještě čekají na další části CF-04 a CF-05.
+administrace a správcovské vyřazení hráče ještě čekají na další části CF-04 a
+CF-05. Produkční deadline už používá Durable Object alarm: po jednorázovém
+postihu zmrazí soutěžní skóre a tým může hru ukončit nebo pokračovat mimo
+soutěž. Hráči smějí v aktivní týmové minihře pouze obnovit správcem vyřazeného
+spoluhráče; sami nikoho vyřadit nemohou.
 
 Produkční deploy má samostatný explicitní příkaz `npm run deploy:production`.
 Obecný `npm run deploy` záměrně není definován, aby nebylo možné bez výběru

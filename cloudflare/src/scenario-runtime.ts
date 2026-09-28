@@ -205,6 +205,8 @@ export function applyScenarioCommand(
     "sokoban.reset",
     "archive.arrange",
     "finale.activate",
+    "game.deadline_choice",
+    "team_game.player.restore",
     "triad.place",
     "triad.reset",
   ]).has(type)) {
@@ -218,6 +220,16 @@ export function applyScenarioCommand(
   const history = Array.isArray(state.event_history) ? state.event_history : [];
   history.push({ at: now, type, details: {} });
   state.event_history = history.slice(-500);
+
+  if (type !== "game.deadline_choice" && record(state.flags).administratively_ended) {
+    return {
+      state: presentGameState(scenario, state, actor, now),
+      messages: [{
+        type: "error",
+        payload: { message: "Hra je ukončena. Po vypršení limitu můžete zvolit dohrání mimo soutěž." },
+      }],
+    };
+  }
 
   let result: ScenarioCommandResult;
   if (type === "player.message") result = applyPlayerMessage(scenario, state, payload, now, actor);
@@ -234,6 +246,8 @@ export function applyScenarioCommand(
   else if (type === "sokoban.reset") result = applySokobanReset(scenario, state, payload, now);
   else if (type === "archive.arrange") result = applyArchiveArrange(scenario, state, payload);
   else if (type === "finale.activate") result = applyFinaleActivate(scenario, state, payload, now);
+  else if (type === "game.deadline_choice") result = applyDeadlineChoice(state, payload);
+  else if (type === "team_game.player.restore") result = applyTeamPlayerRestore(scenario, state, payload, actor);
   else if (type === "triad.place") result = applyTriadPlace(scenario, state, payload, now, actor);
   else result = applyTriadReset(scenario, state, payload, now, actor);
   return { ...result, state: presentGameState(scenario, result.state, actor, now) };
@@ -708,6 +722,81 @@ function ensureLineGame(
 function validLineGame(value: unknown): value is LineGameState {
   const game = record(value);
   return Array.isArray(game.board) && Boolean(game.deadline_at) && typeof game.progress === "object";
+}
+
+function applyDeadlineChoice(
+  state: GameStateDocument,
+  payload: Record<string, unknown>,
+): ScenarioCommandResult {
+  state.flags = record(state.flags);
+  const choice = String(payload.choice || "");
+  if (
+    !state.flags.deadline_choice_pending ||
+    state.flags.administratively_ended_reason !== "deadline" ||
+    !new Set(["end", "continue"]).has(choice)
+  ) {
+    return {
+      state,
+      messages: [{ type: "error", payload: { message: "Volba po vypršení času už není dostupná." } }],
+    };
+  }
+  state.flags.deadline_choice_pending = false;
+  state.flags.deadline_choice = choice;
+  if (choice === "continue") {
+    state.flags.out_of_competition = true;
+    state.flags.administratively_ended = false;
+  }
+  return { state, messages: [] };
+}
+
+function applyTeamPlayerRestore(
+  scenario: ScenarioDocument,
+  state: GameStateDocument,
+  payload: Record<string, unknown>,
+  actor: RuntimeActor,
+): ScenarioCommandResult {
+  const puzzleId = String(payload.puzzle_id || "").trim();
+  const playerId = String(payload.player_id || "").trim();
+  const puzzle = record(record(scenario.puzzles)[puzzleId]);
+  const adapter = puzzleAdapter(scenario, puzzle);
+  const checkpoint = record(record(state.checkpoint_states)[String(puzzle.checkpoint_id || "")]);
+  if (actor.teamMode !== "team" || !new Set(["line_game", "triad"]).has(adapter) || checkpoint.status !== "found") {
+    return {
+      state,
+      messages: [{
+        type: "team_game.player.result",
+        payload: { success: false, reason: "Spoluhráče lze obnovit pouze v aktivní týmové minihře." },
+      }],
+    };
+  }
+  if (!playerId || playerId === actor.clientId || !actor.participantIds.includes(playerId)) {
+    return {
+      state,
+      messages: [{
+        type: "team_game.player.result",
+        payload: { success: false, reason: "Vybraný hráč není obnovitelný spoluhráč." },
+      }],
+    };
+  }
+  state.game_exclusions = record(state.game_exclusions);
+  const excluded = Array.isArray(state.game_exclusions[puzzleId])
+    ? state.game_exclusions[puzzleId].map(String)
+    : [];
+  const restored = excluded.includes(playerId);
+  state.game_exclusions[puzzleId] = excluded.filter((candidate) => candidate !== playerId);
+  return {
+    state,
+    messages: [{
+      type: "team_game.player.result",
+      payload: {
+        success: true,
+        restored,
+        puzzle_id: puzzleId,
+        player_id: playerId,
+        player_name: actor.participantNames[playerId] || "Hráč",
+      },
+    }],
+  };
 }
 
 function lineGameConditions(config: Record<string, any>, game: Record<string, any>): string[] {

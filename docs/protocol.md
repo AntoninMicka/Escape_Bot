@@ -50,7 +50,9 @@ Cloudflare adaptér zatím obsluhuje z herních příkazů `player.message`,
 povely lze stejně jako v původním backendu zadávat česky přes `player.message`
 v kanálu `lost`. Podporované je také `archive.arrange`; skládání obrazu a
 následné `puzzle.submit` zůstávají oddělené kroky. `finale.activate` ověřuje a
-uzavírá kompletní herní průchod. Před potvrzením uloží nový
+uzavírá kompletní herní průchod. `game.deadline_choice` řeší pokračování po
+časovém limitu a `team_game.player.restore` dovoluje hráči pouze vrátit
+správcem vyřazeného spoluhráče. Před potvrzením uloží nový
 stav, chat i omezenou účtenku podle
 `operation_id`. Opakované doručení vrátí uložené odpovědi pouze původnímu
 odesílateli a týmový chat ani herní efekt znovu nerozešle. Výsledek tahu
@@ -293,6 +295,20 @@ checkpoint jako vyřešený, nastaví fázi `portal_open`, uloží čas dokonče
 hodnocení podle výsledného skóre a rozešle `finale.result`, `effect.trigger` a
 `game.complete`. Opakování již dokončené aktivace vrací `already_complete`
 bez změny času dokončení nebo počtu pokusů.
+
+### `game.deadline_choice`
+
+Po vypršení produkčního Durable Object alarmu server hru pozastaví, jednou
+uplatní postih a uloží `competition_score`. Volba `end` ukončení potvrdí;
+`continue` odblokuje hru s příznakem `out_of_competition`. Následující herní
+bonusy a postihy mohou měnit živé skóre, ale už nikdy nezmění zmrazené soutěžní
+skóre určené pro žebříček.
+
+### `team_game.player.restore`
+
+Vrátí správcem vyřazeného spoluhráče do aktivního `line_game` nebo `triad`.
+Odesílatel musí být jiný registrovaný hráč stejného týmu. Hráčský protokol
+záměrně nemá odpovídající akci pro vyřazení; tu smí provádět pouze správce.
 
 ### `arg.verify`
 

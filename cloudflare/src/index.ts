@@ -11,6 +11,8 @@ import {
 
 interface Env {
   APP_ENV: string;
+  GAME_DURATION_MINUTES?: string;
+  DEADLINE_PENALTY?: string;
   ASSETS: Fetcher;
   GAME_SESSIONS: DurableObjectNamespace<GameSession>;
 }
@@ -57,6 +59,7 @@ interface SessionSnapshot {
   scenarioProgress: Record<string, unknown>;
   operationReceipts: Record<string, ProtocolMessage[]>;
   deadlineAt: number | null;
+  deadlineKind: "game" | "spike" | null;
   updatedAt: string;
 }
 
@@ -129,6 +132,7 @@ function defaultSnapshot(sessionId = ""): SessionSnapshot {
     scenarioProgress: { completed: [], available: [] },
     operationReceipts: {},
     deadlineAt: null,
+    deadlineKind: null,
     updatedAt: new Date(0).toISOString(),
   };
 }
@@ -168,6 +172,11 @@ function teamSizeAdjustment(mode: "solo" | "team", maximumPlayers: number): numb
   if (maximumPlayers < 3) return (3 - maximumPlayers) * 10;
   if (maximumPlayers > 3) return -(maximumPlayers - 3) * 30;
   return 0;
+}
+
+function boundedInteger(value: unknown, fallback: number, minimum: number, maximum: number): number {
+  const parsed = Number(value);
+  return Number.isInteger(parsed) && parsed >= minimum && parsed <= maximum ? parsed : fallback;
 }
 
 function randomJoinCode(): string {
@@ -287,6 +296,8 @@ export class GameSession extends DurableObject<Env> {
       case "sokoban.reset":
       case "archive.arrange":
       case "finale.activate":
+      case "game.deadline_choice":
+      case "team_game.player.restore":
       case "triad.place":
       case "triad.reset":
         await this.handleGameCommand(socket, attachment, message);
@@ -490,6 +501,12 @@ export class GameSession extends DurableObject<Env> {
     const adjustment = started ? teamSizeAdjustment(mode, 1) : 0;
     const scenario = started ? await this.loadScenario(cleanText(payload.scenario_id, 64)) : null;
     const startedScenario = scenario ? startScenario(scenario, adjustment, now) : null;
+    const deadlineAt = started
+      ? Date.parse(now) + boundedInteger(this.runtimeEnv.GAME_DURATION_MINUTES, 165, 15, 720) * 60_000
+      : null;
+    if (startedScenario && deadlineAt !== null) {
+      startedScenario.state.flags.game_deadline_at = new Date(deadlineAt).toISOString();
+    }
     const chatHistory = (startedScenario?.messages ?? [])
       .filter((message) => message.type === "bot.message")
       .map((message) => ({ role: "bot", ...message.payload }));
@@ -517,9 +534,12 @@ export class GameSession extends DurableObject<Env> {
       scenarioProgress: startedScenario && scenario
         ? buildScenarioProgress(scenario, startedScenario.state)
         : { completed: [], available: [] },
+      deadlineAt,
+      deadlineKind: started ? "game" : null,
       updatedAt: now,
     };
     await this.ctx.storage.put(SNAPSHOT_KEY, this.snapshot);
+    if (deadlineAt !== null) await this.ctx.storage.setAlarm(deadlineAt);
     return json({ status: "created", session_id: sessionId });
   }
 
@@ -611,6 +631,9 @@ export class GameSession extends DurableObject<Env> {
     const adjustment = teamSizeAdjustment(this.snapshot.lobby.mode, this.snapshot.lobby.maxPlayers);
     const scenario = await this.loadScenario(this.snapshot.lobby.scenarioId);
     const startedScenario = startScenario(scenario, adjustment, now, this.runtimeActor(attachment.clientId));
+    const deadlineAt = Date.parse(now) +
+      boundedInteger(this.runtimeEnv.GAME_DURATION_MINUTES, 165, 15, 720) * 60_000;
+    startedScenario.state.flags.game_deadline_at = new Date(deadlineAt).toISOString();
     const initialMessages = startedScenario.messages
       .filter((message) => message.type === "bot.message")
       .map((message) => ({ role: "bot", ...message.payload }));
@@ -621,9 +644,12 @@ export class GameSession extends DurableObject<Env> {
       chatHistory: initialMessages,
       gameState: startedScenario.state,
       scenarioProgress: buildScenarioProgress(scenario, startedScenario.state),
+      deadlineAt,
+      deadlineKind: "game",
       updatedAt: now,
     };
     await this.ctx.storage.put(SNAPSHOT_KEY, this.snapshot);
+    await this.ctx.storage.setAlarm(deadlineAt);
     this.broadcastLobbyState();
     for (const candidate of this.ctx.getWebSockets()) await this.sendAuthoritativeSnapshot(candidate, false, scenario);
   }
@@ -799,10 +825,85 @@ export class GameSession extends DurableObject<Env> {
 
   async alarm(): Promise<void> {
     if (this.snapshot.deadlineAt === null) return;
+    if (this.snapshot.deadlineKind === "game") {
+      const flags = { ...this.snapshot.gameState.flags };
+      if (flags.game_completed || flags.deadline_reached_at || flags.out_of_competition) {
+        this.snapshot = { ...this.snapshot, deadlineAt: null, deadlineKind: null };
+        await this.ctx.storage.put(SNAPSHOT_KEY, this.snapshot);
+        return;
+      }
+      const now = new Date().toISOString();
+      const penalty = boundedInteger(this.runtimeEnv.DEADLINE_PENALTY, 100, 0, 1000);
+      const scoreBefore = Number(this.snapshot.gameState.score || 0);
+      const score = scoreBefore - penalty;
+      const adjustment = {
+        delta: -penalty,
+        amount: penalty,
+        reason: "Nedokončení hry v časovém limitu",
+        at: now,
+        score_before: scoreBefore,
+        score_after: score,
+        automatic: true,
+      };
+      flags.deadline_reached_at = now;
+      flags.deadline_choice_pending = true;
+      flags.administratively_ended = true;
+      flags.administratively_ended_at = now;
+      flags.administratively_ended_reason = "deadline";
+      flags.competition_score = score;
+      flags.competition_score_frozen_at = now;
+      if (penalty > 0) {
+        flags.deadline_penalty_applied = true;
+        flags.admin_score_adjustments = [
+          ...(Array.isArray(flags.admin_score_adjustments) ? flags.admin_score_adjustments : []),
+          adjustment,
+        ];
+        flags.admin_penalties = [
+          ...(Array.isArray(flags.admin_penalties) ? flags.admin_penalties : []),
+          adjustment,
+        ];
+      }
+      const scenario = await this.loadScenario(this.snapshot.lobby.scenarioId);
+      const gameState = { ...this.snapshot.gameState, score, flags };
+      this.snapshot = {
+        ...this.snapshot,
+        revision: this.snapshot.revision + 1,
+        deadlineAt: null,
+        deadlineKind: null,
+        gameState,
+        scenarioProgress: buildScenarioProgress(scenario, gameState),
+        updatedAt: now,
+      };
+      await this.ctx.storage.put(SNAPSHOT_KEY, this.snapshot);
+      if (penalty > 0) {
+        this.broadcast("score.update", {
+          score,
+          delta: -penalty,
+          bonus: 0,
+          penalty,
+          reason: "deadline_penalty",
+          description: adjustment.reason,
+        });
+      }
+      const suffix = penalty ? ` Byl odečten postih ${penalty} bodů.` : "";
+      this.broadcast("operations.stopped", {
+        reason: "deadline",
+        penalty,
+        message: `Časový limit hry vypršel.${suffix} Můžete hru ukončit, nebo dohrát mimo soutěž.`,
+      });
+      this.broadcast("game.deadline", {
+        session_id: this.snapshot.sessionId,
+        revision: this.snapshot.revision,
+      });
+      await this.broadcastGameState(scenario);
+      this.broadcast("scenario.progress", this.snapshot.scenarioProgress);
+      return;
+    }
     this.snapshot = {
       ...this.snapshot,
       revision: this.snapshot.revision + 1,
       deadlineAt: null,
+      deadlineKind: null,
       gameState: {
         ...this.snapshot.gameState,
         flags: { ...this.snapshot.gameState.flags, deadline_reached: true },
@@ -857,6 +958,7 @@ export class GameSession extends DurableObject<Env> {
     this.snapshot = {
       ...this.snapshot,
       deadlineAt,
+      deadlineKind: "spike",
       updatedAt: new Date().toISOString(),
     };
     await this.ctx.storage.put(SNAPSHOT_KEY, this.snapshot);

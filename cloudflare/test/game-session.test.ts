@@ -141,4 +141,61 @@ describe("GameSession Durable Object spike", () => {
     expect((await state).payload.flags).toEqual({ deadline_reached: true });
     socket.close(1000, "done");
   });
+
+  it("pauses a real game at its deadline and resumes it outside competition", async () => {
+    const sessionId = "game-deadline-session";
+    const stub = env.GAME_SESSIONS.getByName(sessionId);
+    const initialized = await stub.fetch("https://internal/internal/lobby/initialize", {
+      method: "POST",
+      body: JSON.stringify({
+        session_id: sessionId,
+        mode: "solo",
+        creator_id: "deadline-player",
+        team_name: "Deadline Team",
+        join_code: null,
+        lobby_type: "online_doom",
+        scenario_id: "chronos_online",
+        player_name: "Alice",
+      }),
+    });
+    expect(initialized.status).toBe(200);
+    const { socket } = await connect(sessionId, "deadline-player");
+    const lobby = nextMessage(socket, "lobby.state");
+    const initialGame = nextMessage(socket, "game.state");
+    send(socket, "lobby.resume", { session_id: sessionId });
+    await lobby;
+    expect((await initialGame).payload.score).toBe(1020);
+
+    const scoreUpdate = nextMessage(socket, "score.update");
+    const stopped = nextMessage(socket, "operations.stopped");
+    const deadline = nextMessage(socket, "game.deadline");
+    const pausedState = nextMessage(socket, "game.state");
+    expect(await runDurableObjectAlarm(stub)).toBe(true);
+    expect((await scoreUpdate).payload).toMatchObject({ score: 920, penalty: 100, reason: "deadline_penalty" });
+    expect((await stopped).payload).toMatchObject({ reason: "deadline", penalty: 100 });
+    await deadline;
+    expect((await pausedState).payload).toMatchObject({
+      score: 920,
+      flags: {
+        deadline_choice_pending: true,
+        administratively_ended: true,
+        competition_score: 920,
+      },
+    });
+
+    const resumedState = nextMessage(socket, "game.state");
+    socket.send(JSON.stringify({
+      type: "game.deadline_choice",
+      operation_id: "continue-after-deadline",
+      payload: { choice: "continue" },
+    }));
+    expect((await resumedState).payload.flags).toMatchObject({
+      deadline_choice_pending: false,
+      deadline_choice: "continue",
+      administratively_ended: false,
+      out_of_competition: true,
+      competition_score: 920,
+    });
+    socket.close(1000, "done");
+  });
 });
