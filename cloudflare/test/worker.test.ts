@@ -467,6 +467,27 @@ describe("Cloudflare spike router", () => {
     await creatorArchiveProgress;
     await teammateArchiveProgress;
 
+    const creatorFinale = nextMessage(creator, "finale.result");
+    const creatorFinaleState = nextMessage(creator, "game.state");
+    const creatorFinaleProgress = nextMessage(creator, "scenario.progress");
+    const teammateFinale = nextMessage(player, "finale.result");
+    const teammateFinaleState = nextMessage(player, "game.state");
+    const teammateFinaleProgress = nextMessage(player, "scenario.progress");
+    creator.send(JSON.stringify({
+      type: "finale.activate",
+      operation_id: "early-finale-1",
+      payload: { puzzle_id: "time_machine_finale", year: "2037", time: "21:40", modules: [] },
+    }));
+    expect((await creatorFinale).payload).toMatchObject({
+      success: false,
+      reason: "Finální terminál zatím nebyl nalezen.",
+    });
+    expect((await teammateFinale).payload).toMatchObject({ success: false });
+    await creatorFinaleState;
+    await teammateFinaleState;
+    await creatorFinaleProgress;
+    await teammateFinaleProgress;
+
     const creatorTriad = nextMessage(creator, "triad.result");
     const creatorTriadState = nextMessage(creator, "game.state");
     const creatorTriadProgress = nextMessage(creator, "scenario.progress");

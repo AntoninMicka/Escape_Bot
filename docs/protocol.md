@@ -49,7 +49,8 @@ Cloudflare adaptér zatím obsluhuje z herních příkazů `player.message`,
 `triad.reset`, `sokoban.command`, `sokoban.undo` a `sokoban.reset`. Sokobanové
 povely lze stejně jako v původním backendu zadávat česky přes `player.message`
 v kanálu `lost`. Podporované je také `archive.arrange`; skládání obrazu a
-následné `puzzle.submit` zůstávají oddělené kroky. Před potvrzením uloží nový
+následné `puzzle.submit` zůstávají oddělené kroky. `finale.activate` ověřuje a
+uzavírá kompletní herní průchod. Před potvrzením uloží nový
 stav, chat i omezenou účtenku podle
 `operation_id`. Opakované doručení vrátí uložené odpovědi pouze původnímu
 odesílateli a týmový chat ani herní efekt znovu nerozešle. Výsledek tahu
@@ -283,6 +284,15 @@ dílky. Akce mají hodnoty `left`, `right`, `rotate` a `swap`; u prohození je
 Odhalený klíč a pořadí modulů se objeví až v následném `game.state`. Samotné
 sestavení checkpoint neuzavře — hráč ještě odešle dešifrovaný text přes
 `puzzle.submit`.
+
+### `finale.activate`
+
+Odešle návratový rok, čas a seřazené moduly finální konzole. Server nejprve
+ověří všechny povinné checkpointy, předměty a příznaky. Úspěch označí finální
+checkpoint jako vyřešený, nastaví fázi `portal_open`, uloží čas dokončení a
+hodnocení podle výsledného skóre a rozešle `finale.result`, `effect.trigger` a
+`game.complete`. Opakování již dokončené aktivace vrací `already_complete`
+bez změny času dokončení nebo počtu pokusů.
 
 ### `arg.verify`
 

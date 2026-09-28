@@ -286,6 +286,7 @@ export class GameSession extends DurableObject<Env> {
       case "sokoban.undo":
       case "sokoban.reset":
       case "archive.arrange":
+      case "finale.activate":
       case "triad.place":
       case "triad.reset":
         await this.handleGameCommand(socket, attachment, message);

@@ -587,4 +587,116 @@ describe("deterministic Cloudflare scenario runtime", () => {
     expect(solved.state.checkpoint_states.future_archive.status).toBe("solved");
     expect(solved.state.flags.return_vector_recovered).toBe(true);
   });
+
+  it("reports everything missing from an activated finale", async () => {
+    const scenario = await chronosScenario();
+    const state = startScenario(scenario, 0, "2026-09-28T12:00:00.000Z").state;
+    state.checkpoint_states.time_machine_console = { status: "found" };
+    const result = applyScenarioCommand(
+      scenario,
+      state,
+      "finale.activate",
+      { puzzle_id: "time_machine_finale", year: "2037", time: "21:40", modules: [] },
+      "2026-09-28T12:01:00.000Z",
+    );
+    expect(result.messages[0]).toMatchObject({
+      type: "finale.result",
+      payload: {
+        success: false,
+        missing_checkpoints: expect.arrayContaining(["sports_cipher", "future_archive"]),
+        missing_inventory: expect.arrayContaining(["TEMPORÁLNÍ MOTOR", "KRYSTAL ČASOVÉ KOTVY"]),
+        missing_flags: ["room_108_unlocked"],
+      },
+    });
+    expect(result.state.puzzle_attempts.time_machine_finale).toBeUndefined();
+  });
+
+  it("rejects a wrong finale vector and then completes the game exactly once", async () => {
+    const scenario = await chronosScenario();
+    let state = startScenario(scenario, 250, "2026-09-28T12:00:00.000Z").state;
+    const puzzle = scenario.puzzles.time_machine_finale;
+    for (const checkpointId of puzzle.requires_checkpoints) {
+      state.checkpoint_states[checkpointId] = { status: "solved" };
+    }
+    state.checkpoint_states.time_machine_console = { status: "found" };
+    state.inventory = [...puzzle.requires_inventory];
+    state.flags.room_108_unlocked = true;
+    state = presentGameState(scenario, state, undefined, "2026-09-28T12:00:01.000Z");
+    const presented = state.puzzles.find((item: Record<string, unknown>) => item.id === "time_machine_finale");
+    expect(presented).toMatchObject({
+      status: "found",
+      instructions: expect.stringContaining("návratový rok"),
+      terminal: { mode: "exclusive", label: "Finální konzole stroje času" },
+      finale: {
+        module_labels: ["TEMPORÁLNÍ MOTOR", "FÁZOVÝ STABILIZÁTOR", "KRYSTAL ČASOVÉ KOTVY"],
+        countdown_seconds: 10,
+      },
+    });
+
+    const wrong = applyScenarioCommand(
+      scenario,
+      state,
+      "finale.activate",
+      {
+        puzzle_id: "time_machine_finale",
+        year: "2037",
+        time: "21:40",
+        modules: [...puzzle.module_order].reverse(),
+      },
+      "2026-09-28T12:01:00.000Z",
+    );
+    expect(wrong.messages.map((message) => message.type)).toEqual(["finale.result", "bot.message"]);
+    expect(wrong.messages[0].payload).toMatchObject({ success: false, attempts: 1 });
+
+    const completedAt = "2026-09-28T12:01:01.000Z";
+    const completed = applyScenarioCommand(
+      scenario,
+      wrong.state,
+      "finale.activate",
+      {
+        puzzle_id: "time_machine_finale",
+        year: "20-37",
+        time: "21:40",
+        modules: puzzle.module_order,
+      },
+      completedAt,
+    );
+    expect(completed.messages.map((message) => message.type)).toEqual([
+      "finale.result",
+      "bot.message",
+      "bot.message",
+      "effect.trigger",
+      "game.complete",
+    ]);
+    expect(completed.messages[0].payload).toMatchObject({
+      success: true,
+      score: 1250,
+      rating: "CHRONOMISTR",
+      countdown_seconds: 10,
+    });
+    expect(completed.state).toMatchObject({
+      phase: "portal_open",
+      flags: {
+        game_completed: true,
+        completed_at: completedAt,
+        final_rating: "CHRONOMISTR",
+        elara_rescued: true,
+      },
+      checkpoint_states: { time_machine_console: { status: "solved", solved_at: completedAt } },
+    });
+
+    const replay = applyScenarioCommand(
+      scenario,
+      completed.state,
+      "finale.activate",
+      { puzzle_id: "time_machine_finale", year: "", time: "", modules: [] },
+      "2026-09-28T12:02:00.000Z",
+    );
+    expect(replay.messages).toEqual([{
+      type: "finale.result",
+      payload: { success: true, already_complete: true, score: 1250 },
+    }]);
+    expect(replay.state.flags.completed_at).toBe(completedAt);
+    expect(replay.state.puzzle_attempts.time_machine_finale).toBe(2);
+  });
 });

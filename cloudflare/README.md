@@ -78,8 +78,10 @@ pro undo, čas každé úrovně a navigátory; české povely z kanálu Elary se
 stejně jako přímé API příkazy. Archivní skládačka `archive_vector` je rovněž
 perzistentní: sdílí pořadí a natočení dílků, ale klíč
 a pořadí modulů odhalí až po správném sestavení obrazu; checkpoint dokončí až
-následná správná textová odpověď. Ostatní minihry, terminály, deadline celé hry
-a administrace ještě čekají na další části CF-04 a CF-05.
+následná správná textová odpověď. `finale.activate` ověřuje úplnou trasu,
+inventář, servisní příznaky, rok, čas a pořadí modulů; při úspěchu uloží konečné
+hodnocení, dokončení hry a rozešle finální efekt. Terminálové rezervace,
+deadline celé hry a administrace ještě čekají na další části CF-04 a CF-05.
 
 Produkční deploy má samostatný explicitní příkaz `npm run deploy:production`.
 Obecný `npm run deploy` záměrně není definován, aby nebylo možné bez výběru

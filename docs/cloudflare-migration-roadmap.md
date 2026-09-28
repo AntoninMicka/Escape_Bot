@@ -142,7 +142,7 @@ Akceptace:
 
 **Odhad: 8–12 pracovních dnů**
 
-**Stav: osmá vertikální část lokálně implementována.** Bootstrap načte katalog
+**Stav: devátá vertikální část lokálně implementována.** Bootstrap načte katalog
 ze stejných realizací jako současný backend, založí sólo nebo týmovou lobby,
 vyřeší osmimístný join kód a přesměruje klienta do konkrétního `GameSession`.
 Build skládá skutečné runtime scénáře z šablon a realizací. Lobby, seznam
@@ -160,8 +160,10 @@ interkomu, undo/reset, deadline každého sektoru, bodování i varování při 
 navigátora; interní historie tahů se klientům neposílá. Archivní
 `archive_vector` ukládá sdílené pořadí a natočení dílků. Veřejný stav
 odhalí klíč a pořadí modulů až po sestavení, přičemž dokončení checkpointu stále
-vyžaduje samostatnou správnou textovou odpověď. Ostatní interaktivní minihry,
-alarmy produkčních deadlineů, vyřazení hráče a terminály ještě nejsou přeneseny.
+vyžaduje samostatnou správnou textovou odpověď. Finální konzole kontroluje
+úplnost trasy a inventáře, návratový vektor i pořadí modulů a při úspěchu
+perzistentně uzavře hru včetně výsledného hodnocení. Alarmy produkčních
+deadlineů, vyřazení hráče a terminály ještě nejsou přeneseny.
 
 1. Směrovat spojení deterministicky podle `session_id`.
 2. Přesunout lobby, hráče, chat, herní snapshot, terminálové rezervace a

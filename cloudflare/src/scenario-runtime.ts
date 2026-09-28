@@ -204,6 +204,7 @@ export function applyScenarioCommand(
     "sokoban.undo",
     "sokoban.reset",
     "archive.arrange",
+    "finale.activate",
     "triad.place",
     "triad.reset",
   ]).has(type)) {
@@ -232,6 +233,7 @@ export function applyScenarioCommand(
   else if (type === "sokoban.undo") result = applySokobanUndo(scenario, state, payload, now);
   else if (type === "sokoban.reset") result = applySokobanReset(scenario, state, payload, now);
   else if (type === "archive.arrange") result = applyArchiveArrange(scenario, state, payload);
+  else if (type === "finale.activate") result = applyFinaleActivate(scenario, state, payload, now);
   else if (type === "triad.place") result = applyTriadPlace(scenario, state, payload, now, actor);
   else result = applyTriadReset(scenario, state, payload, now, actor);
   return { ...result, state: presentGameState(scenario, result.state, actor, now) };
@@ -1308,6 +1310,135 @@ function applyArchiveArrange(
   }
 }
 
+function normalizeFinaleValue(value: unknown): string {
+  return String(value ?? "").toUpperCase().replace(/\s+/g, "").replaceAll(":", "").replaceAll("-", "");
+}
+
+function finaleRating(puzzle: Record<string, any>, score: number): string {
+  const thresholds = Object.entries(record(puzzle.rating_thresholds))
+    .map(([minimum, label]) => [Number(minimum), String(label)] as const)
+    .filter(([minimum]) => Number.isFinite(minimum))
+    .sort(([left], [right]) => right - left);
+  return thresholds.find(([minimum]) => score >= minimum)?.[1] ?? "STABILIZOVÁNO";
+}
+
+function applyFinaleActivate(
+  scenario: ScenarioDocument,
+  state: GameStateDocument,
+  payload: Record<string, unknown>,
+  now: string,
+): ScenarioCommandResult {
+  const puzzleId = String(payload.puzzle_id ?? "").trim();
+  const puzzle = record(record(scenario.puzzles)[puzzleId]);
+  if (!Object.keys(puzzle).length || puzzleAdapter(scenario, puzzle) !== "finale") {
+    return {
+      state,
+      messages: [{ type: "finale.result", payload: { success: false, reason: "Neznámý finální terminál." } }],
+    };
+  }
+  const checkpointId = String(puzzle.checkpoint_id || "");
+  state.checkpoint_states = record(state.checkpoint_states);
+  const checkpoint = record(state.checkpoint_states[checkpointId]);
+  if (!Object.keys(checkpoint).length) {
+    return {
+      state,
+      messages: [{
+        type: "finale.result",
+        payload: { success: false, reason: "Finální terminál zatím nebyl nalezen." },
+      }],
+    };
+  }
+  state.flags = record(state.flags);
+  if (checkpoint.status === "solved" || state.flags.game_completed) {
+    return {
+      state,
+      messages: [{
+        type: "finale.result",
+        payload: { success: true, already_complete: true, score: Number(state.score || 0) },
+      }],
+    };
+  }
+
+  const missingCheckpoints = (Array.isArray(puzzle.requires_checkpoints) ? puzzle.requires_checkpoints : [])
+    .map(String)
+    .filter((required) => record(state.checkpoint_states[required]).status !== "solved");
+  const inventory = new Set(Array.isArray(state.inventory) ? state.inventory.map(String) : []);
+  const missingInventory = (Array.isArray(puzzle.requires_inventory) ? puzzle.requires_inventory : [])
+    .map(String)
+    .filter((required) => !inventory.has(required));
+  const missingFlags = (Array.isArray(puzzle.requires_flags) ? puzzle.requires_flags : [])
+    .map(String)
+    .filter((required) => !state.flags[required]);
+  if (missingCheckpoints.length || missingInventory.length || missingFlags.length) {
+    return {
+      state,
+      messages: [{
+        type: "finale.result",
+        payload: {
+          success: false,
+          reason: "Stroj není kompletní. Chybí povinné kotvy, součásti nebo archivní potvrzení.",
+          missing_checkpoints: missingCheckpoints,
+          missing_inventory: missingInventory,
+          missing_flags: missingFlags,
+        },
+      }],
+    };
+  }
+
+  const modules = Array.isArray(payload.modules) ? payload.modules.map(normalizeFinaleValue) : [];
+  const expectedModules = (Array.isArray(puzzle.module_order) ? puzzle.module_order : []).map(normalizeFinaleValue);
+  state.puzzle_attempts = record(state.puzzle_attempts);
+  const attempts = Number(state.puzzle_attempts[puzzleId] || 0) + 1;
+  state.puzzle_attempts[puzzleId] = attempts;
+  const correct = normalizeFinaleValue(payload.year) === normalizeFinaleValue(puzzle.year) &&
+    normalizeFinaleValue(payload.time) === normalizeFinaleValue(puzzle.time) &&
+    modules.length === expectedModules.length &&
+    modules.every((module, index) => module === expectedModules[index]);
+  if (!correct) {
+    return {
+      state,
+      messages: [
+        {
+          type: "finale.result",
+          payload: {
+            success: false,
+            reason: "Časové souřadnice nebo pořadí modulů nesouhlasí.",
+            attempts,
+          },
+        },
+        { type: "bot.message", payload: messageTemplate(puzzle.failure_message) },
+      ],
+    };
+  }
+
+  checkpoint.status = "solved";
+  checkpoint.solved_at = now;
+  state.checkpoint_states[checkpointId] = checkpoint;
+  applyRewards(scenario, state, record(record(scenario.checkpoints)[checkpointId]).rewards);
+  state.phase = String(puzzle.completion_phase || record(scenario.phase_engine).completion_phase || "portal_open");
+  state.flags.game_completed = true;
+  state.flags.completed_at = now;
+  const score = Number(state.score || 0);
+  const rating = finaleRating(puzzle, score);
+  state.flags.final_rating = rating;
+  const countdownSeconds = Number(puzzle.countdown_seconds ?? 10);
+  const messages: RuntimeMessage[] = [{
+    type: "finale.result",
+    payload: { success: true, score, rating, countdown_seconds: countdownSeconds },
+  }];
+  for (const template of Array.isArray(puzzle.success_messages) ? puzzle.success_messages : []) {
+    messages.push({ type: "bot.message", payload: messageTemplate(template) });
+  }
+  messages.push(
+    {
+      type: "effect.trigger",
+      payload: { effect: "finale", intensity: 1, duration_ms: countdownSeconds * 1000 },
+    },
+    { type: "game.complete", payload: { score, rating, completed_at: now } },
+  );
+  return { state, messages };
+}
+
 function ensureTriadGame(
   state: GameStateDocument,
   puzzleId: string,
@@ -1544,6 +1675,20 @@ export function presentGameState(
       hints_unlocked: Math.min(Number(record(state.hints_used)[`puzzle.${puzzleId}`] || 0), puzzleHints.length),
       hint_costs: puzzleHints.map((hint: unknown) => Number(record(hint).penalty || 10)),
     };
+    const terminal = record(puzzle.terminal);
+    if (new Set(["exclusive", "mirror"]).has(String(terminal.mode || "off"))) {
+      presented.terminal = {
+        mode: String(terminal.mode),
+        label: String(terminal.label || puzzle.title || "Herní terminál").slice(0, 80),
+      };
+    }
+    if (checkpointState.status === "found" || checkpointState.status === "solved") {
+      presented.instructions = String(puzzle.instructions || "");
+      presented.image = puzzle.image ?? null;
+      presented.categories = clone(record(puzzle.categories));
+      presented.clues = Array.isArray(puzzle.clues) ? clone(puzzle.clues) : [];
+      presented.ciphertext = String(puzzle.ciphertext || "");
+    }
     if (
       actorValue &&
       puzzleAdapter(scenario, puzzle) === "line_game" &&
@@ -1573,6 +1718,15 @@ export function presentGameState(
     ) {
       const game = ensureArchiveGame(state, puzzleId, record(puzzle.assembly));
       presented.archive_game = publicArchiveGame(record(puzzle.assembly), game);
+    }
+    if (
+      puzzleAdapter(scenario, puzzle) === "finale" &&
+      (checkpointState.status === "found" || checkpointState.status === "solved")
+    ) {
+      presented.finale = {
+        module_labels: Array.isArray(puzzle.module_labels) ? puzzle.module_labels.map(String) : [],
+        countdown_seconds: Number(puzzle.countdown_seconds ?? 10),
+      };
     }
     if (
       actorValue &&
