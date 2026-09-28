@@ -4,6 +4,12 @@ Izolovaný technický spike pro budoucí Cloudflare runtime Escape Botu. Není
 zapojený do současného FastAPI serveru ani klienta a není určený k produkčnímu
 nasazení.
 
+Používá stejný Cloudflare účet a lokální Wrangler přihlášení jako ostatní
+projekty, ale nesdílí s nimi Worker, Durable Object namespace, D1 databázi ani
+secrety. Názvy prostředí jsou `escape-bot-cf-development`,
+`escape-bot-cf-staging` a `escape-bot-cf-production`; Worker
+`prijimaci-vycvik` ani jeho `prijimaci-vycvik-db` se nepoužijí.
+
 ## Co ověřuje
 
 - Worker endpoint `/api/health`;
@@ -43,9 +49,13 @@ Staging nasazení je samostatný explicitní krok a vyžaduje přihlášený Wra
 Cloudflare účet:
 
 ```bash
-npm exec wrangler deploy -- --env staging
+npm run deploy:staging
 curl https://STAGING-DOMAIN/api/health
 ```
+
+Produkční deploy má samostatný explicitní příkaz `npm run deploy:production`.
+Obecný `npm run deploy` záměrně není definován, aby nebylo možné bez výběru
+prostředí změnit výchozí Worker.
 
 Po nasazení je nutné zopakovat WebSocket resume po uspání fyzického iPhonu.
 Teprve poté lze CF-01 označit za dokončený.

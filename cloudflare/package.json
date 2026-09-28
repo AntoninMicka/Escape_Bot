@@ -6,6 +6,8 @@
   "scripts": {
     "check": "npm run typecheck && npm test",
     "dev": "wrangler dev --env development",
+    "deploy:staging": "wrangler deploy --env staging",
+    "deploy:production": "wrangler deploy --env production",
     "test": "vitest run",
     "typecheck": "tsc --noEmit"
   },
