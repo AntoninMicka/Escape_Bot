@@ -2,6 +2,9 @@
 
 Konkrétní realizační plán pro Google Cloud je v dokumentu [`gcp-compute-cloudsql-roadmap.md`](gcp-compute-cloudsql-roadmap.md).
 
+Plán refaktoringu na Cloudflare Workers, Durable Objects, D1 a R2 je v dokumentu
+[`cloudflare-migration-roadmap.md`](cloudflare-migration-roadmap.md).
+
 Realizovatelný Terraform modul a release runbook jsou v [`../infra/terraform/README.md`](../infra/terraform/README.md). Skripty pro vytvoření tajemství, sestavení release image, deploy a rollback jsou v `deploy/gcp/`.
 
 ## Připravená první produkční varianta
