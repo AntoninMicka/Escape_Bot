@@ -42,6 +42,11 @@ Zakladatel týmové relace ji spustí zprávou `lobby.start`. Backend spuštěn�
 
 Každý `lobby.resume` rozehrané relace vrací úplný autoritativní snapshot: `lobby.state`, `chat.history`, `game.state` a `scenario.progress`; v demo režimu také `demo.catalog`. Klient obnovu aktivně vyžádá při událostech `visibilitychange`, `pageshow` a `online`. Pokud uspáním vznikne zdánlivě otevřený, ale nefunkční WebSocket, neúspěšná synchronizační sonda jej uzavře a vyvolá nové připojení.
 
+Cloudflare adaptér zatím obsluhuje z herních příkazů `player.message` a
+`phase.hint`. Před potvrzením uloží nový stav, chat i omezenou účtenku podle
+`operation_id`. Opakované doručení vrátí uložené odpovědi pouze původnímu
+odesílateli a týmový chat ani herní efekt znovu nerozešle.
+
 Pro reverzní připojení notebook pošle `lobby.identify` a dostane `lobby.player_identity` s jednorázovým osmimístným kódem. Zobrazí jej jako `escapebot://player/<code>`. Zakladatel kód načte a odešle v `lobby.add_player`; backend čekající WebSocket připojí do stejné lobby. Kód je jednorázový a zařízení se dále chová jako běžný hráč.
 
 Velikost týmu upravuje skóre podle nejvyššího počtu registrovaných zařízení: sólo `+20`, tým o dvou hráčích `+10`, tři hráči beze změny a každý hráč nad tři `−30`. Pozdější připojení pouze dorovná rozdíl proti již použité úpravě.

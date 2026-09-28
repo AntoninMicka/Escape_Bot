@@ -25,6 +25,7 @@ test("Static Assets build is minimal, fingerprinted and internally complete", as
   assert.ok(relativeFiles.includes("display.html"));
   assert.ok(relativeFiles.includes("sw.js"));
   assert.ok(relativeFiles.includes("runtime-catalog.json"));
+  assert.ok(relativeFiles.includes("scenarios/chronos_online.json"));
   assert.ok(relativeFiles.includes("chronos-webgl/dist/index.html"));
   assert.ok(relativeFiles.some((path) => /^assets\/app\/operation-queue-[a-f0-9]{12}\.js$/.test(path)));
   assert.ok(relativeFiles.some((path) => /^assets\/app\/chronos3d-[a-f0-9]{12}\.js$/.test(path)));
@@ -48,6 +49,11 @@ test("Static Assets build is minimal, fingerprinted and internally complete", as
   assert.ok(
     runtimeCatalog.find((game) => game.id === "chronos_online").lobby_types.includes("online_doom"),
   );
+  const chronosScenario = JSON.parse(
+    await readFile(join(outputDir, "scenarios", "chronos_online.json"), "utf8"),
+  );
+  assert.equal(chronosScenario.id, "chronos_online_rescue");
+  assert.match(chronosScenario.phases.searching_lost.enter_message.text, /Výzkumného ústavu CHRONOS/);
 
   for (const path of files) assert.ok((await stat(path)).size <= 25 * 1024 * 1024);
 });

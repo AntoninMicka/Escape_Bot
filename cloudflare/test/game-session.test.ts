@@ -71,7 +71,7 @@ describe("GameSession Durable Object spike", () => {
       started: true,
       player_count: 1,
     });
-    expect((await game).payload).toMatchObject({ phase: "briefing", score: 20 });
+    expect((await game).payload).toMatchObject({ phase: "comms_offline", score: 1020 });
     socket.close(1000, "done");
   });
 

@@ -142,13 +142,14 @@ Akceptace:
 
 **Odhad: 8–12 pracovních dnů**
 
-**Stav: první vertikální část lokálně implementována.** Bootstrap načte katalog
+**Stav: druhá vertikální část lokálně implementována.** Bootstrap načte katalog
 ze stejných realizací jako současný backend, založí sólo nebo týmovou lobby,
 vyřeší osmimístný join kód a přesměruje klienta do konkrétního `GameSession`.
-Lobby, seznam hráčů, spuštění, základní skóre za velikost týmu a úplná čtveřice
-resume zpráv přežijí evikci. Herní příkazy, skutečný scenario snapshot,
-idempotency journal, alarmy produkčních deadlineů a terminály ještě nejsou
-přeneseny.
+Build skládá skutečné runtime scénáře z šablon a realizací. Lobby, seznam
+hráčů, chat, spuštění, základní skóre za velikost týmu, textový úvod scénáře,
+fázové nápovědy, omezený idempotency journal a úplná čtveřice resume zpráv
+přežijí evikci. Checkpointy a rébusy, alarmy produkčních deadlineů, vyřazení
+hráče a terminály ještě nejsou přeneseny.
 
 1. Směrovat spojení deterministicky podle `session_id`.
 2. Přesunout lobby, hráče, chat, herní snapshot, terminálové rezervace a

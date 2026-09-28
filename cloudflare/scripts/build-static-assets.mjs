@@ -59,6 +59,80 @@ function supportedLobbyTypes(modes) {
   ].filter(Boolean);
 }
 
+function resolveVariable(variables, path) {
+  let value = variables;
+  for (const part of path.split(".")) {
+    if (!value || typeof value !== "object" || !(part in value)) {
+      throw new Error(`Realizaci chybí proměnná ${path}.`);
+    }
+    value = value[part];
+  }
+  return value;
+}
+
+function renderString(value, variables) {
+  return value.replace(/\$\{([a-zA-Z0-9_.-]+)\}/g, (_match, path) => {
+    const replacement = resolveVariable(variables, path);
+    if (replacement === null || typeof replacement === "object") {
+      throw new Error(`Proměnnou ${path} nelze vložit do textu.`);
+    }
+    return String(replacement);
+  });
+}
+
+function renderValue(value, variables) {
+  if (Array.isArray(value)) return value.map((item) => renderValue(item, variables));
+  if (value && typeof value === "object") {
+    if (Object.keys(value).length === 1 && Object.hasOwn(value, "$var")) {
+      return structuredClone(resolveVariable(variables, value.$var));
+    }
+    return Object.fromEntries(
+      Object.entries(value).map(([key, child]) => [
+        renderString(key, variables),
+        renderValue(child, variables),
+      ]),
+    );
+  }
+  return typeof value === "string" ? renderString(value, variables) : structuredClone(value);
+}
+
+function applyRuntimePatches(runtime, patches, variables) {
+  for (const patch of patches || []) {
+    if (!new Set(["add", "replace"]).has(patch.op) || typeof patch.path !== "string") {
+      throw new Error("Realizace obsahuje neplatný runtime patch.");
+    }
+    const parts = renderString(patch.path, variables)
+      .slice(1)
+      .split("/")
+      .map((part) => part.replaceAll("~1", "/").replaceAll("~0", "~"));
+    let target = runtime;
+    for (const part of parts.slice(0, -1)) {
+      if (!(part in target)) throw new Error(`Runtime patch míří na neexistující cestu ${patch.path}.`);
+      target = target[part];
+    }
+    const finalPart = parts.at(-1);
+    if (patch.op === "replace" && !(finalPart in target)) {
+      throw new Error(`Runtime patch míří na neexistující cestu ${patch.path}.`);
+    }
+    if (patch.op === "add" && finalPart in target) {
+      throw new Error(`Runtime patch přidává existující cestu ${patch.path}.`);
+    }
+    target[finalPart] = renderValue(patch.value, variables);
+  }
+}
+
+function compileScenario(template, realization) {
+  if (
+    realization.template?.id !== template.id ||
+    realization.template?.version !== template.version
+  ) {
+    throw new Error(`Realizace ${realization.id} odkazuje na jinou šablonu nebo verzi.`);
+  }
+  const runtime = renderValue(template.runtime, realization.variables);
+  applyRuntimePatches(runtime, realization.runtime_patches, realization.variables);
+  return runtime;
+}
+
 await rm(outputDir, { recursive: true, force: true });
 await mkdir(outputDir, { recursive: true });
 
@@ -98,9 +172,18 @@ await cp(webglSource, webglOutput, { recursive: true });
 await copyFile(join(cloudflareDir, "static", "_headers"), join(outputDir, "_headers"));
 
 const realizationDir = join(repositoryDir, "backend", "content", "realizations");
+const templateDir = join(repositoryDir, "backend", "content", "templates");
+const templates = new Map();
+for (const filename of (await readdir(templateDir)).filter((name) => name.endsWith(".json")).sort()) {
+  const template = JSON.parse(await readFile(join(templateDir, filename), "utf8"));
+  templates.set(`${template.id}@${template.version}`, template);
+}
 const runtimeGames = [];
 for (const filename of (await readdir(realizationDir)).filter((name) => name.endsWith(".json")).sort()) {
   const realization = JSON.parse(await readFile(join(realizationDir, filename), "utf8"));
+  const template = templates.get(`${realization.template?.id}@${realization.template?.version}`);
+  if (!template) throw new Error(`Pro realizaci ${realization.id} chybí šablona.`);
+  const compiled = compileScenario(template, realization);
   const modes = Array.isArray(realization.modes) ? realization.modes.map(String) : [];
   runtimeGames.push({
     id: String(realization.id || ""),
@@ -111,6 +194,9 @@ for (const filename of (await readdir(realizationDir)).filter((name) => name.end
     modes,
     lobby_types: supportedLobbyTypes(modes),
   });
+  const scenarioOutput = join(outputDir, "scenarios", `${realization.id}.json`);
+  await mkdir(dirname(scenarioOutput), { recursive: true });
+  await writeFile(scenarioOutput, `${JSON.stringify(compiled, null, 2)}\n`);
 }
 if (runtimeGames.some((game) => !game.id || !game.lobby_types.length)) {
   throw new Error("Některá realizace nemá ID nebo podporovaný lobby režim.");

@@ -1,4 +1,4 @@
-# Cloudflare runtime (CF-01 až CF-03)
+# Cloudflare runtime (CF-01 až CF-04)
 
 Samostatný Cloudflare runtime Escape Botu. CF-01 ověřuje Worker, Durable Object
 a WebSocket hibernaci, CF-03 přidává reprodukovatelný balíček klienta pro
@@ -19,8 +19,10 @@ secrety. Názvy prostředí jsou `escape-bot-cf-development`,
 - Hibernation WebSocket API a serializovanou identitu klienta;
 - broadcast třem klientům jedné relace;
 - perzistentní autoritativní snapshot a úplný `lobby.resume` po evikci;
+- zkompilovaný scénářový snapshot, úvodní dialog a postup fázemi;
+- perzistentní chat, fázové nápovědy a idempotentní účtenky prvních herních příkazů;
 - Durable Object alarm pro časový deadline;
-- oddělení stavu různých relací.
+- oddělení stavu různých relací;
 - statický klient na `/`, `/admin`, `/terminal` a `/display`;
 - service worker a fingerprintovaný WebGL build;
 - Worker-first směrování `/api/*` a `/ws`.
@@ -63,10 +65,11 @@ curl https://STAGING-DOMAIN/api/health
 
 Na stagingu je nutné ručně projít `/`, `/admin`, `/display`, `/terminal` a
 Chronomap, ověřit aktualizaci service workeru a HTTPS kameru v Safari na
-fyzickém iPhonu. První část CF-04 podporuje bootstrap, sólo/týmovou lobby,
-připojení kódem, spuštění a autoritativní resume snapshot. Vlastní herní
-příkazy, obsah scénáře, terminály a administrace ještě čekají na další části
-CF-04 a CF-05.
+fyzickém iPhonu. Rozpracovaný CF-04 podporuje bootstrap, sólo/týmovou lobby,
+připojení kódem, spuštění, autoritativní resume snapshot a hratelný textový
+úvod scénáře přes `player.message` a `phase.hint`. Checkpointy, rébusy,
+terminály, deadline hry a administrace ještě čekají na další části CF-04 a
+CF-05.
 
 Produkční deploy má samostatný explicitní příkaz `npm run deploy:production`.
 Obecný `npm run deploy` záměrně není definován, aby nebylo možné bez výběru

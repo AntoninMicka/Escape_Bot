@@ -1,4 +1,12 @@
 import { DurableObject } from "cloudflare:workers";
+import {
+  applyScenarioCommand,
+  buildScenarioProgress,
+  presentGameState,
+  startScenario,
+  type GameStateDocument,
+  type ScenarioDocument,
+} from "./scenario-runtime";
 
 interface Env {
   APP_ENV: string;
@@ -15,6 +23,8 @@ interface SocketAttachment {
 interface ProtocolMessage {
   type: string;
   payload?: Record<string, unknown>;
+  request_id?: string;
+  operation_id?: string;
 }
 
 interface LobbyPlayer {
@@ -42,15 +52,9 @@ interface SessionSnapshot {
   revision: number;
   lobby: LobbySnapshot;
   chatHistory: Array<Record<string, unknown>>;
-  gameState: {
-    phase: string;
-    score: number;
-    flags: Record<string, unknown>;
-  };
-  scenarioProgress: {
-    completed: string[];
-    available: string[];
-  };
+  gameState: GameStateDocument;
+  scenarioProgress: Record<string, unknown>;
+  operationReceipts: Record<string, ProtocolMessage[]>;
   deadlineAt: number | null;
   updatedAt: string;
 }
@@ -88,8 +92,18 @@ function json(data: unknown, status = 200): Response {
   return response;
 }
 
-function protocolMessage(type: string, payload: Record<string, unknown>): string {
-  return JSON.stringify({ type, payload });
+function protocolMessage(
+  type: string,
+  payload: Record<string, unknown>,
+  requestId?: string,
+  operationId?: string,
+): string {
+  return JSON.stringify({
+    type,
+    payload,
+    ...(requestId ? { request_id: requestId } : {}),
+    ...(operationId ? { operation_id: operationId } : {}),
+  });
 }
 
 function defaultSnapshot(sessionId = ""): SessionSnapshot {
@@ -112,6 +126,7 @@ function defaultSnapshot(sessionId = ""): SessionSnapshot {
     chatHistory: [],
     gameState: { phase: "lobby", score: 0, flags: {} },
     scenarioProgress: { completed: [], available: [] },
+    operationReceipts: {},
     deadlineAt: null,
     updatedAt: new Date(0).toISOString(),
   };
@@ -257,6 +272,10 @@ export class GameSession extends DurableObject<Env> {
       case "lobby.start":
         await this.startLobby(socket, attachment);
         return;
+      case "player.message":
+      case "phase.hint":
+        await this.handleGameCommand(socket, attachment, message);
+        return;
       case "spike.broadcast": {
         const text = String(message.payload?.text ?? "").trim();
         if (!text) {
@@ -273,7 +292,11 @@ export class GameSession extends DurableObject<Env> {
         await this.scheduleDeadline(socket, message.payload ?? {});
         return;
       default:
-        this.send(socket, "error", { message: `Neznámý typ zprávy: ${message.type}` });
+        if (message.operation_id) {
+          await this.handleGameCommand(socket, attachment, message);
+        } else {
+          this.send(socket, "error", { message: `Neznámý typ zprávy: ${message.type}` });
+        }
     }
   }
 
@@ -450,6 +473,11 @@ export class GameSession extends DurableObject<Env> {
     const now = new Date().toISOString();
     const started = mode === "solo";
     const adjustment = started ? teamSizeAdjustment(mode, 1) : 0;
+    const scenario = started ? await this.loadScenario(cleanText(payload.scenario_id, 64)) : null;
+    const startedScenario = scenario ? startScenario(scenario, adjustment, now) : null;
+    const chatHistory = (startedScenario?.messages ?? [])
+      .filter((message) => message.type === "bot.message")
+      .map((message) => ({ role: "bot", ...message.payload }));
     this.snapshot = {
       ...defaultSnapshot(sessionId),
       revision: 1,
@@ -465,12 +493,15 @@ export class GameSession extends DurableObject<Env> {
         maxPlayers: 1,
         appliedScoreAdjustment: adjustment,
       },
-      gameState: {
-        phase: started ? "briefing" : "lobby",
-        score: adjustment,
-        flags: started ? { operations_started_at: now } : {},
+      chatHistory,
+      gameState: startedScenario?.state ?? {
+        phase: "lobby",
+        score: 1000,
+        flags: {},
       },
-      scenarioProgress: { completed: [], available: [] },
+      scenarioProgress: startedScenario && scenario
+        ? buildScenarioProgress(scenario, startedScenario.state)
+        : { completed: [], available: [] },
       updatedAt: now,
     };
     await this.ctx.storage.put(SNAPSHOT_KEY, this.snapshot);
@@ -502,6 +533,11 @@ export class GameSession extends DurableObject<Env> {
     const scoreDelta = desiredAdjustment - previousAdjustment;
     this.snapshot.lobby.appliedScoreAdjustment = desiredAdjustment;
     this.snapshot.gameState.score += scoreDelta;
+    if (this.snapshot.lobby.started) {
+      const scenario = await this.loadScenario(this.snapshot.lobby.scenarioId);
+      this.snapshot.gameState = presentGameState(scenario, this.snapshot.gameState);
+      this.snapshot.scenarioProgress = buildScenarioProgress(scenario, this.snapshot.gameState);
+    }
     this.snapshot.revision += 1;
     this.snapshot.updatedAt = new Date().toISOString();
     await this.ctx.storage.put(SNAPSHOT_KEY, this.snapshot);
@@ -553,16 +589,18 @@ export class GameSession extends DurableObject<Env> {
     }
     const now = new Date().toISOString();
     const adjustment = teamSizeAdjustment(this.snapshot.lobby.mode, this.snapshot.lobby.maxPlayers);
+    const scenario = await this.loadScenario(this.snapshot.lobby.scenarioId);
+    const startedScenario = startScenario(scenario, adjustment, now);
+    const initialMessages = startedScenario.messages
+      .filter((message) => message.type === "bot.message")
+      .map((message) => ({ role: "bot", ...message.payload }));
     this.snapshot = {
       ...this.snapshot,
       revision: this.snapshot.revision + 1,
       lobby: { ...this.snapshot.lobby, started: true, appliedScoreAdjustment: adjustment },
-      gameState: {
-        ...this.snapshot.gameState,
-        phase: "briefing",
-        score: this.snapshot.gameState.score + adjustment,
-        flags: { ...this.snapshot.gameState.flags, operations_started_at: now },
-      },
+      chatHistory: initialMessages,
+      gameState: startedScenario.state,
+      scenarioProgress: buildScenarioProgress(scenario, startedScenario.state),
       updatedAt: now,
     };
     await this.ctx.storage.put(SNAPSHOT_KEY, this.snapshot);
@@ -596,6 +634,105 @@ export class GameSession extends DurableObject<Env> {
     } finally {
       release();
     }
+  }
+
+  private async handleGameCommand(
+    socket: WebSocket,
+    attachment: SocketAttachment,
+    message: ProtocolMessage,
+  ): Promise<void> {
+    await this.serializeState(async () => {
+      if (!this.snapshot.lobby.started || !this.snapshot.lobby.players[attachment.clientId]) {
+        this.send(socket, "command.rejected", { reason: "Nejprve spusťte týmovou hru." }, message.request_id, message.operation_id);
+        return;
+      }
+      const operationId = String(message.operation_id || "");
+      if (!operationId || operationId.length > 128) {
+        this.send(socket, "command.rejected", { reason: "Hernímu příkazu chybí platné operation_id." }, message.request_id, operationId || undefined);
+        return;
+      }
+      const receipt = this.snapshot.operationReceipts[operationId];
+      if (receipt) {
+        for (const response of receipt) this.sendProtocol(socket, response);
+        return;
+      }
+
+      const scenario = await this.loadScenario(this.snapshot.lobby.scenarioId);
+      const payload = message.payload ?? {};
+      const now = new Date().toISOString();
+      const result = applyScenarioCommand(
+        scenario,
+        this.snapshot.gameState,
+        message.type,
+        payload,
+        now,
+      );
+      const senderName = this.snapshot.lobby.players[attachment.clientId]?.name || "Hráč";
+      let teamMessage: ProtocolMessage | null = null;
+      if (message.type === "player.message") {
+        const text = cleanText(payload.text, 1000);
+        const channel = cleanText(payload.channel || "general", 32);
+        if (text) {
+          this.snapshot.chatHistory.push({
+            role: "player",
+            channel,
+            text,
+            sender: senderName,
+          });
+          teamMessage = {
+            type: "team.player_message",
+            payload: { client_id: attachment.clientId, channel, text, sender: senderName },
+          };
+        }
+      }
+      for (const response of result.messages) {
+        if (response.type === "bot.message") {
+          this.snapshot.chatHistory.push({ role: "bot", ...response.payload });
+        }
+      }
+
+      this.snapshot.gameState = result.state;
+      this.snapshot.scenarioProgress = buildScenarioProgress(scenario, result.state);
+      this.snapshot.revision += 1;
+      this.snapshot.updatedAt = now;
+      const responses: ProtocolMessage[] = [
+        ...result.messages.map((response) => ({
+          ...response,
+          ...(message.request_id ? { request_id: message.request_id } : {}),
+          operation_id: operationId,
+        })),
+        {
+          type: "game.state",
+          payload: this.gameStatePayload(),
+          operation_id: operationId,
+        },
+        {
+          type: "scenario.progress",
+          payload: this.snapshot.scenarioProgress,
+          operation_id: operationId,
+        },
+      ];
+      this.snapshot.operationReceipts[operationId] = responses;
+      while (Object.keys(this.snapshot.operationReceipts).length > 500) {
+        delete this.snapshot.operationReceipts[Object.keys(this.snapshot.operationReceipts)[0]];
+      }
+      await this.ctx.storage.put(SNAPSHOT_KEY, this.snapshot);
+
+      if (teamMessage) this.broadcastProtocol(teamMessage, socket);
+      for (const response of responses) {
+        this.sendProtocol(socket, response);
+        this.broadcastProtocol({ type: response.type, payload: response.payload }, socket);
+      }
+    });
+  }
+
+  private async loadScenario(scenarioId: string): Promise<ScenarioDocument> {
+    if (!/^[A-Za-z0-9_-]{1,64}$/.test(scenarioId)) throw new Error("Neplatné ID scénáře.");
+    const response = await this.runtimeEnv.ASSETS.fetch(
+      `https://assets.local/scenarios/${encodeURIComponent(scenarioId)}.json`,
+    );
+    if (!response.ok) throw new Error("Cloudový scénář není dostupný.");
+    return response.json<ScenarioDocument>();
   }
 
   private async loadRuntimeGames(): Promise<RuntimeGame[]> {
@@ -772,19 +909,45 @@ export class GameSession extends DurableObject<Env> {
     this.broadcast("game.state", this.gameStatePayload());
   }
 
-  private send(socket: WebSocket, type: string, payload: Record<string, unknown>): void {
-    socket.send(protocolMessage(type, payload));
+  private send(
+    socket: WebSocket,
+    type: string,
+    payload: Record<string, unknown>,
+    requestId?: string,
+    operationId?: string,
+  ): void {
+    socket.send(protocolMessage(type, payload, requestId, operationId));
   }
 
-  private broadcast(type: string, payload: Record<string, unknown>): void {
-    const encoded = protocolMessage(type, payload);
+  private sendProtocol(socket: WebSocket, message: ProtocolMessage): void {
+    this.send(
+      socket,
+      message.type,
+      message.payload ?? {},
+      message.request_id,
+      message.operation_id,
+    );
+  }
+
+  private broadcastProtocol(message: ProtocolMessage, exclude?: WebSocket): void {
+    const encoded = protocolMessage(
+      message.type,
+      message.payload ?? {},
+      message.request_id,
+      message.operation_id,
+    );
     for (const socket of this.ctx.getWebSockets()) {
+      if (socket === exclude) continue;
       try {
         socket.send(encoded);
       } catch {
         socket.close(1011, "Broadcast failed");
       }
     }
+  }
+
+  private broadcast(type: string, payload: Record<string, unknown>): void {
+    this.broadcastProtocol({ type, payload });
   }
 }
 

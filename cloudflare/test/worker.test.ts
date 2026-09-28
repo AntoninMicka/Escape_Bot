@@ -1,7 +1,11 @@
 import { SELF } from "cloudflare:test";
 import { describe, expect, it } from "vitest";
 
-type ProtocolMessage = { type: string; payload: Record<string, unknown> };
+type ProtocolMessage = {
+  type: string;
+  payload: Record<string, unknown>;
+  operation_id?: string;
+};
 
 function nextMessage(socket: WebSocket, expectedType: string): Promise<ProtocolMessage> {
   return new Promise((resolve, reject) => {
@@ -9,6 +13,20 @@ function nextMessage(socket: WebSocket, expectedType: string): Promise<ProtocolM
     const listener = (event: MessageEvent) => {
       const message = JSON.parse(String(event.data)) as ProtocolMessage;
       if (message.type !== expectedType) return;
+      clearTimeout(timeout);
+      socket.removeEventListener("message", listener);
+      resolve(message);
+    };
+    socket.addEventListener("message", listener);
+  });
+}
+
+function nextMessageOf(socket: WebSocket, expectedTypes: string[]): Promise<ProtocolMessage> {
+  return new Promise((resolve, reject) => {
+    const timeout = setTimeout(() => reject(new Error(`Timed out waiting for ${expectedTypes.join("/")}`)), 2000);
+    const listener = (event: MessageEvent) => {
+      const message = JSON.parse(String(event.data)) as ProtocolMessage;
+      if (!expectedTypes.includes(message.type)) return;
       clearTimeout(timeout);
       socket.removeEventListener("message", listener);
       resolve(message);
@@ -132,7 +150,7 @@ describe("Cloudflare spike router", () => {
   it("creates a solo lobby through bootstrap and resumes its authoritative snapshot", async () => {
     const bootstrap = await openSocket("https://example.test/ws?client_id=solo-phone");
     const runtime = nextMessage(bootstrap, "runtime.settings");
-    const route = nextMessage(bootstrap, "lobby.route");
+    const route = nextMessageOf(bootstrap, ["lobby.route", "lobby.error"]);
     send(bootstrap, "lobby.solo", {
       client_id: "solo-phone",
       name: "Alice",
@@ -144,6 +162,7 @@ describe("Cloudflare spike router", () => {
       expect.arrayContaining([expect.objectContaining({ id: "chronos_online" })]),
     );
     const routed = await route;
+    expect(routed.type, JSON.stringify(routed.payload)).toBe("lobby.route");
     expect(routed.payload.session_id).toMatch(/^[a-f0-9]{32}$/);
     expect(routed.payload.mode).toBe("solo");
 
@@ -163,12 +182,14 @@ describe("Cloudflare spike router", () => {
       player_count: 1,
       online_count: 1,
     });
-    expect((await history).payload.messages).toEqual([]);
-    expect((await game).payload).toMatchObject({ phase: "briefing", score: 20 });
+    expect((await history).payload.messages).toEqual([
+      expect.objectContaining({ role: "bot", channel: "captain" }),
+    ]);
+    expect((await game).payload).toMatchObject({ phase: "comms_offline", score: 1020 });
     expect((await progress).payload).toMatchObject({
-      scenario_id: "chronos_online",
-      phase: "briefing",
-      score: 20,
+      scenario_id: "chronos_online_rescue",
+      current_phase: "comms_offline",
+      score: 1020,
     });
 
     bootstrap.close(1000, "routed");
@@ -220,9 +241,63 @@ describe("Cloudflare spike router", () => {
     const startedProgress = nextMessage(player, "scenario.progress");
     send(creator, "lobby.start", { client_id: "creator-phone" });
     expect((await startedLobby).payload.started).toBe(true);
-    expect((await startedHistory).payload.messages).toEqual([]);
-    expect((await startedGame).payload).toMatchObject({ phase: "briefing", score: 10 });
-    expect((await startedProgress).payload).toMatchObject({ scenario_id: "chronos_online" });
+    expect((await startedHistory).payload.messages).toEqual([
+      expect.objectContaining({ role: "bot", channel: "captain" }),
+    ]);
+    expect((await startedGame).payload).toMatchObject({ phase: "comms_offline", score: 1010 });
+    expect((await startedProgress).payload).toMatchObject({ scenario_id: "chronos_online_rescue" });
+
+    const teammateMessage = nextMessage(player, "team.player_message");
+    const narrativeReply = nextMessage(player, "bot.message");
+    const narrativeState = nextMessage(player, "game.state");
+    const narrativeProgress = nextMessage(player, "scenario.progress");
+    creator.send(JSON.stringify({
+      type: "player.message",
+      operation_id: "narrative-step-1",
+      payload: { text: "Slyšíme se", channel: "captain" },
+    }));
+    expect((await teammateMessage).payload.text).toBe("Slyšíme se");
+    expect((await narrativeReply).payload.text).toContain("spojení funguje");
+    expect((await narrativeState).payload).toMatchObject({ phase: "searching_lost", score: 1010 });
+    await narrativeProgress;
+
+    const replayReply = nextMessage(creator, "bot.message");
+    const replay = nextMessage(creator, "game.state");
+    const replayProgress = nextMessage(creator, "scenario.progress");
+    creator.send(JSON.stringify({
+      type: "player.message",
+      operation_id: "narrative-step-1",
+      payload: { text: "Slyšíme se", channel: "captain" },
+    }));
+    await replayReply;
+    expect((await replay).operation_id).toBe("narrative-step-1");
+    await replayProgress;
+
+    const hintScore = nextMessage(player, "score.update");
+    const hintMessage = nextMessage(player, "bot.message");
+    const hintedState = nextMessage(player, "game.state");
+    const hintedProgress = nextMessage(player, "scenario.progress");
+    player.send(JSON.stringify({
+      type: "phase.hint",
+      operation_id: "phase-hint-1",
+      payload: { phase_id: "searching_lost", hint_index: 0 },
+    }));
+    expect((await hintScore).payload).toMatchObject({ score: 1000, penalty: 10 });
+    expect((await hintMessage).payload.text).toContain("NÁPOVĚDA SYSTÉMU");
+    expect((await hintedState).payload).toMatchObject({ score: 1000 });
+    await hintedProgress;
+
+    const restoredHistory = nextMessage(creator, "chat.history");
+    const restoredGame = nextMessage(creator, "game.state");
+    const restoredProgress = nextMessage(creator, "scenario.progress");
+    send(creator, "lobby.resume", { session_id: creatorRoute.payload.session_id });
+    expect(((await restoredHistory).payload.messages as unknown[]).length).toBe(4);
+    expect((await restoredGame).payload).toMatchObject({
+      phase: "searching_lost",
+      score: 1000,
+      phase_hints: { unlocked: 1 },
+    });
+    await restoredProgress;
     creatorBootstrap.close(1000, "routed");
     playerBootstrap.close(1000, "routed");
     creator.close(1000, "done");

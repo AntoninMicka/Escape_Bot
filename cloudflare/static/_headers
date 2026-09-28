@@ -29,6 +29,9 @@
 /runtime-catalog.json
   Cache-Control: no-cache
 
+/scenarios/*
+  Cache-Control: no-cache
+
 /sw.js
   Cache-Control: no-cache
 
