@@ -45,10 +45,10 @@ Každý `lobby.resume` rozehrané relace vrací úplný autoritativní snapshot:
 Cloudflare adaptér zatím obsluhuje z herních příkazů `player.message`,
 `phase.hint`, `qr.detected`, `puzzle.submit` pro rébusy s textovou odpovědí a
 `puzzle.hint`; z interaktivních miniher podporuje `line_game.move`,
-`line_game.reset`, `karel.command` a `karel.reset`. Před potvrzením uloží nový
-stav, chat i omezenou účtenku podle `operation_id`. Opakované doručení vrátí
-uložené odpovědi pouze původnímu odesílateli a týmový chat ani herní efekt
-znovu nerozešle. Výsledek tahu
+`line_game.reset`, `karel.command`, `karel.reset`, `triad.place` a
+`triad.reset`. Před potvrzením uloží nový stav, chat i omezenou účtenku podle
+`operation_id`. Opakované doručení vrátí uložené odpovědi pouze původnímu
+odesílateli a týmový chat ani herní efekt znovu nerozešle. Výsledek tahu
 `line_game.result` i hráčova mřížka jsou soukromé pro dané zařízení, zatímco
 týmový postup a skóre se sdílejí.
 
@@ -230,6 +230,29 @@ nebo před krokem mimo mřížku.
 Obnoví aktuální pole, pozici, odhalené buňky a tříminutový limit. Již dokončené
 úrovně a jejich jednorázově přidělené body zůstávají zachované.
 
+### `triad.place`
+
+Umístí zvolený symbol na volné pole hráčovy soukromé desky. Server poté provede
+deterministický blokovací tah protivníka. Vodorovné, svislé a oba diagonální
+směry se započítávají jako tři týmové podmínky; každý hráč musí dokončit počet
+směrů určený scénářem.
+
+```json
+{
+  "type": "triad.place",
+  "payload": {
+    "puzzle_id": "temporal_triad",
+    "row": 2,
+    "column": 3,
+    "symbol": "cyan"
+  }
+}
+```
+
+### `triad.reset`
+
+Obnoví desku, protivníka, dokončené směry a časový limit aktuálního hráče.
+
 ### `sokoban.command`
 
 Provede deterministickou sekvenci pohybů Elary. Povolené hodnoty jsou `up`, `down`, `left` a `right`; sekvence se zastaví před první neprůchodnou stěnou nebo článkem. Stejnou zprávu vytváří parser českých povelů z kanálu Elary.
@@ -331,6 +354,13 @@ Obsahuje provedené pohybové snímky, zásah miny, zablokovaný krok, dokončen
 úrovně či celé minihry a změnu skóre. Miny ani interní historii pohybu server
 neposílá; následný `game.state` obsahuje pouze veřejnou textovou mřížku,
 odhalené číselné indicie, pozici Elary a zbývající čas.
+
+### `triad.result`
+
+Vrací umístěný symbol, nově vytvořené trojice, tah protivníka a stav
+individuálního i týmového dokončení. Následný personalizovaný `game.state`
+obsahuje pouze desku daného hráče a společný `team_progress`; interní desky
+spoluhráčů se neposílají.
 
 ### `sokoban.result`
 

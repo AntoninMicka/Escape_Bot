@@ -282,6 +282,8 @@ export class GameSession extends DurableObject<Env> {
       case "line_game.reset":
       case "karel.command":
       case "karel.reset":
+      case "triad.place":
+      case "triad.reset":
         await this.handleGameCommand(socket, attachment, message);
         return;
       case "spike.broadcast": {
@@ -948,6 +950,7 @@ export class GameSession extends DurableObject<Env> {
     const {
       interactive_games: _privateLineGames,
       karel_games: _privateKarelGames,
+      triad_games: _privateTriadGames,
       ...publicState
     } = state;
     return {

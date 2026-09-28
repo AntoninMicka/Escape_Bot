@@ -234,6 +234,80 @@ describe("deterministic Cloudflare scenario runtime", () => {
     ]));
   });
 
+  it("keeps Triad boards private while combining team orientations", async () => {
+    const scenario = await chronosScenario();
+    const alice = {
+      clientId: "alice",
+      participantIds: ["alice", "bob"],
+      participantNames: { alice: "Alice", bob: "Bob" },
+      teamMode: "team" as const,
+    };
+    const bob = { ...alice, clientId: "bob" };
+    let state = startScenario(scenario, 0, "2026-09-28T12:00:00.000Z", alice).state;
+    state.checkpoint_states.terrace_echo = { status: "solved" };
+    state = applyScenarioCommand(
+      scenario,
+      state,
+      "qr.detected",
+      { value: `escapebot://checkpoint/${scenario.checkpoints.courtyard_alignment.token}` },
+      "2026-09-28T12:00:00.000Z",
+      alice,
+    ).state;
+    expect(Object.keys(state.triad_games.temporal_triad.players).sort()).toEqual(["alice", "bob"]);
+
+    const aliceGame = state.triad_games.temporal_triad.players.alice;
+    aliceGame.completed_orientations = ["vertical"];
+    aliceGame.board[5][1] = aliceGame.board[5][2] = "cyan";
+    let result = applyScenarioCommand(
+      scenario,
+      state,
+      "triad.place",
+      { puzzle_id: "temporal_triad", row: 5, column: 3, symbol: "cyan" },
+      "2026-09-28T12:00:10.000Z",
+      alice,
+    );
+    state = result.state;
+    expect(result.messages.map((message) => message.type)).toEqual(["triad.result", "score.update"]);
+    expect(result.messages[0].payload).toMatchObject({ game_complete: true, team_complete: false });
+    expect(state.score).toBe(1020);
+
+    const bobGame = state.triad_games.temporal_triad.players.bob;
+    bobGame.completed_orientations = ["horizontal"];
+    bobGame.board[0][0] = bobGame.board[1][1] = "amber";
+    result = applyScenarioCommand(
+      scenario,
+      state,
+      "triad.place",
+      { puzzle_id: "temporal_triad", row: 2, column: 2, symbol: "amber" },
+      "2026-09-28T12:00:20.000Z",
+      bob,
+    );
+    expect(result.messages.map((message) => message.type)).toEqual([
+      "triad.result",
+      "score.update",
+      "score.update",
+      "puzzle.result",
+      "bot.message",
+      "bot.message",
+    ]);
+    expect(result.messages[0].payload).toMatchObject({
+      game_complete: true,
+      team_complete: true,
+      team_summary: expect.objectContaining({ covered_conditions: ["diagonal", "horizontal", "vertical"] }),
+    });
+    expect(result.state).toMatchObject({
+      score: 1100,
+      flags: { temporal_nodes_aligned: true },
+      checkpoint_states: { courtyard_alignment: { status: "solved" } },
+    });
+    const aliceView = presentGameState(scenario, result.state, alice, "2026-09-28T12:00:21.000Z");
+    const bobView = presentGameState(scenario, result.state, bob, "2026-09-28T12:00:21.000Z");
+    const alicePuzzle = aliceView.puzzles.find((item: Record<string, unknown>) => item.id === "temporal_triad");
+    const bobPuzzle = bobView.puzzles.find((item: Record<string, unknown>) => item.id === "temporal_triad");
+    expect(alicePuzzle.game.board).not.toEqual(bobPuzzle.game.board);
+    expect(alicePuzzle.team_progress).toEqual(bobPuzzle.team_progress);
+  });
+
   it("activates and solves the first answer puzzle in checkpoint order", async () => {
     const scenario = await chronosScenario();
     let state = startScenario(scenario, 0, "2026-09-28T12:00:00.000Z").state;

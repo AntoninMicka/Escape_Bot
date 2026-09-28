@@ -425,6 +425,24 @@ describe("Cloudflare spike router", () => {
     await creatorKarelProgress;
     await teammateKarelProgress;
 
+    const creatorTriad = nextMessage(creator, "triad.result");
+    const creatorTriadState = nextMessage(creator, "game.state");
+    const creatorTriadProgress = nextMessage(creator, "scenario.progress");
+    const teammateTriad = nextMessage(player, "triad.result");
+    const teammateTriadState = nextMessage(player, "game.state");
+    const teammateTriadProgress = nextMessage(player, "scenario.progress");
+    creator.send(JSON.stringify({
+      type: "triad.place",
+      operation_id: "early-triad-1",
+      payload: { puzzle_id: "temporal_triad", row: 0, column: 0, symbol: "cyan" },
+    }));
+    expect((await creatorTriad).payload).toMatchObject({ success: false, reason: "Pole není aktivní." });
+    expect((await teammateTriad).payload).toMatchObject({ success: false });
+    expect((await creatorTriadState).payload).not.toHaveProperty("triad_games");
+    expect((await teammateTriadState).payload).not.toHaveProperty("triad_games");
+    await creatorTriadProgress;
+    await teammateTriadProgress;
+
     const teammateMessage = nextMessage(player, "team.player_message");
     const narrativeReply = nextMessage(player, "bot.message");
     const narrativeState = nextMessage(player, "game.state");

@@ -12,6 +12,13 @@ import {
   resetKarelGame,
   type KarelState,
 } from "./mine-karel";
+import {
+  newTriadGame,
+  placeTriad,
+  publicTriadGame,
+  resetTriadGame,
+  type TriadState,
+} from "./triad-game";
 
 export type ScenarioDocument = Record<string, any>;
 export type GameStateDocument = Record<string, any>;
@@ -177,6 +184,8 @@ export function applyScenarioCommand(
     "line_game.reset",
     "karel.command",
     "karel.reset",
+    "triad.place",
+    "triad.reset",
   ]).has(type)) {
     return {
       state: presentGameState(scenario, currentState, actor, now),
@@ -198,7 +207,9 @@ export function applyScenarioCommand(
   else if (type === "line_game.move") result = applyLineGameMove(scenario, state, payload, now, actor);
   else if (type === "line_game.reset") result = applyLineGameReset(scenario, state, payload, now, actor);
   else if (type === "karel.command") result = applyKarelCommand(scenario, state, payload, now);
-  else result = applyKarelReset(scenario, state, payload, now);
+  else if (type === "karel.reset") result = applyKarelReset(scenario, state, payload, now);
+  else if (type === "triad.place") result = applyTriadPlace(scenario, state, payload, now, actor);
+  else result = applyTriadReset(scenario, state, payload, now, actor);
   return { ...result, state: presentGameState(scenario, result.state, actor, now) };
 }
 
@@ -414,6 +425,12 @@ function applyQrDetected(
   if (puzzleId && puzzleAdapter(scenario, record(record(scenario.puzzles)[puzzleId])) === "mine_karel") {
     const puzzle = record(record(scenario.puzzles)[puzzleId]);
     ensureKarelGame(state, puzzleId, record(puzzle.game), now);
+  }
+  if (puzzleId && puzzleAdapter(scenario, record(record(scenario.puzzles)[puzzleId])) === "triad") {
+    const puzzle = record(record(scenario.puzzles)[puzzleId]);
+    for (const participantId of actor.participantIds.length ? actor.participantIds : [actor.clientId]) {
+      ensureTriadGame(state, puzzleId, record(puzzle.game), { ...actor, clientId: participantId }, now);
+    }
   }
 
   const configuredMessage = checkpoint.message ?? record(scenario.global_events).qr_detected;
@@ -956,6 +973,201 @@ function applyKarelReset(
   return { state, messages: [{ type: "karel.result", payload: { success: true, reset: true } }] };
 }
 
+function ensureTriadGame(
+  state: GameStateDocument,
+  puzzleId: string,
+  config: Record<string, any>,
+  actorValue: RuntimeActor,
+  now: string,
+): TriadState {
+  const actor = normalizedActor(actorValue);
+  state.triad_games = record(state.triad_games);
+  let container = state.triad_games[puzzleId];
+  const validGame = (value: unknown): value is TriadState => {
+    const game = record(value);
+    return Array.isArray(game.board) && Boolean(game.deadline_at) && Number(game.size) === Number(config.size ?? 5);
+  };
+  if (actor.teamMode === "solo" && actor.participantIds.length === 1) {
+    if (record(container).players) container = record(record(container).players)[actor.clientId];
+    if (!validGame(container)) container = newTriadGame(config, now);
+    state.triad_games[puzzleId] = container;
+    return container as TriadState;
+  }
+  if (validGame(container)) container = { players: { [actor.clientId]: container } };
+  if (!container || typeof container !== "object" || Array.isArray(container) || !record(container).players) {
+    container = { players: {} };
+  }
+  state.triad_games[puzzleId] = container;
+  const players = record(container.players);
+  if (!validGame(players[actor.clientId])) players[actor.clientId] = newTriadGame(config, now);
+  container.players = players;
+  return players[actor.clientId] as TriadState;
+}
+
+function triadPlayers(state: GameStateDocument, puzzleId: string, actor: RuntimeActor): Record<string, any> {
+  const container = record(record(state.triad_games)[puzzleId]);
+  if (actor.teamMode === "solo" && actor.participantIds.length === 1 && Array.isArray(container.board)) {
+    return { [actor.clientId]: container };
+  }
+  return record(container.players);
+}
+
+function triadTeamProgress(
+  state: GameStateDocument,
+  puzzleId: string,
+  actorValue: RuntimeActor,
+): Record<string, unknown> {
+  const actor = normalizedActor(actorValue);
+  const players = triadPlayers(state, puzzleId, actor);
+  const excluded = new Set(
+    Array.isArray(record(state.game_exclusions)[puzzleId])
+      ? record(state.game_exclusions)[puzzleId].map(String)
+      : [],
+  );
+  const covered = new Set<string>();
+  const results = record(record(state.game_results)[puzzleId]);
+  const participantIds = actor.participantIds.length ? actor.participantIds : [actor.clientId];
+  const summaries = participantIds.map((playerId) => {
+    const game = record(players[playerId]);
+    const conditions = Array.isArray(game.completed_orientations)
+      ? [...new Set(game.completed_orientations.map(String))].sort()
+      : [];
+    if (!excluded.has(playerId)) conditions.forEach((condition) => covered.add(condition));
+    return {
+      id: playerId,
+      name: actor.participantNames[playerId] || "Hráč",
+      status: excluded.has(playerId) ? "excluded" : game.status === "complete" ? "complete" : "playing",
+      conditions,
+      result: results[playerId],
+    };
+  });
+  const requiredPlayers = participantIds.filter((playerId) => !excluded.has(playerId));
+  const everyoneComplete = requiredPlayers.length > 0 && requiredPlayers.every(
+    (playerId) => record(players[playerId]).status === "complete",
+  );
+  const teamComplete = everyoneComplete && (
+    actor.teamMode === "solo" || covered.size >= 3 || excluded.size > 0
+  );
+  const allConditions = ["diagonal", "horizontal", "vertical"];
+  const missing = allConditions.filter((condition) => !covered.has(condition));
+  return {
+    players: summaries,
+    covered_conditions: [...covered].sort(),
+    missing_conditions: missing,
+    recommendation: missing.length === 1 ? missing[0] : null,
+    team_complete: teamComplete,
+  };
+}
+
+function applyTriadPlace(
+  scenario: ScenarioDocument,
+  state: GameStateDocument,
+  payload: Record<string, unknown>,
+  now: string,
+  actor: RuntimeActor,
+): ScenarioCommandResult {
+  const puzzleId = String(payload.puzzle_id ?? "").trim();
+  const excluded = Array.isArray(record(state.game_exclusions)[puzzleId])
+    ? record(state.game_exclusions)[puzzleId].map(String)
+    : [];
+  if (excluded.includes(actor.clientId)) {
+    return {
+      state,
+      messages: [{ type: "triad.result", payload: { success: false, reason: "Game Master vás z této týmové minihry dočasně vyřadil." } }],
+    };
+  }
+  const puzzle = record(record(scenario.puzzles)[puzzleId]);
+  const checkpointId = String(puzzle.checkpoint_id || "");
+  const checkpoint = record(record(state.checkpoint_states)[checkpointId]);
+  if (puzzleAdapter(scenario, puzzle) !== "triad" || checkpoint.status !== "found") {
+    return { state, messages: [{ type: "triad.result", payload: { success: false, reason: "Pole není aktivní." } }] };
+  }
+
+  const game = ensureTriadGame(state, puzzleId, record(puzzle.game), actor, now);
+  let result;
+  try {
+    result = placeTriad(
+      game,
+      record(puzzle.game),
+      Number(payload.row ?? -1),
+      Number(payload.column ?? -1),
+      String(payload.symbol ?? ""),
+      now,
+    );
+  } catch (error) {
+    return {
+      state,
+      messages: [{
+        type: "triad.result",
+        payload: { success: false, reason: error instanceof Error ? error.message : "Tah se nepodařilo provést." },
+      }],
+    };
+  }
+
+  let teamProgress = triadTeamProgress(state, puzzleId, actor);
+  const resultPayload: Record<string, unknown> = {
+    ...result,
+    team_complete: Boolean(teamProgress.team_complete),
+  };
+  const messages: RuntimeMessage[] = [{ type: "triad.result", payload: resultPayload }];
+  if (result.game_complete) {
+    state.game_results = record(state.game_results);
+    const results = record(state.game_results[puzzleId]);
+    state.game_results[puzzleId] = results;
+    if (!Object.hasOwn(results, actor.clientId)) {
+      const scoreDelta = Number(record(puzzle.game).individual_completion_bonus ?? 20);
+      results[actor.clientId] = {
+        elapsed_seconds: Math.max(0, Math.floor((Date.parse(now) - Date.parse(String(game.started_at))) / 1000)),
+        score_delta: scoreDelta,
+        conditions: [...new Set((game.completed_orientations as unknown[]).map(String))].sort(),
+      };
+      state.score = Number(state.score || 0) + scoreDelta;
+      messages.push({
+        type: "score.update",
+        payload: { score: state.score, delta: scoreDelta, bonus: scoreDelta, penalty: 0, reason: "triad_individual" },
+      });
+    }
+    teamProgress = triadTeamProgress(state, puzzleId, actor);
+    resultPayload.team_complete = Boolean(teamProgress.team_complete);
+  }
+  if (teamProgress.team_complete) {
+    checkpoint.status = "solved";
+    checkpoint.solved_at = now;
+    applyRewards(scenario, state, record(record(scenario.checkpoints)[checkpointId]).rewards);
+    const bonus = actor.teamMode === "team" ? Number(record(puzzle.game).team_completion_bonus ?? 60) : 0;
+    state.score = Number(state.score || 0) + bonus;
+    resultPayload.team_summary = teamProgress;
+    messages.push(
+      { type: "score.update", payload: { score: state.score, delta: bonus, bonus, penalty: 0, reason: "triad" } },
+      { type: "puzzle.result", payload: { correct: true, puzzle_id: puzzleId } },
+      { type: "bot.message", payload: messageTemplate(puzzle.success_message) },
+    );
+    const navigation = record(record(scenario.checkpoints)[checkpointId]).navigation_message;
+    if (navigation) messages.push({ type: "bot.message", payload: messageTemplate(navigation) });
+  }
+  return { state, messages };
+}
+
+function applyTriadReset(
+  scenario: ScenarioDocument,
+  state: GameStateDocument,
+  payload: Record<string, unknown>,
+  now: string,
+  actor: RuntimeActor,
+): ScenarioCommandResult {
+  const puzzleId = String(payload.puzzle_id ?? "").trim();
+  const puzzle = record(record(scenario.puzzles)[puzzleId]);
+  if (puzzleAdapter(scenario, puzzle) !== "triad") {
+    return { state, messages: [{ type: "triad.result", payload: { success: false, reason: "Neznámé pole." } }] };
+  }
+  resetTriadGame(
+    record(puzzle.game),
+    ensureTriadGame(state, puzzleId, record(puzzle.game), actor, now),
+    now,
+  );
+  return { state, messages: [{ type: "triad.result", payload: { success: true, reset: true } }] };
+}
+
 export function presentGameState(
   scenario: ScenarioDocument,
   stateValue: GameStateDocument,
@@ -1012,6 +1224,15 @@ export function presentGameState(
     ) {
       const game = ensureKarelGame(state, puzzleId, record(puzzle.game), now);
       presented.game = publicKarelGame(record(puzzle.game), game, now);
+    }
+    if (
+      actorValue &&
+      puzzleAdapter(scenario, puzzle) === "triad" &&
+      (checkpointState.status === "found" || checkpointState.status === "solved")
+    ) {
+      const game = ensureTriadGame(state, puzzleId, record(puzzle.game), actor, now);
+      presented.game = publicTriadGame(record(puzzle.game), game, now);
+      presented.team_progress = triadTeamProgress(state, puzzleId, actor);
     }
     return presented;
   });
