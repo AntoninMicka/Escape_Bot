@@ -241,6 +241,7 @@ export function applyScenarioCommand(
     "qr.detected",
     "puzzle.submit",
     "puzzle.hint",
+    "room.unlock",
     "line_game.move",
     "line_game.reset",
     "karel.command",
@@ -282,6 +283,7 @@ export function applyScenarioCommand(
   else if (type === "qr.detected") result = applyQrDetected(scenario, state, payload, now, actor);
   else if (type === "puzzle.submit") result = applyPuzzleSubmit(scenario, state, payload, now);
   else if (type === "puzzle.hint") result = applyPuzzleHint(scenario, state, payload);
+  else if (type === "room.unlock") result = applyRoomUnlock(scenario, state, payload);
   else if (type === "line_game.move") result = applyLineGameMove(scenario, state, payload, now, actor);
   else if (type === "line_game.reset") result = applyLineGameReset(scenario, state, payload, now, actor);
   else if (type === "karel.command") result = applyKarelCommand(scenario, state, payload, now);
@@ -834,6 +836,56 @@ function applyPuzzleHint(
     payload: { text: `NÁPOVĚDA SYSTÉMU: ${String(hint.text || "")}`, mood: "info", channel: "general" },
   });
   return { state: presentGameState(scenario, state), messages };
+}
+
+function applyRoomUnlock(
+  scenario: ScenarioDocument,
+  state: GameStateDocument,
+  payload: Record<string, unknown>,
+): ScenarioCommandResult {
+  const pin = String(payload.pin ?? "").trim();
+  for (const [roomId, value] of Object.entries(record(scenario.rooms))) {
+    const room = record(value);
+    if (String(room.pin || "") !== pin) continue;
+    const missing = (Array.isArray(room.requires_checkpoints) ? room.requires_checkpoints : [])
+      .map(String)
+      .filter((checkpointId) => record(record(state.checkpoint_states)[checkpointId]).status !== "solved");
+    if (missing.length) {
+      return {
+        state,
+        messages: [
+          { type: "room.unlock_result", payload: { success: false, reason: "missing_checkpoints", missing } },
+          {
+            type: "bot.message",
+            payload: {
+              text: "PIN je správný, ale zámek nemá potvrzenou předchozí časovou kotvu.",
+              mood: "error",
+              channel: "general",
+            },
+          },
+        ],
+      };
+    }
+    state.flags = record(state.flags);
+    state.flags[`room_${roomId}_unlocked`] = true;
+    return {
+      state,
+      messages: [
+        { type: "room.unlock_result", payload: { success: true } },
+        ...(Array.isArray(room.success_messages)
+          ? room.success_messages.map((message: unknown) => ({ type: "bot.message", payload: clone(record(message)) }))
+          : []),
+      ],
+    };
+  }
+  const failure = messageTemplate(record(scenario.room_defaults).fail_message, pin, "{pin}");
+  return {
+    state,
+    messages: [
+      { type: "room.unlock_result", payload: { success: false } },
+      ...(Object.keys(failure).length ? [{ type: "bot.message", payload: failure }] : []),
+    ],
+  };
 }
 
 function ensureLineGame(

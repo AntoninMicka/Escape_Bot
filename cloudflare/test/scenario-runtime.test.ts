@@ -404,6 +404,36 @@ describe("deterministic Cloudflare scenario runtime", () => {
     );
   });
 
+  it("unlocks a scenario room only after its required checkpoint", async () => {
+    const scenario = await chronosScenario();
+    let state = startScenario(scenario, 0, "2026-09-28T12:00:00.000Z").state;
+    const blocked = applyScenarioCommand(
+      scenario,
+      state,
+      "room.unlock",
+      { pin: "1108" },
+      "2026-09-28T12:00:01.000Z",
+    );
+    expect(blocked.messages[0]).toMatchObject({
+      type: "room.unlock_result",
+      payload: { success: false, reason: "missing_checkpoints", missing: ["reception_archive"] },
+    });
+    expect(blocked.state.flags.room_108_unlocked).toBeUndefined();
+
+    state = blocked.state;
+    state.checkpoint_states.reception_archive = { status: "solved" };
+    const unlocked = applyScenarioCommand(
+      scenario,
+      state,
+      "room.unlock",
+      { pin: "1108" },
+      "2026-09-28T12:00:02.000Z",
+    );
+    expect(unlocked.messages[0]).toMatchObject({ type: "room.unlock_result", payload: { success: true } });
+    expect(unlocked.state.flags.room_108_unlocked).toBe(true);
+    expect(unlocked.messages.filter((message) => message.type === "bot.message")).toHaveLength(2);
+  });
+
   it("rejects checkpoints before their phase or predecessor is complete", async () => {
     const scenario = await chronosScenario();
     let state = startScenario(scenario, 0, "2026-09-28T12:00:00.000Z").state;
