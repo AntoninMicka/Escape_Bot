@@ -142,7 +142,7 @@ Akceptace:
 
 **Odhad: 8–12 pracovních dnů**
 
-**Stav: patnáctá vertikální část lokálně implementována.** Bootstrap načte katalog
+**Stav: šestnáctá vertikální část lokálně implementována.** Bootstrap načte katalog
 ze stejných realizací jako současný backend, založí sólo nebo týmovou lobby,
 vyřeší osmimístný join kód a přesměruje klienta do konkrétního `GameSession`.
 Build skládá skutečné runtime scénáře z šablon a realizací. Lobby, seznam
@@ -180,9 +180,11 @@ hráčskou identitu na nové zařízení včetně soukromých miniher, výsledk�
 vyřazení, navigátora a idempotency účtenek; staré zařízení odpojí.
 Automatizovaný scénářový průchod nyní dokončí celou sólo hru přes Worker a
 WebSocket od úvodního dialogu po `game.complete`, včetně pokoje 108, všech
-checkpointů a miniher. Evikce `GameSession` uprostřed hry i po finále zachová
-autoritativní stav. Tříčlenný a fyzický průchod zůstávají součástí živé
-akceptace.
+checkpointů a miniher. Druhý průchod založí tříčlenný tým, ověří nulovou
+velikostní úpravu skóre, soukromé desky všech hráčů v `line_game` a `triad`,
+týmové sjednocení podmínek a společné dokončení finále. Evikce `GameSession`
+uprostřed hry i po finále zachová autoritativní stav a všechny tři identity.
+Fyzický týmový průchod zůstává součástí živé akceptace.
 
 1. Směrovat spojení deterministicky podle `session_id`.
 2. Přesunout lobby, hráče, chat, herní snapshot, terminálové rezervace a

@@ -103,9 +103,11 @@ jednorázovým QR přesměruje do svého `GameSession`. Terminál nezvyšuje po�
 hráčů a po dokončení, odpojení nebo nové registraci se bezpečně uvolní při
 zachování rezervace. Eventový admin overview a další správcovské operace ještě
 čekají na další části CF-04 a CF-05.
-Automatizovaný scénářový test prochází celou sólo hru přes Worker a WebSocket,
-ověřuje odemčení pokoje 108, všechny checkpointy a minihry, dokončení finále a
-obnovu autoritativního stavu po evikci Durable Objectu uprostřed hry i po
+Automatizované scénářové testy procházejí celou sólo hru přes Worker a
+WebSocket a samostatně dokončí tříčlennou týmovou relaci. Ověřují odemčení
+pokoje 108, všechny checkpointy a minihry, soukromí hráčských desek v
+`line_game` a `triad`, týmové sjednocení podmínek, dokončení finále a obnovu
+autoritativního stavu po evikci Durable Objectu uprostřed hry i po
 `game.complete`.
 Samostatné API už dovoluje správci vyřadit registrovaného hráče z aktivní
 `line_game` nebo `triad` i bez jeho WebSocketového připojení. Produkční deadline
