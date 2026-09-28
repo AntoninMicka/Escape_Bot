@@ -142,7 +142,7 @@ Akceptace:
 
 **Odhad: 8–12 pracovních dnů**
 
-**Stav: šestá vertikální část lokálně implementována.** Bootstrap načte katalog
+**Stav: sedmá vertikální část lokálně implementována.** Bootstrap načte katalog
 ze stejných realizací jako současný backend, založí sólo nebo týmovou lobby,
 vyřeší osmimístný join kód a přesměruje klienta do konkrétního `GameSession`.
 Build skládá skutečné runtime scénáře z šablon a realizací. Lobby, seznam
@@ -155,7 +155,10 @@ vrací jeho vlastní mřížku. Sdílená minihra `mine_karel` už rovněž bě�
 Durable Objectu: miny zůstávají v interním stavu, zatímco klient dostává pouze
 odhalené indicie, pohybové snímky a veřejnou mapu. `triad` ukládá oddělené
 hráčské desky, deterministické tahy protivníka a týmově slučuje dokončené
-směry. Ostatní interaktivní minihry, alarmy produkčních deadlineů, vyřazení
+směry. Sdílený `sokoban` zachovává víceúrovňovou kampaň, české povely z
+interkomu, undo/reset, deadline každého sektoru, bodování i varování při změně
+navigátora; interní historie tahů se klientům neposílá. Ostatní interaktivní
+minihry, alarmy produkčních deadlineů, vyřazení
 hráče a terminály ještě nejsou přeneseny.
 
 1. Směrovat spojení deterministicky podle `session_id`.

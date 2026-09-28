@@ -445,4 +445,84 @@ describe("deterministic Cloudflare scenario runtime", () => {
     });
     expect(skippedReception.state.checkpoint_states).toEqual({});
   });
+
+  it("completes shared Sokoban from Czech intercom commands and unlocks Pigpen", async () => {
+    const scenario = await chronosScenario();
+    const actor: RuntimeActor = {
+      clientId: "alice",
+      participantIds: ["alice", "bob"],
+      participantNames: { alice: "Alice", bob: "Bob" },
+      teamMode: "team",
+    };
+    let state = startScenario(scenario, 0, "2026-09-28T12:00:00.000Z", actor).state;
+    state.phase = "navigating";
+    state.checkpoint_states.sports_archive = { status: "found", first_scanned_at: "2026-09-28T12:00:00.000Z" };
+    const sequences = [
+      "4x nahoru, vlevo, 2x dolů, vpravo, dolů, vlevo, vpravo, dolů, 2x vlevo",
+      "nahoru, 2x vpravo, dolů, vpravo, dolů, vlevo, 3x nahoru, vpravo, dolů, vlevo, dolů, vlevo, dolů, vpravo, dolů, vlevo",
+      "nahoru, 3x vpravo, dolů, vlevo, nahoru, vlevo, dolů, vpravo, dolů, 2x vlevo, 2x dolů, 2x vpravo, nahoru, 2x vpravo, 2x dolů, vlevo, nahoru",
+    ];
+    let lastMessages: Array<{ type: string; payload: Record<string, unknown> }> = [];
+    for (const [index, text] of sequences.entries()) {
+      const result = applyScenarioCommand(
+        scenario,
+        state,
+        "player.message",
+        { channel: "lost", text },
+        `2026-09-28T12:00:${String(10 + index).padStart(2, "0")}.000Z`,
+        actor,
+      );
+      state = result.state;
+      lastMessages = result.messages;
+    }
+
+    expect(state.score).toBe(1090);
+    expect(state.checkpoint_states.sports_archive.status).toBe("solved");
+    expect(state.unlocked_cipher_tools).toContain("pigpen");
+    expect(state.sokoban_games.sports_sokoban).toMatchObject({
+      status: "complete",
+      awarded_points: 90,
+      completed_levels: ["sector_a", "sector_b", "sector_c"],
+    });
+    const puzzle = state.puzzles.find((item: Record<string, unknown>) => item.id === "sports_sokoban");
+    expect(puzzle.game).not.toHaveProperty("history");
+    expect(lastMessages.map((message) => message.type)).toEqual(expect.arrayContaining([
+      "sokoban.result",
+      "score.update",
+      "puzzle.result",
+    ]));
+  });
+
+  it("warns when another device takes over an active Sokoban level", async () => {
+    const scenario = await chronosScenario();
+    const alice: RuntimeActor = {
+      clientId: "alice",
+      participantIds: ["alice", "bob"],
+      participantNames: { alice: "Alice", bob: "Bob" },
+      teamMode: "team",
+    };
+    let state = startScenario(scenario, 0, "2026-09-28T12:00:00.000Z", alice).state;
+    state.checkpoint_states.sports_archive = { status: "found" };
+    state = applyScenarioCommand(
+      scenario,
+      state,
+      "sokoban.command",
+      { puzzle_id: "sports_sokoban", commands: ["left"] },
+      "2026-09-28T12:00:01.000Z",
+      alice,
+    ).state;
+    const takeover = applyScenarioCommand(
+      scenario,
+      state,
+      "sokoban.command",
+      { puzzle_id: "sports_sokoban", commands: ["left"] },
+      "2026-09-28T12:00:02.000Z",
+      { ...alice, clientId: "bob" },
+    );
+    expect(takeover.messages[0]).toMatchObject({
+      type: "sokoban.result",
+      payload: { success: true, speaker_warning: true },
+    });
+    expect(takeover.messages[1].payload.text).toContain("jiný než před chvílí");
+  });
 });

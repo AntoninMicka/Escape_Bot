@@ -19,6 +19,15 @@ import {
   resetTriadGame,
   type TriadState,
 } from "./triad-game";
+import {
+  executeSokoban,
+  newSokobanGame,
+  parseSokobanCommands,
+  publicSokobanGame,
+  resetSokobanLevel,
+  undoSokoban,
+  type SokobanState,
+} from "./sokoban";
 
 export type ScenarioDocument = Record<string, any>;
 export type GameStateDocument = Record<string, any>;
@@ -184,6 +193,9 @@ export function applyScenarioCommand(
     "line_game.reset",
     "karel.command",
     "karel.reset",
+    "sokoban.command",
+    "sokoban.undo",
+    "sokoban.reset",
     "triad.place",
     "triad.reset",
   ]).has(type)) {
@@ -199,7 +211,7 @@ export function applyScenarioCommand(
   state.event_history = history.slice(-500);
 
   let result: ScenarioCommandResult;
-  if (type === "player.message") result = applyPlayerMessage(scenario, state, payload);
+  if (type === "player.message") result = applyPlayerMessage(scenario, state, payload, now, actor);
   else if (type === "phase.hint") result = applyPhaseHint(scenario, state, payload);
   else if (type === "qr.detected") result = applyQrDetected(scenario, state, payload, now, actor);
   else if (type === "puzzle.submit") result = applyPuzzleSubmit(scenario, state, payload, now);
@@ -208,6 +220,9 @@ export function applyScenarioCommand(
   else if (type === "line_game.reset") result = applyLineGameReset(scenario, state, payload, now, actor);
   else if (type === "karel.command") result = applyKarelCommand(scenario, state, payload, now);
   else if (type === "karel.reset") result = applyKarelReset(scenario, state, payload, now);
+  else if (type === "sokoban.command") result = applySokobanCommand(scenario, state, payload, now, actor);
+  else if (type === "sokoban.undo") result = applySokobanUndo(scenario, state, payload, now);
+  else if (type === "sokoban.reset") result = applySokobanReset(scenario, state, payload, now);
   else if (type === "triad.place") result = applyTriadPlace(scenario, state, payload, now, actor);
   else result = applyTriadReset(scenario, state, payload, now, actor);
   return { ...result, state: presentGameState(scenario, result.state, actor, now) };
@@ -217,6 +232,8 @@ function applyPlayerMessage(
   scenario: ScenarioDocument,
   state: GameStateDocument,
   payload: Record<string, unknown>,
+  now: string,
+  actor: RuntimeActor,
 ): ScenarioCommandResult {
   const text = String(payload.text ?? "").trim();
   if (!text) {
@@ -260,6 +277,47 @@ function applyPlayerMessage(
         state: presentGameState(scenario, state),
         messages: [{ type: "bot.message", payload: messageTemplate(failure, text) }],
       };
+    }
+  }
+
+  if (String(payload.channel || "general") === "lost") {
+    const activeSokobanId = Object.entries(record(scenario.puzzles)).find(([, puzzleValue]) => {
+      const puzzle = record(puzzleValue);
+      return puzzleAdapter(scenario, puzzle) === "sokoban" &&
+        record(record(state.checkpoint_states)[String(puzzle.checkpoint_id || "")]).status === "found";
+    })?.[0];
+    if (activeSokobanId) {
+      let commands: string[] | null;
+      try {
+        commands = parseSokobanCommands(text);
+      } catch (error) {
+        return {
+          state,
+          messages: [{
+            type: "bot.message",
+            payload: {
+              text: error instanceof Error ? error.message : "Neplatná sekvence.",
+              mood: "error",
+              channel: "lost",
+            },
+          }],
+        };
+      }
+      if (commands?.[0] === "undo" && commands.length === 1) {
+        return applySokobanUndo(scenario, state, { puzzle_id: activeSokobanId }, now);
+      }
+      if (commands?.[0] === "reset" && commands.length === 1) {
+        return applySokobanReset(scenario, state, { puzzle_id: activeSokobanId }, now);
+      }
+      if (commands) {
+        return applySokobanCommand(
+          scenario,
+          state,
+          { puzzle_id: activeSokobanId, commands },
+          now,
+          actor,
+        );
+      }
     }
   }
 
@@ -425,6 +483,10 @@ function applyQrDetected(
   if (puzzleId && puzzleAdapter(scenario, record(record(scenario.puzzles)[puzzleId])) === "mine_karel") {
     const puzzle = record(record(scenario.puzzles)[puzzleId]);
     ensureKarelGame(state, puzzleId, record(puzzle.game), now);
+  }
+  if (puzzleId && puzzleAdapter(scenario, record(record(scenario.puzzles)[puzzleId])) === "sokoban") {
+    const puzzle = record(record(scenario.puzzles)[puzzleId]);
+    ensureSokobanGame(state, puzzleId, record(puzzle.game), now);
   }
   if (puzzleId && puzzleAdapter(scenario, record(record(scenario.puzzles)[puzzleId])) === "triad") {
     const puzzle = record(record(scenario.puzzles)[puzzleId]);
@@ -973,6 +1035,195 @@ function applyKarelReset(
   return { state, messages: [{ type: "karel.result", payload: { success: true, reset: true } }] };
 }
 
+function validSokobanGame(value: unknown): value is SokobanState {
+  const game = record(value);
+  return Array.isArray(game.boxes) && Array.isArray(game.player) && Boolean(game.level_id) && Boolean(game.deadline_at);
+}
+
+function ensureSokobanGame(
+  state: GameStateDocument,
+  puzzleId: string,
+  config: Record<string, any>,
+  now: string,
+): SokobanState {
+  state.sokoban_games = record(state.sokoban_games);
+  let game = state.sokoban_games[puzzleId];
+  if (!validSokobanGame(game)) {
+    game = newSokobanGame(config, now);
+    state.sokoban_games[puzzleId] = game;
+  }
+  return game as SokobanState;
+}
+
+function activeSokoban(
+  scenario: ScenarioDocument,
+  state: GameStateDocument,
+  puzzleId: string,
+  now: string,
+): { puzzle: Record<string, any>; checkpoint: Record<string, any>; game: SokobanState } {
+  const puzzle = record(record(scenario.puzzles)[puzzleId]);
+  if (!Object.keys(puzzle).length || puzzleAdapter(scenario, puzzle) !== "sokoban") {
+    throw new Error("Neznámá sokobanová úloha.");
+  }
+  const checkpoint = record(record(state.checkpoint_states)[String(puzzle.checkpoint_id || "")]);
+  if (!Object.keys(checkpoint).length) throw new Error("Energetická mřížka zatím nebyla nalezena.");
+  if (checkpoint.status === "solved") throw new Error("Energetická mřížka už byla stabilizovaná.");
+  return { puzzle, checkpoint, game: ensureSokobanGame(state, puzzleId, record(puzzle.game), now) };
+}
+
+function applySokobanCommand(
+  scenario: ScenarioDocument,
+  state: GameStateDocument,
+  payload: Record<string, unknown>,
+  now: string,
+  actor: RuntimeActor,
+): ScenarioCommandResult {
+  const puzzleId = String(payload.puzzle_id ?? "").trim();
+  const commands = Array.isArray(payload.commands) ? payload.commands.map(String) : null;
+  if (!commands) {
+    return { state, messages: [{ type: "sokoban.result", payload: { success: false, reason: "Neplatná sekvence." } }] };
+  }
+  let puzzle: Record<string, any>;
+  let checkpoint: Record<string, any>;
+  let game: SokobanState;
+  let result;
+  let speakerWarning = false;
+  try {
+    ({ puzzle, checkpoint, game } = activeSokoban(scenario, state, puzzleId, now));
+    const speakers = Array.isArray(game.level_speakers) ? game.level_speakers.map(String) : [];
+    speakerWarning = Boolean(actor.clientId && speakers.length && !speakers.includes(actor.clientId));
+    if (actor.clientId && !speakers.includes(actor.clientId)) game.level_speakers.push(actor.clientId);
+    result = executeSokoban(game, record(puzzle.game), commands, now);
+  } catch (error) {
+    return {
+      state,
+      messages: [{
+        type: "sokoban.result",
+        payload: { success: false, reason: error instanceof Error ? error.message : "Sekvenci se nepodařilo provést." },
+      }],
+    };
+  }
+
+  const messages: RuntimeMessage[] = [{
+    type: "sokoban.result",
+    payload: { success: true, speaker_warning: speakerWarning, ...result },
+  }];
+  if (speakerWarning) {
+    messages.push({
+      type: "bot.message",
+      payload: {
+        text: "Počkejte! Teď na mě mluví někdo jiný než před chvílí. V téhle tmě se podle překřikujících hlasů opravdu orientovat nedá — domluvte si jednoho navigátora!",
+        mood: "tense",
+        channel: "lost",
+        suppress_unread: true,
+      },
+    });
+  }
+  let summary = result.blocked
+    ? `Provedla jsem ${result.executed} z ${result.requested} kroků. Další pohyb blokuje stěna nebo energetický článek.`
+    : `Sekvence potvrzena: ${result.executed} kroků, přesunuté články: ${result.pushes}.`;
+  if (result.level_complete && !result.game_complete) {
+    summary += " Úroveň je stabilní; přepínám na další servisní sektor.";
+  }
+  messages.push({
+    type: "bot.message",
+    payload: { text: summary, mood: "focused", channel: "lost", suppress_unread: true },
+  });
+  if (result.score_delta) {
+    state.score = Number(state.score || 0) + result.score_delta;
+    messages.push({
+      type: "score.update",
+      payload: {
+        score: state.score,
+        delta: result.score_delta,
+        bonus: result.score_delta,
+        penalty: 0,
+        reason: "sokoban_level",
+        level_id: result.completed_level_id,
+      },
+    });
+  }
+  if (result.game_complete) {
+    checkpoint.status = "solved";
+    checkpoint.solved_at = now;
+    const checkpointId = String(puzzle.checkpoint_id || "");
+    applyRewards(scenario, state, record(record(scenario.checkpoints)[checkpointId]).rewards);
+    messages.push(
+      { type: "puzzle.result", payload: { correct: true, puzzle_id: puzzleId } },
+      { type: "bot.message", payload: messageTemplate(puzzle.success_message) },
+    );
+    const navigation = record(record(scenario.checkpoints)[checkpointId]).navigation_message;
+    if (navigation) messages.push({ type: "bot.message", payload: messageTemplate(navigation) });
+  }
+  return { state, messages };
+}
+
+function applySokobanUndo(
+  scenario: ScenarioDocument,
+  state: GameStateDocument,
+  payload: Record<string, unknown>,
+  now: string,
+): ScenarioCommandResult {
+  const puzzleId = String(payload.puzzle_id ?? "").trim();
+  try {
+    const { game } = activeSokoban(scenario, state, puzzleId, now);
+    const changed = undoSokoban(game);
+    const text = changed
+      ? "Vrátila jsem poslední krok."
+      : "Nemám žádný krok, ke kterému se mohu vrátit.";
+    return {
+      state,
+      messages: [
+        { type: "sokoban.result", payload: { success: changed, undo: changed, reason: changed ? "" : text } },
+        { type: "bot.message", payload: { text, mood: "focused", channel: "lost" } },
+      ],
+    };
+  } catch (error) {
+    return {
+      state,
+      messages: [{
+        type: "sokoban.result",
+        payload: { success: false, reason: error instanceof Error ? error.message : "Krok nelze vrátit." },
+      }],
+    };
+  }
+}
+
+function applySokobanReset(
+  scenario: ScenarioDocument,
+  state: GameStateDocument,
+  payload: Record<string, unknown>,
+  now: string,
+): ScenarioCommandResult {
+  const puzzleId = String(payload.puzzle_id ?? "").trim();
+  try {
+    const { puzzle, game } = activeSokoban(scenario, state, puzzleId, now);
+    resetSokobanLevel(record(puzzle.game), game, now);
+    return {
+      state,
+      messages: [
+        { type: "sokoban.result", payload: { success: true, reset: true } },
+        {
+          type: "bot.message",
+          payload: {
+            text: "Vracíme se k poslední stabilní časové kotvě. Mřížka je znovu v počáteční poloze.",
+            mood: "alert",
+            channel: "lost",
+          },
+        },
+      ],
+    };
+  } catch (error) {
+    return {
+      state,
+      messages: [{
+        type: "sokoban.result",
+        payload: { success: false, reason: error instanceof Error ? error.message : "Mřížku nelze obnovit." },
+      }],
+    };
+  }
+}
+
 function ensureTriadGame(
   state: GameStateDocument,
   puzzleId: string,
@@ -1224,6 +1475,13 @@ export function presentGameState(
     ) {
       const game = ensureKarelGame(state, puzzleId, record(puzzle.game), now);
       presented.game = publicKarelGame(record(puzzle.game), game, now);
+    }
+    if (
+      puzzleAdapter(scenario, puzzle) === "sokoban" &&
+      (checkpointState.status === "found" || checkpointState.status === "solved")
+    ) {
+      const game = ensureSokobanGame(state, puzzleId, record(puzzle.game), now);
+      presented.game = publicSokobanGame(record(puzzle.game), game, now);
     }
     if (
       actorValue &&

@@ -425,6 +425,27 @@ describe("Cloudflare spike router", () => {
     await creatorKarelProgress;
     await teammateKarelProgress;
 
+    const creatorSokoban = nextMessage(creator, "sokoban.result");
+    const creatorSokobanState = nextMessage(creator, "game.state");
+    const creatorSokobanProgress = nextMessage(creator, "scenario.progress");
+    const teammateSokoban = nextMessage(player, "sokoban.result");
+    const teammateSokobanState = nextMessage(player, "game.state");
+    const teammateSokobanProgress = nextMessage(player, "scenario.progress");
+    creator.send(JSON.stringify({
+      type: "sokoban.command",
+      operation_id: "early-sokoban-1",
+      payload: { puzzle_id: "sports_sokoban", commands: ["left"] },
+    }));
+    expect((await creatorSokoban).payload).toMatchObject({
+      success: false,
+      reason: "Energetická mřížka zatím nebyla nalezena.",
+    });
+    expect((await teammateSokoban).payload).toMatchObject({ success: false });
+    expect((await creatorSokobanState).payload).not.toHaveProperty("sokoban_games");
+    expect((await teammateSokobanState).payload).not.toHaveProperty("sokoban_games");
+    await creatorSokobanProgress;
+    await teammateSokobanProgress;
+
     const creatorTriad = nextMessage(creator, "triad.result");
     const creatorTriadState = nextMessage(creator, "game.state");
     const creatorTriadProgress = nextMessage(creator, "scenario.progress");

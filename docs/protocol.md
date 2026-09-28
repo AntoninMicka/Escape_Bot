@@ -46,7 +46,9 @@ Cloudflare adaptér zatím obsluhuje z herních příkazů `player.message`,
 `phase.hint`, `qr.detected`, `puzzle.submit` pro rébusy s textovou odpovědí a
 `puzzle.hint`; z interaktivních miniher podporuje `line_game.move`,
 `line_game.reset`, `karel.command`, `karel.reset`, `triad.place` a
-`triad.reset`. Před potvrzením uloží nový stav, chat i omezenou účtenku podle
+`triad.reset`, `sokoban.command`, `sokoban.undo` a `sokoban.reset`. Sokobanové
+povely lze stejně jako v původním backendu zadávat česky přes `player.message`
+v kanálu `lost`. Před potvrzením uloží nový stav, chat i omezenou účtenku podle
 `operation_id`. Opakované doručení vrátí uložené odpovědi pouze původnímu
 odesílateli a týmový chat ani herní efekt znovu nerozešle. Výsledek tahu
 `line_game.result` i hráčova mřížka jsou soukromé pro dané zařízení, zatímco

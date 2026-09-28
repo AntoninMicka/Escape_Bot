@@ -73,7 +73,9 @@ mřížky každého hráče, týmového postupu, obnovení a idempotentních tah
 v Durable Objectu. Stejně je přenesené společné minové pole `mine_karel`,
 včetně skrytých min, indicií, časových limitů úrovní, skóre a obnovení. Minihra
 `triad` má vlastní desku každého hráče, deterministického protivníka a sdílené
-týmové pokrytí směrů. Ostatní minihry, terminály, deadline celé hry a
+týmové pokrytí směrů. Sdílený `sokoban` ukládá postup třemi sektory, historii
+pro undo, čas každé úrovně a navigátory; české povely z kanálu Elary se parsují
+stejně jako přímé API příkazy. Ostatní minihry, terminály, deadline celé hry a
 administrace ještě čekají na další části CF-04 a CF-05.
 
 Produkční deploy má samostatný explicitní příkaz `npm run deploy:production`.
