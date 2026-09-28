@@ -44,10 +44,11 @@ Každý `lobby.resume` rozehrané relace vrací úplný autoritativní snapshot:
 
 Cloudflare adaptér zatím obsluhuje z herních příkazů `player.message`,
 `phase.hint`, `qr.detected`, `puzzle.submit` pro rébusy s textovou odpovědí a
-`puzzle.hint`; z interaktivních miniher podporuje `line_game.move` a
-`line_game.reset`. Před potvrzením uloží nový stav, chat i omezenou účtenku
-podle `operation_id`. Opakované doručení vrátí uložené odpovědi pouze původnímu
-odesílateli a týmový chat ani herní efekt znovu nerozešle. Výsledek tahu
+`puzzle.hint`; z interaktivních miniher podporuje `line_game.move`,
+`line_game.reset`, `karel.command` a `karel.reset`. Před potvrzením uloží nový
+stav, chat i omezenou účtenku podle `operation_id`. Opakované doručení vrátí
+uložené odpovědi pouze původnímu odesílateli a týmový chat ani herní efekt
+znovu nerozešle. Výsledek tahu
 `line_game.result` i hráčova mřížka jsou soukromé pro dané zařízení, zatímco
 týmový postup a skóre se sdílejí.
 
@@ -208,6 +209,27 @@ Spustí nový pokus: obnoví pětibarevnou mřížku, průběh všech tří cíl
 }
 ```
 
+### `karel.command`
+
+Provede nejvýše 30 kroků na společném minovém poli. Povolené směry jsou `up`,
+`down`, `left` a `right`. Sekvence končí po vstupu na minu, dosažení východu
+nebo před krokem mimo mřížku.
+
+```json
+{
+  "type": "karel.command",
+  "payload": {
+    "puzzle_id": "courtyard_karel",
+    "commands": ["down", "down", "right"]
+  }
+}
+```
+
+### `karel.reset`
+
+Obnoví aktuální pole, pozici, odhalené buňky a tříminutový limit. Již dokončené
+úrovně a jejich jednorázově přidělené body zůstávají zachované.
+
 ### `sokoban.command`
 
 Provede deterministickou sekvenci pohybů Elary. Povolené hodnoty jsou `up`, `down`, `left` a `right`; sekvence se zastaví před první neprůchodnou stěnou nebo článkem. Stejnou zprávu vytváří parser českých povelů z kanálu Elary.
@@ -302,6 +324,13 @@ Potvrdí nebo odmítne výměnu či restart. Úspěšná výměna obsahuje `scor
 Server posílá `line_game.result` pouze zařízení, které tah zadalo. Každý hráč
 má vlastní perzistentní mřížku; `game.state` ji personalizuje podle `client_id`
 a vedle ní obsahuje sdílený `team_progress` bez odhalení mřížek spoluhráčů.
+
+### `karel.result`
+
+Obsahuje provedené pohybové snímky, zásah miny, zablokovaný krok, dokončení
+úrovně či celé minihry a změnu skóre. Miny ani interní historii pohybu server
+neposílá; následný `game.state` obsahuje pouze veřejnou textovou mřížku,
+odhalené číselné indicie, pozici Elary a zbývající čas.
 
 ### `sokoban.result`
 

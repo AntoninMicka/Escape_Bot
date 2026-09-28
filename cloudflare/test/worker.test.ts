@@ -65,6 +65,14 @@ function send(socket: WebSocket, type: string, payload: Record<string, unknown> 
   socket.send(JSON.stringify({ type, payload }));
 }
 
+function closeSocket(socket: WebSocket, reason: string): Promise<void> {
+  if (socket.readyState === WebSocket.CLOSED) return Promise.resolve();
+  return new Promise((resolve) => {
+    socket.addEventListener("close", () => resolve(), { once: true });
+    socket.close(1000, reason);
+  });
+}
+
 describe("Cloudflare spike router", () => {
   it("serves the application shell from Static Assets", async () => {
     const response = await SELF.fetch("https://example.test/");
@@ -160,7 +168,7 @@ describe("Cloudflare spike router", () => {
         bootstrap: false,
       },
     });
-    socket.close(1000, "done");
+    await closeSocket(socket, "done");
   });
 
   it("creates a solo lobby through bootstrap and resumes its authoritative snapshot", async () => {
@@ -208,8 +216,7 @@ describe("Cloudflare spike router", () => {
       score: 1020,
     });
 
-    bootstrap.close(1000, "routed");
-    session.close(1000, "done");
+    await Promise.all([closeSocket(bootstrap, "routed"), closeSocket(session, "done")]);
   });
 
   it("persists an idempotent checkpoint and answer-puzzle journey", async () => {
@@ -326,8 +333,7 @@ describe("Cloudflare spike router", () => {
     });
     await restoredProgress;
 
-    bootstrap.close(1000, "routed");
-    session.close(1000, "done");
+    await Promise.all([closeSocket(bootstrap, "routed"), closeSocket(session, "done")]);
   });
 
   it("resolves a team join code and broadcasts both registered players", async () => {
@@ -398,6 +404,27 @@ describe("Cloudflare spike router", () => {
     await privateLineProgress;
     expect((await teammateTraffic).map((message) => message.type)).not.toContain("line_game.result");
 
+    const creatorKarel = nextMessage(creator, "karel.result");
+    const creatorKarelState = nextMessage(creator, "game.state");
+    const creatorKarelProgress = nextMessage(creator, "scenario.progress");
+    const teammateKarel = nextMessage(player, "karel.result");
+    const teammateKarelState = nextMessage(player, "game.state");
+    const teammateKarelProgress = nextMessage(player, "scenario.progress");
+    creator.send(JSON.stringify({
+      type: "karel.command",
+      operation_id: "early-karel-1",
+      payload: { puzzle_id: "courtyard_karel", commands: ["right"] },
+    }));
+    expect((await creatorKarel).payload).toMatchObject({
+      success: false,
+      reason: "Navigační pole není aktivní.",
+    });
+    expect((await teammateKarel).payload).toMatchObject({ success: false });
+    expect((await creatorKarelState).payload).not.toHaveProperty("karel_games");
+    expect((await teammateKarelState).payload).not.toHaveProperty("karel_games");
+    await creatorKarelProgress;
+    await teammateKarelProgress;
+
     const teammateMessage = nextMessage(player, "team.player_message");
     const narrativeReply = nextMessage(player, "bot.message");
     const narrativeState = nextMessage(player, "game.state");
@@ -449,9 +476,11 @@ describe("Cloudflare spike router", () => {
       phase_hints: { unlocked: 1 },
     });
     await restoredProgress;
-    creatorBootstrap.close(1000, "routed");
-    playerBootstrap.close(1000, "routed");
-    creator.close(1000, "done");
-    player.close(1000, "done");
+    await Promise.all([
+      closeSocket(creatorBootstrap, "routed"),
+      closeSocket(playerBootstrap, "routed"),
+      closeSocket(creator, "done"),
+      closeSocket(player, "done"),
+    ]);
   });
 });

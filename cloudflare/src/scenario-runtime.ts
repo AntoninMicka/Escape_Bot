@@ -5,6 +5,13 @@ import {
   swapLineGame,
   type LineGameState,
 } from "./line-game";
+import {
+  executeKarel,
+  newKarelGame,
+  publicKarelGame,
+  resetKarelGame,
+  type KarelState,
+} from "./mine-karel";
 
 export type ScenarioDocument = Record<string, any>;
 export type GameStateDocument = Record<string, any>;
@@ -160,7 +167,17 @@ export function applyScenarioCommand(
   actorValue?: RuntimeActor,
 ): ScenarioCommandResult {
   const actor = normalizedActor(actorValue);
-  if (!new Set(["player.message", "phase.hint", "qr.detected", "puzzle.submit", "puzzle.hint", "line_game.move", "line_game.reset"]).has(type)) {
+  if (!new Set([
+    "player.message",
+    "phase.hint",
+    "qr.detected",
+    "puzzle.submit",
+    "puzzle.hint",
+    "line_game.move",
+    "line_game.reset",
+    "karel.command",
+    "karel.reset",
+  ]).has(type)) {
     return {
       state: presentGameState(scenario, currentState, actor, now),
       messages: [{ type: "command.rejected", payload: { reason: `Příkaz ${type} ještě není v cloudovém enginu podporován.` } }],
@@ -179,7 +196,9 @@ export function applyScenarioCommand(
   else if (type === "puzzle.submit") result = applyPuzzleSubmit(scenario, state, payload, now);
   else if (type === "puzzle.hint") result = applyPuzzleHint(scenario, state, payload);
   else if (type === "line_game.move") result = applyLineGameMove(scenario, state, payload, now, actor);
-  else result = applyLineGameReset(scenario, state, payload, now, actor);
+  else if (type === "line_game.reset") result = applyLineGameReset(scenario, state, payload, now, actor);
+  else if (type === "karel.command") result = applyKarelCommand(scenario, state, payload, now);
+  else result = applyKarelReset(scenario, state, payload, now);
   return { ...result, state: presentGameState(scenario, result.state, actor, now) };
 }
 
@@ -391,6 +410,10 @@ function applyQrDetected(
     for (const participantId of actor.participantIds.length ? actor.participantIds : [actor.clientId]) {
       ensureLineGame(state, puzzleId, record(puzzle.game), { ...actor, clientId: participantId }, now);
     }
+  }
+  if (puzzleId && puzzleAdapter(scenario, record(record(scenario.puzzles)[puzzleId])) === "mine_karel") {
+    const puzzle = record(record(scenario.puzzles)[puzzleId]);
+    ensureKarelGame(state, puzzleId, record(puzzle.game), now);
   }
 
   const configuredMessage = checkpoint.message ?? record(scenario.global_events).qr_detected;
@@ -786,6 +809,153 @@ function applyLineGameReset(
   }
 }
 
+function ensureKarelGame(
+  state: GameStateDocument,
+  puzzleId: string,
+  config: Record<string, any>,
+  now: string,
+): KarelState {
+  state.karel_games = record(state.karel_games);
+  let game = state.karel_games[puzzleId];
+  if (!game || typeof game !== "object" || Array.isArray(game) || !game.deadline_at) {
+    game = newKarelGame(config, now);
+    state.karel_games[puzzleId] = game;
+  }
+  return game as KarelState;
+}
+
+function applyKarelCommand(
+  scenario: ScenarioDocument,
+  state: GameStateDocument,
+  payload: Record<string, unknown>,
+  now: string,
+): ScenarioCommandResult {
+  const puzzleId = String(payload.puzzle_id ?? "").trim();
+  const puzzle = record(record(scenario.puzzles)[puzzleId]);
+  const checkpointId = String(puzzle.checkpoint_id || "");
+  const checkpoint = record(record(state.checkpoint_states)[checkpointId]);
+  if (puzzleAdapter(scenario, puzzle) !== "mine_karel" || checkpoint.status !== "found") {
+    return {
+      state,
+      messages: [{ type: "karel.result", payload: { success: false, reason: "Navigační pole není aktivní." } }],
+    };
+  }
+
+  let result;
+  try {
+    result = executeKarel(
+      ensureKarelGame(state, puzzleId, record(puzzle.game), now),
+      record(puzzle.game),
+      payload.commands,
+      now,
+    );
+  } catch (error) {
+    return {
+      state,
+      messages: [{
+        type: "karel.result",
+        payload: { success: false, reason: error instanceof Error ? error.message : "Navigaci se nepodařilo provést." },
+      }],
+    };
+  }
+
+  if (result.score_delta) state.score = Number(state.score || 0) + result.score_delta;
+  const commandNames: Record<string, string> = {
+    up: "NAHORU",
+    down: "DOLŮ",
+    left: "VLEVO",
+    right: "VPRAVO",
+  };
+  const commands = Array.isArray(payload.commands) ? payload.commands.map(String) : [];
+  const understood = commands.map((command) => commandNames[command] || command.toUpperCase()).join(", ");
+  const messages: RuntimeMessage[] = [
+    {
+      type: "bot.message",
+      payload: {
+        text: `Rozumím sekvenci: ${understood}. Provádím.`,
+        mood: "focused",
+        channel: "lost",
+        suppress_unread: true,
+      },
+    },
+    { type: "karel.result", payload: result as unknown as Record<string, unknown> },
+  ];
+  if (result.hit_mine) {
+    messages.push({
+      type: "bot.message",
+      payload: {
+        text: "Pozor! Narazila jsem na nestabilní pole a nouzový systém mě vrátil na začátek.",
+        mood: "tense",
+        channel: "lost",
+        voice_id: "elara_anomaly_hit",
+        suppress_unread: true,
+      },
+    });
+  } else if (result.blocked) {
+    messages.push({
+      type: "bot.message",
+      payload: {
+        text: "Tudy cesta nevede. Poslední povel by mě vyvedl mimo stabilní oblast.",
+        mood: "alert",
+        channel: "lost",
+        suppress_unread: true,
+      },
+    });
+  } else if (result.frames.length) {
+    const lastFrame = result.frames[result.frames.length - 1];
+    const clue = Number(lastFrame.clue || 0);
+    let text = "Okolí je čisté, sonda nehlásí žádnou anomálii.";
+    if (lastFrame.revisited) text = `Toto pole už znám. Sonda stále hlásí ${clue} okolních anomálií.`;
+    else if (clue >= 3) text = `Silné rušení. V osmi okolních polích jsou ${clue} anomálie.`;
+    else if (clue) text = `Sonda hlásí ${clue} okolní anomálie. Postupuji opatrně.`;
+    messages.push({
+      type: "bot.message",
+      payload: { text, mood: "focused", channel: "lost", suppress_unread: true },
+    });
+  }
+
+  if (result.game_complete) {
+    checkpoint.status = "solved";
+    checkpoint.solved_at = now;
+    applyRewards(scenario, state, record(record(scenario.checkpoints)[checkpointId]).rewards);
+    messages.push(
+      { type: "puzzle.result", payload: { correct: true, puzzle_id: puzzleId } },
+      { type: "bot.message", payload: messageTemplate(puzzle.success_message) },
+    );
+    const navigation = record(record(scenario.checkpoints)[checkpointId]).navigation_message;
+    if (navigation) messages.push({ type: "bot.message", payload: messageTemplate(navigation) });
+  }
+  if (result.score_delta) {
+    messages.push({
+      type: "score.update",
+      payload: {
+        score: state.score,
+        delta: result.score_delta,
+        bonus: Math.max(0, result.score_delta),
+        penalty: Math.max(0, -result.score_delta),
+        reason: "mine_karel",
+      },
+    });
+  }
+  return { state, messages };
+}
+
+function applyKarelReset(
+  scenario: ScenarioDocument,
+  state: GameStateDocument,
+  payload: Record<string, unknown>,
+  now: string,
+): ScenarioCommandResult {
+  const puzzleId = String(payload.puzzle_id ?? "").trim();
+  const puzzle = record(record(scenario.puzzles)[puzzleId]);
+  if (puzzleAdapter(scenario, puzzle) !== "mine_karel") {
+    return { state, messages: [{ type: "karel.result", payload: { success: false, reason: "Neznámé pole." } }] };
+  }
+  const game = ensureKarelGame(state, puzzleId, record(puzzle.game), now);
+  resetKarelGame(record(puzzle.game), game, now);
+  return { state, messages: [{ type: "karel.result", payload: { success: true, reset: true } }] };
+}
+
 export function presentGameState(
   scenario: ScenarioDocument,
   stateValue: GameStateDocument,
@@ -835,6 +1005,13 @@ export function presentGameState(
       const game = ensureLineGame(state, puzzleId, record(puzzle.game), actor, now);
       presented.game = publicLineGame(record(puzzle.game), game, now);
       presented.team_progress = lineGameTeamProgress(state, puzzleId, record(puzzle.game), actor);
+    }
+    if (
+      puzzleAdapter(scenario, puzzle) === "mine_karel" &&
+      (checkpointState.status === "found" || checkpointState.status === "solved")
+    ) {
+      const game = ensureKarelGame(state, puzzleId, record(puzzle.game), now);
+      presented.game = publicKarelGame(record(puzzle.game), game, now);
     }
     return presented;
   });

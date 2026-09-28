@@ -8,11 +8,22 @@ import {
   type RuntimeActor,
   type ScenarioDocument,
 } from "../src/scenario-runtime";
+import { safeKarelPath } from "../src/mine-karel";
 
 async function chronosScenario(): Promise<ScenarioDocument> {
   const response = await env.ASSETS.fetch("https://example.test/scenarios/chronos_online.json");
   expect(response.status).toBe(200);
   return response.json<ScenarioDocument>();
+}
+
+function pathCommands(path: number[][]): string[] {
+  return path.slice(1).map(([row, column], index) => {
+    const [previousRow, previousColumn] = path[index];
+    if (row === previousRow - 1) return "up";
+    if (row === previousRow + 1) return "down";
+    if (column === previousColumn - 1) return "left";
+    return "right";
+  });
 }
 
 describe("deterministic Cloudflare scenario runtime", () => {
@@ -162,6 +173,65 @@ describe("deterministic Cloudflare scenario runtime", () => {
       expect.objectContaining({ id: "alice", name: "Alice" }),
       expect.objectContaining({ id: "bob", name: "Bob" }),
     ]);
+  });
+
+  it("keeps Karel mines private and applies a strike to the shared score", async () => {
+    const scenario = await chronosScenario();
+    let state = startScenario(scenario, 0, "2026-09-28T12:00:00.000Z").state;
+    state.checkpoint_states.courtyard_minefield = { status: "found" };
+    state = presentGameState(scenario, state, undefined, "2026-09-28T12:00:00.000Z");
+    const puzzle = state.puzzles.find((item: Record<string, unknown>) => item.id === "courtyard_karel");
+    expect(state.karel_games.courtyard_karel.mines).toContainEqual([0, 3]);
+    expect(puzzle.game).not.toHaveProperty("mines");
+
+    const result = applyScenarioCommand(
+      scenario,
+      state,
+      "karel.command",
+      { puzzle_id: "courtyard_karel", commands: ["right", "right", "right"] },
+      "2026-09-28T12:00:10.000Z",
+    );
+    expect(result.messages.map((message) => message.type)).toEqual([
+      "bot.message",
+      "karel.result",
+      "bot.message",
+      "score.update",
+    ]);
+    expect(result.messages[1].payload).toMatchObject({ hit_mine: true, score_delta: -20 });
+    expect(result.state.score).toBe(980);
+    expect(result.state.karel_games.courtyard_karel.player).toEqual([0, 0]);
+  });
+
+  it("completes every active Karel field and unlocks the next checkpoint", async () => {
+    const scenario = await chronosScenario();
+    let state = startScenario(scenario, 0, "2026-09-28T12:00:00.000Z").state;
+    state.checkpoint_states.courtyard_minefield = { status: "found" };
+    const config = scenario.puzzles.courtyard_karel.game;
+    let lastMessages: Array<{ type: string; payload: Record<string, unknown> }> = [];
+    for (const levelId of config.active_level_ids) {
+      const level = config.levels.find((item: Record<string, unknown>) => item.id === levelId);
+      const result = applyScenarioCommand(
+        scenario,
+        state,
+        "karel.command",
+        { puzzle_id: "courtyard_karel", commands: pathCommands(safeKarelPath(level)) },
+        "2026-09-28T12:00:10.000Z",
+      );
+      state = result.state;
+      lastMessages = result.messages;
+    }
+    expect(state).toMatchObject({ score: 1120, flags: { courtyard_route_stable: true } });
+    expect(state.checkpoint_states.courtyard_minefield.status).toBe("solved");
+    expect(state.karel_games.courtyard_karel).toMatchObject({
+      status: "complete",
+      awarded_points: 120,
+      completed_levels: ["field_a", "field_b", "field_c"],
+    });
+    expect(lastMessages.map((message) => message.type)).toEqual(expect.arrayContaining([
+      "karel.result",
+      "puzzle.result",
+      "score.update",
+    ]));
   });
 
   it("activates and solves the first answer puzzle in checkpoint order", async () => {

@@ -70,9 +70,10 @@ fyzickém iPhonu. Rozpracovaný CF-04 podporuje bootstrap, sólo/týmovou lobby,
 připojení kódem, spuštění, autoritativní resume snapshot, textový úvod scénáře,
 QR checkpointy a rébusy s odpovědí. Kalibrace `line_game` včetně samostatné
 mřížky každého hráče, týmového postupu, obnovení a idempotentních tahů už běží
-v Durable Objectu. Ostatní minihry,
-terminály, deadline celé hry a administrace ještě čekají na další části CF-04
-a CF-05.
+v Durable Objectu. Stejně je přenesené společné minové pole `mine_karel`,
+včetně skrytých min, indicií, časových limitů úrovní, skóre a obnovení. Ostatní
+minihry, terminály, deadline celé hry a administrace ještě čekají na další
+části CF-04 a CF-05.
 
 Produkční deploy má samostatný explicitní příkaz `npm run deploy:production`.
 Obecný `npm run deploy` záměrně není definován, aby nebylo možné bez výběru

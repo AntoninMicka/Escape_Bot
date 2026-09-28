@@ -280,6 +280,8 @@ export class GameSession extends DurableObject<Env> {
       case "puzzle.hint":
       case "line_game.move":
       case "line_game.reset":
+      case "karel.command":
+      case "karel.reset":
         await this.handleGameCommand(socket, attachment, message);
         return;
       case "spike.broadcast": {
@@ -943,7 +945,11 @@ export class GameSession extends DurableObject<Env> {
   }
 
   private gameStatePayload(state = this.snapshot.gameState): Record<string, unknown> {
-    const { interactive_games: _privateLineGames, ...publicState } = state;
+    const {
+      interactive_games: _privateLineGames,
+      karel_games: _privateKarelGames,
+      ...publicState
+    } = state;
     return {
       session_id: this.snapshot.sessionId,
       revision: this.snapshot.revision,
