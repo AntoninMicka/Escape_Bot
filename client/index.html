@@ -3458,7 +3458,9 @@
                 }
                 else if (msg.type === 'game.complete') {
                     document.getElementById('team-name').value = currentLobby?.team_name || '';
-                    document.querySelector('.save-score-section').innerHTML = `<strong>VÝSLEDEK ZAPSÁN AUTOMATICKY · ${escapeHtml(msg.payload.rating)} · ${Number(msg.payload.score)} BODŮ</strong>`;
+                    const rankedScore = Number(msg.payload.leaderboard_score ?? msg.payload.score);
+                    const frozenLabel = msg.payload.score_frozen ? ' · SKÓRE ZMRAZENO PŘI VYPRŠENÍ LIMITU' : '';
+                    document.querySelector('.save-score-section').innerHTML = `<strong>VÝSLEDEK ZAPSÁN AUTOMATICKY · ${escapeHtml(msg.payload.rating)} · ${rankedScore} BODŮ${frozenLabel}</strong>`;
                     document.querySelector('[onclick*="tab-leaderboard"]').click();
                 }
             };
@@ -3993,12 +3995,12 @@
                 document.body.appendChild(panel);
             }
             panel.style.display = flags.deadline_choice_pending ? 'flex' : 'none';
-            panel.innerHTML = `<section role="dialog" aria-modal="true" aria-labelledby="deadline-title"><h2 id="deadline-title">Časový limit vypršel</h2><p>Chcete hru ukončit, nebo pokračovat mimo soutěž?</p><p>Dohrání mimo soutěž se nezapočítá do pořadí. Volba platí pro celý tým.</p><button onclick="chooseDeadline('end')">UKONČIT HRU</button> <button onclick="chooseDeadline('continue')">DOHRÁT MIMO SOUTĚŽ</button></section>`;
+            panel.innerHTML = `<section role="dialog" aria-modal="true" aria-labelledby="deadline-title"><h2 id="deadline-title">Časový limit vypršel</h2><p>Chcete hru ukončit, nebo pokračovat mimo soutěž?</p><p>Do pořadí se po dokončení zapíše nynější zmrazené skóre. Další bonusy ani postihy je už nezmění. Volba platí pro celý tým.</p><button onclick="chooseDeadline('end')">UKONČIT HRU</button> <button onclick="chooseDeadline('continue')">DOHRÁT MIMO SOUTĚŽ</button></section>`;
             let badge = document.getElementById('overtime-badge');
             if (!badge) {
                 badge = document.createElement('div'); badge.id = 'overtime-badge';
                 badge.style.cssText = 'position:fixed;bottom:8px;left:8px;z-index:9999;background:#222;color:#ffd966;padding:8px;pointer-events:none';
-                badge.textContent = 'DOHRÁVÁTE MIMO SOUTĚŽ'; document.body.appendChild(badge);
+                badge.textContent = 'DOHRÁVÁTE MIMO SOUTĚŽ · SOUTĚŽNÍ SKÓRE JE ZMRAZENÉ'; document.body.appendChild(badge);
             }
             badge.hidden = !flags.out_of_competition;
             if (flags.deadline_choice === 'continue' && !flags.administratively_ended) document.getElementById('lobby-overlay').classList.add('hidden');

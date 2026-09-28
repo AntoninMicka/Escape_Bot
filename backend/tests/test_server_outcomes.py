@@ -1,8 +1,9 @@
 from pathlib import Path
 
 from escape_bot.scenario import ScenarioLoader
-from escape_bot.server import apply_deadline_end, apply_operational_end, apply_outcome_score
+from escape_bot.server import apply_deadline_end, apply_operational_end, apply_outcome_score, leaderboard_score, record_completed_result
 from escape_bot.state_machine import EscapeBotStateMachine
+from escape_bot.team_lobby import Lobby
 
 
 SCENARIO_PATH = Path(__file__).resolve().parents[1] / "scenario.json"
@@ -67,6 +68,7 @@ def test_deadline_choice_survives_restore_and_allows_play_only_after_continue() 
     assert blocked[0].type == "error"
     asyncio.run(restored.handle(Message("game.deadline_choice", {"choice": "continue"})))
     assert restored.state.flags["out_of_competition"]
+    assert restored.state.flags["competition_score"] == 900
     assert not restored.state.flags["administratively_ended"]
     assert not restored.state.flags["deadline_choice_pending"]
     assert apply_deadline_end(restored, "2026-08-23T12:01:00+00:00", 100) == []
@@ -91,11 +93,30 @@ def test_deadline_end_choice_is_final_and_cannot_be_requested_early() -> None:
     assert not state_machine.state.flags["deadline_choice_pending"]
 
 
-def test_out_of_competition_team_is_not_ranked() -> None:
+def test_out_of_competition_completion_records_deadline_frozen_score() -> None:
+    import asyncio
     from escape_bot import server
+    from escape_bot.protocol import Message
+    from unittest.mock import patch
 
     state_machine = machine()
-    state_machine.state.flags["out_of_competition"] = True
-    from unittest.mock import patch
-    with patch.object(server, "active_sessions", {"overtime": state_machine}), patch.object(server, "global_leaderboard", [{"session_id": "overtime", "score": 9999}]):
-        assert server.leaderboard_entries() == []
+    state_machine.state.score = 1250
+    apply_deadline_end(state_machine, "2026-08-23T12:00:00+00:00", 100)
+    asyncio.run(state_machine.handle(Message("game.deadline_choice", {"choice": "continue"})))
+    state_machine.state.score += 275
+    state_machine.state.score -= 80
+    state_machine.state.flags.update({"game_completed": True, "completed_at": "2026-08-23T12:15:00+00:00"})
+    lobby = Lobby("overtime", "team", "alice", "Přesčas", started=True)
+    lobby.add_player("alice", "Alice")
+
+    settings = dict(server.runtime_settings)
+    settings["leaderboard_finalized"] = False
+    with patch.object(server, "runtime_settings", settings), patch.object(server, "global_leaderboard", []), patch.object(server, "save_leaderboard"):
+        assert leaderboard_score(state_machine) == 1150
+        assert apply_outcome_score(state_machine, "completed", 100) is None
+        assert record_completed_result("overtime", lobby, state_machine)
+        assert not record_completed_result("overtime", lobby, state_machine)
+        entries = server.leaderboard_entries()
+        assert len(entries) == 1
+        assert entries[0]["score"] == 1150
+        assert entries[0]["out_of_competition"] is True
