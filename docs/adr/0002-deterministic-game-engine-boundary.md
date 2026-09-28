@@ -61,3 +61,5 @@ klíč ignoruje, takže rollback nevyžaduje zpětnou migraci dat.
   opakuje až po obnovení stejné lobby.
 - Paritní test musí pro reprezentativní sekvenci porovnávat odpovědi i stav
   původního rozhraní s novou hranicí.
+- Kompletní scénářový journey test používá obě rozhraní souběžně, porovnává je
+  po každém příkazu a uprostřed hry obnoví engine z JSON snapshotu.

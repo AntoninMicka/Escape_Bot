@@ -1,7 +1,10 @@
+import json
 import unittest
-from datetime import UTC, datetime
+from copy import deepcopy
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
+from escape_bot.game_engine import ActorContext, GameCommand, GameEngine
 from escape_bot.protocol import Message
 from escape_bot.scenario import ScenarioLoader
 from escape_bot.state_machine import EscapeBotStateMachine, GamePhase
@@ -16,14 +19,58 @@ REALIZATION_PATH = Path(__file__).resolve().parents[1] / "content" / "realizatio
 class CompleteScenarioJourneyTest(unittest.IsolatedAsyncioTestCase):
     def setUp(self) -> None:
         self.scenario = ScenarioLoader.load_composed(str(TEMPLATE_PATH), str(REALIZATION_PATH))
-        self.machine = EscapeBotStateMachine(self.scenario, clock=lambda: datetime.now(UTC))
+        self.command_time = datetime(2026, 9, 28, 9, 0, tzinfo=UTC)
+        self.command_index = 0
+        self.command_types: set[str] = set()
+        self.actor = ActorContext(
+            client_id="legacy-client",
+            participant_ids=("legacy-client",),
+            team_mode="solo",
+            participant_names={"legacy-client": "Hráč"},
+        )
+        self.machine = EscapeBotStateMachine(self.scenario, clock=lambda: self.command_time)
+        self.engine = GameEngine(self.scenario)
+        self.engine_snapshot = None
 
     @staticmethod
     def response(responses, message_type):
         return next(item for item in responses if item.type == message_type)
 
     async def send(self, message_type, **payload):
-        return await self.machine.handle(Message(message_type, payload))
+        self.command_time += timedelta(seconds=1)
+        self.command_index += 1
+        self.command_types.add(message_type)
+        legacy_payload = deepcopy(payload)
+        legacy_payload.update({
+            "_client_id": self.actor.client_id,
+            "_participant_ids": list(self.actor.participant_ids),
+            "_team_mode": self.actor.team_mode,
+            "_participant_names": dict(self.actor.participant_names),
+        })
+        legacy_responses = await self.machine.handle(
+            Message(message_type, legacy_payload),
+            now=self.command_time,
+        )
+        result = await self.engine.apply(
+            self.engine_snapshot,
+            GameCommand(message_type, deepcopy(payload)),
+            self.actor,
+            self.command_time,
+        )
+        self.engine_snapshot = result.snapshot
+        engine_responses = [*result.sender_messages, *result.broadcast_messages]
+
+        self.assertEqual(
+            [message.to_json() for message in engine_responses],
+            [message.to_json() for message in legacy_responses],
+            f"Response parity failed after command {self.command_index}: {message_type}",
+        )
+        self.assertEqual(
+            self.engine_snapshot["state"],
+            self.machine.state.snapshot(),
+            f"State parity failed after command {self.command_index}: {message_type}",
+        )
+        return engine_responses
 
     async def scan(self, checkpoint_id):
         token = self.scenario.data["checkpoints"][checkpoint_id]["token"]
@@ -63,9 +110,11 @@ class CompleteScenarioJourneyTest(unittest.IsolatedAsyncioTestCase):
         for commands in karel_solutions:
             await self.send("karel.command", puzzle_id="courtyard_karel", commands=commands)
 
-        restored_machine = EscapeBotStateMachine(self.scenario, clock=lambda: datetime.now(UTC))
+        restored_machine = EscapeBotStateMachine(self.scenario, clock=lambda: self.command_time)
         restored_machine.restore_state(self.machine.state.snapshot())
         self.machine = restored_machine
+        self.engine = GameEngine(self.scenario)
+        self.engine_snapshot = json.loads(json.dumps(self.engine_snapshot))
         reconnect = await self.send("client.hello")
         self.assertIsNotNone(self.response(reconnect, "chat.history"))
         self.assertEqual(self.machine.state.checkpoint_states["courtyard_minefield"]["status"], "solved")
@@ -73,12 +122,16 @@ class CompleteScenarioJourneyTest(unittest.IsolatedAsyncioTestCase):
         await self.scan("bowling_diagnostics")
         await self.send("puzzle.submit", puzzle_id="bowling_binary", answer="MOTOR")
         await self.scan("timeline_calibration")
-        line_game = self.machine.state.interactive_games["timeline_lines"]
+        line_games = (
+            self.machine.state.interactive_games["timeline_lines"],
+            self.engine_snapshot["state"]["interactive_games"]["timeline_lines"],
+        )
         colors = self.scenario.data["puzzles"]["timeline_lines"]["game"]["colors"]
-        line_game["board"] = [[colors[(row + column) % len(colors)] for column in range(7)] for row in range(7)]
-        for column in range(4): line_game["board"][0][column] = "cyan"
-        line_game["board"][0][4] = "violet"; line_game["board"][1][4] = "cyan"
-        line_game["progress"] = {"3": 5, "4": 3, "5": 0}
+        for line_game in line_games:
+            line_game["board"] = [[colors[(row + column) % len(colors)] for column in range(7)] for row in range(7)]
+            for column in range(4): line_game["board"][0][column] = "cyan"
+            line_game["board"][0][4] = "violet"; line_game["board"][1][4] = "cyan"
+            line_game["progress"] = {"3": 5, "4": 3, "5": 0}
         calibrated = await self.send("line_game.move", puzzle_id="timeline_lines", first=[0, 4], second=[1, 4])
         self.assertTrue(self.response(calibrated, "line_game.result").payload["game_complete"])
 
@@ -120,3 +173,17 @@ class CompleteScenarioJourneyTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(set(self.machine.state.inventory), {"TEMPORÁLNÍ MOTOR", "FÁZOVÝ STABILIZÁTOR", "KRYSTAL ČASOVÉ KOTVY"})
         self.assertTrue(self.machine.state.flags["game_completed"])
         self.assertGreater(self.machine.state.score, 0)
+        self.assertEqual(self.engine_snapshot["state"], self.machine.state.snapshot())
+        self.assertGreaterEqual(self.command_index, 40)
+        self.assertEqual(self.command_types, {
+            "archive.arrange",
+            "client.hello",
+            "finale.activate",
+            "karel.command",
+            "line_game.move",
+            "player.message",
+            "puzzle.submit",
+            "qr.detected",
+            "room.unlock",
+            "triad.place",
+        })

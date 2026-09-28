@@ -98,8 +98,11 @@ Akceptace:
 Stav feature větve: deterministické `apply`, verzovaný snapshot, idempotentní
 `operation_id`, oddělené odpovědi odesílateli a týmové broadcasty, FastAPI
 adaptér, validační schémata příkazů a explicitní autoritativní čas bez síťových
-či procesních závislostí v doménové cestě jsou implementované. Zbývá převést
-celý scenario journey na paritní test původního a nového rozhraní.
+či procesních závislostí v doménové cestě jsou implementované. Kompletní
+scenario journey nyní po každém příkazu porovnává odpovědi i snapshot původního
+stavového automatu s novým rozhraním a ověřuje obnovu přes JSON round-trip.
+
+**Stav: implementace CF-02 dokončena; před sloučením zbývá revize a commit.**
 
 Akceptace:
 
