@@ -377,6 +377,57 @@
   "runtime": {
     "id": "${game.id}",
     "title": "Ztracená v čase: ${location.name}",
+    "onboarding": {
+      "intro": {
+        "eyebrow": "PŘÍCHOZÍ NOUZOVÁ VIDEOZPRÁVA",
+        "sender": "OPERAČNÍ STŘEDISKO · HOTEL KRASKOV",
+        "title": "Incident CHRONOS",
+        "lines": [
+          "Byli jste přivoláni do ${location.name_locative} kvůli nehodě v uzavřeném výzkumném prostoru.",
+          "Během experimentu selhal prototyp stroje času. Vedoucí projektu, doktorka Elara, zmizela a části zařízení byly rozmetány po areálu.",
+          "Nouzový interkom stále zachytává slabý signál. Zjistěte, co se stalo, obnovte časové kotvy a zachraňte, co se dá."
+        ],
+        "cta": "PŘIJMOUT MISI"
+      },
+      "tutorial": [
+        {
+          "target": "intercom-tab-button",
+          "icon": "▣",
+          "title": "Interkom",
+          "visual": "INTERKOM · první tyrkysová záložka v horní liště",
+          "text": "Po otevření uvidíte vlevo seznam kanálů a vedle něj historii zpráv. Odpověď napište do dlouhého pole úplně dole a potvrďte tlačítkem Odeslat. První úkol už čeká ve zprávách."
+        },
+        {
+          "target": "chronomap-tab-button",
+          "icon": "⌖",
+          "title": "Chronomapa",
+          "visual": "CHRONOMAPA [OFFLINE] · záložka uprostřed horní lišty",
+          "text": "Zpočátku je tlačítko šedé a nese nápis OFFLINE. Po aktivaci se zde zobrazí mapa jako síť bodů: rozsvícené body jsou splněné, dostupné ukazují další cestu a karty pod mapou evidují nalezené stopy."
+        },
+        {
+          "target": "scanner-tab-button",
+          "icon": "▦",
+          "title": "Skener kotev",
+          "visual": "SKENER (Kamera) · světlá záložka v horní liště",
+          "text": "Na stanovištích hledejte čtvercové QR kódy. V této záložce se objeví obraz z kamery s rámečkem; QR držte uvnitř rámečku, dokud terminál nepotvrdí načtení."
+        },
+        {
+          "target": "cipher-toggle",
+          "icon": "⌘",
+          "title": "Pomůcky a nápověda",
+          "visual": "ŠIFROVACÍ POMŮCKY · tlačítko vpravo v horní liště",
+          "text": "Tlačítko otevře tmavý vysouvací panel s přehledem šifer. Nápovědy ke konkrétním úkolům hledejte přímo na jejich kartách pod zadáním; cena v bodech je vždy napsaná na tlačítku."
+        },
+        {
+          "target": "intercom-tab-button",
+          "icon": "▶",
+          "title": "Jste připraveni",
+          "visual": "INTERKOM · právě zvýrazněná záložka nahoře",
+          "text": "Po zavření tutoriálu se otevře Interkom. Najděte zprávu Kapitánky v hlavní historii, klikněte do spodního textového pole a potvrďte jí příjem."
+        }
+      ],
+      "finish_cta": "OTEVŘÍT INTERKOM"
+    },
     "knowledge_base": {
       "$var": "location.knowledge_base"
     },
@@ -550,12 +601,12 @@
       },
       {
         "id": "${rooms.optional_archive.node_id}",
-        "label": "Virtuální archiv 104",
+        "label": "Virtuální archiv 108",
         "kind": "room",
         "requires": [
           "${checkpoints.public_archive.id}"
         ],
-        "completion_flag": "room_104_unlocked"
+        "completion_flag": "room_108_unlocked"
       },
       {
         "id": "time_machine_finale",
@@ -661,7 +712,7 @@
         "requires_checkpoints": [
           "${checkpoints.public_archive.id}"
         ],
-        "clue": "SERVISNÍ OTISK PANELU\nI   |   X   |   IV\nKaždá oddělená skupina tvoří jednu část čtyřmístného přístupového kódu.",
+        "clue": "SERVISNÍ OTISK PANELU\nI   |   X   |   VIII\nKaždá oddělená skupina tvoří jednu část čtyřmístného přístupového kódu.",
         "hints": [
           {
             "text": "Tři skupiny zachovej oddělené a čti je zleva doprava.",
@@ -672,18 +723,18 @@
             "penalty": 20
           },
           {
-            "text": "I = 1, X = 10 a IV = 4. Po spojení vznikne PIN 1104.",
+            "text": "I = 1, X = 10 a VIII = 8. Po spojení vznikne PIN 1108.",
             "penalty": 35
           }
         ],
         "success_messages": [
           {
-            "text": "Přístupový panel dveří 104 odemčen. Elektromagnetický zámek uvolněn.",
+            "text": "Přístupový panel dveří 108 odemčen. Elektromagnetický zámek uvolněn.",
             "mood": "success",
             "channel": "general"
           },
           {
-            "text": "Slyšela jsem cvaknutí! Pokoj 104 je otevřený a archivní stopa zajištěná. Teď pokračujte ke schodišti a najděte tam další časovou kotvu.",
+            "text": "Slyšela jsem cvaknutí! Pokoj 108 je otevřený a archivní stopa zajištěná. Teď pokračujte ke schodišti a najděte tam další časovou kotvu.",
             "mood": "relieved",
             "channel": "lost"
           }
@@ -1786,6 +1837,10 @@
         "title": "Finální konzole stroje času",
         "type": "finale",
         "checkpoint_id": "${checkpoints.final_console.id}",
+        "terminal": {
+          "mode": "exclusive",
+          "label": "Finální konzole stroje času"
+        },
         "instructions": "Vložte všechny tři fyzické moduly do základny. Potom zadejte návratový rok, čas a přesné pořadí modulů získané v Archivu budoucnosti.",
         "year": "2037",
         "time": "21:40",
@@ -1817,7 +1872,7 @@
           "KRYSTAL ČASOVÉ KOTVY"
         ],
         "requires_flags": [
-          "room_104_unlocked"
+          "room_108_unlocked"
         ],
         "countdown_seconds": 10,
         "rating_thresholds": {
@@ -1858,7 +1913,7 @@
         "puzzle_id": "reception_deduction",
         "next_checkpoint": "${checkpoints.signal_transition.id}",
         "navigation_message": {
-          "text": "Než opustíte recepci, použijte obnovený servisní otisk k odemčení virtuálního pokoje 104. Potom pokračujte ke schodišti; tam leží další časová kotva.",
+          "text": "Než opustíte recepci, použijte obnovený servisní otisk k odemčení virtuálního pokoje 108. Potom pokračujte ke schodišti; tam leží další časová kotva.",
           "mood": "focused",
           "channel": "captain"
         },
@@ -1887,9 +1942,9 @@
           "channel": "captain"
         },
         "warning_if_missing_flag": {
-          "flag": "room_104_unlocked",
+          "flag": "room_108_unlocked",
           "message": {
-            "text": "Schodišťová kotva reaguje, ale pokoj 104 jste nechali zamčený. Než se dostanete k finále, vraťte se k virtuálnímu panelu a použijte servisní otisk z recepce.",
+            "text": "Schodišťová kotva reaguje, ale pokoj 108 jste nechali zamčený. Než se dostanete k finále, vraťte se k virtuálnímu panelu a použijte servisní otisk z recepce.",
             "mood": "tense",
             "channel": "lost"
           }
@@ -1951,7 +2006,7 @@
         "puzzle_id": "terrace_morse",
         "next_checkpoint": "${checkpoints.alignment_game.id}",
         "navigation_message": {
-          "text": "HŘIŠTĚ potvrzeno. Ve sportovním areálu nejprve najděte kotvu zarovnání časových uzlů; až potom půjde otevřít samotný sportovní archiv.",
+          "text": "HŘIŠTĚ potvrzeno. Ve sportovním areálu přejděte na dětské hřiště a najděte tam QR kotvu Zarovnání časových uzlů; až potom půjde otevřít samotný sportovní archiv.",
           "mood": "focused",
           "channel": "captain"
         },

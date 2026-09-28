@@ -20,8 +20,8 @@ class ScenarioCatalogTest(unittest.TestCase):
         self.assertIn("online_doom", entry.modes)
         self.assertEqual(entry.realization_version, "0.2.0")
         self.assertEqual(entry.scenario.data["world"]["mode"], "webgl")
-        self.assertIn("104", entry.scenario.data["rooms"])
-        self.assertEqual(entry.scenario.data["rooms"]["104"]["pin"], "1104")
+        self.assertIn("108", entry.scenario.data["rooms"])
+        self.assertEqual(entry.scenario.data["rooms"]["108"]["pin"], "1108")
 
     def test_lost_in_time_online_and_qr_realizations_keep_the_same_game_contract(self) -> None:
         catalog = load_scenario_catalog(

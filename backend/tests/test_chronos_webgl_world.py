@@ -25,8 +25,8 @@ class ChronosWebglWorldTest(unittest.TestCase):
         world_ids = {checkpoint["id"] for checkpoint in self.world["checkpoints"]}
 
         self.assertEqual(world_ids, scenario_ids)
-        self.assertEqual(self.world["optional_room"]["id"], "room_104")
-        self.assertEqual(self.realization["variables"]["rooms"]["optional_archive"]["number"], "104")
+        self.assertEqual(self.world["optional_room"]["id"], "room_108")
+        self.assertEqual(self.realization["variables"]["rooms"]["optional_archive"]["number"], "108")
 
     def test_all_levels_are_connected_by_physical_stairs(self) -> None:
         level_ids = {level["id"] for level in self.world["levels"]}

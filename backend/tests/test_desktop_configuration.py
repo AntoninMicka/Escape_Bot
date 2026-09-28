@@ -1,3 +1,7 @@
+import json
+import os
+import subprocess
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -107,3 +111,31 @@ class DesktopConfigurationTests(unittest.TestCase):
         self.assertIn('tabs->addTab(dashboardPage, tr("Admin dashboard"))', operator)
         self.assertIn("controlPage->addWidget(operationsPanel)", operator)
         self.assertIn("m_varFile->text(), QString(), root", operator)
+
+    def test_lifecycle_state_supports_snap_gcloud_stdout(self) -> None:
+        root = Path(__file__).resolve().parents[2]
+        script = root / "deploy" / "gcp" / "lifecycle-state.sh"
+        with tempfile.TemporaryDirectory() as directory:
+            fake_bin = Path(directory)
+            gcloud = fake_bin / "gcloud"
+            gcloud.write_text(
+                "#!/bin/bash\n"
+                "if [ ! -p /dev/stdout ]; then exit 120; fi\n"
+                "printf '{\"phase\":\"paused\",\"history\":[]}'\n",
+                encoding="utf-8",
+            )
+            gcloud.chmod(0o755)
+            environment = dict(os.environ)
+            environment["PATH"] = f"{fake_bin}:/usr/bin:/bin"
+
+            result = subprocess.run(
+                ["bash", str(script), "get", "project", "bucket", "event-2026"],
+                cwd=root,
+                env=environment,
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(json.loads(result.stdout)["phase"], "paused")

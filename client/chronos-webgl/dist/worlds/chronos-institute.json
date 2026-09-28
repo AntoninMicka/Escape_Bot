@@ -47,5 +47,5 @@
     {"id": "future_archive", "label": "ARCHIV BUDOUCNOSTI", "level": -1, "position": [-8, -4, 2], "color": "violet"},
     {"id": "time_machine_console", "label": "FINÁLNÍ KONZOLE CHRONOS", "level": -2, "position": [8, -8, 9], "color": "amber"}
   ],
-  "optional_room": {"id": "room_104", "label": "ARCHIVNÍ POKOJ 104", "level": 1, "position": [-13, 5, 2]}
+  "optional_room": {"id": "room_108", "label": "ARCHIVNÍ POKOJ 108", "level": 1, "position": [-13, 5, 2]}
 }

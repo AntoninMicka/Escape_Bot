@@ -48,7 +48,7 @@ BINDINGS = {
     "machine_part_three": ("sports_cipher", ["physical_presence", "cipher", "qr"]),
     "return_archive": ("future_archive", ["assembly_game"]),
     "final_console": ("time_machine_console", ["physical_presence", "qr"]),
-    "optional_archive": ("room_104", ["code_entry"]),
+    "optional_archive": ("room_108", ["code_entry"]),
     "return_finale": ("time_machine_finale", ["finale"]),
 }
 
@@ -72,7 +72,7 @@ def main() -> None:
         if CONTRACTS[contract]["kind"] == "checkpoint"
     }
     replacements = {node_id: "${checkpoints." + contract + ".id}" for contract, node_id in checkpoint_contracts.items()}
-    replacements["room_104"] = "${rooms.optional_archive.node_id}"
+    replacements["room_108"] = "${rooms.optional_archive.node_id}"
     templated_runtime = transform(runtime, replacements)
     templated_runtime["id"] = "${game.id}"
     templated_runtime["knowledge_base"] = {"$var": "location.knowledge_base"}
@@ -108,9 +108,9 @@ def main() -> None:
         "checkpoints": {},
         "rooms": {
             "optional_archive": {
-                "node_id": "room_104",
-                "number": "104",
-                "pin": runtime["rooms"]["104"]["pin"],
+                "node_id": "room_108",
+                "number": "108",
+                "pin": runtime["rooms"]["108"]["pin"],
             }
         },
     }
@@ -143,7 +143,7 @@ def main() -> None:
             if node["id"] == checkpoint_key:
                 node["label"] = placeholder + ".route_name}"
 
-    room = templated_runtime["rooms"].pop("104")
+    room = templated_runtime["rooms"].pop("108")
     room["pin"] = "${rooms.optional_archive.pin}"
     templated_runtime["rooms"]["${rooms.optional_archive.number}"] = room
 

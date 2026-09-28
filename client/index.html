@@ -40,6 +40,41 @@
         .build-version.stale { color: #ffb000; border-color: #ffb000; opacity: 1; }
         .lobby-overlay { position: fixed; inset: 0; z-index: 2200; display: flex; align-items: center; justify-content: center; padding: 18px; background: rgba(0, 0, 0, .96); }
         .lobby-overlay.hidden { display: none; }
+        .onboarding-overlay { position: fixed; inset: 0; z-index: 2300; display: none; place-items: center; padding: 18px; overflow-y: auto; background: radial-gradient(circle at 50% 35%, rgba(0,55,61,.96), rgba(0,0,0,.99) 68%); }
+        .onboarding-overlay.active { display: grid; }
+        .onboarding-card { position: relative; width: min(760px, 100%); min-height: min(520px, calc(100dvh - 36px)); overflow: hidden; border: 2px solid #0ff; background: #001012; box-shadow: 0 0 42px rgba(0,255,255,.28), inset 0 0 60px rgba(0,30,34,.8); }
+        .onboarding-card::after { content: ''; pointer-events: none; position: absolute; inset: 0; background: repeating-linear-gradient(0deg, transparent 0 3px, rgba(0,255,255,.035) 3px 4px); }
+        .video-message { position: relative; z-index: 1; display: grid; grid-template-rows: auto 1fr auto; min-height: inherit; padding: clamp(20px, 5vw, 46px); }
+        .video-message-header { display: flex; justify-content: space-between; gap: 18px; color: #65f7ff; font-size: .78rem; letter-spacing: .14em; }
+        .video-message-status { color: #ff5d5d; animation: onboarding-record 1.1s steps(2) infinite; }
+        @keyframes onboarding-record { 50% { opacity: .35; } }
+        .video-message-body { align-self: center; }
+        .video-message h1 { margin: 10px 0 22px; color: #fff; font-size: clamp(1.8rem, 6vw, 3.5rem); text-shadow: 0 0 18px #0aa; }
+        .video-message-line { margin: 0 0 14px; color: #cff; font-size: clamp(1rem, 2.7vw, 1.25rem); line-height: 1.55; opacity: 0; transform: translateY(8px); animation: onboarding-line .5s ease forwards; }
+        @keyframes onboarding-line { to { opacity: 1; transform: none; } }
+        .onboarding-actions { position: relative; z-index: 2; display: flex; justify-content: flex-end; gap: 10px; margin-top: 22px; }
+        .onboarding-skip { color: #7aa; border: 1px solid #355; background: transparent; }
+        .tutorial-view { position: relative; z-index: 1; display: grid; grid-template-rows: auto 1fr auto; min-height: inherit; padding: clamp(20px, 5vw, 44px); }
+        .tutorial-progress { display: flex; gap: 7px; }
+        .tutorial-progress span { flex: 1; height: 4px; background: #164348; }
+        .tutorial-progress span.complete { background: #0ff; box-shadow: 0 0 8px #0ff; }
+        .tutorial-content { align-self: center; text-align: center; }
+        .tutorial-icon { display: grid; place-items: center; width: 92px; height: 92px; margin: 0 auto 24px; border: 2px solid #0ff; border-radius: 50%; color: #0ff; font-size: 3rem; box-shadow: 0 0 24px rgba(0,255,255,.25); }
+        .tutorial-content h2 { color: #fff; font-size: clamp(1.55rem, 5vw, 2.5rem); }
+        .tutorial-content p { max-width: 590px; margin: 0 auto; color: #cff; font-size: clamp(1rem, 2.5vw, 1.2rem); line-height: 1.6; }
+        .tutorial-visual-cue { display: flex; align-items: center; justify-content: center; gap: 10px; width: fit-content; max-width: 100%; margin: 0 auto 18px; padding: 9px 13px; border: 1px solid #ffcf5a; background: rgba(62,42,0,.72); color: #fff2bd; font: 700 clamp(.76rem, 2vw, .92rem)/1.35 monospace; letter-spacing: .035em; text-align: left; }
+        .tutorial-visual-cue::before { content: '↗'; flex: 0 0 auto; color: #ffcf5a; font-size: 1.35rem; text-shadow: 0 0 9px #ffb000; }
+        .tutorial-visual-cue strong { color: #ffcf5a; white-space: nowrap; }
+        .tutorial-counter { margin-top: 18px; color: #0aa; }
+        .tutorial-highlight { position: relative; z-index: 2301 !important; pointer-events: none; box-shadow: 0 0 0 4px #ffcf5a, 0 0 28px #ffb000 !important; }
+        .lobby-modes button:disabled { opacity:.34; filter:grayscale(1); cursor:not-allowed; border-style:dashed; box-shadow:none; }
+        .lobby-modes button:disabled small::after { content:' · NEDOSTUPNÉ'; color:#ff7777; font-weight:bold; }
+        .start-lights { display:flex; justify-content:center; gap:8px; margin:12px 0; }
+        .start-light { width:30px; height:30px; border-radius:50%; background:#271010; border:2px solid #642626; box-shadow:inset 0 0 8px #000; }
+        .start-light.on { background:#ff2020; box-shadow:0 0 14px #ff2020; }
+        .start-light.go { background:#20e060; border-color:#20e060; box-shadow:0 0 16px #20e060; }
+        .queue-list { margin:8px 0 16px; padding-left:24px; text-align:left; }
+        .queue-list .current-team { color:#65f7ff; font-weight:bold; }
         .lobby-card { width: min(680px, 100%); max-height: calc(100vh - 36px); overflow-y: auto; padding: 24px; border: 2px solid #0aa; background: #001113; box-shadow: 0 0 35px rgba(0, 255, 255, .25); }
         .lobby-card h1 { color: #0ff; margin-top: 0; }
         .lobby-modes { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin: 18px 0; }
@@ -200,12 +235,28 @@
             border: 1px solid #0f0;
             padding: 20px;
             background: #001100;
-            font-size: 1.2em;
             line-height: 1.5;
             overflow: auto;
         }
-        .map-room { display: inline-block; width: 100px; height: 60px; border: 1px solid #0aa; text-align: center; line-height: 60px; margin: 5px; background: #000;}
-        .map-corridor { display: inline-block; width: 330px; height: 40px; border: 1px dashed #555; text-align: center; line-height: 40px; margin: 5px; }
+        .chronomap-brief { margin: 0 0 18px; padding: 12px 14px; border-left: 4px solid #0ff; background: #002326; color: #cff; }
+        .chronomap-brief strong { display: block; color: #0ff; font-size: 1.08rem; }
+        .chronomap-route { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 20px 12px; margin: 22px 0; counter-reset: checkpoint; }
+        .chronomap-node { position: relative; min-height: 112px; padding: 12px 12px 10px 48px; border: 1px solid #355; background: #000; color: #788; counter-increment: checkpoint; }
+        .chronomap-node::before { content: counter(checkpoint); position: absolute; top: 12px; left: 12px; display: grid; place-items: center; width: 25px; height: 25px; border: 1px solid currentColor; border-radius: 50%; font-weight: bold; }
+        .chronomap-node::after { content: '→'; position: absolute; z-index: 1; top: 42px; right: -20px; color: #077; font-size: 1.35rem; }
+        .chronomap-node:last-child::after { content: none; }
+        .chronomap-node strong { display: block; color: inherit; line-height: 1.25; }
+        .chronomap-node small { display: block; margin-top: 8px; font: 700 .75rem/1.3 monospace; letter-spacing: .06em; }
+        .chronomap-node.complete { border-color: #0b8; background: #00251c; color: #5fda; }
+        .chronomap-node.complete small { color: #3fb; }
+        .chronomap-node.active { border-color: #fc0; background: #2b2100; color: #ffe08a; box-shadow: 0 0 15px #fc05; }
+        .chronomap-node.available { border: 2px solid #0ff; background: #003238; color: #dfffff; box-shadow: 0 0 18px #0ff5; }
+        .chronomap-node.available small { color: #0ff; }
+        .chronomap-node.locked { display: grid; place-items: center; padding: 12px; filter: grayscale(.7); }
+        .chronomap-node.locked::before { display: none; }
+        .chronomap-node.locked strong { color: #788; font-size: 1.05rem; letter-spacing: .12em; }
+        .chronomap-legend { display: flex; flex-wrap: wrap; gap: 8px 16px; color: #8aa; font-size: .78rem; }
+        .chronomap-legend span::before { content: ''; display: inline-block; width: 9px; height: 9px; margin-right: 6px; border: 1px solid currentColor; }
         
         .status-indicator {
             display: inline-block;
@@ -265,10 +316,28 @@
         .leaderboard-list h3 { color: #0dd; border-bottom: 1px solid #077; padding-bottom: 8px; }
         @media (max-width: 850px) { .leaderboard-lists { grid-template-columns: 1fr; } }
         .save-score-section { display: flex; gap: 10px; }
-        .finale-console { border: 2px solid #fc0; padding: 16px; background: #171100; }
-        .finale-fields { display: grid; grid-template-columns: repeat(2, minmax(130px, 1fr)); gap: 10px; }
-        .finale-fields label { display: grid; gap: 5px; color: #fc0; }
-        .finale-modules { display: grid; gap: 7px; margin: 12px 0; }
+        .finale-console { border: 2px solid #fc0; padding: clamp(14px, 3vw, 28px); background: radial-gradient(circle at 50% 0, #3b2b061f, transparent 50%), #0d0b05; box-shadow: inset 0 0 34px #000, 0 0 18px #fc04; }
+        .finale-console-title { margin: 0 0 18px; color: #fc0; text-align: center; letter-spacing: .18em; }
+        .finale-led-groups { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 20px; margin-bottom: 24px; }
+        .finale-led-group { display: grid; gap: 7px; text-align: center; color: #fc0; }
+        .finale-led-row { display: flex; align-items: center; gap: 5px; }
+        .finale-led-col { display: grid; grid-template-rows: 34px 72px 34px; gap: 4px; }
+        .finale-step { min-width: 48px; padding: 2px; border-color: #805f00; color: #fc0; font-size: 1.2rem; line-height: 1; }
+        .seven-segment { position: relative; width: 48px; height: 72px; background: #090601; border: 1px solid #543f08; box-shadow: inset 0 0 12px #000; }
+        .seven-segment .seg { position: absolute; background: #3a1805; opacity: .3; transition: opacity .12s, background .12s; }
+        .seven-segment .seg.on { opacity: 1; background: #ff3b16; box-shadow: 0 0 7px #f30, 0 0 16px #f306; }
+        .seven-segment .a,.seven-segment .d,.seven-segment .g { left: 10px; width: 28px; height: 7px; clip-path: polygon(10% 0,90% 0,100% 50%,90% 100%,10% 100%,0 50%); }
+        .seven-segment .a { top: 5px; } .seven-segment .g { top: 32px; } .seven-segment .d { bottom: 5px; }
+        .seven-segment .b,.seven-segment .c,.seven-segment .e,.seven-segment .f { width: 7px; height: 25px; clip-path: polygon(50% 0,100% 12%,100% 88%,50% 100%,0 88%,0 12%); }
+        .seven-segment .b { right: 5px; top: 9px; } .seven-segment .c { right: 5px; bottom: 9px; }
+        .seven-segment .f { left: 5px; top: 9px; } .seven-segment .e { left: 5px; bottom: 9px; }
+        .finale-led-separator { color: #f43; font-size: 3rem; text-shadow: 0 0 10px #f30; padding-bottom: 2px; }
+        .finale-module-board { display: grid; grid-template-columns: repeat(3, minmax(100px, 1fr)); gap: 0; margin: 14px auto 22px; max-width: 780px; }
+        .finale-module-piece { min-width: 0; min-height: 190px; padding: 18px 12px; color: #fff; border: 2px solid #0aa; background-image: linear-gradient(180deg, transparent 0 48%, #02070be8 76%), url('/assets/puzzles/time-machine-jigsaw.png'); background-size: 100% 100%, 300% 100%; background-position: center, var(--module-image-position) center; background-repeat: no-repeat; clip-path: polygon(0 0,42% 0,42% 8%,58% 8%,58% 0,100% 0,100% 42%,92% 42%,92% 58%,100% 58%,100% 100%,58% 100%,58% 92%,42% 92%,42% 100%,0 100%,0 58%,8% 58%,8% 42%,0 42%); text-shadow: 0 2px 4px #000, 0 0 6px #000; }
+        .finale-module-piece.selected { color: #fc0; border-color: #fc0; filter: drop-shadow(0 0 9px #fc0); transform: translateY(-6px); }
+        .finale-module-piece strong { display: block; margin-top: 104px; font-size: clamp(.72rem, 2vw, 1rem); }
+        .finale-module-piece small { display: block; color: #6ff; margin-top: 8px; }
+        .finale-launch { display: block; width: min(100%, 780px); margin: auto; padding: 17px; font-size: 1.15rem; }
         .finale-overlay { position: fixed; inset: 0; z-index: 1500; display: grid; place-items: center; background: #001018e8; color: #fff; font-size: clamp(4rem, 24vw, 13rem); text-shadow: 0 0 25px #0ff; }
         .finale-overlay small { display: block; font-size: 1rem; text-align: center; color: #0ff; }
         .archive-assembly { border: 1px solid #765; padding: 14px; background: #100d18; }
@@ -453,6 +522,54 @@
         .puzzle-container { border: 1px solid #0aa; padding: 18px; background: #001214; overflow-y: auto; }
         .puzzle-card { max-width: 950px; }
         .puzzle-card h3 { color: #0ff; }
+        .terminal-handoff { padding: 24px; border: 2px dashed #fc0; color: #fc0; background: #171100; text-align: center; }
+        .terminal-handoff strong { display: block; margin-bottom: 8px; font-size: 1.15rem; }
+        .terminal-pair-overlay { position: fixed; inset: 0; z-index: 1600; display: grid; place-items: center; padding: 20px; background: radial-gradient(circle at center, #052a30, #000 68%); }
+        .terminal-pair-overlay.hidden { display: none; }
+        .terminal-pair-card { width: min(640px, 100%); padding: 28px; border: 2px solid #0ff; background: #001214; text-align: center; box-shadow: 0 0 30px #0aa7; }
+        .terminal-pair-card img { width: min(330px, 72vw); image-rendering: pixelated; background: #fff; padding: 12px; }
+        .terminal-code { color: #fc0; font-size: clamp(1.4rem, 5vw, 2.5rem); letter-spacing: .22em; }
+        body.terminal-device .tabs > :not(#puzzles-tab-button) { display: none !important; }
+        body.terminal-device .tabs { display: none !important; }
+        body.terminal-device #puzzles-tab-button { flex: 1; font-size: 1.05rem; }
+        body.terminal-device #tab-puzzles > h2,
+        body.terminal-device .sound-controls { display: none !important; }
+        body.terminal-device #cipher-panel { display: none !important; }
+        body.terminal-device .puzzle-card { max-width: 1100px; margin: auto; }
+        #terminal-ambient-shade { display: none; }
+        body.terminal-device #terminal-ambient-shade { position: fixed; inset: 0; z-index: 1650; display: block; pointer-events: none; background: #000; opacity: .72; transition: opacity 1.4s ease; }
+        body.terminal-device:not(.terminal-attached) #terminal-ambient-shade { opacity: .82; }
+        body.terminal-device.terminal-team-eligible #terminal-ambient-shade { opacity: .35; }
+        body.terminal-device.terminal-awake #terminal-ambient-shade,
+        body.terminal-device.terminal-puzzle-active #terminal-ambient-shade { opacity: 0; transition-duration: .25s; }
+        body.terminal-device:not(.terminal-awake) { cursor: none; }
+        @media (min-width: 701px) and (max-height: 650px) {
+            body.terminal-device { padding: 5px 10px; }
+            body.terminal-device .tabs { margin: -3px -5px 6px; padding: 4px 5px; }
+            body.terminal-device .tab-button { padding: 6px 10px; }
+            body.terminal-device .tab-content > h2 { margin: 2px 0 6px; font-size: 1rem; line-height: 1.25; }
+            body.terminal-device .puzzle-container { padding: 8px 10px; }
+            body.terminal-device .puzzle-artifact { max-height: 42dvh; margin: 8px 0; }
+            body.terminal-device .puzzle-card h3 { margin: 6px 0; }
+            body.terminal-device .puzzle-card p { margin: 6px 0; line-height: 1.3; }
+            body.terminal-device .puzzle-answer { margin-top: 8px; }
+            body.terminal-device .finale-console { padding: 8px; }
+            body.terminal-device .finale-console-title { margin: 0 0 6px; }
+            body.terminal-device .finale-led-groups { gap: 8px; margin-bottom: 8px; }
+            body.terminal-device .finale-module-board { margin: 8px auto 10px; }
+            body.terminal-device .finale-module-piece { min-height: 112px; padding: 8px 6px; }
+            body.terminal-device .finale-module-piece strong { margin-top: 48px; font-size: .78rem; }
+            body.terminal-device .finale-module-piece small { margin-top: 3px; font-size: .7rem; }
+            body.terminal-device .finale-launch { padding: 10px; font-size: 1rem; }
+            body.terminal-device .terminal-pair-overlay { padding: 6px; overflow-y: auto; }
+            body.terminal-device .terminal-pair-card { max-height: calc(100dvh - 12px); overflow-y: auto; padding: 10px 16px; }
+            body.terminal-device .terminal-pair-card h1 { margin: 4px 0 8px; font-size: 1.25rem; }
+            body.terminal-device .terminal-pair-card p { margin: 6px 0; line-height: 1.25; }
+            body.terminal-device .terminal-pair-card img { width: min(220px, 34dvh, 42vw); padding: 7px; }
+            body.terminal-device .terminal-code { font-size: clamp(1.15rem, 4dvh, 1.8rem); }
+        }
+        @media (prefers-reduced-motion: reduce) { body.terminal-device #terminal-ambient-shade { transition: none; } }
+        @media (max-width: 700px) { .finale-module-board { grid-template-columns: 1fr; gap: 4px; } .finale-module-piece { min-height: 150px; background-size: 100% 100%, 300% 180%; } .finale-module-piece strong { margin-top: 74px; } }
         .puzzle-artifact { display: block; width: 100%; max-height: 68vh; object-fit: contain; margin: 16px 0; border: 1px solid #466; background: #000; }
         .puzzle-categories { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 10px; margin: 16px 0; }
         .puzzle-category { border: 1px solid #055; padding: 10px; background: #000; }
@@ -515,7 +632,26 @@
         .finale-overlay .finale-modules-live { display: flex; justify-content: center; gap: 8px; margin-top: 20px; font-size: .8rem; }
         .finale-overlay .finale-modules-live span { padding: 6px 9px; border: 1px solid #088; color: #577; }
         .finale-overlay .finale-modules-live span.online { color: #0ff; border-color: #0ff; box-shadow: 0 0 12px #0ff8; }
+        .finale-overlay.rescue-cinematic { overflow: hidden; background: radial-gradient(circle at 50% 46%, #18ffff38 0 8%, #072d3d 24%, #00070c 62%); font-size: 1rem; text-shadow: none; animation: rescue-fade-in .7s ease-out both; }
+        .finale-overlay.rescue-cinematic.closing { opacity: 0; transition: opacity .8s ease-in; }
+        .rescue-cinematic::before { content: ''; position: absolute; inset: -35%; background: repeating-conic-gradient(from 0deg at 50% 50%, #0ff0 0 8deg, #0ff2 9deg 10deg, #0ff0 11deg 22deg); animation: rescue-spin 7s linear infinite; }
+        .rescue-scene { position: relative; width: min(760px, 94vw); height: min(520px, 82vh); overflow: hidden; border: 1px solid #0ff8; background: linear-gradient(#00101899, #000 78%); box-shadow: 0 0 60px #0ff5, inset 0 0 70px #001; text-align: center; animation: none !important; }
+        .rescue-scanlines { position: absolute; inset: 0; z-index: 5; pointer-events: none; background: repeating-linear-gradient(0deg, transparent 0 3px, #8fffff0d 3px 4px); }
+        .rescue-portal { position: absolute; left: 50%; top: 44%; width: min(42vw, 290px); aspect-ratio: 1; border: 7px solid #9ff; border-radius: 50%; box-shadow: 0 0 18px #fff, 0 0 55px #0ff, inset 0 0 45px #0ff; transform: translate(-50%,-50%) scale(.05); animation: portal-open 1.5s .2s cubic-bezier(.2,.8,.2,1) forwards, portal-hold 1s 1.7s ease-in-out infinite alternate; }
+        .rescue-portal::before, .rescue-portal::after { content: ''; position: absolute; inset: -22px; border: 2px dashed #0ff; border-radius: 50%; animation: rescue-spin 2.4s linear infinite; }
+        .rescue-portal::after { inset: 18px; border-color: #fff; animation-direction: reverse; }
+        .rescue-elara { position: absolute; z-index: 3; left: 50%; bottom: 1%; width: min(38vw, 235px); height: auto; max-height: 86%; object-fit: contain; filter: drop-shadow(0 0 14px #0ff) drop-shadow(0 18px 20px #000b); opacity: 0; transform: translate(-50%,35px) scale(.82); animation: elara-arrives 2s 1.65s ease-out forwards; }
+        .rescue-caption { position: absolute; z-index: 6; left: 5%; right: 5%; bottom: 4%; opacity: 0; animation: rescue-caption 1s 3.3s ease-out forwards; }
+        .rescue-caption strong { display: block; color: #fff; font-size: clamp(1.5rem,5vw,3rem); letter-spacing: .12em; text-shadow: 0 0 18px #0ff; }
+        .rescue-caption span { display: block; margin-top: 8px; color: #7ff; font: 700 clamp(.7rem,2vw,1rem)/1.4 monospace; letter-spacing: .16em; }
+        .rescue-skip { position: absolute; z-index: 8; top: 12px; right: 12px; padding: 7px 10px; border: 1px solid #477; background: #001b; color: #9bb; font-size: .72rem; }
         @keyframes finale-pulse { 50% { text-shadow: 0 0 42px #0ff; transform: scale(1.025); } }
+        @keyframes rescue-spin { to { transform: rotate(360deg); } }
+        @keyframes rescue-fade-in { from { opacity: 0; } }
+        @keyframes portal-open { 70% { transform: translate(-50%,-50%) scale(1.08); } to { transform: translate(-50%,-50%) scale(1); } }
+        @keyframes portal-hold { to { filter: brightness(1.45); } }
+        @keyframes elara-arrives { 25% { opacity: .25; } 65% { opacity: .8; transform: translate(-50%,8px) scale(.96); } to { opacity: 1; transform: translate(-50%,0) scale(1); } }
+        @keyframes rescue-caption { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
         @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; scroll-behavior: auto !important; transition-duration: .01ms !important; } }
         .sokoban-controls { display: grid; grid-template-columns: repeat(3, 64px); justify-content: center; gap: 6px; margin: 12px 0; }
         .sokoban-controls button { padding: 12px 5px; }
@@ -742,13 +878,17 @@
             <button id="admin-token-visibility" type="button" onclick="toggleAdminTokenVisibility()" aria-controls="admin-token" aria-pressed="false">ZOBRAZIT HESLO</button>
             <button onclick="loadAdminOverview()">NAČÍST / OBNOVIT</button>
             <button type="button" onclick="showAdminAccessQr()">QR PRO ADMINISTRACI</button>
+            <button type="button" onclick="window.open('/display','_blank','noopener')">VEŘEJNÁ OBRAZOVKA</button>
             <span id="admin-status">Čekám na spojení…</span>
         </div>
         <nav class="admin-nav"><button class="active" onclick="openAdminTab('teams',this)">TÝMY</button><button onclick="openAdminTab('analytics',this)">ANALYTIKA</button><button id="admin-chats-tab-button" onclick="openAdminTab('chats',this)">CHATY <span id="admin-chat-unread" class="unread-badge"></span></button><button onclick="openAdminTab('display',this)">NÁSTĚNKA</button><button onclick="openAdminTab('leaderboard',this)">SÍŇ SLÁVY</button><button onclick="openAdminTab('scenarios',this)">EDITOR HER</button><button onclick="openAdminTab('tools',this)">NÁSTROJE</button></nav>
         <section id="admin-tab-teams" class="admin-section"><div id="admin-summary" class="admin-summary"></div><div class="admin-filters"><input id="admin-team-search" type="search" placeholder="Hledat tým, hráče nebo kód…" oninput="applyAdminFilters()"><select id="admin-activity-filter" onchange="applyAdminFilters()"><option value="ongoing" selected>Neukončené týmy</option><option value="all">Všechny stavy</option><option value="active">Aktivní</option><option value="suspicious">Podezřelé</option><option value="abandoned">Opuštěné</option><option value="completed">Dokončené</option><option value="ended">Ukončené bez dokončení</option></select><select id="admin-online-filter" onchange="applyAdminFilters()"><option value="all">Online i offline</option><option value="online">Alespoň jeden online</option><option value="offline">Všichni offline</option></select></div><div id="admin-team-grid" class="admin-grid"></div></section>
+        <section id="admin-tab-managed" class="admin-section hidden"><h2>[ REŽIM SPOUŠTĚNÍ ]</h2><div class="admin-toolbar"><button id="admin-mode-free" onclick="setLaunchMode('free')">VOLNÝ REŽIM</button><button id="admin-mode-managed" onclick="setLaunchMode('managed')">ŘÍZENÝ REŽIM</button></div><p>Přepnutí zachová všechny existující týmy i jejich pořadí. Řízený režim zakáže hráčům zakládat a spouštět hry.</p><h2>[ ŘÍZENÉ LOBBY ]</h2><div class="admin-toolbar"><input id="admin-new-team-name" maxlength="32" placeholder="Název nového týmu"><button onclick="createManagedTeam()">ZALOŽIT TÝM</button></div><div id="admin-managed-lights"></div><div id="admin-managed-grid" class="admin-grid"></div></section>
+        <section id="admin-tab-scenario" class="admin-section hidden"><h2>[ NÁHLED A NASTAVENÍ SCÉNÁŘE ]</h2><p>Určete, na jakých zařízeních je každá hádanka hratelná. Změna neovlivní pořadí checkpointů.</p><div id="admin-scenario-grid" class="admin-grid"></div><button onclick="saveScenarioPlayModes()" style="width:100%;margin-top:14px">ULOŽIT ZPŮSOB HRANÍ</button></section>
+        <section id="admin-tab-terminals" class="admin-section hidden"><h2>[ TERMINÁLY AKTUÁLNÍ HRY ]</h2><p>Volný terminál vyhraďte hádance, nikoliv konkrétnímu týmu. Připojí se k prvnímu týmu, který načte jeho QR a má tuto hádanku právě dostupnou. Více terminálů může být vyhrazeno stejné hádance.</p><div id="admin-terminal-grid" class="admin-grid"></div></section>
         <section id="admin-tab-analytics" class="admin-section admin-analytics hidden"><h2>[ TELEMETRIE OBTÍŽNOSTI ]</h2><div class="admin-toolbar"><label>OBDOBÍ <select id="analytics-period" onchange="renderAdminAnalytics()"><option value="all">Celá historie</option><option value="1">Posledních 24 hodin</option><option value="7">Posledních 7 dní</option><option value="30">Posledních 30 dní</option></select></label><button onclick="exportTelemetryCsv(true)">ANONYMIZOVANÉ CSV</button><button onclick="exportTelemetryCsv(false)">INTERNÍ CSV</button></div><div id="admin-analytics-summary" class="admin-summary"></div><div id="admin-analytics-content"></div></section>
         <section id="admin-tab-chats" class="admin-section hidden"><h2>[ PODPORA TÝMŮ ]</h2><div id="admin-chat-grid" class="admin-grid"></div></section>
-        <section id="admin-tab-display" class="admin-section hidden"><h2>[ OZNÁMENÍ NA VEŘEJNÉ OBRAZOVCE ]</h2><div id="display-health" class="cipher-note">Stav obrazovky se načítá…</div><p>Na jedné obrazovce se zobrazí hlavní oznámení a až dvě vedlejší. Oznámení lze ponechat jako koncept nebo naplánovat.</p><div id="display-announcement-editor"></div><div class="admin-toolbar"><button onclick="addDisplayAnnouncement()">+ PŘIDAT OZNÁMENÍ</button><button onclick="saveDisplayAnnouncements()">ULOŽIT ZMĚNY</button><button onclick="window.open('/display','_blank','noopener')">OTEVŘÍT NÁSTĚNKU</button></div><h2>[ ŽIVÝ NÁHLED ]</h2><div id="display-announcement-preview" class="admin-grid"></div></section>
+        <section id="admin-tab-display" class="admin-section hidden"><h2>[ OZNÁMENÍ NA VEŘEJNÉ OBRAZOVCE ]</h2><div id="display-health" class="cipher-note">Stav obrazovky se načítá…</div><p>Na jedné obrazovce se zobrazí hlavní oznámení a až dvě vedlejší. Oznámení lze ponechat jako koncept nebo naplánovat.</p><div id="display-announcement-editor"></div><div class="admin-toolbar"><button onclick="addDisplayAnnouncement()">+ PŘIDAT OZNÁMENÍ</button><button onclick="saveDisplayAnnouncements()">ULOŽIT ZMĚNY</button><button id="admin-display-leaderboard-toggle" onclick="sendAdmin('admin.display_leaderboard', {enabled:!displayLeaderboardEnabled})">POŘADÍ NA NÁSTĚNCE</button><button onclick="window.open('/display','_blank','noopener')">OTEVŘÍT NÁSTĚNKU</button></div><h2>[ ŽIVÝ NÁHLED ]</h2><div id="display-announcement-preview" class="admin-grid"></div></section>
         <section id="admin-tab-leaderboard" class="admin-section admin-leaderboard hidden"><h2>[ SPRÁVA SÍNĚ SLÁVY ]</h2><div id="admin-leaderboard"></div></section>
         <section id="admin-tab-scenarios" class="admin-section hidden"><h2>[ EDITOR HER — NÁHLED A VALIDACE ]</h2><div class="admin-toolbar"><select id="scenario-editor-select"></select><button onclick="loadScenarioEditor()">NAČÍST</button><button onclick="validateScenarioEditor()">OVĚŘIT</button></div><p id="scenario-editor-status">Editor zatím provádí bezpečnou validaci bez zápisu na disk.</p><section id="scenario-form-editor" class="scenario-variable-form hidden"></section><details><summary>POKROČILÝ JSON EDITOR</summary><div class="scenario-editor-grid"><label>ŠABLONA<textarea id="scenario-template-editor" spellcheck="false"></textarea></label><label>REALIZACE<textarea id="scenario-realization-editor" spellcheck="false"></textarea></label></div></details><h3>NEPLATNÉ / VYŘAZENÉ SCÉNÁŘE</h3><div id="scenario-editor-errors"></div></section>
         <section id="admin-tab-tools" class="admin-section hidden">
@@ -795,7 +935,22 @@
     <div id="admin-spectator-bar" class="admin-spectator-bar hidden"><strong id="admin-spectator-label">NÁHLED HRY</strong><button onclick="stopAdminSpectate()">ZPĚT DO ADMINISTRACE</button></div>
     <section id="qr-print-sheet" class="qr-print-sheet"></section>
     <dialog id="admin-access-dialog" class="recovery-dialog"><h2>[ PŘÍSTUP K ADMINISTRACI ]</h2><img id="admin-access-qr" class="join-qr" alt="QR odkaz na administraci"><p id="admin-access-url" style="overflow-wrap:anywhere"></p><p>QR obsahuje pouze adresu dashboardu. Pro přihlášení je stále nutné administrátorské heslo.</p><div class="admin-toolbar" style="justify-content:center"><button class="icon-action" type="button" onclick="copyAdminAccessUrl()" title="Kopírovat odkaz" aria-label="Kopírovat odkaz">📋</button><button type="button" onclick="document.getElementById('admin-access-dialog').close()">ZAVŘÍT</button></div></dialog>
+    <dialog id="admin-player-scan-dialog" class="recovery-dialog"><h2>[ PŘIDAT HRÁČE DO TÝMU ]</h2><video id="admin-player-scan-video" class="reverse-scanner visible" autoplay playsinline></video><canvas id="admin-player-scan-canvas" style="display:none"></canvas><div class="admin-toolbar"><input id="admin-player-code" maxlength="64" placeholder="Hráčské ID"><button onclick="submitAdminPlayerCode()">PŘIDAT</button><button onclick="closeAdminPlayerScanner()">ZAVŘÍT</button></div></dialog>
     <dialog id="recovery-dialog" class="recovery-dialog"><h2>[ NÁVRAT HRÁČE ]</h2><p id="recovery-dialog-info"></p><img id="recovery-dialog-qr" class="join-qr" alt="Jednorázový návratový QR"><div id="recovery-dialog-code" class="join-code"></div><p>Kód platí 10 minut a lze ho použít pouze jednou.</p><button onclick="document.getElementById('recovery-dialog').close()">ZAVŘÍT</button></dialog>
+    <div id="terminal-ambient-shade" aria-hidden="true"></div>
+    <section id="terminal-pair-overlay" class="terminal-pair-overlay hidden" aria-label="Párování herního terminálu">
+        <div class="terminal-pair-card">
+            <h1>[ HERNÍ TERMINÁL ]</h1>
+            <p>Na telefonu připojeného hráče otevřete skener a načtěte tento QR. Tablet se připojí ke stejné hře, ale nepřidá dalšího hráče.</p>
+            <img id="terminal-pair-qr" alt="Jednorázový QR pro odemknutí terminálu">
+            <div id="terminal-pair-code" class="terminal-code">PŘIPOJUJI…</div>
+            <p id="terminal-pair-status">Čekám na spojení se serverem…</p>
+            <div class="terminal-pair-actions">
+                <button type="button" onclick="toggleTerminalFullscreen()">CELÁ OBRAZOVKA</button>
+                <button type="button" onclick="registerTerminal()">VYTVOŘIT NOVÝ QR</button>
+            </div>
+        </div>
+    </section>
     <section id="lobby-overlay" class="lobby-overlay" aria-label="Zahájení hry">
         <div class="lobby-card">
             <h1>[ CHRONOTERMINÁL: NOVÁ MISE ]</h1>
@@ -822,6 +977,8 @@
             </div>
             <div id="lobby-status">Čekám na spojení se serverem…</div>
             <div id="lobby-availability" class="cipher-note">Načítám provozní dostupnost…</div>
+            <div id="lobby-start-lights"></div>
+            <h3>[ FRONTA STARTŮ ]</h3><ol id="lobby-queue" class="queue-list"><li>Fronta se načítá…</li></ol>
             <div id="lobby-team" class="lobby-team">
                 <h2>[ TÝMOVÁ RELACE: <span id="lobby-team-title"></span> ]</h2>
                 <p>Doporučení: jeden z hráčů používá notebook jako týmový terminál, ostatní vlastní telefon či notebook. Každý hráč má právě jedno zařízení a každé přidané zařízení představuje jednoho regulérního hráče.</p>
@@ -830,6 +987,7 @@
                 <div id="lobby-join-code" class="join-code"></div>
                 <p style="text-align:center">Ostatní hráči načtou tento QR fotoaparátem telefonu.</p>
                 <ul id="lobby-player-list" class="lobby-player-list"></ul>
+                <button id="lobby-queue-button" onclick="toggleTeamQueue()" style="width:100%;margin:8px 0">ZAŘADIT TÝM DO FRONTY</button>
                 <div id="reverse-join" class="reverse-join">
                     <strong>[ PŘIDAT HRÁČSKÉ ZAŘÍZENÍ ]</strong>
                     <p>Načtěte QR z notebooku hráče, nebo opište jeho ID.</p>
@@ -866,6 +1024,7 @@
             </div>
         </div>
     </section>
+    <section id="onboarding-overlay" class="onboarding-overlay" aria-modal="true" role="dialog" aria-label="Úvod do mise"></section>
     <div id="hud-notifications"></div>
 
     <div class="tabs">
@@ -876,9 +1035,9 @@
         <button id="chronos3d-tab-button" class="tab-button" onclick="openTab('tab-chronos3d', this)">ÚSTAV 2.5D [FALLBACK]</button>
         <button id="chronos-webgl-tab-button" class="tab-button" onclick="openTab('tab-chronos-webgl', this)">ÚSTAV 3D [WEBGL]</button>
         <button id="puzzles-tab-button" class="tab-button" onclick="openTab('tab-puzzles', this)" disabled>HÁDANKY [0]</button>
-        <button class="tab-button" onclick="openTab('tab-scanner', this)">SKENER (Kamera)</button>
+        <button id="scanner-tab-button" class="tab-button" onclick="openTab('tab-scanner', this)">SKENER (Kamera)</button>
         <button class="tab-button" onclick="openTab('tab-leaderboard', this)">SÍŇ SLÁVY</button>
-        <button class="utility-button" onclick="toggleCipherPanel()">ŠIFROVACÍ POMŮCKY</button>
+        <button id="cipher-toggle" class="utility-button" onclick="toggleCipherPanel()">ŠIFROVACÍ POMŮCKY</button>
         <span class="sound-controls"><button id="sound-toggle" onclick="toggleSound()" aria-label="Vypnout zvuk">🔊</button><label>FX<input id="sound-volume" type="range" min="0" max="100" value="55" oninput="setSoundVolume(this.value)" aria-label="Hlasitost efektů"></label><label>HLAS<input id="voice-volume" type="range" min="0" max="100" value="80" oninput="setVoiceVolume(this.value)" aria-label="Hlasitost hlasových zpráv"></label></span>
     </div>
 
@@ -1026,6 +1185,7 @@
             <div id="qr-overlay" style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; box-shadow: inset 0 0 20px #0f0; pointer-events: none;"></div>
         </div>
         <p id="qr-status" style="text-align: center; margin-top: 10px;">Kliknutím na záložku aktivujte kameru.</p>
+        <button id="qr-retry" type="button" onclick="startScanner()" style="display:none;margin:10px auto">ZKUSIT SKEN ZNOVU</button>
     </div>
 
     <div id="tab-leaderboard" class="tab-content">
@@ -1064,6 +1224,7 @@
         let semaphoreTranscript = '';
         const cipherReferenceTranscripts = {};
         let onlineModeEnabled = false;
+        let displayLeaderboardEnabled = true;
         let operationsEnabled = true;
         let leaderboardFinalized = false;
         let activeEvent = null;
@@ -1091,15 +1252,41 @@
         let doomActivatingCheckpoint = '';
         let doomRayBuildings = [];
         let runtimeCheckpoints = [];
+        let runtimePuzzleCatalog = [];
+        let runtimeTerminalPuzzleIds = [];
+        let launchMode = 'free';
+        let runtimeStartQueue = [];
         let latestScenarioProgress = null;
         let chronosPrimaryDismissed = false;
         let chronosActiveGadget = '';
         let pendingChronosDevice = '';
         let pendingChronosDeviceLabel = '';
         let deviceRole = localStorage.getItem('escapeBotDeviceRole') || 'free';
-        const demoModeRequested = new URLSearchParams(window.location.search).get('demo') === '1';
-        const adminModeRequested = new URLSearchParams(window.location.search).get('admin') === '1' || window.location.pathname.replace(/\/$/, '') === '/admin';
+        const pageParams = new URLSearchParams(window.location.search);
+        const demoModeRequested = pageParams.get('demo') === '1';
+        const adminModeRequested = pageParams.get('admin') === '1' || window.location.pathname.replace(/\/$/, '') === '/admin';
+        const terminalModeRequested = pageParams.get('terminal') === '1' || window.location.pathname.replace(/\/$/, '') === '/terminal';
+        let terminalDeviceId = terminalModeRequested ? localStorage.getItem('escapeBotTerminalId') : '';
+        if (terminalModeRequested && !terminalDeviceId) {
+            terminalDeviceId = crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+            localStorage.setItem('escapeBotTerminalId', terminalDeviceId);
+        }
+        const terminalDeviceLabel = terminalModeRequested ? `Terminál ${terminalDeviceId.slice(-4).toUpperCase()}` : '';
+        let terminalAttached = false;
+        let terminalAmbientTimer = null;
+        let terminalAmbientLastSignal = 0;
+        let terminalAssignedPuzzleId = '';
+        let terminalAssignmentPendingReveal = false;
+        let terminalEligibleTeamAvailable = null;
+        let terminalPairingRefreshTimer = null;
+        let terminalStatusTimer = null;
+        let terminalWakeLock = null;
+        let terminalWakeLockRequest = null;
+        const finaleUiState = new Map();
         let adminRefreshTimer = null;
+        let adminPlayerScanSession = '';
+        let adminPlayerScanStream = null;
+        let adminPlayerScanActive = false;
 
         const MORSE = {
             A: '.-', B: '-...', C: '-.-.', D: '-..', E: '.', F: '..-.', G: '--.', H: '....', I: '..',
@@ -1674,6 +1861,9 @@
         }
         let sessionId = '';
         let currentLobby = null;
+        let onboardingContent = {};
+        let onboardingStep = -1;
+        let onboardingWasRequested = false;
         let reverseQrStream = null;
         let reverseQrScanning = false;
         let joinTeamStream = null;
@@ -1712,6 +1902,17 @@
         }
 
         function loadAdminOverview() { sendAdmin('admin.list'); }
+        function createManagedTeam() {
+            const input = document.getElementById('admin-new-team-name');
+            const teamName = input.value.trim();
+            if (!teamName) { showNotification('Zadejte název týmu.', 'error'); input.focus(); return; }
+            sendAdmin('admin.team_create', {team_name:teamName});
+            input.value = '';
+        }
+        function startManagedTeam(sessionId, overrideSoft = false) {
+            if (!window.confirm(overrideSoft ? 'Spustit tým a vědomě obejít soft rozestup?' : 'Spustit hru tohoto týmu?')) return;
+            sendAdmin('admin.team_start', {session_id:sessionId, override_soft:overrideSoft});
+        }
         function toggleAdminTokenVisibility() {
             const input = document.getElementById('admin-token');
             const button = document.getElementById('admin-token-visibility');
@@ -1843,7 +2044,8 @@
         function saveScheduleSettings() {
             sendAdmin('admin.schedule_settings', {
                 max_active_teams:Number(document.getElementById('schedule-max-teams').value),
-                start_interval_minutes:Number(document.getElementById('schedule-interval').value),
+                hard_start_interval_minutes:Number(document.getElementById('schedule-hard-interval').value),
+                soft_start_interval_minutes:Number(document.getElementById('schedule-soft-interval').value),
                 game_duration_minutes:Number(document.getElementById('schedule-duration').value),
                 deadline_penalty:Number(document.getElementById('schedule-deadline-penalty').value),
                 abandonment_penalty:Number(document.getElementById('schedule-abandonment-penalty').value),
@@ -1906,6 +2108,47 @@
         }
         setInterval(renderLobbyAvailability, 1000);
 
+        function startLightsHtml(target) {
+            if (!target) return '';
+            const seconds = Math.ceil((new Date(target) - new Date()) / 1000);
+            const lit = seconds <= 0 ? 5 : Math.max(0, 6 - Math.min(6, seconds));
+            const lights = Array.from({length:5}, (_, index) => `<span class="start-light ${seconds <= 0 ? 'go' : (index < lit ? 'on' : '')}"></span>`).join('');
+            return `<div class="start-lights" aria-label="Odpočet startu">${lights}</div><p style="text-align:center"><strong>${seconds <= 0 ? 'START' : `T−${Math.floor(seconds/60)}:${String(seconds%60).padStart(2,'0')}`}</strong></p>`;
+        }
+        function renderStartQueue() {
+            const list = document.getElementById('lobby-queue');
+            if (list) list.innerHTML = runtimeStartQueue.length ? runtimeStartQueue.map(item => `<li class="${item.session_id === sessionId ? 'current-team' : ''}">${item.position}. ${escapeHtml(item.team_name)} · ${new Date(item.planned_start_at).toLocaleTimeString('cs-CZ',{hour:'2-digit',minute:'2-digit'})}</li>`).join('') : '<li>Bez čekajících týmů.</li>';
+            const own = runtimeStartQueue.find(item => item.session_id === sessionId);
+            const target = own?.planned_start_at || runtimeAvailability?.next_start_at;
+            const lights = document.getElementById('lobby-start-lights'); if (lights) lights.innerHTML = startLightsHtml(target);
+            const adminLights = document.getElementById('admin-managed-lights'); if (adminLights) adminLights.innerHTML = startLightsHtml(target);
+            const queueButton = document.getElementById('lobby-queue-button');
+            if (queueButton) { queueButton.style.display = launchMode === 'free' && currentLobby && !currentLobby.started ? 'block' : 'none'; queueButton.textContent = own ? 'OPUSTIT FRONTU' : 'ZAŘADIT TÝM DO FRONTY'; }
+            if (own) {
+                const status = document.getElementById('lobby-status');
+                if (status && currentLobby && !currentLobby.started) status.textContent = `Jste ${own.position}. ve frontě. Hra se automaticky spustí v ${new Date(own.planned_start_at).toLocaleTimeString('cs-CZ',{hour:'2-digit',minute:'2-digit'})}.`;
+                scheduleTeamAlarm(own);
+            }
+        }
+        function toggleTeamQueue() {
+            const own = runtimeStartQueue.some(item => item.session_id === sessionId);
+            if (!own && 'Notification' in window && Notification.permission === 'default') Notification.requestPermission();
+            sendLobby(own ? 'lobby.dequeue' : 'lobby.queue');
+        }
+        function scheduleTeamAlarm(item) {
+            const alarmAt = new Date(item.planned_start_at).getTime() - 60000;
+            const key = `escapeBotAlarm:${item.session_id}:${item.planned_start_at}`;
+            if (Date.now() < alarmAt || Date.now() > new Date(item.planned_start_at).getTime() || localStorage.getItem(key)) return;
+            localStorage.setItem(key, '1');
+            showNotification('Za jednu minutu startuje vaše hra.', 'success');
+            if ('Notification' in window && Notification.permission === 'granted') new Notification('Escape Bot', {body:'Za jednu minutu startuje vaše hra.'});
+            try { const audio = new AudioContext(); const tone = audio.createOscillator(); tone.connect(audio.destination); tone.start(); tone.stop(audio.currentTime + .35); } catch (_) {}
+        }
+        function notifyQueueChange(message) {
+            showNotification(message, 'info');
+            if ('Notification' in window && Notification.permission === 'granted') new Notification('Escape Bot · změna fronty', {body:message});
+        }
+
         function renderAdminQrSet(payload) {
             const startUrl = new URL('/', window.location.origin);
             startUrl.searchParams.set('team', '1');
@@ -1959,6 +2202,73 @@
             const verb = status === 'solved' ? 'ručně dokončit / přeskočit' : 'ručně potvrdit jako nalezený';
             if (!window.confirm(`Opravdu ${verb} checkpoint „${checkpointId}“? Zásah se zapíše do časové osy.`)) return;
             sendAdmin('admin.checkpoint', {session_id:sessionId, checkpoint_id:checkpointId, status, penalty_preset:presetId});
+        }
+
+        function assignAdminTerminalPuzzle(sessionId) {
+            const select = document.getElementById(`admin-terminal-assignment-${sessionId}`);
+            if (!select?.value) { showNotification('Vyberte dostupnou hádanku.', 'error'); return; }
+            sendAdmin('admin.terminal_assign', {session_id:sessionId, puzzle_id:select.value});
+        }
+
+        function renderTerminalCatalogSettings() {
+            const target = document.getElementById('terminal-catalog-settings');
+            if (!target) return;
+            const enabled = new Set(runtimeTerminalPuzzleIds);
+            target.innerHTML = runtimePuzzleCatalog.map(puzzle => `<label><input type="checkbox" value="${escapeHtml(puzzle.id)}" ${enabled.has(puzzle.id) ? 'checked' : ''}> ${escapeHtml(puzzle.title)}</label>`).join('');
+        }
+
+        function saveTerminalCatalog() {
+            const puzzleIds = [...document.querySelectorAll('#terminal-catalog-settings input:checked')].map(input => input.value);
+            if (!puzzleIds.length) { showNotification('Globální katalog musí obsahovat alespoň jednu hádanku.', 'error'); return; }
+            sendAdmin('admin.terminal_catalog', {puzzle_ids:puzzleIds});
+        }
+
+        function renderScenarioSettings() {
+            const target = document.getElementById('admin-scenario-grid');
+            if (!target || !latestAdminPayload) return;
+            const labels = {phones:'Telefony', supplemental:'Terminál doplňkově', exclusive:'Pouze terminál'};
+            target.innerHTML = (latestAdminPayload.puzzle_catalog || []).map(puzzle => `<article class="admin-team">
+                <h2>${escapeHtml(puzzle.title)}</h2>
+                <p><strong>${escapeHtml(puzzle.type || 'unknown')}</strong> · checkpoint ${escapeHtml(puzzle.checkpoint_id || '—')}</p>
+                <details><summary>NÁHLED ZADÁNÍ</summary><p>${escapeHtml(puzzle.instructions || 'Tato interaktivní hádanka nemá samostatný text zadání.')}</p></details>
+                <label>ZPŮSOB HRANÍ <select id="scenario-mode-${escapeHtml(puzzle.id)}">${Object.entries(labels).map(([value,label]) => `<option value="${value}" ${puzzle.play_mode === value ? 'selected' : ''}>${label}</option>`).join('')}</select></label>
+            </article>`).join('') || '<p>Scénář neobsahuje žádné hádanky.</p>';
+        }
+
+        function saveScenarioPlayModes() {
+            const modes = {};
+            (latestAdminPayload?.puzzle_catalog || []).forEach(puzzle => {
+                modes[puzzle.id] = document.getElementById(`scenario-mode-${puzzle.id}`)?.value || 'phones';
+            });
+            sendAdmin('admin.scenario_play_modes', {modes});
+        }
+
+        function renderTerminalAssignments() {
+            const target = document.getElementById('admin-terminal-grid');
+            if (!target || !latestAdminPayload) return;
+            const choices = (latestAdminPayload.puzzle_catalog || []).filter(puzzle => puzzle.play_mode !== 'phones').map(puzzle => ({
+                value: puzzle.id,
+                label: puzzle.title,
+            }));
+            target.innerHTML = (latestAdminPayload.terminals || []).map(terminal => {
+                const selected = terminal.puzzle_id || '';
+                const options = choices.map(choice => `<option value="${escapeHtml(choice.value)}" ${choice.value === selected ? 'selected' : ''}>${escapeHtml(choice.label)}</option>`).join('');
+                const attached = terminal.status === 'attached';
+                return `<article class="admin-team ${attached ? '' : 'offline'}"><h2>${escapeHtml(terminal.label)}</h2>
+                    <p><strong>${attached ? '● PŘIPOJENÝ' : '○ VOLNÝ'}</strong>${terminal.team_name ? ` · ${escapeHtml(terminal.team_name)}` : ''}</p>
+                    ${attached ? `<p>Terminál již převzal tým načtením QR.</p>` : `<label>VYHRAZENÁ HÁDANKA <select id="terminal-reservation-${escapeHtml(terminal.id)}"><option value="">— BEZ REZERVACE —</option>${options}</select></label><div class="admin-actions"><button onclick="reserveAdminTerminal('${escapeHtml(terminal.id)}')" ${options ? '' : 'disabled'}>ULOŽIT REZERVACI</button><button onclick="clearAdminTerminalReservation('${escapeHtml(terminal.id)}')">UVOLNIT</button></div>${options ? '' : '<p>Ve scénáři zatím není žádná hádanka povolená pro terminál.</p>'}`}
+                </article>`;
+            }).join('') || '<p>Žádný terminál není online. Na tabletu otevřete <strong>/terminal</strong>.</p>';
+        }
+
+        function reserveAdminTerminal(terminalId) {
+            const value = document.getElementById(`terminal-reservation-${terminalId}`)?.value || '';
+            if (!value) { showNotification('Vyberte hádanku.', 'error'); return; }
+            sendAdmin('admin.terminal_reserve', {terminal_id:terminalId, puzzle_id:value});
+        }
+
+        function clearAdminTerminalReservation(terminalId) {
+            sendAdmin('admin.terminal_reserve', {terminal_id:terminalId, puzzle_id:''});
         }
 
         function resolveAdminCheckpoint(sessionId, checkpointId) {
@@ -2259,12 +2569,13 @@
                     const solution = node.solution ? `<div><strong>SPRÁVNÉ ŘEŠENÍ:</strong> <span id="${solutionId}">${escapeHtml(node.solution)}</span> <button class="icon-action" type="button" onclick="copyAdminSolution('${solutionId}')" title="Kopírovat řešení" aria-label="Kopírovat řešení">📋</button></div>` : '';
                     return `<li>${node.status === 'complete' ? '✓' : (node.status === 'active' ? '▶' : (node.status === 'available' ? '○' : '·'))} ${escapeHtml(node.label)} <small>[${escapeHtml(node.status)}]</small>${solution}</li>${actions}`;
                 }).join('');
+                const terminalPanel = `<div class="terminal-handoff"><strong>${team.terminal_online ? '● TERMINÁL ONLINE' : '○ TERMINÁL NEPŘIPOJEN'}</strong><p>Rezervace a přidělení se spravují v záložce TERMINÁLY.</p></div>`;
                 const hints = Object.entries(team.hints_used || {}).map(([id, count]) => `${escapeHtml(id)}: ${Number(count)}`).join(', ') || 'žádné';
                 const attempts = Object.entries(team.puzzle_attempts || {}).map(([id, count]) => `${escapeHtml(id)}: ${Number(count)}`).join(', ') || 'žádné';
-                const lineGame = ((team.game_metrics || {}).line || []).map(game => `Kalibrace · <strong>${escapeHtml(game.player_name)}</strong> [${game.excluded ? 'vyřazen' : escapeHtml(game.status)}]: ${game.swaps} výměn · cíle ${Object.entries(game.progress || {}).map(([length, count]) => `${length}×: ${count}`).join(', ')}${game.result ? ` · čas ${formatLineGameTime(game.result.elapsed_seconds)} · ${Number(game.result.score_delta) >= 0 ? '+' : ''}${Number(game.result.score_delta)} b` : ''} <button onclick="manageAdminGamePlayer('${team.session_id}','${game.id}','${game.player_id}','reset')">RESTART HRÁČE</button> <button onclick="manageAdminGamePlayer('${team.session_id}','${game.id}','${game.player_id}','${game.excluded ? 'include' : 'exclude'}')">${game.excluded ? 'VRÁTIT' : 'VYŘADIT'}</button>`).join('<br>') || 'Kalibrace dosud neaktivní';
+                const lineGame = ((team.game_metrics || {}).line || []).map(game => `Kalibrace · <strong>${escapeHtml(game.player_name)}</strong> [${game.connected ? 'online' : 'offline'} · ${game.excluded ? 'vyřazen' : escapeHtml(game.status)}]: ${game.swaps} výměn · cíle ${Object.entries(game.progress || {}).map(([length, count]) => `${length}×: ${count}`).join(', ') || 'žádné'}${game.result ? ` · čas ${formatLineGameTime(game.result.elapsed_seconds)} · ${Number(game.result.score_delta) >= 0 ? '+' : ''}${Number(game.result.score_delta)} b` : ''} <button onclick="manageAdminGamePlayer('${team.session_id}','${game.id}','${game.player_id}','reset')">RESTART HRÁČE</button> <button onclick="manageAdminGamePlayer('${team.session_id}','${game.id}','${game.player_id}','${game.excluded ? 'include' : 'exclude'}')">${game.excluded ? 'VRÁTIT' : 'VYŘADIT'}</button>`).join('<br>') || 'Kalibrace dosud neaktivní';
                 const karel = ((team.game_metrics || {}).karel || []).map(game => `<strong>Karel ${escapeHtml(game.level)}</strong>: pozice ${escapeHtml((game.player || []).join(','))}, ${game.completed} hotovo, ${game.moves} kroků, ${game.strikes} min, ${game.restarts} restartů${renderAdminMineBoard(game)}<small>Červeně miny, zeleně jedna bezpečná trasa, E = Elara, X = cíl.</small>`).join('<br>') || 'Karel dosud neaktivní';
                 const sokoban = ((team.game_metrics || {}).sokoban || []).map(game => `Sokoban ${escapeHtml(game.level)}: pozice ${escapeHtml((game.player || []).join(','))}, články na cíli ${(game.boxes || []).filter(box => (game.targets || []).some(target => target[0] === box[0] && target[1] === box[1])).length}/${(game.boxes || []).length}, ${game.moves} kroků, ${game.pushes} zatlačení, ${game.restarts} restartů`).join('<br>') || 'Sokoban dosud neaktivní';
-                const triad = ((team.game_metrics || {}).triad || []).map(game => `Tři v řadě · <strong>${escapeHtml(game.player_name)}</strong> [${game.excluded ? 'vyřazen' : escapeHtml(game.status)}]: ${game.placements} kamenů · směry ${(game.completed_orientations || []).map(escapeHtml).join(', ') || 'žádné'}${game.result ? ` · čas ${formatLineGameTime(game.result.elapsed_seconds)} · +${Number(game.result.score_delta)} b` : ''} <button onclick="manageAdminGamePlayer('${team.session_id}','${game.id}','${game.player_id}','reset')">RESTART HRÁČE</button> <button onclick="manageAdminGamePlayer('${team.session_id}','${game.id}','${game.player_id}','${game.excluded ? 'include' : 'exclude'}')">${game.excluded ? 'VRÁTIT' : 'VYŘADIT'}</button>`).join('<br>') || 'Tři v řadě dosud neaktivní';
+                const triad = ((team.game_metrics || {}).triad || []).map(game => `Tři v řadě · <strong>${escapeHtml(game.player_name)}</strong> [${game.connected ? 'online' : 'offline'} · ${game.excluded ? 'vyřazen' : escapeHtml(game.status)}]: ${game.placements} kamenů · směry ${(game.completed_orientations || []).map(escapeHtml).join(', ') || 'žádné'}${game.result ? ` · čas ${formatLineGameTime(game.result.elapsed_seconds)} · +${Number(game.result.score_delta)} b` : ''} <button onclick="manageAdminGamePlayer('${team.session_id}','${game.id}','${game.player_id}','reset')">RESTART HRÁČE</button> <button onclick="manageAdminGamePlayer('${team.session_id}','${game.id}','${game.player_id}','${game.excluded ? 'include' : 'exclude'}')">${game.excluded ? 'VRÁTIT' : 'VYŘADIT'}</button>`).join('<br>') || 'Tři v řadě dosud neaktivní';
                 const archive = ((team.game_metrics || {}).archive || []).map(game => `Jigsaw stroje času: ${game.assembled ? 'sestaven' : 'rozložen'} · ${game.moves} prohození · pořadí ${(game.order || []).map(escapeHtml).join(' → ')}`).join('<br>') || 'Archiv budoucnosti dosud neaktivní';
                 const eventLabels = {'checkpoint_solved':'checkpoint vyřešen', 'checkpoint_found':'checkpoint nalezen', 'admin_action':'zásah GM', 'admin_penalty':'malus GM', 'admin_score_adjustment':'úprava skóre GM', 'player.message':'zpráva hráče', 'qr.detected':'načten QR', 'arg.verify':'ověření stopy', 'room.unlock':'odemčení místnosti', 'cipher_tool.unlock':'odemčení pomůcky', 'puzzle.submit':'odpověď na hádanku', 'puzzle.hint':'vyžádána nápověda', 'line_game.move':'tah kalibrace', 'line_game.reset':'restart kalibrace', 'sokoban.command':'povel Sokobanu', 'sokoban.undo':'vrácení tahu Sokobanu', 'sokoban.reset':'restart Sokobanu', 'karel.command':'povel Karlovi', 'karel.reset':'restart Karla', 'triad.place':'tah Tři v řadě', 'triad.reset':'restart Tři v řadě', 'finale.activate':'aktivace finále', 'archive.arrange':'pohyb v archivu'};
                 const timeline = (team.timeline || []).map(item => {
@@ -2275,7 +2586,7 @@
                 }).join('') || '<li>Žádné události</li>';
                 const recentMessages = (team.recent_messages || []).map(item => `<li><strong>${escapeHtml(item.channel || 'general')}</strong> · ${item.role === 'player' ? 'hráč' : 'systém'}: ${escapeHtml(String(item.text || '').slice(0, 180))}</li>`).join('') || '<li>Žádné zprávy</li>';
                 const endReasons = {deadline:'VYPRŠEL ČAS', abandoned:'OPUŠTĚNÁ HRA', technical:'TECHNICKY UKONČENO', manual:'RUČNĚ UKONČENO'};
-                const activityText = team.game_completed ? 'DOKONČENO' : (team.administratively_ended ? `${endReasons[team.end_reason] || 'UKONČENO'} · PŘIPRAVENO K VYHODNOCENÍ` : (team.activity_status === 'abandoned' ? 'PRAVDĚPODOBNĚ OPUŠTĚNÁ' : (team.activity_status === 'suspicious' ? 'PODEZŘELÁ NEAKTIVITA' : 'AKTIVNÍ')));
+                const activityText = team.out_of_competition ? 'MIMO SOUTĚŽ' : team.game_completed ? 'DOKONČENO' : (team.administratively_ended ? `${endReasons[team.end_reason] || 'UKONČENO'} · PŘIPRAVENO K VYHODNOCENÍ` : (team.activity_status === 'abandoned' ? 'PRAVDĚPODOBNĚ OPUŠTĚNÁ' : (team.activity_status === 'suspicious' ? 'PODEZŘELÁ NEAKTIVITA' : 'AKTIVNÍ')));
                 const inventory = ((team.progress || {}).inventory || []).map(escapeHtml).join(', ') || 'prázdný';
                 const tools = ((team.progress || {}).unlocked_cipher_tools || []).map(escapeHtml).join(', ') || 'žádné';
                 return `<article class="admin-team ${online ? '' : 'offline'} ${escapeHtml(team.activity_status)}">
@@ -2287,12 +2598,14 @@
                     <div class="admin-progress"><span style="width:${percent}%"></span></div>
                     <p>Postup: ${complete}/${total} (${percent} %) · aktuální: ${activeNodes}</p>
                     <p>Poslední aktivita: <strong>${lastActivity}</strong></p>
+                    ${terminalPanel}
                     <details data-detail="${team.session_id}:penalties"><summary>Bodové úpravy</summary><p>${penalties}</p></details>
                     <details class="admin-detail" data-detail="${team.session_id}:progress"><summary>Detail postupu a her</summary><ul class="admin-detail-list">${progressNodes}</ul><p><strong>Inventář:</strong> ${inventory}</p><p><strong>Pomůcky:</strong> ${tools}</p><p><strong>Nápovědy:</strong> ${hints}</p><p><strong>Pokusy:</strong> ${attempts}</p><p>${lineGame}</p><p>${karel}</p><p>${triad}</p><p>${sokoban}</p><p>${archive}</p></details>
                     <details class="admin-detail" data-detail="${team.session_id}:timeline"><summary>Časová osa</summary><ul class="admin-detail-list">${timeline}</ul></details>
                     <details class="admin-detail" data-detail="${team.session_id}:messages"><summary>Poslední zprávy</summary><ul class="admin-detail-list">${recentMessages}</ul></details>
                     ${!team.game_completed && !team.administratively_ended ? `<div class="admin-actions"><button onclick="extendAdminSession('${team.session_id}',15)">+15 MINUT</button><button onclick="endAdminSession('${team.session_id}','abandoned')">UKONČIT JAKO OPUŠTĚNOU</button><button onclick="endAdminSession('${team.session_id}','technical')">TECHNICKY UKONČIT</button></div><div class="admin-actions"><input id="admin-quick-message-${team.session_id}" maxlength="500" placeholder="Rychlá zpráva týmu…" onkeypress="if(event.key === 'Enter') sendAdminQuickMessage('${team.session_id}')"><button onclick="sendAdminQuickMessage('${team.session_id}')">ODESLAT ZPRÁVU</button></div>` : ''}
                     ${team.administratively_ended && !team.administratively_evaluated ? `<button onclick="evaluateAdminTeam('${team.session_id}')" style="width:100%;margin-top:10px">VYHODNOTIT A ZAPSAT VÝSLEDEK</button>` : ''}
+                    ${!team.started ? `<div class="admin-actions"><button onclick="startManagedTeam('${team.session_id}',false)" ${size < 1 ? 'disabled title="Nejprve se musí připojit hráč"' : ''}>SPUSTIT HRU</button><button class="danger" onclick="startManagedTeam('${team.session_id}',true)" ${size < 1 ? 'disabled title="Nejprve se musí připojit hráč"' : ''}>SPUSTIT PŘES SOFT LIMIT</button></div>` : ''}
                     <button onclick="startAdminSpectate('${team.session_id}')" style="width:100%;margin-top:10px">ZOBRAZIT HRU JAKO HRÁČ</button>
                     <div class="admin-actions">
                         <input id="admin-amount-${team.session_id}" type="number" min="1" max="1000" value="30" aria-label="Výše bodové úpravy">
@@ -2438,7 +2751,7 @@
             pendingLobbyRequest=null;clearTimeout(pendingLobbyTimer);pendingLobbyTimer=null;
         }
 
-        function chooseSoloMode() { sendLobby('lobby.solo'); }
+        function chooseSoloMode() { onboardingWasRequested = true; sendLobby('lobby.solo'); }
         function createTeamMode() { sendLobby('lobby.create'); }
         function startTeamGame() { sendLobby('lobby.start'); }
         function chooseLobbyType(type) {
@@ -2520,6 +2833,95 @@
             input.value = '';
         }
 
+        function registerTerminal(refresh = false) {
+            terminalAttached = false;
+            document.body.classList.add('terminal-device');
+            document.body.classList.remove('terminal-attached', 'terminal-puzzle-active');
+            if (!refresh) {
+                terminalEligibleTeamAvailable = null;
+                document.body.classList.remove('terminal-team-eligible');
+                wakeTerminalAmbient(15000);
+            }
+            ensureTerminalWakeLock();
+            document.getElementById('lobby-overlay').classList.add('hidden');
+            document.getElementById('terminal-pair-overlay').classList.remove('hidden');
+            if (!refresh) {
+                document.getElementById('terminal-pair-code').textContent = 'GENERUJI…';
+                document.getElementById('terminal-pair-qr').removeAttribute('src');
+                document.getElementById('terminal-pair-status').textContent = 'Vytvářím jednorázové párování…';
+            }
+            if (!ws || ws.readyState !== WebSocket.OPEN) { connect(); return; }
+            ws.send(JSON.stringify({type:'terminal.register', payload:{terminal_id:terminalDeviceId, terminal_label:terminalDeviceLabel}}));
+        }
+
+        async function toggleTerminalFullscreen() {
+            try {
+                if (document.fullscreenElement) {
+                    await document.exitFullscreen();
+                } else {
+                    await document.documentElement.requestFullscreen();
+                }
+            } catch (error) {
+                document.getElementById('terminal-pair-status').textContent = 'Celou obrazovku zapněte v nabídce Chrome nebo klávesou F11.';
+            }
+        }
+
+        function updateTerminalEligibility(payload) {
+            const available = Number(payload?.eligible_team_count || 0) > 0;
+            if (available && terminalEligibleTeamAvailable !== true) wakeTerminalAmbient(15000);
+            terminalEligibleTeamAvailable = available;
+            document.body.classList.toggle('terminal-team-eligible', available);
+            const title = payload?.puzzle_title || '';
+            document.getElementById('terminal-pair-status').textContent = !payload?.reserved
+                ? 'Terminál zatím není v administraci vyhrazen žádné hádance.'
+                : (available
+                    ? `Vyhrazeno: ${title}. Tým v odpovídající fázi může QR načíst.`
+                    : `Vyhrazeno: ${title}. Čekám na tým v odpovídající fázi hry.`);
+        }
+
+        function requestTerminalStatus() {
+            if (!terminalModeRequested || terminalAttached || !ws || ws.readyState !== WebSocket.OPEN) return;
+            ws.send(JSON.stringify({type:'terminal.status', payload:{}}));
+        }
+
+        function wakeTerminalAmbient(duration = 12000) {
+            if (!terminalModeRequested) return;
+            const now = Date.now();
+            if (now - terminalAmbientLastSignal < 200 && document.body.classList.contains('terminal-awake')) return;
+            terminalAmbientLastSignal = now;
+            document.body.classList.add('terminal-awake');
+            clearTimeout(terminalAmbientTimer);
+            terminalAmbientTimer = setTimeout(() => document.body.classList.remove('terminal-awake'), duration);
+        }
+
+        async function ensureTerminalWakeLock() {
+            if (!terminalModeRequested || document.visibilityState !== 'visible') return;
+            if (terminalWakeLock && !terminalWakeLock.released) return;
+            if (terminalWakeLockRequest) return terminalWakeLockRequest;
+            if (!('wakeLock' in navigator)) {
+                console.warn('Screen Wake Lock API není v tomto prohlížeči dostupné.');
+                return;
+            }
+            terminalWakeLockRequest = navigator.wakeLock.request('screen').then(lock => {
+                terminalWakeLock = lock;
+                lock.addEventListener('release', () => {
+                    if (terminalWakeLock === lock) terminalWakeLock = null;
+                }, {once:true});
+            }).catch(error => {
+                console.warn('Terminál nemohl aktivovat Screen Wake Lock:', error);
+            }).finally(() => {
+                terminalWakeLockRequest = null;
+            });
+            return terminalWakeLockRequest;
+        }
+
+        ['pointermove', 'pointerdown', 'touchstart', 'keydown'].forEach(eventName => {
+            window.addEventListener(eventName, () => {
+                wakeTerminalAmbient();
+                ensureTerminalWakeLock();
+            }, {passive:true});
+        });
+
         function beginLobbyConnection() {
             const savedName = localStorage.getItem('escapeBotPlayerName') || '';
             const savedTeamName = localStorage.getItem('escapeBotTeamName') || '';
@@ -2544,6 +2946,7 @@
         function renderLobby(payload) {
             clearPendingLobbyRequest();
             clearTimeout(lobbySyncTimer);
+            const gameJustStarted = payload.started && ((currentLobby && !currentLobby.started) || onboardingWasRequested);
             currentLobby = payload;
             stopJoinTeamScanner();
             sessionId = payload.session_id;
@@ -2563,6 +2966,10 @@
             if (payload.started) {
                 stopReversePlayerScanner();
                 document.getElementById('lobby-overlay').classList.add('hidden');
+                if (gameJustStarted && !adminModeRequested) {
+                    onboardingWasRequested = false;
+                    setTimeout(beginOnboarding, 120);
+                }
                 return;
             }
             document.getElementById('lobby-overlay').classList.remove('hidden');
@@ -2826,6 +3233,8 @@
                     adminRefreshTimer = setInterval(() => {
                         if (adminToken() && ['teams','display'].includes(activeAdminTab) && !document.getElementById('admin-overlay').classList.contains('hidden')) loadAdminOverview();
                     }, 5000);
+                } else if (terminalModeRequested) {
+                    registerTerminal();
                 } else {
                     ws.send(JSON.stringify({ type: 'leaderboard.get', payload: {} }));
                     if(pendingLobbyRequest){
@@ -2841,7 +3250,51 @@
                 // Skrytí indikátoru při přijetí jakékoliv odpovědi od serveru
                 document.getElementById('typing-indicator').style.display = 'none';
                 
-                if (msg.type === 'admin.overview') {
+                if (msg.type === 'terminal.ready') {
+                    document.getElementById('terminal-pair-code').textContent = msg.payload.code || '';
+                    document.getElementById('terminal-pair-qr').src = `/api/qr?data=${encodeURIComponent(msg.payload.value || '')}`;
+                    document.getElementById('terminal-pair-status').textContent = 'QR se automaticky obnovuje. Načtěte jej telefonem oprávněného týmu.';
+                    updateTerminalEligibility(msg.payload);
+                    clearTimeout(terminalPairingRefreshTimer);
+                    const refreshAfter = Math.max(30, Number(msg.payload.expires_in || 600) - 30) * 1000;
+                    terminalPairingRefreshTimer = setTimeout(() => {
+                        if (!terminalAttached) registerTerminal(true);
+                    }, refreshAfter);
+                    clearInterval(terminalStatusTimer);
+                    terminalStatusTimer = setInterval(requestTerminalStatus, 10000);
+                }
+                else if (msg.type === 'terminal.status') {
+                    updateTerminalEligibility(msg.payload);
+                }
+                else if (msg.type === 'terminal.attached') {
+                    terminalAttached = true;
+                    resetTerminalMiniGameUiState();
+                    terminalAssignmentPendingReveal = true;
+                    clearTimeout(terminalPairingRefreshTimer);
+                    clearInterval(terminalStatusTimer);
+                    document.body.classList.add('terminal-attached');
+                    document.body.classList.remove('terminal-team-eligible');
+                    wakeTerminalAmbient(15000);
+                    document.getElementById('team-status').textContent = `${msg.payload.team_name || 'Tým'} · terminál ovládá ${msg.payload.controller_name || 'hráč'}`;
+                    openTab('tab-puzzles', document.getElementById('puzzles-tab-button'));
+                }
+                else if (msg.type === 'terminal.released') {
+                    terminalAttached = false;
+                    terminalAssignedPuzzleId = '';
+                    terminalAssignmentPendingReveal = false;
+                    document.body.classList.remove('terminal-attached', 'terminal-puzzle-active');
+                    showNotification(msg.payload.reason || 'Terminál je znovu volný.', 'success');
+                    registerTerminal();
+                }
+                else if (msg.type === 'terminal.attach_result') {
+                    qrPendingValue = '';
+                    stopScanner();
+                    qrStatus.textContent = msg.payload.success ? 'Terminál byl úspěšně připojen.' : (msg.payload.reason || 'Terminál nelze odemknout.');
+                    qrStatus.style.color = msg.payload.success ? '#0f8' : '#f66';
+                    document.getElementById('qr-retry').style.display = msg.payload.success ? 'none' : 'block';
+                    showNotification(msg.payload.success ? 'Herní terminál byl odemčen.' : (msg.payload.reason || 'Terminál nelze odemknout.'), msg.payload.success ? 'success' : 'error');
+                }
+                else if (msg.type === 'admin.overview') {
                     renderAdminOverview(msg.payload);
                 }
                 else if (msg.type === 'admin.support_update') {
@@ -2885,7 +3338,9 @@
                     document.getElementById('admin-overlay').classList.remove('hidden');
                 }
                 else if (msg.type === 'runtime.settings') {
+                    const previousQueueItem = runtimeStartQueue.find(item => item.session_id === sessionId);
                     onlineModeEnabled = Boolean(msg.payload.online_mode);
+                    displayLeaderboardEnabled = msg.payload.display_leaderboard !== false;
                     operationsEnabled = Boolean(msg.payload.gameplay_enabled);
                     mapillaryConfig = msg.payload.mapillary || {enabled:false,access_token:''};
                     leaderboardFinalized = Boolean(msg.payload.leaderboard_finalized);
@@ -2901,7 +3356,14 @@
                     if (toggle) toggle.textContent = `ONLINE REŽIM: ${onlineModeEnabled ? 'ZAPNUT' : 'VYPNUT'}`;
                     const operations = document.getElementById('admin-operations-toggle');
                     if (operations) { operations.textContent = operationsEnabled ? '■ ZASTAVIT HERNÍ PROVOZ' : '▶ SPUSTIT HERNÍ PROVOZ'; operations.classList.toggle('danger', operationsEnabled); }
-                    const settings = {"schedule-max-teams":msg.payload.max_active_teams,"schedule-interval":msg.payload.start_interval_minutes,"schedule-duration":msg.payload.game_duration_minutes,"schedule-deadline-penalty":msg.payload.deadline_penalty,"schedule-abandonment-penalty":msg.payload.abandonment_penalty,"schedule-completion-bonus":msg.payload.completion_bonus,"schedule-opening":msg.payload.opening_time,"schedule-closing":msg.payload.closing_time,"schedule-timezone":msg.payload.timezone};
+                    const displayLeaderboardToggle = document.getElementById('admin-display-leaderboard-toggle');
+                    if (displayLeaderboardToggle) { displayLeaderboardToggle.textContent = `POŘADÍ NA NÁSTĚNCE: ${displayLeaderboardEnabled ? 'ZAPNUTO' : 'SKRYTO'}`; displayLeaderboardToggle.classList.toggle('active', displayLeaderboardEnabled); }
+                    const freeMode = document.getElementById('admin-mode-free'), managedMode = document.getElementById('admin-mode-managed');
+                    if (freeMode) freeMode.classList.toggle('active', launchMode === 'free');
+                    if (managedMode) managedMode.classList.toggle('active', launchMode === 'managed');
+                    const managedCreate = document.querySelector('#admin-new-team-name + button');
+                    if (managedCreate) { managedCreate.disabled = launchMode !== 'managed'; managedCreate.title = launchMode === 'managed' ? '' : 'Nejprve zapněte řízený režim.'; }
+                    const settings = {"schedule-max-teams":msg.payload.max_active_teams,"schedule-hard-interval":msg.payload.hard_start_interval_minutes,"schedule-soft-interval":msg.payload.soft_start_interval_minutes,"schedule-duration":msg.payload.game_duration_minutes,"schedule-deadline-penalty":msg.payload.deadline_penalty,"schedule-abandonment-penalty":msg.payload.abandonment_penalty,"schedule-completion-bonus":msg.payload.completion_bonus,"schedule-opening":msg.payload.opening_time,"schedule-closing":msg.payload.closing_time,"schedule-timezone":msg.payload.timezone};
                     Object.entries(settings).forEach(([id,value]) => { const field=document.getElementById(id); if (field && document.activeElement !== field) field.value=value ?? ''; });
                     const incomingAnnouncements = (msg.payload.display_announcements || []).map(item => typeof item === 'string' ? {id:'',text:item,priority:'normal',category:'organization',published:true,starts_at:'',ends_at:'',link_url:'',link_label:'Více informací',override_minutes:0,override_until:'',fallback_priority:'high',event_id:'',game_id:''} : {id:item.id||'',text:item.text||'',priority:item.priority||'normal',category:item.category||'organization',published:item.published!==false,starts_at:item.starts_at||'',ends_at:item.ends_at||'',link_url:item.link_url||'',link_label:item.link_label||'Více informací',override_minutes:Number(item.override_minutes||0),override_until:item.override_until||'',fallback_priority:item.fallback_priority||'high',event_id:item.event_id||'',game_id:item.game_id||''});
                     if (displayAnnouncementsSaving) { displayAnnouncementsSaving=false;displayAnnouncementsDirty=false;localStorage.removeItem('escapeBotDisplayAnnouncementDraft');displayAnnouncementDraft=incomingAnnouncements;renderDisplayAnnouncementEditor();showNotification('Oznámení byla uložena.','info'); }
@@ -2963,6 +3425,7 @@
                 }
                 else if (msg.type === 'lobby.error') {
                     clearPendingLobbyRequest();
+                    onboardingWasRequested = false;
                     localStorage.removeItem('escapeBotLobby');
                     savedLobby = null;
                     stopJoinTeamScanner();
@@ -3100,10 +3563,18 @@
                 }
                 else if (msg.type === 'game.state') {
                     const flags = msg.payload.flags || {};
+                    renderDeadlineChoice(flags);
                     phaseHintsState = msg.payload.phase_hints || null;
                     renderPhaseHintButtons();
                     cipherToolsState = msg.payload.cipher_tools || [];
                     const incomingPuzzles = msg.payload.puzzles || [];
+                    if (terminalModeRequested) {
+                        const assignedPuzzle = incomingPuzzles.find(puzzle => puzzle.terminal?.assigned);
+                        const assignedPuzzleId = assignedPuzzle?.id || '';
+                        if (assignedPuzzleId && assignedPuzzleId !== terminalAssignedPuzzleId) wakeTerminalAmbient(15000);
+                        terminalAssignedPuzzleId = assignedPuzzleId;
+                        document.body.classList.toggle('terminal-puzzle-active', Boolean(assignedPuzzleId));
+                    }
                     if (pendingSokobanAnimation) {
                         deferredPuzzlesState = incomingPuzzles;
                         if (!pendingSokobanAnimation.running) startSokobanAnimation();
@@ -3118,6 +3589,11 @@
                         renderPuzzles();
                         if (pendingTriadEffect) requestAnimationFrame(playTriadEffect);
                     }
+                    if (terminalAssignmentPendingReveal && terminalAssignedPuzzleId) {
+                        terminalAssignmentPendingReveal = false;
+                        document.getElementById('terminal-pair-overlay').classList.add('hidden');
+                        showNotification('Terminál odemčen a připojen ke hře.', 'success');
+                    }
                     if (document.getElementById('cipher-panel').classList.contains('open')) renderCipherTools();
                     const scoreDisplay = document.getElementById('score-display');
                     if (scoreDisplay) {
@@ -3130,11 +3606,6 @@
                         }
                     }
                     
-                    const room104 = document.getElementById('map-room-104');
-                    if (room104 && flags['room_104_unlocked']) {
-                        room104.style.borderColor = '#0f0';
-                        room104.style.color = '#0f0';
-                    }
                     const chronomapButton = document.getElementById('chronomap-tab-button');
                     if (flags.chronomap_unlocked) {
                         chronomapButton.disabled = false;
@@ -3265,6 +3736,7 @@
                 }
                 else if (msg.type === 'effect.trigger') {
                     if (msg.payload.effect === 'finale') {
+                        wakeTerminalAmbient(Number(msg.payload.duration_ms || 10000) + 10000);
                         playSound('machine');
                         document.body.classList.add('glitch-active');
                         setTimeout(() => document.body.classList.remove('glitch-active'), 900);
@@ -3279,7 +3751,9 @@
                 }
                 else if (msg.type === 'game.complete') {
                     document.getElementById('team-name').value = currentLobby?.team_name || '';
-                    document.querySelector('.save-score-section').innerHTML = `<strong>VÝSLEDEK ZAPSÁN AUTOMATICKY · ${escapeHtml(msg.payload.rating)} · ${Number(msg.payload.score)} BODŮ</strong>`;
+                    const rankedScore = Number(msg.payload.leaderboard_score ?? msg.payload.score);
+                    const frozenLabel = msg.payload.score_frozen ? ' · SKÓRE ZMRAZENO PŘI VYPRŠENÍ LIMITU' : '';
+                    document.querySelector('.save-score-section').innerHTML = `<strong>VÝSLEDEK ZAPSÁN AUTOMATICKY · ${escapeHtml(msg.payload.rating)} · ${rankedScore} BODŮ${frozenLabel}</strong>`;
                     document.querySelector('[onclick*="tab-leaderboard"]').click();
                 }
             };
@@ -3310,6 +3784,11 @@
                 else if (ws.readyState === WebSocket.OPEN && adminToken()) loadAdminOverview();
                 return;
             }
+            if (terminalModeRequested) {
+                if (!ws || ws.readyState === WebSocket.CLOSED) connect();
+                else if (ws.readyState === WebSocket.OPEN && !terminalAttached) registerTerminal();
+                return;
+            }
             let persisted = savedLobby;
             if (!persisted) {
                 try { persisted = JSON.parse(localStorage.getItem('escapeBotLobby') || 'null'); } catch (_) { persisted = null; }
@@ -3328,9 +3807,17 @@
         }
 
         document.addEventListener('visibilitychange', () => {
-            if (document.visibilityState === 'visible') reviveClientAfterOffline();
+            if (document.visibilityState === 'visible') {
+                ensureTerminalWakeLock();
+                reviveClientAfterOffline();
+                reviveScannerAfterResume();
+            }
         });
-        window.addEventListener('pageshow', reviveClientAfterOffline);
+        window.addEventListener('pageshow', () => {
+            ensureTerminalWakeLock();
+            reviveClientAfterOffline();
+            reviveScannerAfterResume();
+        });
         window.addEventListener('online', reviveClientAfterOffline);
 
         function pressPin(num) {
@@ -3471,12 +3958,18 @@
                 gadgetCount.classList.toggle('visible', visible.length > 0);
             }
             if (!visible.length) {
-                container.innerHTML = '<p>Momentálně není rozehraná žádná hádanka.</p>';
+                container.innerHTML = terminalModeRequested
+                    ? '<div class="terminal-handoff"><strong>TERMINÁL JE PŘIPRAVEN</strong>Čekám na centrální přidělení dostupné hádanky Game Masterem.</div>'
+                    : '<p>Momentálně není rozehraná žádná hádanka.</p>';
                 updateTeamSokobanIntercomControls();
                 return;
             }
 
             container.innerHTML = visible.map(puzzle => {
+                if (!terminalModeRequested && puzzle.terminal?.mode === 'exclusive') {
+                    const state = puzzle.terminal.attached ? 'Terminál je online. Pokračujte na jeho obrazovce.' : 'Na herním terminálu zobrazte párovací QR a načtěte jej zde ve Skeneru.';
+                    return `<article class="puzzle-card"><h3>${escapeHtml(puzzle.title)}</h3><div class="terminal-handoff"><strong>${escapeHtml(puzzle.terminal.label || 'HERNÍ TERMINÁL')}</strong>${escapeHtml(state)}</div></article>`;
+                }
                 const artifact = puzzle.image ? `<img class="puzzle-artifact" src="${escapeHtml(puzzle.image)}" alt="Nalezený obrazový artefakt">` : '';
                 const copyCiphertext = puzzle.ciphertext
                     ? `<div class="puzzle-actions"><button class="icon-action" type="button" onclick="copyPuzzleCiphertext('${escapeHtml(puzzle.id)}')" title="Kopírovat čistý text šifry" aria-label="Kopírovat čistý text šifry">📋</button><span>ČISTÝ TEXT ŠIFRY</span></div>`
@@ -3508,8 +4001,83 @@
         function renderFinale(puzzle, solved) {
             if (solved) return '<p class="puzzle-status solved">ELARA ZACHRÁNĚNA · ČASOVÁ OSA STABILNÍ</p>';
             const modules = puzzle.finale?.module_labels || [];
-            const options = `<option value="">— ZVOLTE MODUL —</option>${modules.map(module => `<option value="${escapeHtml(module)}">${escapeHtml(module)}</option>`).join('')}`;
-            return `<div class="finale-console"><div class="finale-fields"><label>ROK NÁVRATU<div class="puzzle-answer"><input id="finale-year-${escapeHtml(puzzle.id)}" inputmode="numeric" maxlength="4" placeholder="RRRR" onkeydown="if(event.key==='Enter'){event.preventDefault();activateFinale('${escapeHtml(puzzle.id)}')}"><button class="icon-action" onclick="pasteIntoField('finale-year-${escapeHtml(puzzle.id)}')" title="Vložit ze schránky" aria-label="Vložit rok ze schránky">📥</button></div></label><label>ČAS NÁVRATU<div class="puzzle-answer"><input id="finale-time-${escapeHtml(puzzle.id)}" inputmode="numeric" maxlength="5" placeholder="HH:MM" onkeydown="if(event.key==='Enter'){event.preventDefault();activateFinale('${escapeHtml(puzzle.id)}')}"><button class="icon-action" onclick="pasteIntoField('finale-time-${escapeHtml(puzzle.id)}')" title="Vložit ze schránky" aria-label="Vložit čas ze schránky">📥</button></div></label></div><strong>POŘADÍ MODULŮ</strong><div class="finale-modules">${[0,1,2].map(index => `<select id="finale-module-${index}-${escapeHtml(puzzle.id)}">${options}</select>`).join('')}</div><button onclick="activateFinale('${escapeHtml(puzzle.id)}')">SPUSTIT STROJ ČASU</button></div>`;
+            const state = finaleStateFor(puzzle.id, modules);
+            const digitColumn = (field, digit, index) => `<div class="finale-led-col"><button class="finale-step" onclick="changeFinaleDigit('${escapeHtml(puzzle.id)}','${field}',${index},1)" aria-label="Zvýšit číslici">+</button>${renderSevenSegment(digit)}<button class="finale-step" onclick="changeFinaleDigit('${escapeHtml(puzzle.id)}','${field}',${index},-1)" aria-label="Snížit číslici">−</button></div>`;
+            const year = state.year.map((digit, index) => digitColumn('year', digit, index)).join('');
+            const time = state.time.map((digit, index) => `${index === 2 ? '<span class="finale-led-separator">:</span>' : ''}${digitColumn('time', digit, index)}`).join('');
+            const pieces = state.modules.map((module, index) => `<button class="finale-module-piece ${state.selectedModule === index ? 'selected' : ''}" style="--module-image-position:${finaleModuleImagePosition(module)}" onclick="selectFinaleModule('${escapeHtml(puzzle.id)}',${index})"><small>DÍL ${index + 1}</small><strong>${escapeHtml(module)}</strong></button>`).join('');
+            return `<div class="finale-console"><h4 class="finale-console-title">NÁVRATOVÝ VEKTOR</h4><div class="finale-led-groups"><div class="finale-led-group"><strong>ROK</strong><div class="finale-led-row">${year}</div></div><div class="finale-led-group"><strong>ČAS</strong><div class="finale-led-row">${time}</div></div></div><strong>MODULY · VYBERTE DVA DÍLY PRO PROHOZENÍ</strong><div class="finale-module-board">${pieces}</div><button class="finale-launch" onclick="activateFinale('${escapeHtml(puzzle.id)}')">SPUSTIT STROJ ČASU</button></div>`;
+        }
+
+        function finaleStateFor(puzzleId, modules = []) {
+            if (!finaleUiState.has(puzzleId)) {
+                const now = new Date();
+                const year = String(now.getFullYear()).padStart(4, '0').slice(-4).split('');
+                const time = `${String(now.getHours()).padStart(2, '0')}${String(now.getMinutes()).padStart(2, '0')}`.split('');
+                const scrambled = [...modules];
+                for (let index = scrambled.length - 1; index > 0; index -= 1) {
+                    const target = Math.floor(Math.random() * (index + 1));
+                    [scrambled[index], scrambled[target]] = [scrambled[target], scrambled[index]];
+                }
+                if (scrambled.length > 1 && scrambled.every((module, index) => module === modules[index])) {
+                    [scrambled[0], scrambled[1]] = [scrambled[1], scrambled[0]];
+                }
+                finaleUiState.set(puzzleId, {year, time, modules:scrambled, selectedModule:null});
+            }
+            return finaleUiState.get(puzzleId);
+        }
+
+        function resetTerminalMiniGameUiState() {
+            if (pendingSokobanAnimation?.timer) clearTimeout(pendingSokobanAnimation.timer);
+            if (pendingKarelAnimation?.timer) clearTimeout(pendingKarelAnimation.timer);
+            if (pendingLineAnimation?.timer) clearTimeout(pendingLineAnimation.timer);
+            pendingSokobanAnimation = null;
+            pendingKarelAnimation = null;
+            pendingLineAnimation = null;
+            pendingTriadEffect = null;
+            deferredPuzzlesState = null;
+            selectedLineCell = null;
+            selectedTriadSymbol = 'cyan';
+            currentPin = '';
+            finaleUiState.clear();
+        }
+
+        function finaleModuleImagePosition(module) {
+            const label = String(module || '').toLocaleUpperCase('cs-CZ');
+            if (label.includes('STABILIZÁTOR')) return '0%';
+            if (label.includes('MOTOR')) return '50%';
+            return '100%';
+        }
+
+        function renderSevenSegment(value) {
+            const active = ({0:'abcdef',1:'bc',2:'abdeg',3:'abcdg',4:'bcfg',5:'acdfg',6:'acdefg',7:'abc',8:'abcdefg',9:'abcdfg'})[String(value)] || '';
+            return `<div class="seven-segment" role="img" aria-label="${escapeHtml(value)}">${'abcdefg'.split('').map(segment => `<span class="seg ${segment} ${active.includes(segment) ? 'on' : ''}"></span>`).join('')}</div>`;
+        }
+
+        function changeFinaleDigit(puzzleId, field, index, delta) {
+            const state = finaleStateFor(puzzleId);
+            const digits = state[field];
+            if (!Array.isArray(digits) || index < 0 || index >= digits.length) return;
+            let base = 10;
+            if (field === 'time' && index === 0) base = 3;
+            if (field === 'time' && index === 1 && digits[0] === '2') base = 4;
+            if (field === 'time' && index === 2) base = 6;
+            digits[index] = String((Number(digits[index]) + Number(delta) + base) % base);
+            if (field === 'time' && index === 0 && digits[0] === '2' && Number(digits[1]) > 3) digits[1] = '3';
+            playSound('tick');
+            renderPuzzles();
+        }
+
+        function selectFinaleModule(puzzleId, index) {
+            const state = finaleStateFor(puzzleId);
+            if (state.selectedModule === null) state.selectedModule = index;
+            else if (state.selectedModule === index) state.selectedModule = null;
+            else {
+                [state.modules[state.selectedModule], state.modules[index]] = [state.modules[index], state.modules[state.selectedModule]];
+                state.selectedModule = null;
+                playSound('jigsaw');
+            }
+            renderPuzzles();
         }
 
         function renderArchiveVector(puzzle, solved) {
@@ -3574,11 +4142,11 @@
 
         function activateFinale(puzzleId) {
             if (!ws || ws.readyState !== WebSocket.OPEN) { showNotification('Terminál není připojen.', 'error'); return; }
-            const year = document.getElementById(`finale-year-${puzzleId}`).value.trim();
-            const time = document.getElementById(`finale-time-${puzzleId}`).value.trim();
-            const modules = [0,1,2].map(index => document.getElementById(`finale-module-${index}-${puzzleId}`).value);
-            if (!year || !time || modules.some(module => !module)) { showNotification('Vyplňte rok, čas a všechny tři moduly.', 'error'); return; }
-            if (new Set(modules).size !== modules.length) { showNotification('Každý modul lze vložit pouze jednou.', 'error'); return; }
+            const state = finaleStateFor(puzzleId);
+            const year = state.year.join('');
+            const time = `${state.time.slice(0,2).join('')}:${state.time.slice(2).join('')}`;
+            const modules = [...state.modules];
+            if (modules.length !== 3) { showNotification('Konfigurace modulů není úplná.', 'error'); return; }
             if (!window.confirm('Spustit finální návratovou sekvenci?')) return;
             ws.send(JSON.stringify({type:'finale.activate', payload:{puzzle_id:puzzleId, year, time, modules}}));
         }
@@ -3592,12 +4160,28 @@
             const tick = () => {
                 const elapsed = total - remaining;
                 const online = Math.min(3, Math.max(0, Math.floor(elapsed / Math.max(1, total / 4))));
-                const finalPulse = remaining <= 1;
-                overlay.innerHTML = `<div>${finalPulse ? 'ELARA' : remaining}<small>${finalPulse ? 'NÁVRAT POTVRZEN' : (online < 3 ? 'AKTIVACE TEMPORÁLNÍCH MODULŮ' : 'STABILIZACE ČASOVÉ OSY')}</small><div class="finale-modules-live">${['MOTOR','STABILIZÁTOR','KOTVA'].map((label,index) => `<span class="${index < online ? 'online' : ''}">${label}</span>`).join('')}</div></div>`;
-                playSound(finalPulse ? 'success' : 'tick');
-                if (remaining-- <= 1) { if (timer) clearInterval(timer); setTimeout(() => overlay.remove(), 1400); }
+                overlay.innerHTML = `<div>${remaining}<small>${online < 3 ? 'AKTIVACE TEMPORÁLNÍCH MODULŮ' : 'STABILIZACE ČASOVÉ OSY'}</small><div class="finale-modules-live">${['MOTOR','STABILIZÁTOR','KOTVA'].map((label,index) => `<span class="${index < online ? 'online' : ''}">${label}</span>`).join('')}</div></div>`;
+                playSound('tick');
+                if (remaining-- <= 1) { if (timer) clearInterval(timer); showElaraRescue(overlay); }
             };
             tick(); timer = setInterval(tick, 1000);
+        }
+
+        function showElaraRescue(overlay) {
+            if (!overlay?.isConnected) return;
+            overlay.className = 'finale-overlay rescue-cinematic';
+            overlay.setAttribute('role', 'dialog');
+            overlay.setAttribute('aria-label', 'Záchrana doktorky Elary');
+            overlay.innerHTML = `<button class="rescue-skip" onclick="this.closest('.finale-overlay').remove()">PŘESKOČIT</button><div class="rescue-scene"><div class="rescue-portal"></div><img class="rescue-elara" src="/assets/characters/elara-outro.png" alt="Doktorka Elara se vrací z časového portálu"><div class="rescue-caption"><strong>ELARA JE ZPÁTKY</strong><span>ČASOVÉ VRSTVY STABILIZOVÁNY · MISE SPLNĚNA</span></div><div class="rescue-scanlines"></div></div>`;
+            playSound('success');
+            if (!soundSettings.muted) {
+                if (activeVoiceAudio) activeVoiceAudio.pause();
+                activeVoiceAudio = new Audio('/assets/voices/elara_returned.mp3');
+                activeVoiceAudio.volume = Number(soundSettings.voiceVolume);
+                activeVoiceAudio.play().catch(() => {});
+            }
+            setTimeout(() => overlay.classList.add('closing'), 7200);
+            setTimeout(() => overlay.remove(), 8000);
         }
 
         function updateTeamSokobanIntercomControls() {
@@ -3704,6 +4288,33 @@
             if (!puzzle?.game) return;
             pendingKarelAnimation = {puzzleId:puzzle.id, base:JSON.parse(JSON.stringify(puzzle.game)), frames:payload.frames || [], index:0, running:false, timer:null};
         }
+        function chooseDeadline(choice) {
+            if (ws?.readyState === WebSocket.OPEN) ws.send(JSON.stringify({type:'game.deadline_choice', payload:{choice}}));
+        }
+        function renderDeadlineChoice(flags) {
+            let panel = document.getElementById('deadline-choice');
+            if (!panel) {
+                panel = document.createElement('div');
+                panel.id = 'deadline-choice';
+                panel.style.cssText = 'position:fixed;inset:0;z-index:100000;background:rgba(0,0,0,.94);display:none;align-items:center;justify-content:center;text-align:center;padding:24px';
+                document.body.appendChild(panel);
+            }
+            panel.style.display = flags.deadline_choice_pending ? 'flex' : 'none';
+            panel.innerHTML = `<section role="dialog" aria-modal="true" aria-labelledby="deadline-title"><h2 id="deadline-title">Časový limit vypršel</h2><p>Chcete hru ukončit, nebo pokračovat mimo soutěž?</p><p>Do pořadí se po dokončení zapíše nynější zmrazené skóre. Další bonusy ani postihy je už nezmění. Volba platí pro celý tým.</p><button onclick="chooseDeadline('end')">UKONČIT HRU</button> <button onclick="chooseDeadline('continue')">DOHRÁT MIMO SOUTĚŽ</button></section>`;
+            let badge = document.getElementById('overtime-badge');
+            if (!badge) {
+                badge = document.createElement('div'); badge.id = 'overtime-badge';
+                badge.style.cssText = 'position:fixed;bottom:8px;left:8px;z-index:9999;background:#222;color:#ffd966;padding:8px;pointer-events:none';
+                badge.textContent = 'DOHRÁVÁTE MIMO SOUTĚŽ · SOUTĚŽNÍ SKÓRE JE ZMRAZENÉ'; document.body.appendChild(badge);
+            }
+            badge.hidden = !flags.out_of_competition;
+            if (flags.deadline_choice === 'continue' && !flags.administratively_ended) document.getElementById('lobby-overlay').classList.add('hidden');
+            if (flags.deadline_choice === 'end') {
+                document.getElementById('lobby-overlay').classList.remove('hidden');
+                document.getElementById('lobby-status').textContent = 'Hra byla ukončena po vypršení časového limitu.';
+            }
+        }
+
         function startKarelAnimation() { if (!pendingKarelAnimation || pendingKarelAnimation.running) return; pendingKarelAnimation.running = true; clearTimeout(pendingKarelAnimation.timer); advanceKarelAnimation(); }
         function pauseKarelAnimation() { if (!pendingKarelAnimation) return; pendingKarelAnimation.running = false; clearTimeout(pendingKarelAnimation.timer); renderPuzzles(); }
         function stepKarelAnimation() { if (!pendingKarelAnimation || pendingKarelAnimation.running) return; advanceKarelAnimation(); }
@@ -4034,6 +4645,8 @@
         const qrStatus = document.getElementById("qr-status");
         let qrScanning = false;
         let qrStreamRef = null;
+        let qrPendingValue = '';
+        let qrCameraRequest = 0;
 
         function renderDemoScanner(payload) {
             const panel = document.getElementById('demo-scanner-panel');
@@ -4653,26 +5266,64 @@
 
         function startScanner() {
             if (demoModeRequested || onlineModeEnabled) return;
-            if (qrScanning) return;
+            const liveTrack = qrStreamRef?.getVideoTracks?.().find(track => track.readyState === 'live');
+            if (qrScanning && liveTrack && !liveTrack.muted) {
+                qrVideo.play().catch(() => {});
+                return;
+            }
+            if (qrStreamRef) stopScanner();
+            const requestId = ++qrCameraRequest;
+            qrPendingValue = '';
+            document.getElementById('qr-retry').style.display = 'none';
+            qrStatus.style.color = '';
             // Žádost o přístup k zadní kameře
             navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } }).then(function(stream) {
+                if (requestId !== qrCameraRequest || !document.getElementById('tab-scanner').classList.contains('active') || document.visibilityState === 'hidden') {
+                    stream.getTracks().forEach(track => track.stop());
+                    return;
+                }
                 qrScanning = true;
                 qrStreamRef = stream;
                 qrVideo.srcObject = stream;
+                stream.getVideoTracks().forEach(track => track.addEventListener('ended', () => {
+                    if (qrStreamRef !== stream) return;
+                    qrScanning = false;
+                    qrStreamRef = null;
+                    qrVideo.srcObject = null;
+                    qrStatus.innerText = "Kamera byla pozastavena. Obnovuji skener…";
+                    if (document.visibilityState === 'visible' && document.getElementById('tab-scanner').classList.contains('active')) {
+                        setTimeout(startScanner, 250);
+                    } else {
+                        document.getElementById('qr-retry').style.display = 'block';
+                    }
+                }, {once:true}));
                 qrStatus.innerText = "Skenování aktivní... Namiřte na QR kód.";
+                qrVideo.play().catch(() => {});
                 requestAnimationFrame(tickScanner);
             }).catch(err => {
+                if (requestId !== qrCameraRequest) return;
+                qrScanning = false;
                 qrStatus.innerText = "Chyba kamery: " + err.message;
+                document.getElementById('qr-retry').style.display = 'block';
             });
         }
 
         function stopScanner() {
+            qrCameraRequest += 1;
             qrScanning = false;
             if (qrStreamRef) {
                 qrStreamRef.getTracks().forEach(track => track.stop());
                 qrStreamRef = null;
             }
+            qrVideo.srcObject = null;
             qrStatus.innerText = "Skener neaktivní.";
+        }
+
+        function reviveScannerAfterResume() {
+            if (demoModeRequested || onlineModeEnabled || document.visibilityState === 'hidden') return;
+            if (!document.getElementById('tab-scanner').classList.contains('active')) return;
+            stopScanner();
+            startScanner();
         }
 
         function tickScanner() {
@@ -4686,7 +5337,8 @@
                 
                 if (code) {
                     qrStatus.innerText = "Nalezen kód: " + code.data;
-                    if (ws && ws.readyState === WebSocket.OPEN) {
+                    if (ws && ws.readyState === WebSocket.OPEN && code.data !== qrPendingValue) {
+                        qrPendingValue = code.data;
                         showNotification('Optická shoda. Odesílám k analýze.', 'success');
                         ws.send(JSON.stringify({ type: 'qr.detected', payload: { value: code.data } }));
                     }
@@ -4694,8 +5346,10 @@
                     document.getElementById('scanner-container').style.borderColor = '#f00';
                     setTimeout(() => { 
                         document.getElementById('scanner-container').style.borderColor = '#0f0';
-                        qrStatus.innerText = "Skenování aktivní... Namiřte na QR kód.";
-                        if (qrScanning) requestAnimationFrame(tickScanner); 
+                        if (qrScanning) {
+                            qrStatus.innerText = "Skenování aktivní... Namiřte na QR kód.";
+                            requestAnimationFrame(tickScanner);
+                        }
                     }, 3000);
                     return; // Pauza ve skenování po detekci
                 }

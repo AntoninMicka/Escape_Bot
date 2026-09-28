@@ -1,4 +1,5 @@
 import unittest
+from unittest.mock import AsyncMock, patch
 from copy import deepcopy
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -43,6 +44,77 @@ class StateMachineCheckpointTests(unittest.IsolatedAsyncioTestCase):
             audio_path = SCENARIO_PATH.parents[1] / "client" / audio_url.lstrip("/")
             self.assertTrue(audio_path.is_file(), declaration["voice_id"])
             self.assertGreater(audio_path.stat().st_size, 10_000, declaration["voice_id"])
+
+    def test_terminal_presentation_is_scenario_driven_and_does_not_expose_solution(self) -> None:
+        puzzle = next(item for item in self.machine._state_message("alice").payload["puzzles"] if item["id"] == "time_machine_finale")
+
+        self.assertEqual(puzzle["terminal"], {"mode": "exclusive", "label": "Finální konzole stroje času"})
+        self.assertNotIn("year", puzzle.get("finale", {}))
+        self.assertNotIn("time", puzzle.get("finale", {}))
+
+    async def test_binding_terminal_reuses_player_identity_without_adding_lobby_player(self) -> None:
+        from escape_bot.server import active_sessions, admin_overview, available_terminal_puzzles, bind_terminal, connection_info, lobby_registry, release_terminal_after_completion, runtime_settings, session_connections, state_message_for, terminal_eligible_team_count
+        from escape_bot.team_lobby import Lobby
+        terminal_socket = object()
+        player_socket = object()
+        lobby = Lobby("terminal-session", "team", "alice", "Chrononauti", started=True)
+        lobby.add_player("alice", "Alice")
+        lobby_registry.by_session[lobby.session_id] = lobby
+        previous_machine = active_sessions.get(lobby.session_id)
+        active_sessions[lobby.session_id] = self.machine
+        original_catalog = list(runtime_settings.get("terminal_puzzle_ids", []))
+        original_modes = dict(runtime_settings.get("puzzle_play_modes", {}))
+        original_reservations = dict(runtime_settings.get("terminal_reservations", {}))
+        try:
+            runtime_settings["terminal_puzzle_ids"] = ["time_machine_finale"]
+            runtime_settings["puzzle_play_modes"] = {"time_machine_finale": "exclusive"}
+            runtime_settings["terminal_reservations"] = {
+                "terminal-test": {"puzzle_id": "time_machine_finale"},
+                "terminal-test-2": {"puzzle_id": "time_machine_finale"},
+            }
+            self.machine.state.flags["terminal_assignment"] = "time_machine_finale"
+            self.machine.state.checkpoint_states["future_archive"] = {"status": "solved"}
+            connection_info[player_socket] = {"session_id": lobby.session_id, "client_id": "alice", "role": "player"}
+            connection_info[terminal_socket] = {"role": "terminal_waiting", "terminal_id": "terminal-test", "terminal_label": "Testovací terminál"}
+            session_connections[lobby.session_id] = {player_socket}
+
+            self.assertEqual(available_terminal_puzzles(self.machine), [{"id": "time_machine_finale", "title": "Finální konzole stroje času"}])
+            self.assertEqual(terminal_eligible_team_count("terminal-test"), 1)
+            self.assertEqual(terminal_eligible_team_count("terminal-test-2"), 1)
+            terminal_checkpoint = self.scenario.data["checkpoints"]["time_machine_console"]
+            activation = await self.machine.handle(Message("qr.detected", {"value": f"escapebot://checkpoint/{terminal_checkpoint['token']}"}))
+            self.assertTrue(next(item for item in activation if item.type == "qr.result").payload["accepted"])
+            self.assertEqual(self.machine.state.checkpoint_states["time_machine_console"]["status"], "found")
+            bind_terminal(terminal_socket, lobby.session_id, "alice")
+
+            self.assertEqual(list(lobby.players), ["alice"])
+            self.assertEqual(lobby.max_players, 1)
+            self.assertEqual(connection_info[terminal_socket]["role"], "terminal")
+            self.assertEqual(connection_info[terminal_socket]["client_id"], "alice")
+            self.assertIn(terminal_socket, session_connections[lobby.session_id])
+            self.assertEqual(terminal_eligible_team_count("terminal-test"), 1)
+            finale = next(item for item in state_message_for(terminal_socket, lobby.session_id, self.machine).payload["puzzles"] if item["id"] == "time_machine_finale")
+            self.assertTrue(finale["terminal"]["assigned"])
+            self.assertTrue(finale["terminal"]["device"])
+            team = next(item for item in admin_overview() if item["session_id"] == lobby.session_id)
+            self.assertEqual(team["terminal_options"], [{"id": "time_machine_finale", "title": "Finální konzole stroje času"}])
+            await release_terminal_after_completion(terminal_socket, lobby.session_id, 0)
+            self.assertEqual(connection_info[terminal_socket]["role"], "terminal_waiting")
+            self.assertNotIn(terminal_socket, session_connections[lobby.session_id])
+            self.assertEqual(runtime_settings["terminal_reservations"]["terminal-test"]["puzzle_id"], "time_machine_finale")
+            self.assertNotIn("terminal_assignment", self.machine.state.flags)
+        finally:
+            runtime_settings["terminal_puzzle_ids"] = original_catalog
+            runtime_settings["puzzle_play_modes"] = original_modes
+            runtime_settings["terminal_reservations"] = original_reservations
+            connection_info.pop(terminal_socket, None)
+            connection_info.pop(player_socket, None)
+            session_connections.pop(lobby.session_id, None)
+            lobby_registry.by_session.pop(lobby.session_id, None)
+            if previous_machine is None:
+                active_sessions.pop(lobby.session_id, None)
+            else:
+                active_sessions[lobby.session_id] = previous_machine
 
     def test_team_line_games_are_independent_and_require_full_team_coverage(self) -> None:
         self.machine._team_mode = "team"
@@ -96,6 +168,7 @@ class StateMachineCheckpointTests(unittest.IsolatedAsyncioTestCase):
         try:
             runtime_settings.update({"gameplay_enabled": True, "opening_time": "08:00", "closing_time": "20:00",
                                      "game_duration_minutes": 120, "start_interval_minutes": 0,
+                                     "soft_start_interval_minutes": 0, "hard_start_interval_minutes": 0,
                                      "max_active_teams": 4, "timezone": "Europe/Prague"})
             zone = ZoneInfo("Europe/Prague")
             self.assertFalse(start_availability(datetime(2026, 8, 21, 7, 59, tzinfo=zone))["start_allowed"])
@@ -270,11 +343,16 @@ class StateMachineCheckpointTests(unittest.IsolatedAsyncioTestCase):
         with self.assertRaisesRegex(ValueError, "courtyard_minefield"):
             validate_checkpoint_navigation(Scenario(broken))
 
-    async def test_staircase_warns_when_room_104_was_skipped(self) -> None:
+    def test_alignment_checkpoint_points_to_childrens_playground(self) -> None:
+        navigation = self.scenario.data["checkpoints"]["terrace_echo"]["navigation_message"]["text"]
+        self.assertIn("dětské hřiště", navigation)
+        self.assertIn("Zarovnání časových uzlů", navigation)
+
+    async def test_staircase_warns_when_room_108_was_skipped(self) -> None:
         self.machine.admin_set_checkpoint("reception_archive", "solved")
         scanned = await self.scan("staircase_signal")
         messages = [item.payload.get("text", "") for item in scanned if item.type == "bot.message"]
-        self.assertTrue(any("pokoj 104" in text for text in messages))
+        self.assertTrue(any("pokoj 108" in text for text in messages))
 
     async def test_checkpoint_order_is_enforced(self) -> None:
         responses = await self.scan("staircase_signal")
@@ -311,32 +389,32 @@ class StateMachineCheckpointTests(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(all(tool["status"] == "unlocked" for tool in payload["cipher_tools"]))
 
     async def test_room_requires_physical_checkpoint_even_with_correct_pin(self) -> None:
-        room_pin = self.scenario.data["rooms"]["104"]["pin"]
+        room_pin = self.scenario.data["rooms"]["108"]["pin"]
         denied = await self.machine.handle(Message("room.unlock", {"pin": room_pin}))
         self.assertFalse(self.response(denied, "room.unlock_result").payload["success"])
 
         await self.solve_reception()
         granted = await self.machine.handle(Message("room.unlock", {"pin": room_pin}))
         self.assertTrue(self.response(granted, "room.unlock_result").payload["success"])
-        self.assertTrue(self.machine.state.flags["room_104_unlocked"])
+        self.assertTrue(self.machine.state.flags["room_108_unlocked"])
 
     async def test_room_pin_has_locked_progressive_hints(self) -> None:
-        room = self.scenario.data["rooms"]["104"]
-        self.assertEqual(room["pin"], "1104")
+        room = self.scenario.data["rooms"]["108"]
+        self.assertEqual(room["pin"], "1108")
         self.assertNotIn(room["pin"], room["clue"])
 
-        locked = await self.machine.handle(Message("room.hint", {"room_id": "104"}))
+        locked = await self.machine.handle(Message("room.hint", {"room_id": "108"}))
         self.assertNotIn("Tři skupiny", self.response(locked, "bot.message").payload["text"])
 
         await self.solve_reception()
-        room_puzzle = next(item for item in self.machine._puzzle_state() if item["id"] == "room_104_panel")
+        room_puzzle = next(item for item in self.machine._puzzle_state() if item["id"] == "room_108_panel")
         self.assertEqual(room_puzzle["type"], "room_pin")
         self.assertEqual(room_puzzle["hint_count"], 3)
         score_before = self.machine.state.score
-        hint = await self.machine.handle(Message("room.hint", {"room_id": "104"}))
+        hint = await self.machine.handle(Message("room.hint", {"room_id": "108"}))
         self.assertIn("Tři skupiny", self.response(hint, "bot.message").payload["text"])
         self.assertEqual(self.machine.state.score, score_before - 10)
-        self.assertEqual(self.machine.state.hints_used["room_104"], 1)
+        self.assertEqual(self.machine.state.hints_used["room_108"], 1)
 
     def test_default_tools_survive_old_session_restore(self) -> None:
         self.machine.restore_state({"score": 900})
@@ -1057,7 +1135,7 @@ class StateMachineCheckpointTests(unittest.IsolatedAsyncioTestCase):
             "timeline_calibration", "terrace_echo", "courtyard_alignment", "sports_archive",
         ]:
             self.machine.admin_set_checkpoint(checkpoint_id, "solved")
-        await self.machine.handle(Message("room.unlock", {"pin": self.scenario.data["rooms"]["104"]["pin"]}))
+        await self.machine.handle(Message("room.unlock", {"pin": self.scenario.data["rooms"]["108"]["pin"]}))
 
         await self.scan("sports_cipher")
         pigpen = await self.machine.handle(Message("puzzle.submit", {"puzzle_id": "sports_pigpen", "answer": "HODINY"}))

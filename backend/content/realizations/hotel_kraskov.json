@@ -92,9 +92,9 @@
     },
     "rooms": {
       "optional_archive": {
-        "node_id": "room_104",
-        "number": "104",
-        "pin": "1104"
+        "node_id": "room_108",
+        "number": "108",
+        "pin": "1108"
       }
     }
   }

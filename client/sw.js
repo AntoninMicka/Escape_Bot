@@ -1,4 +1,4 @@
-const CACHE_NAME = 'escape-bot-v125';
+const CACHE_NAME = 'escape-bot-v126';
 const ASSETS_TO_CACHE = [
     './',
     './index.html',
@@ -13,6 +13,7 @@ const ASSETS_TO_CACHE = [
     './manifest.json',
     './icon.svg',
     './assets/branding/mensa-cesko-logo.png',
+    './assets/characters/elara-outro.png',
     './assets/puzzles/elara-clock-gallery.png',
     './assets/puzzles/bowling-binary-motor-v3.png',
     './assets/puzzles/terrace-morse-cats-hriste-v2.png',
