@@ -2,6 +2,14 @@ import { SELF } from "cloudflare:test";
 import { describe, expect, it } from "vitest";
 
 describe("Cloudflare spike router", () => {
+  it("serves a browser diagnostic at the worker root", async () => {
+    const response = await SELF.fetch("https://example.test/");
+    expect(response.status).toBe(200);
+    expect(response.headers.get("Content-Type")).toBe("text/html; charset=utf-8");
+    expect(response.headers.get("Cache-Control")).toBe("no-store");
+    expect(await response.text()).toContain("Escape Bot · Cloudflare CF-01");
+  });
+
   it("reports health without touching a game session", async () => {
     const response = await SELF.fetch("https://example.test/api/health");
     expect(response.status).toBe(200);

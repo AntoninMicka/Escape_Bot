@@ -1,4 +1,5 @@
 import { DurableObject } from "cloudflare:workers";
+import { diagnosticPage } from "./diagnostic";
 
 interface Env {
   APP_ENV: string;
@@ -273,6 +274,7 @@ export class GameSession extends DurableObject<Env> {
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
+    if (url.pathname === "/") return diagnosticPage();
     if (url.pathname === "/api/health") {
       return json({ status: "ok", runtime: "cloudflare", environment: env.APP_ENV });
     }

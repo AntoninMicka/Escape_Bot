@@ -20,6 +20,7 @@ secrety. Názvy prostředí jsou `escape-bot-cf-development`,
 - perzistentní autoritativní snapshot a úplný `lobby.resume` po evikci;
 - Durable Object alarm pro časový deadline;
 - oddělení stavu různých relací.
+- diagnostickou stránku na `/` pro ruční kontrolu v prohlížeči.
 
 Zprávy `spike.*` jsou pouze testovací kontrakt. Nejsou součástí produkčního
 Escape Bot protokolu.
@@ -52,6 +53,9 @@ Cloudflare účet:
 npm run deploy:staging
 curl https://STAGING-DOMAIN/api/health
 ```
+
+Kořenová staging adresa zobrazí diagnostiku. Pro broadcast otevřete dvě nebo
+více karet se stejným Session ID, připojte je a odešlete testovací zprávu.
 
 Produkční deploy má samostatný explicitní příkaz `npm run deploy:production`.
 Obecný `npm run deploy` záměrně není definován, aby nebylo možné bez výběru
