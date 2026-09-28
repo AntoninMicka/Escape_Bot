@@ -13,6 +13,7 @@ from .state_machine import EscapeBotStateMachine
 
 ENGINE_SNAPSHOT_VERSION = 1
 MAX_OPERATION_RECEIPTS = 500
+SENDER_ONLY_RESPONSE_TYPES = frozenset({"line_game.result"})
 
 
 @dataclass(frozen=True, slots=True)
@@ -40,7 +41,8 @@ class GameCommand:
 @dataclass(frozen=True, slots=True)
 class ApplyResult:
     snapshot: dict[str, Any]
-    responses: tuple[Message, ...]
+    sender_messages: tuple[Message, ...]
+    broadcast_messages: tuple[Message, ...]
     audit_events: tuple[dict[str, Any], ...]
     next_deadline_at: str | None
     operation_id: str | None
@@ -64,9 +66,13 @@ class GameEngine:
         state_data, receipts = _restore_envelope(snapshot)
         if command.operation_id and command.operation_id in receipts:
             receipt = receipts[command.operation_id]
+            sender_messages, broadcast_messages = _receipt_messages(receipt)
             return ApplyResult(
                 snapshot=deepcopy(dict(snapshot or {})),
-                responses=tuple(Message.from_json(item) for item in receipt.get("responses", [])),
+                # A retry restores the original result to its sender, but must not
+                # replay team-wide effects and messages to every participant.
+                sender_messages=sender_messages + broadcast_messages,
+                broadcast_messages=(),
                 audit_events=tuple(deepcopy(receipt.get("audit_events", []))),
                 next_deadline_at=receipt.get("next_deadline_at"),
                 operation_id=command.operation_id,
@@ -101,6 +107,7 @@ class GameEngine:
             )
             for response in raw_responses
         )
+        sender_messages, broadcast_messages = _partition_responses(responses)
         state = machine.state.snapshot()
         audit_events = tuple(_new_suffix(history_before, machine.state.event_history))
         next_deadline = _next_deadline(state, command_time)
@@ -108,7 +115,11 @@ class GameEngine:
         updated_receipts = deepcopy(receipts)
         if command.operation_id:
             updated_receipts[command.operation_id] = {
+                # Keep the combined legacy field so the previous server can still
+                # replay a receipt after an application rollback.
                 "responses": [message.to_json() for message in responses],
+                "sender_messages": [message.to_json() for message in sender_messages],
+                "broadcast_messages": [message.to_json() for message in broadcast_messages],
                 "audit_events": deepcopy(list(audit_events)),
                 "next_deadline_at": next_deadline,
                 "applied_at": command_time.isoformat(),
@@ -123,11 +134,31 @@ class GameEngine:
         }
         return ApplyResult(
             snapshot=updated_snapshot,
-            responses=responses,
+            sender_messages=sender_messages,
+            broadcast_messages=broadcast_messages,
             audit_events=audit_events,
             next_deadline_at=next_deadline,
             operation_id=command.operation_id,
         )
+
+
+def _partition_responses(responses: tuple[Message, ...]) -> tuple[tuple[Message, ...], tuple[Message, ...]]:
+    sender_messages = tuple(
+        message for message in responses if message.type in SENDER_ONLY_RESPONSE_TYPES
+    )
+    broadcast_messages = tuple(
+        message for message in responses if message.type not in SENDER_ONLY_RESPONSE_TYPES
+    )
+    return sender_messages, broadcast_messages
+
+
+def _receipt_messages(receipt: Mapping[str, Any]) -> tuple[tuple[Message, ...], tuple[Message, ...]]:
+    if "sender_messages" in receipt or "broadcast_messages" in receipt:
+        sender = tuple(Message.from_json(item) for item in receipt.get("sender_messages", []))
+        broadcast = tuple(Message.from_json(item) for item in receipt.get("broadcast_messages", []))
+        return sender, broadcast
+    legacy = tuple(Message.from_json(item) for item in receipt.get("responses", []))
+    return _partition_responses(legacy)
 
 
 def _restore_envelope(snapshot: Mapping[str, Any] | None) -> tuple[dict[str, Any], dict[str, Any]]:

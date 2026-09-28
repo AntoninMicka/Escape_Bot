@@ -4,7 +4,7 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 from escape_bot.command_validation import CommandValidationError
-from escape_bot.game_engine import ActorContext, GameCommand, GameEngine
+from escape_bot.game_engine import ActorContext, GameCommand, GameEngine, _partition_responses
 from escape_bot.protocol import Message
 from escape_bot.scenario import ScenarioLoader
 from escape_bot.state_machine import EscapeBotStateMachine
@@ -36,8 +36,13 @@ class GameEngineBoundaryTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(result.snapshot["state"]["last_activity_at"], self.now.isoformat())
         self.assertEqual(result.audit_events[0]["at"], self.now.isoformat())
         self.assertEqual(result.audit_events[0]["type"], "player.message")
-        self.assertTrue(result.responses)
-        self.assertTrue(all(item.operation_id == "message-1" for item in result.responses))
+        self.assertFalse(result.sender_messages)
+        self.assertTrue(result.broadcast_messages)
+        self.assertTrue(all(item.operation_id == "message-1" for item in result.broadcast_messages))
+        receipt = result.snapshot["operation_receipts"]["message-1"]
+        self.assertIn("sender_messages", receipt)
+        self.assertIn("broadcast_messages", receipt)
+        self.assertIn("responses", receipt)
         self.assertFalse(result.replayed)
 
     async def test_operation_retry_returns_original_receipt_without_duplicate_mutation(self) -> None:
@@ -52,10 +57,24 @@ class GameEngineBoundaryTests(unittest.IsolatedAsyncioTestCase):
 
         self.assertTrue(retried.replayed)
         self.assertEqual(retried.snapshot, first.snapshot)
-        self.assertEqual(retried.responses, first.responses)
+        self.assertEqual(retried.sender_messages, first.broadcast_messages)
+        self.assertEqual(retried.broadcast_messages, ())
         self.assertEqual(
             [item["text"] for item in retried.snapshot["state"]["chat_history"] if item["role"] == "player"],
             ["Jednou"],
+        )
+
+    def test_personalized_line_game_result_is_not_a_team_broadcast(self) -> None:
+        sender, broadcast = _partition_responses((
+            Message("line_game.result", {"frames": []}),
+            Message("score.update", {"delta": 10}),
+            Message("game.state", {"score": 10}),
+        ))
+
+        self.assertEqual([message.type for message in sender], ["line_game.result"])
+        self.assertEqual(
+            [message.type for message in broadcast],
+            ["score.update", "game.state"],
         )
 
     async def test_invalid_command_is_rejected_before_snapshot_mutation(self) -> None:
@@ -95,6 +114,35 @@ class GameEngineBoundaryTests(unittest.IsolatedAsyncioTestCase):
 
         self.assertTrue(replayed.replayed)
         self.assertEqual(replayed.snapshot, first.snapshot)
+        self.assertEqual(replayed.sender_messages, first.broadcast_messages)
+        self.assertEqual(replayed.broadcast_messages, ())
+
+    async def test_legacy_receipt_is_replayed_only_to_sender(self) -> None:
+        stored = Message(
+            "game.state",
+            {"score": 900},
+            operation_id="legacy-operation",
+        )
+        snapshot = {
+            "schema_version": 1,
+            "state": {},
+            "operation_receipts": {
+                "legacy-operation": {
+                    "responses": [stored.to_json()],
+                    "audit_events": [],
+                }
+            },
+        }
+
+        replayed = await self.engine.apply(
+            snapshot,
+            GameCommand("player.message", {}, operation_id="legacy-operation"),
+            self.actor,
+            self.now,
+        )
+
+        self.assertEqual(replayed.sender_messages, (stored,))
+        self.assertEqual(replayed.broadcast_messages, ())
 
     async def test_raw_legacy_snapshot_is_accepted_and_upgraded(self) -> None:
         legacy = {"score": 725, "phase": "navigating"}
@@ -183,7 +231,10 @@ class GameEngineBoundaryTests(unittest.IsolatedAsyncioTestCase):
             snapshot = result.snapshot
 
             self.assertEqual(
-                [(message.type, message.payload, message.request_id) for message in result.responses],
+                [
+                    (message.type, message.payload, message.request_id)
+                    for message in (*result.sender_messages, *result.broadcast_messages)
+                ],
                 [(message.type, message.payload, message.request_id) for message in legacy_responses],
             )
             self.assertEqual(result.snapshot["state"], legacy.state.snapshot())

@@ -20,6 +20,7 @@ from starlette.middleware.trustedhost import TrustedHostMiddleware
 
 from .command_validation import CommandValidationError
 from .protocol import Message
+from .game_engine import ApplyResult
 from .session_adapter import GameSessionAdapter
 from .state_machine import EscapeBotStateMachine
 from .scenario import ScenarioLoader, build_checkpoint_qr_set, build_demo_checkpoint_catalog, build_puzzle_telemetry, build_scenario_progress
@@ -344,8 +345,10 @@ async def start_due_queue_team(current: datetime) -> bool:
     hello = Message("client.hello", {"session_id": lobby.session_id, "demo_mode": False,
         "_client_id": first_player, "_participant_ids": list(lobby.players), "_team_mode": lobby.mode,
         "_participant_names": {key: str(value.get("name", "Hráč")) for key, value in lobby.players.items()}})
+    result = await apply_game_command(lobby.session_id, machine, hello, now=current)
     responses = [Message("queue.auto_started", {"message": "Váš rezervovaný čas nastal. Hra byla automaticky spuštěna."})]
-    responses.extend(await apply_game_command(lobby.session_id, machine, hello, now=current))
+    responses.extend(result.sender_messages)
+    responses.extend(result.broadcast_messages)
     responses.extend(apply_lobby_score(lobby, machine))
     responses.append(Message("scenario.progress", build_scenario_progress(scenario, machine.state.snapshot())))
     save_lobbies(); save_sessions(); save_runtime_settings()
@@ -990,7 +993,7 @@ async def apply_game_command(
     message: Message,
     *,
     now: datetime | None = None,
-) -> list[Message]:
+) -> ApplyResult:
     adapter = session_command_adapters.setdefault(session_id, GameSessionAdapter())
     return await adapter.apply(state_machine, message, now=now)
 
@@ -1468,7 +1471,8 @@ async def websocket_endpoint(websocket: WebSocket):
                             hello = Message("client.hello", {"session_id": target_session, "demo_mode": False,
                                 "_client_id": first_player, "_participant_ids": list(lobby.players), "_team_mode": lobby.mode,
                                 "_participant_names": {key: str(value.get("name", "Hráč")) for key, value in lobby.players.items()}})
-                            responses = await apply_game_command(target_session, machine, hello)
+                            result = await apply_game_command(target_session, machine, hello)
+                            responses = [*result.sender_messages, *result.broadcast_messages]
                             responses.extend(apply_lobby_score(lobby, machine))
                             responses.append(Message("scenario.progress", build_scenario_progress(scenario, machine.state.snapshot())))
                             save_lobbies(); save_sessions(); save_runtime_settings()
@@ -2069,7 +2073,8 @@ async def websocket_endpoint(websocket: WebSocket):
                                                                 "_client_id": client_id, "_participant_ids": list(lobby.players),
                                                                 "_team_mode": lobby.mode,
                                                                 "_participant_names": {key: str(value.get("name", "Hráč")) for key, value in lobby.players.items()}})
-                                responses = await apply_game_command(str(session_id), state_machine, hello)
+                                result = await apply_game_command(str(session_id), state_machine, hello)
+                                responses = [*result.sender_messages, *result.broadcast_messages]
                                 responses.extend(score_messages)
                                 if demo_client:
                                     responses.append(Message("demo.catalog", {
@@ -2133,9 +2138,13 @@ async def websocket_endpoint(websocket: WebSocket):
                     if checkpoint_id not in state_machine.state.checkpoint_states:
                         checkpoint = scenario.data.get("checkpoints", {}).get(checkpoint_id, {})
                         token = str(checkpoint.get("token", ""))
-                        activation_responses = await apply_game_command(str(session_id), state_machine, Message("qr.detected", {
+                        activation_result = await apply_game_command(str(session_id), state_machine, Message("qr.detected", {
                             "value": f"escapebot://checkpoint/{token}",
                         }))
+                        activation_responses = [
+                            *activation_result.sender_messages,
+                            *activation_result.broadcast_messages,
+                        ]
                         result = next((response for response in activation_responses if response.type == "qr.result"), None)
                         if result is None or not result.payload.get("accepted"):
                             await send_message(websocket, Message("terminal.attach_result", {
@@ -2236,7 +2245,7 @@ async def websocket_endpoint(websocket: WebSocket):
                         await send_message(websocket, Message("error", {"message": "O pokračování rozhodují hráči týmu."}))
                         continue
                     try:
-                        responses = await apply_game_command(str(session_id), state_machine, msg)
+                        result = await apply_game_command(str(session_id), state_machine, msg)
                     except CommandValidationError as error:
                         await send_message(websocket, Message(
                             "command.rejected",
@@ -2248,18 +2257,27 @@ async def websocket_endpoint(websocket: WebSocket):
                     if msg.type == "client.hello" and bool(msg.payload.get("demo_mode")):
                         if demo_client:
                             checkpoints = build_demo_checkpoint_catalog(state_machine.scenario)
-                            responses.append(Message("demo.catalog", {"enabled": True, "checkpoints": checkpoints}))
+                            sender_messages = list(result.sender_messages)
+                            sender_messages.append(Message("demo.catalog", {"enabled": True, "checkpoints": checkpoints}))
                         else:
-                            responses.append(Message("demo.catalog", {
+                            sender_messages = list(result.sender_messages)
+                            sender_messages.append(Message("demo.catalog", {
                                 "enabled": False,
                                 "checkpoints": [],
                                 "reason": "Backend nebyl spuštěn s parametrem --demo.",
                             }))
-                    responses.append(Message(
+                    else:
+                        sender_messages = list(result.sender_messages)
+                    broadcast_messages = list(result.broadcast_messages)
+                    progress_message = Message(
                         "scenario.progress",
                         build_scenario_progress(state_machine.scenario, state_machine.state.snapshot()),
-                    ))
-                    if msg.type == "player.message" and session_id:
+                    )
+                    if result.replayed:
+                        sender_messages.append(progress_message)
+                    else:
+                        broadcast_messages.append(progress_message)
+                    if msg.type == "player.message" and session_id and not result.replayed:
                         await broadcast_session(session_id, [Message("team.player_message", {
                             "client_id": client_id,
                             "channel": msg.payload.get("channel", "general"),
@@ -2268,13 +2286,13 @@ async def websocket_endpoint(websocket: WebSocket):
                     save_sessions()
                     if session_id:
                         schedule_completed_terminal_releases(str(session_id), state_machine)
-                    if session_id and any(response.type == "game.complete" for response in responses):
+                    if session_id and any(response.type == "game.complete" for response in broadcast_messages):
                         completion_update = apply_outcome_score(state_machine, "completed", int(runtime_settings.get("completion_bonus", 100)))
                         if completion_update:
-                            responses.insert(0, completion_update)
-                            responses.append(state_machine._state_message())
+                            broadcast_messages.insert(0, completion_update)
+                            broadcast_messages.append(state_machine._state_message())
                             save_sessions()
-                        completion_message = next(response for response in responses if response.type == "game.complete")
+                        completion_message = next(response for response in broadcast_messages if response.type == "game.complete")
                         completion_message.payload["leaderboard_score"] = leaderboard_score(state_machine)
                         completion_message.payload["score_frozen"] = "competition_score" in state_machine.state.flags
                         completed_lobby = lobby_registry.by_session.get(str(session_id))
@@ -2294,16 +2312,11 @@ async def websocket_endpoint(websocket: WebSocket):
                             operation_id=msg.operation_id,
                         ))
                     if session_id:
-                        # A line-game board belongs to one player. Its result contains
-                        # animation frames for that player's board and must never be
-                        # replayed over another team member's personalized snapshot.
-                        player_responses = [response for response in responses if response.type == "line_game.result"]
-                        shared_responses = [response for response in responses if response.type != "line_game.result"]
-                        for response in player_responses:
+                        for response in sender_messages:
                             await send_message(websocket, response)
-                        await broadcast_session(session_id, shared_responses)
+                        await broadcast_session(session_id, broadcast_messages)
                     else:
-                        for response in responses:
+                        for response in [*sender_messages, *broadcast_messages]:
                             await send_message(websocket, response)
                 else:
                     logger.warning("Přijata zpráva před inicializací relace (client.hello chybí).")

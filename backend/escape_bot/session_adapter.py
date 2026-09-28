@@ -6,7 +6,7 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from typing import Any, Mapping
 
-from .game_engine import ActorContext, ENGINE_SNAPSHOT_VERSION, GameCommand, GameEngine
+from .game_engine import ApplyResult, ActorContext, ENGINE_SNAPSHOT_VERSION, GameCommand, GameEngine
 from .protocol import Message
 from .state_machine import EscapeBotStateMachine
 
@@ -46,7 +46,7 @@ class GameSessionAdapter:
         message: Message,
         *,
         now: datetime | None = None,
-    ) -> list[Message]:
+    ) -> ApplyResult:
         async with self._command_lock:
             return await self._apply_locked(machine, message, now=now)
 
@@ -56,7 +56,7 @@ class GameSessionAdapter:
         message: Message,
         *,
         now: datetime | None,
-    ) -> list[Message]:
+    ) -> ApplyResult:
         actor = _actor_context(machine, message.payload)
         public_payload = {
             key: deepcopy(value)
@@ -85,7 +85,7 @@ class GameSessionAdapter:
         machine._team_mode = actor.team_mode
         machine._participant_names = dict(actor.participant_names)
         self.operation_receipts = deepcopy(result.snapshot["operation_receipts"])
-        return list(result.responses)
+        return result
 
 
 def _split_persisted_snapshot(

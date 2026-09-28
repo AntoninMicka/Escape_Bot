@@ -96,10 +96,10 @@ Akceptace:
 6. Spustit stejné scénářové testy proti původnímu i novému adaptéru.
 
 Stav feature větve: deterministické `apply`, verzovaný snapshot, idempotentní
-`operation_id`, FastAPI adaptér a validační schémata příkazů jsou implementované.
-Zbývá rozdělit odpovědi odesílateli od týmových broadcastů, odstranit poslední
-provozní závislosti z doménové cesty a převést celý scenario journey na paritní
-test původního a nového rozhraní.
+`operation_id`, oddělené odpovědi odesílateli a týmové broadcasty, FastAPI
+adaptér a validační schémata příkazů jsou implementované. Zbývá odstranit
+poslední provozní závislosti z doménové cesty a převést celý scenario journey na
+paritní test původního a nového rozhraní.
 
 Akceptace:
 

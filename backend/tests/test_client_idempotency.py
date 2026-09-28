@@ -50,3 +50,12 @@ def test_personalized_game_state_keeps_operation_correlation() -> None:
 
     assert "outgoing.operation_id = message.operation_id" in personalization
     assert '"operation.ack"' in server
+
+
+def test_server_uses_domain_response_audiences() -> None:
+    server = (ROOT / "backend" / "escape_bot" / "server.py").read_text(encoding="utf-8")
+
+    assert 'response.type == "line_game.result"' not in server
+    assert "for response in sender_messages" in server
+    assert "broadcast_session(session_id, broadcast_messages)" in server
+    assert 'msg.type == "player.message" and session_id and not result.replayed' in server

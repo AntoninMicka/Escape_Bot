@@ -23,7 +23,8 @@ apply(snapshot, command, actor, now) -> result
 a vrátí:
 
 - verzovaný snapshot,
-- protokolové odpovědi,
+- protokolové odpovědi pouze odesílateli,
+- zprávy určené k týmovému broadcastu,
 - nově vzniklé auditní události,
 - nejbližší budoucí deadline,
 - informaci, zda šlo o opakované doručení operace.
@@ -38,7 +39,8 @@ schéma. Transportní metadata aktéra se z payloadu oddělí a neprocházejí j
 veřejná pole příkazu. Neplatný nebo neznámý příkaz skončí terminální odpovědí
 `command.rejected` se stejným `operation_id`, aniž by změnil snapshot, audit či
 čas poslední aktivity. Již uložená idempotency účtenka má před validací retry
-přednost, takže opakované doručení vždy vrátí původní výsledek.
+přednost, takže opakované doručení vždy vrátí původní výsledek. Při retry se
+uložené týmové zprávy vrátí pouze odesílateli; celý tým je znovu nedostane.
 
 Čas je vstup příkazu. Stavový automat proto používá injektované hodiny a během
 jednoho příkazu nesmí číst systémový čas přímo. FastAPI transport zůstává jako

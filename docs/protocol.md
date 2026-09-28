@@ -20,7 +20,8 @@ které mění stav nebo skóre, navíc používají stabilní `operation_id` dlo
 128 znaků. Klient jej vytvoří před prvním odesláním, ponechá příkaz v lokální
 frontě do `operation.ack` nebo jiné odpovědi se stejným `operation_id` a po
 reconnectu odešle tentýž příkaz se stejným ID. Backend takový retry znovu
-neaplikuje, ale vrátí uložené odpovědi. Lobby, terminálové párování, podpora,
+neaplikuje, ale vrátí uložené odpovědi pouze jeho odesílateli; týmové efekty a
+zprávy podruhé nebroadcastuje. Lobby, terminálové párování, podpora,
 administrace a read-only dotazy tuto doménovou idempotency frontu nepoužívají.
 
 ## Client -> Backend

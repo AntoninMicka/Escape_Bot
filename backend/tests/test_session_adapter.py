@@ -44,7 +44,11 @@ class GameSessionAdapterTests(unittest.IsolatedAsyncioTestCase):
             now=self.now + timedelta(minutes=5),
         )
 
-        self.assertEqual([item.to_json() for item in replayed], [item.to_json() for item in first])
+        self.assertEqual(
+            [item.to_json() for item in replayed.sender_messages],
+            [item.to_json() for item in first.broadcast_messages],
+        )
+        self.assertEqual(replayed.broadcast_messages, ())
         self.assertEqual(
             [item["text"] for item in restored_machine.state.chat_history if item["role"] == "player"],
             ["Jednou"],
@@ -79,7 +83,7 @@ class GameSessionAdapterTests(unittest.IsolatedAsyncioTestCase):
         machine = EscapeBotStateMachine(self.scenario)
         adapter = GameSessionAdapter()
 
-        responses = await adapter.apply(
+        result = await adapter.apply(
             machine,
             Message("client.hello", {
                 "session_id": "session-1",
@@ -91,7 +95,7 @@ class GameSessionAdapterTests(unittest.IsolatedAsyncioTestCase):
             now=self.now,
         )
 
-        self.assertTrue(responses)
+        self.assertTrue(result.broadcast_messages)
         self.assertEqual(machine._current_player_id, "alice")
         self.assertEqual(machine._participant_ids, ["alice", "bob"])
 
