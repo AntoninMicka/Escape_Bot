@@ -1,0 +1,70 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "escape-bot-cf-spike",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-09-28",
+  "observability": {
+    "enabled": true
+  },
+  "durable_objects": {
+    "bindings": [
+      {
+        "name": "GAME_SESSIONS",
+        "class_name": "GameSession"
+      }
+    ]
+  },
+  "exports": {
+    "GameSession": {
+      "type": "durable-object",
+      "storage": "sqlite"
+    }
+  },
+  "vars": {
+    "APP_ENV": "local"
+  },
+  "env": {
+    "development": {
+      "name": "escape-bot-cf-development",
+      "durable_objects": {
+        "bindings": [
+          {
+            "name": "GAME_SESSIONS",
+            "class_name": "GameSession"
+          }
+        ]
+      },
+      "vars": {
+        "APP_ENV": "development"
+      }
+    },
+    "staging": {
+      "name": "escape-bot-cf-staging",
+      "durable_objects": {
+        "bindings": [
+          {
+            "name": "GAME_SESSIONS",
+            "class_name": "GameSession"
+          }
+        ]
+      },
+      "vars": {
+        "APP_ENV": "staging"
+      }
+    },
+    "production": {
+      "name": "escape-bot-cf-production",
+      "durable_objects": {
+        "bindings": [
+          {
+            "name": "GAME_SESSIONS",
+            "class_name": "GameSession"
+          }
+        ]
+      },
+      "vars": {
+        "APP_ENV": "production"
+      }
+    }
+  }
+}
