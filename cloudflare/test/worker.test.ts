@@ -35,6 +35,22 @@ function nextMessageOf(socket: WebSocket, expectedTypes: string[]): Promise<Prot
   });
 }
 
+function messagesUntil(socket: WebSocket, finalType: string): Promise<ProtocolMessage[]> {
+  return new Promise((resolve, reject) => {
+    const messages: ProtocolMessage[] = [];
+    const timeout = setTimeout(() => reject(new Error(`Timed out waiting for ${finalType}`)), 2000);
+    const listener = (event: MessageEvent) => {
+      const message = JSON.parse(String(event.data)) as ProtocolMessage;
+      messages.push(message);
+      if (message.type !== finalType) return;
+      clearTimeout(timeout);
+      socket.removeEventListener("message", listener);
+      resolve(messages);
+    };
+    socket.addEventListener("message", listener);
+  });
+}
+
 async function openSocket(url: string): Promise<WebSocket> {
   const response = await SELF.fetch(url, { headers: { Upgrade: "websocket" } });
   expect(response.status).toBe(101);
@@ -364,6 +380,23 @@ describe("Cloudflare spike router", () => {
     ]);
     expect((await startedGame).payload).toMatchObject({ phase: "comms_offline", score: 1010 });
     expect((await startedProgress).payload).toMatchObject({ scenario_id: "chronos_online_rescue" });
+
+    const privateLineResult = nextMessage(creator, "line_game.result");
+    const privateLineState = nextMessage(creator, "game.state");
+    const privateLineProgress = nextMessage(creator, "scenario.progress");
+    const teammateTraffic = messagesUntil(player, "game.state");
+    creator.send(JSON.stringify({
+      type: "line_game.move",
+      operation_id: "early-line-game-1",
+      payload: { puzzle_id: "timeline_lines", first: [0, 0], second: [0, 1] },
+    }));
+    expect((await privateLineResult).payload).toMatchObject({
+      success: false,
+      reason: "Interaktivní úloha zatím nebyla nalezena.",
+    });
+    expect((await privateLineState).payload).not.toHaveProperty("interactive_games");
+    await privateLineProgress;
+    expect((await teammateTraffic).map((message) => message.type)).not.toContain("line_game.result");
 
     const teammateMessage = nextMessage(player, "team.player_message");
     const narrativeReply = nextMessage(player, "bot.message");

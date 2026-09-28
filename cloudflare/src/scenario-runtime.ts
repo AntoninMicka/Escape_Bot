@@ -1,5 +1,20 @@
+import {
+  newLineGame,
+  publicLineGame,
+  resetLineGame,
+  swapLineGame,
+  type LineGameState,
+} from "./line-game";
+
 export type ScenarioDocument = Record<string, any>;
 export type GameStateDocument = Record<string, any>;
+
+export interface RuntimeActor {
+  clientId: string;
+  participantIds: string[];
+  participantNames: Record<string, string>;
+  teamMode: "solo" | "team";
+}
 
 export interface RuntimeMessage {
   type: string;
@@ -23,6 +38,16 @@ function phaseData(scenario: ScenarioDocument, phase: string): Record<string, an
 
 function clone<T>(value: T): T {
   return structuredClone(value);
+}
+
+function normalizedActor(actor?: RuntimeActor): RuntimeActor {
+  if (actor) return actor;
+  return {
+    clientId: "player",
+    participantIds: ["player"],
+    participantNames: { player: "Hráč" },
+    teamMode: "solo",
+  };
 }
 
 function messageTemplate(
@@ -81,10 +106,16 @@ function puzzleUsesAnswerAdapter(scenario: ScenarioDocument, puzzle: Record<stri
   return puzzle.answer !== undefined && puzzle.answer !== null;
 }
 
+function puzzleAdapter(scenario: ScenarioDocument, puzzle: Record<string, any>): string {
+  const puzzleType = String(puzzle.type || "answer");
+  return String(record(record(scenario.puzzle_components)[puzzleType]).adapter || puzzleType);
+}
+
 export function startScenario(
   scenario: ScenarioDocument,
   scoreAdjustment: number,
   now: string,
+  actor?: RuntimeActor,
 ): ScenarioCommandResult {
   const initialPhase = String(record(scenario.phase_engine).initial_phase || "comms_offline");
   const unlockedCipherTools = Object.entries(record(scenario.cipher_tools))
@@ -113,7 +144,7 @@ export function startScenario(
   };
   const enterMessage = messageTemplate(phaseData(scenario, initialPhase).enter_message);
   return {
-    state: presentGameState(scenario, state),
+    state: presentGameState(scenario, state, actor, now),
     messages: Object.keys(enterMessage).length
       ? [{ type: "bot.message", payload: enterMessage }]
       : [],
@@ -126,10 +157,12 @@ export function applyScenarioCommand(
   type: string,
   payload: Record<string, unknown>,
   now: string,
+  actorValue?: RuntimeActor,
 ): ScenarioCommandResult {
-  if (!new Set(["player.message", "phase.hint", "qr.detected", "puzzle.submit", "puzzle.hint"]).has(type)) {
+  const actor = normalizedActor(actorValue);
+  if (!new Set(["player.message", "phase.hint", "qr.detected", "puzzle.submit", "puzzle.hint", "line_game.move", "line_game.reset"]).has(type)) {
     return {
-      state: presentGameState(scenario, currentState),
+      state: presentGameState(scenario, currentState, actor, now),
       messages: [{ type: "command.rejected", payload: { reason: `Příkaz ${type} ještě není v cloudovém enginu podporován.` } }],
     };
   }
@@ -139,11 +172,15 @@ export function applyScenarioCommand(
   history.push({ at: now, type, details: {} });
   state.event_history = history.slice(-500);
 
-  if (type === "player.message") return applyPlayerMessage(scenario, state, payload);
-  if (type === "phase.hint") return applyPhaseHint(scenario, state, payload);
-  if (type === "qr.detected") return applyQrDetected(scenario, state, payload, now);
-  if (type === "puzzle.submit") return applyPuzzleSubmit(scenario, state, payload, now);
-  return applyPuzzleHint(scenario, state, payload);
+  let result: ScenarioCommandResult;
+  if (type === "player.message") result = applyPlayerMessage(scenario, state, payload);
+  else if (type === "phase.hint") result = applyPhaseHint(scenario, state, payload);
+  else if (type === "qr.detected") result = applyQrDetected(scenario, state, payload, now, actor);
+  else if (type === "puzzle.submit") result = applyPuzzleSubmit(scenario, state, payload, now);
+  else if (type === "puzzle.hint") result = applyPuzzleHint(scenario, state, payload);
+  else if (type === "line_game.move") result = applyLineGameMove(scenario, state, payload, now, actor);
+  else result = applyLineGameReset(scenario, state, payload, now, actor);
+  return { ...result, state: presentGameState(scenario, result.state, actor, now) };
 }
 
 function applyPlayerMessage(
@@ -269,6 +306,7 @@ function applyQrDetected(
   state: GameStateDocument,
   payload: Record<string, unknown>,
   now: string,
+  actor: RuntimeActor,
 ): ScenarioCommandResult {
   const value = String(payload.value ?? "").trim();
   const prefix = "escapebot://checkpoint/";
@@ -348,6 +386,12 @@ function applyQrDetected(
   state.unlocked_discoveries = appendUnique(state.unlocked_discoveries, [checkpointId]);
   applyRewards(scenario, state, checkpoint.found_rewards);
   if (status === "solved") applyRewards(scenario, state, checkpoint.rewards);
+  if (puzzleId && puzzleAdapter(scenario, record(record(scenario.puzzles)[puzzleId])) === "line_game") {
+    const puzzle = record(record(scenario.puzzles)[puzzleId]);
+    for (const participantId of actor.participantIds.length ? actor.participantIds : [actor.clientId]) {
+      ensureLineGame(state, puzzleId, record(puzzle.game), { ...actor, clientId: participantId }, now);
+    }
+  }
 
   const configuredMessage = checkpoint.message ?? record(scenario.global_events).qr_detected;
   const messages: RuntimeMessage[] = [
@@ -507,11 +551,249 @@ function applyPuzzleHint(
   return { state: presentGameState(scenario, state), messages };
 }
 
+function ensureLineGame(
+  state: GameStateDocument,
+  puzzleId: string,
+  config: Record<string, any>,
+  actorValue: RuntimeActor,
+  now: string,
+): LineGameState {
+  const actor = normalizedActor(actorValue);
+  state.interactive_games = record(state.interactive_games);
+  let container = state.interactive_games[puzzleId];
+  if (actor.teamMode === "solo" && actor.participantIds.length === 1) {
+    if (record(container).players) container = record(record(container).players)[actor.clientId];
+    if (!validLineGame(container)) container = newLineGame(config, now);
+    state.interactive_games[puzzleId] = container;
+    return container as LineGameState;
+  }
+  if (validLineGame(container)) container = { players: { [actor.clientId]: container } };
+  if (!container || typeof container !== "object" || Array.isArray(container) || !record(container).players) {
+    container = { players: {} };
+  }
+  state.interactive_games[puzzleId] = container;
+  const players = record(container.players);
+  if (!validLineGame(players[actor.clientId])) players[actor.clientId] = newLineGame(config, now);
+  container.players = players;
+  return players[actor.clientId] as LineGameState;
+}
+
+function validLineGame(value: unknown): value is LineGameState {
+  const game = record(value);
+  return Array.isArray(game.board) && Boolean(game.deadline_at) && typeof game.progress === "object";
+}
+
+function lineGameConditions(config: Record<string, any>, game: Record<string, any>): string[] {
+  return Object.entries(record(config.objectives))
+    .filter(([length, required]) => Number(record(game.progress)[length] || 0) >= Number(required))
+    .map(([length]) => length)
+    .sort();
+}
+
+function lineGamePlayers(state: GameStateDocument, puzzleId: string, actor: RuntimeActor): Record<string, any> {
+  const container = record(record(state.interactive_games)[puzzleId]);
+  if (actor.teamMode === "solo" && actor.participantIds.length === 1 && validLineGame(container)) {
+    return { [actor.clientId]: container };
+  }
+  return record(container.players);
+}
+
+function lineGameTeamProgress(
+  state: GameStateDocument,
+  puzzleId: string,
+  config: Record<string, any>,
+  actorValue: RuntimeActor,
+): Record<string, unknown> {
+  const actor = normalizedActor(actorValue);
+  const players = lineGamePlayers(state, puzzleId, actor);
+  const excluded = new Set(
+    Array.isArray(record(state.game_exclusions)[puzzleId])
+      ? record(state.game_exclusions)[puzzleId].map(String)
+      : [],
+  );
+  const covered = new Set<string>();
+  const results = record(record(state.game_results)[puzzleId]);
+  const participantIds = actor.participantIds.length ? actor.participantIds : [actor.clientId];
+  const summaries = participantIds.map((playerId) => {
+    const game = record(players[playerId]);
+    const conditions = lineGameConditions(config, game);
+    if (!excluded.has(playerId)) conditions.forEach((condition) => covered.add(condition));
+    return {
+      id: playerId,
+      name: actor.participantNames[playerId] || "Hráč",
+      status: excluded.has(playerId) ? "excluded" : game.status === "complete" ? "complete" : "playing",
+      conditions,
+      result: results[playerId],
+    };
+  });
+  const requiredPlayers = participantIds.filter((playerId) => !excluded.has(playerId));
+  const everyoneComplete = requiredPlayers.length > 0 && requiredPlayers.every(
+    (playerId) => record(players[playerId]).status === "complete",
+  );
+  const teamComplete = everyoneComplete && (
+    actor.teamMode === "solo" || covered.size >= 3 || excluded.size > 0
+  );
+  const allConditions = Object.keys(record(config.objectives)).sort();
+  const missing = allConditions.filter((condition) => !covered.has(condition));
+  return {
+    players: summaries,
+    covered_conditions: [...covered].sort(),
+    missing_conditions: missing,
+    recommendation: missing.length === 1 ? missing[0] : null,
+    team_complete: teamComplete,
+  };
+}
+
+function activeLineGame(
+  scenario: ScenarioDocument,
+  state: GameStateDocument,
+  puzzleId: string,
+  actor: RuntimeActor,
+  now: string,
+): { puzzle: Record<string, any>; checkpoint: Record<string, any>; game: LineGameState } {
+  const puzzle = record(record(scenario.puzzles)[puzzleId]);
+  if (!Object.keys(puzzle).length || puzzleAdapter(scenario, puzzle) !== "line_game") {
+    throw new Error("Neznámá interaktivní úloha.");
+  }
+  const checkpointId = String(puzzle.checkpoint_id || "");
+  const checkpoint = record(record(state.checkpoint_states)[checkpointId]);
+  if (!Object.keys(checkpoint).length) throw new Error("Interaktivní úloha zatím nebyla nalezena.");
+  if (checkpoint.status === "solved") throw new Error("Interaktivní úloha už byla dokončena.");
+  return { puzzle, checkpoint, game: ensureLineGame(state, puzzleId, record(puzzle.game), actor, now) };
+}
+
+function applyLineGameMove(
+  scenario: ScenarioDocument,
+  state: GameStateDocument,
+  payload: Record<string, unknown>,
+  now: string,
+  actor: RuntimeActor,
+): ScenarioCommandResult {
+  const puzzleId = String(payload.puzzle_id ?? "").trim();
+  if ((Array.isArray(record(state.game_exclusions)[puzzleId])
+    ? record(state.game_exclusions)[puzzleId].map(String)
+    : []).includes(actor.clientId)) {
+    return {
+      state,
+      messages: [{ type: "line_game.result", payload: { success: false, reason: "Game Master vás z této týmové minihry dočasně vyřadil." } }],
+    };
+  }
+  try {
+    const { puzzle, checkpoint, game } = activeLineGame(scenario, state, puzzleId, actor, now);
+    const first = payload.first;
+    const second = payload.second;
+    if (!Array.isArray(first) || !Array.isArray(second) || first.length !== 2 || second.length !== 2) {
+      throw new Error("Tah musí obsahovat dvě souřadnice.");
+    }
+    const coordinates = [...first, ...second].map(Number);
+    if (!coordinates.every(Number.isInteger)) throw new Error("Tah musí obsahovat dvě souřadnice.");
+    const result = swapLineGame(
+      record(puzzle.game),
+      game,
+      [coordinates[0], coordinates[1]],
+      [coordinates[2], coordinates[3]],
+      now,
+    );
+    let teamProgress = lineGameTeamProgress(state, puzzleId, record(puzzle.game), actor);
+    const resultPayload: Record<string, unknown> = {
+      success: true,
+      ...result,
+      team_complete: Boolean(teamProgress.team_complete),
+    };
+    const messages: RuntimeMessage[] = [{ type: "line_game.result", payload: resultPayload }];
+    if (result.game_complete) {
+      state.game_results = record(state.game_results);
+      const results = record(state.game_results[puzzleId]);
+      state.game_results[puzzleId] = results;
+      if (!Object.hasOwn(results, actor.clientId)) {
+        const elapsed = Math.max(0, Math.floor((Date.parse(now) - Date.parse(String(game.started_at))) / 1000));
+        results[actor.clientId] = {
+          elapsed_seconds: elapsed,
+          score_delta: result.score_delta,
+          conditions: lineGameConditions(record(puzzle.game), game),
+        };
+        state.score = Number(state.score || 0) + result.score_delta;
+        messages.push({
+          type: "score.update",
+          payload: {
+            score: state.score,
+            delta: result.score_delta,
+            bonus: Math.max(0, result.score_delta),
+            penalty: Math.max(0, -result.score_delta),
+            reason: "line_game_individual",
+          },
+        });
+      }
+      teamProgress = lineGameTeamProgress(state, puzzleId, record(puzzle.game), actor);
+      resultPayload.team_complete = Boolean(teamProgress.team_complete);
+    }
+    if (teamProgress.team_complete) {
+      checkpoint.status = "solved";
+      checkpoint.solved_at = now;
+      applyRewards(scenario, state, record(record(scenario.checkpoints)[String(puzzle.checkpoint_id || "")]).rewards);
+      const scoreDelta = actor.teamMode === "team" ? Number(record(puzzle.game).team_completion_bonus ?? 40) : 0;
+      state.score = Number(state.score || 0) + scoreDelta;
+      messages.push({
+        type: "score.update",
+        payload: {
+          score: state.score,
+          delta: scoreDelta,
+          bonus: Math.max(0, scoreDelta),
+          penalty: Math.max(0, -scoreDelta),
+          reason: "line_game_team",
+        },
+      });
+      resultPayload.team_summary = teamProgress;
+      messages.push(
+        { type: "puzzle.result", payload: { correct: true, puzzle_id: puzzleId } },
+        { type: "bot.message", payload: messageTemplate(puzzle.success_message) },
+      );
+      const navigation = record(record(scenario.checkpoints)[String(puzzle.checkpoint_id || "")]).navigation_message;
+      if (navigation) messages.push({ type: "bot.message", payload: messageTemplate(navigation) });
+    }
+    return { state, messages };
+  } catch (error) {
+    return {
+      state,
+      messages: [{
+        type: "line_game.result",
+        payload: { success: false, reason: error instanceof Error ? error.message : "Tah se nepodařilo provést." },
+      }],
+    };
+  }
+}
+
+function applyLineGameReset(
+  scenario: ScenarioDocument,
+  state: GameStateDocument,
+  payload: Record<string, unknown>,
+  now: string,
+  actor: RuntimeActor,
+): ScenarioCommandResult {
+  const puzzleId = String(payload.puzzle_id ?? "").trim();
+  try {
+    const { puzzle, game } = activeLineGame(scenario, state, puzzleId, actor, now);
+    resetLineGame(record(puzzle.game), game, now);
+    return { state, messages: [{ type: "line_game.result", payload: { success: true, reset: true } }] };
+  } catch (error) {
+    return {
+      state,
+      messages: [{
+        type: "line_game.result",
+        payload: { success: false, reason: error instanceof Error ? error.message : "Hru se nepodařilo obnovit." },
+      }],
+    };
+  }
+}
+
 export function presentGameState(
   scenario: ScenarioDocument,
   stateValue: GameStateDocument,
+  actorValue?: RuntimeActor,
+  now = new Date().toISOString(),
 ): GameStateDocument {
   const state = clone(stateValue);
+  const actor = normalizedActor(actorValue);
   const currentPhase = String(state.phase || "boot");
   const hints = Array.isArray(phaseData(scenario, currentPhase).hints)
     ? phaseData(scenario, currentPhase).hints
@@ -534,7 +816,7 @@ export function presentGameState(
     const puzzle = record(definition);
     const checkpointState = record(record(state.checkpoint_states)[String(puzzle.checkpoint_id || "")]);
     const puzzleHints = Array.isArray(puzzle.hints) ? puzzle.hints : [];
-    return {
+    const presented: Record<string, unknown> = {
       id: puzzleId,
       title: String(puzzle.title || puzzleId),
       type: String(puzzle.type || "text"),
@@ -545,6 +827,16 @@ export function presentGameState(
       hints_unlocked: Math.min(Number(record(state.hints_used)[`puzzle.${puzzleId}`] || 0), puzzleHints.length),
       hint_costs: puzzleHints.map((hint: unknown) => Number(record(hint).penalty || 10)),
     };
+    if (
+      actorValue &&
+      puzzleAdapter(scenario, puzzle) === "line_game" &&
+      (checkpointState.status === "found" || checkpointState.status === "solved")
+    ) {
+      const game = ensureLineGame(state, puzzleId, record(puzzle.game), actor, now);
+      presented.game = publicLineGame(record(puzzle.game), game, now);
+      presented.team_progress = lineGameTeamProgress(state, puzzleId, record(puzzle.game), actor);
+    }
+    return presented;
   });
   return state;
 }

@@ -142,15 +142,17 @@ Akceptace:
 
 **Odhad: 8–12 pracovních dnů**
 
-**Stav: třetí vertikální část lokálně implementována.** Bootstrap načte katalog
+**Stav: čtvrtá vertikální část lokálně implementována.** Bootstrap načte katalog
 ze stejných realizací jako současný backend, založí sólo nebo týmovou lobby,
 vyřeší osmimístný join kód a přesměruje klienta do konkrétního `GameSession`.
 Build skládá skutečné runtime scénáře z šablon a realizací. Lobby, seznam
 hráčů, chat, spuštění, základní skóre za velikost týmu, textový úvod scénáře,
 fázové nápovědy, sekvenční QR checkpointy, textové rébusy, jejich nápovědy,
 omezený idempotency journal a úplná čtveřice resume zpráv přežijí evikci.
-Interaktivní minihry, alarmy produkčních deadlineů, vyřazení hráče a terminály
-ještě nejsou přeneseny.
+Kalibrační `line_game` navíc ukládá oddělenou mřížku každého hráče, sdílený
+týmový postup, časové skóre a pravoúhle lomené řady; resume každému zařízení
+vrací jeho vlastní mřížku. Ostatní interaktivní minihry, alarmy produkčních
+deadlineů, vyřazení hráče a terminály ještě nejsou přeneseny.
 
 1. Směrovat spojení deterministicky podle `session_id`.
 2. Přesunout lobby, hráče, chat, herní snapshot, terminálové rezervace a

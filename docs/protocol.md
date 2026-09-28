@@ -44,10 +44,12 @@ Každý `lobby.resume` rozehrané relace vrací úplný autoritativní snapshot:
 
 Cloudflare adaptér zatím obsluhuje z herních příkazů `player.message`,
 `phase.hint`, `qr.detected`, `puzzle.submit` pro rébusy s textovou odpovědí a
-`puzzle.hint`. Před potvrzením uloží nový stav, chat i omezenou účtenku podle
-`operation_id`. Opakované doručení vrátí uložené odpovědi pouze původnímu
-odesílateli a týmový chat ani herní efekt znovu nerozešle. Interaktivní minihry
-mají vlastní příkazy a v Cloudflare adaptéru zatím podporované nejsou.
+`puzzle.hint`; z interaktivních miniher podporuje `line_game.move` a
+`line_game.reset`. Před potvrzením uloží nový stav, chat i omezenou účtenku
+podle `operation_id`. Opakované doručení vrátí uložené odpovědi pouze původnímu
+odesílateli a týmový chat ani herní efekt znovu nerozešle. Výsledek tahu
+`line_game.result` i hráčova mřížka jsou soukromé pro dané zařízení, zatímco
+týmový postup a skóre se sdílejí.
 
 Pro reverzní připojení notebook pošle `lobby.identify` a dostane `lobby.player_identity` s jednorázovým osmimístným kódem. Zobrazí jej jako `escapebot://player/<code>`. Zakladatel kód načte a odešle v `lobby.add_player`; backend čekající WebSocket připojí do stejné lobby. Kód je jednorázový a zařízení se dále chová jako běžný hráč.
 
@@ -296,6 +298,10 @@ Vrátí `correct`, identifikátor hádanky a aktuální počet pokusů. Aktualiz
 ### `line_game.result`
 
 Potvrdí nebo odmítne výměnu či restart. Úspěšná výměna obsahuje `scored`, počet `cascades` a `game_complete`. Při dokončení obsahuje také `score_delta`: před třetí minutou +5 bodů za každých 10 sekund náskoku, po třetí minutě −5 bodů za každých 10 sekund zpoždění. Změna je současně potvrzena zprávou `score.update`. Autoritativní mřížka, deadline, zbývající čas a průběh cílů jsou vždy poslány v následném `game.state` uvnitř příslušné hádanky.
+
+Server posílá `line_game.result` pouze zařízení, které tah zadalo. Každý hráč
+má vlastní perzistentní mřížku; `game.state` ji personalizuje podle `client_id`
+a vedle ní obsahuje sdílený `team_progress` bez odhalení mřížek spoluhráčů.
 
 ### `sokoban.result`
 

@@ -3,7 +3,9 @@ import { describe, expect, it } from "vitest";
 import {
   applyScenarioCommand,
   buildScenarioProgress,
+  presentGameState,
   startScenario,
+  type RuntimeActor,
   type ScenarioDocument,
 } from "../src/scenario-runtime";
 
@@ -63,7 +65,7 @@ describe("deterministic Cloudflare scenario runtime", () => {
     expect(connected.messages).toHaveLength(3);
   });
 
-  it("rejects an unsupported command without changing gameplay state", async () => {
+  it("rejects a line-game move before its checkpoint is found", async () => {
     const scenario = await chronosScenario();
     const started = startScenario(scenario, 0, "2026-09-28T12:00:00.000Z");
     const rejected = applyScenarioCommand(
@@ -74,8 +76,92 @@ describe("deterministic Cloudflare scenario runtime", () => {
       "2026-09-28T12:00:01.000Z",
     );
 
-    expect(rejected.messages[0].type).toBe("command.rejected");
-    expect(rejected.state).toEqual(started.state);
+    expect(rejected.messages[0]).toMatchObject({
+      type: "line_game.result",
+      payload: { success: false, reason: "Interaktivní úloha zatím nebyla nalezena." },
+    });
+    expect(rejected.state.score).toBe(started.state.score);
+  });
+
+  it("persists a solo line game, scores completion and solves its checkpoint", async () => {
+    const scenario = await chronosScenario();
+    const actor: RuntimeActor = {
+      clientId: "alice",
+      participantIds: ["alice"],
+      participantNames: { alice: "Alice" },
+      teamMode: "solo",
+    };
+    let state = startScenario(scenario, 0, "2026-09-28T12:00:00.000Z", actor).state;
+    state.checkpoint_states.timeline_calibration = { status: "found", first_scanned_at: "2026-09-28T12:00:00.000Z" };
+    state = presentGameState(scenario, state, actor, "2026-09-28T12:00:00.000Z");
+    const game = state.interactive_games.timeline_lines;
+    game.progress = { "3": 5, "4": 2, "5": 0 };
+    game.board = Array.from({ length: 7 }, (_, row) =>
+      Array.from({ length: 7 }, (_, column) => (row + column) % 2 ? "green" : "violet"),
+    );
+    game.board[0][0] = game.board[0][1] = game.board[0][3] = game.board[1][2] = "cyan";
+    game.board[0][2] = "violet";
+
+    const completed = applyScenarioCommand(
+      scenario,
+      state,
+      "line_game.move",
+      { puzzle_id: "timeline_lines", first: [0, 2], second: [0, 3] },
+      "2026-09-28T12:00:10.000Z",
+      actor,
+    );
+
+    expect(completed.messages.map((message) => message.type)).toEqual([
+      "line_game.result",
+      "score.update",
+      "score.update",
+      "puzzle.result",
+      "bot.message",
+      "bot.message",
+    ]);
+    expect(completed.messages[0].payload).toMatchObject({ success: true, game_complete: true, team_complete: true });
+    expect(completed.state.checkpoint_states.timeline_calibration.status).toBe("solved");
+    expect(completed.state.flags.timeline_calibrated).toBe(true);
+    expect(completed.state.game_results.timeline_lines.alice).toMatchObject({
+      elapsed_seconds: 10,
+      conditions: ["3", "4"],
+    });
+    expect(completed.state.puzzles).toEqual(expect.arrayContaining([
+      expect.objectContaining({ id: "timeline_lines", status: "solved", game: expect.objectContaining({ status: "complete" }) }),
+    ]));
+  });
+
+  it("presents only the current player's board with shared team progress", async () => {
+    const scenario = await chronosScenario();
+    const baseActor: RuntimeActor = {
+      clientId: "alice",
+      participantIds: ["alice", "bob"],
+      participantNames: { alice: "Alice", bob: "Bob" },
+      teamMode: "team",
+    };
+    let state = startScenario(scenario, 0, "2026-09-28T12:00:00.000Z", baseActor).state;
+    state.checkpoint_states.bowling_diagnostics = { status: "solved" };
+    state = applyScenarioCommand(
+      scenario,
+      state,
+      "qr.detected",
+      { value: `escapebot://checkpoint/${scenario.checkpoints.timeline_calibration.token}` },
+      "2026-09-28T12:00:00.000Z",
+      baseActor,
+    ).state;
+    expect(Object.keys(state.interactive_games.timeline_lines.players).sort()).toEqual(["alice", "bob"]);
+    state.interactive_games.timeline_lines.players.alice.board[0][0] = "alice-only";
+
+    const alice = presentGameState(scenario, state, baseActor, "2026-09-28T12:00:01.000Z");
+    const bob = presentGameState(scenario, state, { ...baseActor, clientId: "bob" }, "2026-09-28T12:00:01.000Z");
+    const alicePuzzle = alice.puzzles.find((puzzle: Record<string, unknown>) => puzzle.id === "timeline_lines");
+    const bobPuzzle = bob.puzzles.find((puzzle: Record<string, unknown>) => puzzle.id === "timeline_lines");
+    expect(alicePuzzle.game.board[0][0]).toBe("alice-only");
+    expect(bobPuzzle.game.board[0][0]).not.toBe("alice-only");
+    expect(alicePuzzle.team_progress.players).toEqual([
+      expect.objectContaining({ id: "alice", name: "Alice" }),
+      expect.objectContaining({ id: "bob", name: "Bob" }),
+    ]);
   });
 
   it("activates and solves the first answer puzzle in checkpoint order", async () => {
