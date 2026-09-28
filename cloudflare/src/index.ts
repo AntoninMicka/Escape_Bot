@@ -165,6 +165,12 @@ function cleanText(value: unknown, maximum: number): string {
   return String(value ?? "").trim().replace(/\s+/g, " ").slice(0, maximum);
 }
 
+function objectRecord(value: unknown): Record<string, any> {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? value as Record<string, any>
+    : {};
+}
+
 function normalizedTeamKey(lobbyType: string, scenarioId: string, teamName: string): string {
   return `${lobbyType}\u0000${scenarioId}\u0000${teamName.normalize("NFKC").toLocaleLowerCase("cs-CZ")}`;
 }
@@ -228,6 +234,18 @@ export class GameSession extends DurableObject<Env> {
 
   async fetch(request: Request): Promise<Response> {
     const url = new URL(request.url);
+    if (url.pathname === "/internal/admin/overview" && request.method === "GET") {
+      if (request.headers.get("X-EscapeBot-Internal-Admin") !== "1") {
+        return json({ error: "not_found" }, 404);
+      }
+      return this.adminOverview();
+    }
+    if (url.pathname === "/internal/admin/snapshot" && request.method === "GET") {
+      if (request.headers.get("X-EscapeBot-Internal-Admin") !== "1") {
+        return json({ error: "not_found" }, 404);
+      }
+      return this.adminSessionSnapshot();
+    }
     if (url.pathname === "/internal/admin/game-player" && request.method === "POST") {
       if (request.headers.get("X-EscapeBot-Internal-Admin") !== "1") {
         return json({ error: "not_found" }, 404);
@@ -671,6 +689,139 @@ export class GameSession extends DurableObject<Env> {
     } catch (error) {
       return json({ error: error instanceof Error ? error.message : "Hráče se nepodařilo vyřadit." }, 400);
     }
+  }
+
+  private async adminOverview(): Promise<Response> {
+    const directory = (await this.ctx.storage.get<DirectorySnapshot>(DIRECTORY_KEY)) ?? defaultDirectory();
+    const sessionIds = [...new Set([
+      ...Object.values(directory.teamKeys),
+      ...Object.values(directory.creatorKeys),
+      ...Object.values(directory.joinCodes),
+    ])].filter((sessionId) => SESSION_ID_PATTERN.test(sessionId));
+    const snapshots = await Promise.all(sessionIds.map(async (sessionId) => {
+      try {
+        const response = await this.runtimeEnv.GAME_SESSIONS.getByName(sessionId).fetch(
+          "https://internal/internal/admin/snapshot",
+          { headers: { "X-EscapeBot-Internal-Admin": "1" } },
+        );
+        return response.ok ? await response.json<Record<string, unknown>>() : null;
+      } catch {
+        return null;
+      }
+    }));
+    const teams = snapshots
+      .filter((snapshot): snapshot is Record<string, unknown> => snapshot !== null)
+      .sort((left, right) => String(left.team_name || "").localeCompare(String(right.team_name || ""), "cs"));
+    return json({
+      cloudflare_limited: true,
+      teams,
+      leaderboard: [],
+      resolution_presets: {},
+      scenario_catalog: [],
+      scenario_errors: [],
+      display_status: { online: false, mode: "cloudflare", screen: "not_migrated", fullscreen: false, wake_lock: false },
+    });
+  }
+
+  private adminSessionSnapshot(): Response {
+    if (!this.snapshot.lobby.creatorId) return json({ error: "session_not_found" }, 404);
+    const state = this.snapshot.gameState;
+    const flags = objectRecord(state.flags);
+    const connected = this.connectedClientIds();
+    const players = Object.values(this.snapshot.lobby.players);
+    const playerIds = players.map((player) => player.id);
+    const exclusions = objectRecord(state.game_exclusions);
+    const results = objectRecord(state.game_results);
+    const lineGames = objectRecord(state.interactive_games);
+    const triadGames = objectRecord(state.triad_games);
+    const now = Date.now();
+    const lastActivity = String(state.last_activity_at || this.snapshot.updatedAt || "");
+    const lastActivityAt = Date.parse(lastActivity);
+    const inactiveSeconds = Number.isFinite(lastActivityAt)
+      ? Math.max(0, Math.floor((now - lastActivityAt) / 1000))
+      : 0;
+    const gameCompleted = Boolean(flags.game_completed);
+    const administrativelyEnded = Boolean(flags.administratively_ended);
+    const activityStatus = !this.snapshot.lobby.started || gameCompleted || administrativelyEnded
+      ? "active"
+      : inactiveSeconds >= 3600 ? "abandoned" : inactiveSeconds >= 1800 ? "suspicious" : "active";
+    const progress = objectRecord(this.snapshot.scenarioProgress);
+    const nodes = Array.isArray(progress.nodes) ? progress.nodes : [];
+    const playerGameMetrics = (
+      stores: Record<string, any>,
+      gameType: "line" | "triad",
+    ): Record<string, unknown>[] => Object.entries(stores).flatMap(([gameId, containerValue]) => {
+      const container = objectRecord(containerValue);
+      const storedPlayers = objectRecord(container.players);
+      return playerIds.map((playerId, playerIndex) => {
+        const game = objectRecord(Object.keys(storedPlayers).length
+          ? storedPlayers[playerId]
+          : playerIndex === 0 ? container : {});
+        const common = {
+          id: gameId,
+          player_id: playerId,
+          player_name: this.snapshot.lobby.players[playerId]?.name || "Hráč",
+          connected: connected.has(playerId),
+          excluded: Array.isArray(exclusions[gameId]) && exclusions[gameId].map(String).includes(playerId),
+          status: String(game.status || "not_started"),
+          result: objectRecord(results[gameId])[playerId] ?? null,
+        };
+        return gameType === "line"
+          ? { ...common, swaps: Number(game.swaps || 0), progress: objectRecord(game.progress) }
+          : {
+            ...common,
+            placements: Number(game.placements || 0),
+            completed_orientations: Array.isArray(game.completed_orientations) ? game.completed_orientations : [],
+          };
+      });
+    });
+    const timeline = [
+      ...(Array.isArray(state.event_history) ? state.event_history : []),
+      ...Object.entries(objectRecord(state.checkpoint_states)).flatMap(([checkpointId, checkpointValue]) => {
+        const checkpoint = objectRecord(checkpointValue);
+        const events: Record<string, unknown>[] = [];
+        if (checkpoint.first_scanned_at || checkpoint.found_at) {
+          events.push({ at: checkpoint.first_scanned_at || checkpoint.found_at, type: "checkpoint_found", label: checkpointId });
+        }
+        if (checkpoint.solved_at) events.push({ at: checkpoint.solved_at, type: "checkpoint_solved", label: checkpointId });
+        return events;
+      }),
+    ].sort((left, right) => String(objectRecord(right).at || "").localeCompare(String(objectRecord(left).at || "")));
+    return json({
+      ...this.lobbyPayload(""),
+      score: Number(state.score || 0),
+      phase: String(state.phase || "lobby"),
+      completed_nodes: nodes.filter((node) => objectRecord(node).status === "complete").length,
+      total_nodes: nodes.length,
+      progress,
+      admin_penalties: Array.isArray(flags.admin_penalties) ? flags.admin_penalties : [],
+      admin_score_adjustments: Array.isArray(flags.admin_score_adjustments) ? flags.admin_score_adjustments : [],
+      last_activity: lastActivity,
+      inactive_seconds: inactiveSeconds,
+      activity_status: activityStatus,
+      game_completed: gameCompleted,
+      administratively_ended: administrativelyEnded,
+      out_of_competition: Boolean(flags.out_of_competition),
+      end_reason: String(flags.administratively_ended_reason || (gameCompleted ? "completed" : "")),
+      administratively_evaluated: Boolean(flags.administratively_evaluated),
+      terminal_online: false,
+      terminal_assignment: "",
+      terminal_options: [],
+      timeline,
+      hints_used: objectRecord(state.hints_used),
+      puzzle_attempts: objectRecord(state.puzzle_attempts),
+      puzzle_telemetry: [],
+      recent_messages: this.snapshot.chatHistory.slice(-8),
+      support_chat: this.snapshot.chatHistory.filter((item) => item.channel === "support"),
+      admin_support_joined: false,
+      game_metrics: {
+        line: playerGameMetrics(lineGames, "line"),
+        karel: [],
+        sokoban: [],
+        triad: playerGameMetrics(triadGames, "triad"),
+        archive: [],
+      },
+    });
   }
 
   private async resumeLobby(
@@ -1215,6 +1366,14 @@ export default {
     const url = new URL(request.url);
     if (url.pathname === "/api/health") {
       return json({ status: "ok", runtime: "cloudflare", environment: env.APP_ENV });
+    }
+    if (url.pathname === "/api/admin/overview" && request.method === "GET") {
+      const unauthorized = await authorizeAdmin(request, env);
+      if (unauthorized) return unauthorized;
+      return env.GAME_SESSIONS.getByName(DIRECTORY_OBJECT_NAME).fetch(
+        "https://internal/internal/admin/overview",
+        { headers: { "X-EscapeBot-Internal-Admin": "1" } },
+      );
     }
     if (url.pathname === "/api/admin/game-player" && request.method === "POST") {
       const unauthorized = await authorizeAdmin(request, env);

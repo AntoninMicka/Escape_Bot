@@ -874,7 +874,7 @@
     <section id="admin-overlay" class="admin-overlay hidden" aria-label="Administrace hry">
         <h1>[ ADMINISTRACE CHRONOTERMINÁLU ]</h1>
         <div class="admin-toolbar">
-            <input id="admin-token" type="password" placeholder="Administrátorské heslo" autocomplete="current-password">
+            <input id="admin-token" type="password" placeholder="Administrátorské heslo" autocomplete="current-password" onkeypress="if(event.key === 'Enter') loadAdminOverview()">
             <button id="admin-token-visibility" type="button" onclick="toggleAdminTokenVisibility()" aria-controls="admin-token" aria-pressed="false">ZOBRAZIT HESLO</button>
             <button onclick="loadAdminOverview()">NAČÍST / OBNOVIT</button>
             <button type="button" onclick="showAdminAccessQr()">QR PRO ADMINISTRACI</button>
@@ -1931,7 +1931,35 @@
             ws.send(JSON.stringify({type, payload:{admin_token:token, ...payload}}));
         }
 
-        function loadAdminOverview() { sendAdmin('admin.list'); }
+        async function loadAdminOverview() {
+            const token = adminToken();
+            if (!token) {
+                document.getElementById('admin-status').textContent = 'Zadejte administrátorské heslo.';
+                document.getElementById('admin-token').focus();
+                return;
+            }
+            sessionStorage.setItem('escapeBotAdminToken', token);
+            document.getElementById('admin-status').textContent = 'Načítám týmy…';
+            try {
+                const response = await fetch('/api/admin/overview', {
+                    headers: {Authorization:`Bearer ${token}`},
+                    cache: 'no-store',
+                });
+                if (response.status === 404) {
+                    sendAdmin('admin.list');
+                    return;
+                }
+                const payload = await response.json().catch(() => ({}));
+                if (!response.ok) {
+                    const messages = {unauthorized:'Neplatné administrátorské heslo.',admin_disabled:'Administrace není na tomto prostředí povolena.'};
+                    throw new Error(messages[payload.error] || payload.error || 'Týmy se nepodařilo načíst.');
+                }
+                renderAdminOverview(payload);
+            } catch (error) {
+                document.getElementById('admin-status').textContent = error.message || 'Týmy se nepodařilo načíst.';
+                showNotification(error.message || 'Týmy se nepodařilo načíst.', 'error');
+            }
+        }
         function createManagedTeam() {
             const input = document.getElementById('admin-new-team-name');
             const teamName = input.value.trim();
@@ -2387,9 +2415,25 @@
             sendAdmin('admin.game_reset', {session_id:sessionId, puzzle_id:puzzleId});
         }
 
-        function manageAdminGamePlayer(sessionId, puzzleId, playerId, action) {
+        async function manageAdminGamePlayer(sessionId, puzzleId, playerId, action) {
             const verbs = {exclude:'vyřadit z minihry', include:'vrátit do minihry', reset:'restartovat jeho vlastní desku'};
             if (!window.confirm(`Opravdu ${verbs[action] || action} tohoto hráče?`)) return;
+            if (latestAdminPayload?.cloudflare_limited) {
+                try {
+                    const response = await fetch('/api/admin/game-player', {
+                        method: 'POST',
+                        headers: {'Content-Type':'application/json',Authorization:`Bearer ${adminToken()}`},
+                        body: JSON.stringify({session_id:sessionId,puzzle_id:puzzleId,player_id:playerId,action}),
+                    });
+                    const result = await response.json().catch(() => ({}));
+                    if (!response.ok) throw new Error(result.error || 'Hráče se nepodařilo vyřadit.');
+                    showNotification(result.changed === false ? 'Hráč už byl vyřazen.' : 'Hráč byl vyřazen z minihry.', 'success');
+                    await loadAdminOverview();
+                } catch (error) {
+                    showNotification(error.message || 'Hráče se nepodařilo vyřadit.', 'error');
+                }
+                return;
+            }
             sendAdmin('admin.game_player', {session_id:sessionId, puzzle_id:puzzleId, player_id:playerId, action});
         }
         function evaluateAdminTeam(sessionId) {
@@ -2564,7 +2608,8 @@
             const suspicious = teams.filter(team => team.activity_status === 'suspicious').length;
             const abandoned = teams.filter(team => team.activity_status === 'abandoned').length;
             const onlinePlayers = teams.reduce((sum, team) => sum + Number(team.online_count || 0), 0);
-            document.getElementById('admin-status').textContent = `Zobrazeno: ${teams.length}/${allTeams.length} týmů · aktualizováno ${new Date().toLocaleTimeString('cs-CZ')}`;
+            const cloudflareLimited = Boolean(latestAdminPayload.cloudflare_limited);
+            document.getElementById('admin-status').textContent = `${cloudflareLimited ? 'Cloudflare · omezená správa · ' : ''}Zobrazeno: ${teams.length}/${allTeams.length} týmů · aktualizováno ${new Date().toLocaleTimeString('cs-CZ')}`;
             document.getElementById('admin-summary').innerHTML = `<div>VYFILTROVÁNO<br><strong>${teams.length}/${allTeams.length}</strong></div><div>HRÁČI ONLINE<br><strong>${onlinePlayers}</strong></div><div>PODEZŘELÉ<br><strong>${suspicious}</strong></div><div>OPUŠTĚNÉ<br><strong>${abandoned}</strong></div>`;
             renderAdminLeaderboard(latestAdminPayload.leaderboard || []);
             updateAdminChatNotifications(allTeams);
@@ -2583,7 +2628,7 @@
                 const complete = Number(team.completed_nodes || 0);
                 const total = Number(team.total_nodes || 0);
                 const percent = total ? Math.round(complete * 100 / total) : 0;
-                const players = (team.players || []).map(player => `<span>${player.connected ? '●' : '○'} ${escapeHtml(player.name)} <button onclick="requestPlayerRecovery('${team.session_id}','${player.id}')">NÁVRATOVÝ QR</button></span>`).join('<br>');
+                const players = (team.players || []).map(player => `<span>${player.connected ? '●' : '○'} ${escapeHtml(player.name)}${cloudflareLimited ? '' : ` <button onclick="requestPlayerRecovery('${team.session_id}','${player.id}')">NÁVRATOVÝ QR</button>`}</span>`).join('<br>');
                 const activeNodes = ((team.progress || {}).nodes || []).filter(node => node.status === 'active' || node.status === 'available').map(node => escapeHtml(node.label)).join(', ') || '—';
                 const adjustments = (team.admin_score_adjustments || []).map(item => `${Number(item.delta) >= 0 ? '+' : ''}${Number(item.delta)}: ${escapeHtml(item.reason)}`).join('<br>');
                 const penalties = adjustments || (team.admin_penalties || []).map(item => `−${Number(item.amount)}: ${escapeHtml(item.reason)}`).join('<br>') || 'žádné';
@@ -2594,18 +2639,18 @@
                     const canSolve = isCheckpoint && node.status !== 'complete';
                     const restartable = node.status === 'active' && ['line_game', 'mine_karel', 'triad', 'sokoban'].includes(node.puzzle_type);
                     const presetOptions = Object.entries(resolutionPresets).map(([id, preset]) => `<option value="${escapeHtml(id)}">${escapeHtml(preset.label)} (${Number(preset.penalty) ? `−${Number(preset.penalty)} b` : '0 b'})</option>`).join('');
-                    const actions = !isCheckpoint ? '' : `<div class="admin-node-actions">${canFind ? `<button onclick="setAdminCheckpoint('${team.session_id}','${node.id}','found')">POTVRDIT NÁLEZ</button>` : ''}${restartable ? `<button onclick="resetAdminGame('${team.session_id}','${node.puzzle_id}')">RESTART MINIHRY</button>` : ''}${canSolve ? `<select id="admin-resolution-${team.session_id}-${node.id}">${presetOptions}</select><button class="danger" onclick="resolveAdminCheckpoint('${team.session_id}','${node.id}')">DOKONČIT PODLE VOLBY</button>` : ''}</div>`;
+                    const actions = cloudflareLimited || !isCheckpoint ? '' : `<div class="admin-node-actions">${canFind ? `<button onclick="setAdminCheckpoint('${team.session_id}','${node.id}','found')">POTVRDIT NÁLEZ</button>` : ''}${restartable ? `<button onclick="resetAdminGame('${team.session_id}','${node.puzzle_id}')">RESTART MINIHRY</button>` : ''}${canSolve ? `<select id="admin-resolution-${team.session_id}-${node.id}">${presetOptions}</select><button class="danger" onclick="resolveAdminCheckpoint('${team.session_id}','${node.id}')">DOKONČIT PODLE VOLBY</button>` : ''}</div>`;
                     const solutionId = `admin-solution-${team.session_id}-${node.id}`;
                     const solution = node.solution ? `<div><strong>SPRÁVNÉ ŘEŠENÍ:</strong> <span id="${solutionId}">${escapeHtml(node.solution)}</span> <button class="icon-action" type="button" onclick="copyAdminSolution('${solutionId}')" title="Kopírovat řešení" aria-label="Kopírovat řešení">📋</button></div>` : '';
                     return `<li>${node.status === 'complete' ? '✓' : (node.status === 'active' ? '▶' : (node.status === 'available' ? '○' : '·'))} ${escapeHtml(node.label)} <small>[${escapeHtml(node.status)}]</small>${solution}</li>${actions}`;
                 }).join('');
-                const terminalPanel = `<div class="terminal-handoff"><strong>${team.terminal_online ? '● TERMINÁL ONLINE' : '○ TERMINÁL NEPŘIPOJEN'}</strong><p>Rezervace a přidělení se spravují v záložce TERMINÁLY.</p></div>`;
+                const terminalPanel = cloudflareLimited ? '' : `<div class="terminal-handoff"><strong>${team.terminal_online ? '● TERMINÁL ONLINE' : '○ TERMINÁL NEPŘIPOJEN'}</strong><p>Rezervace a přidělení se spravují v záložce TERMINÁLY.</p></div>`;
                 const hints = Object.entries(team.hints_used || {}).map(([id, count]) => `${escapeHtml(id)}: ${Number(count)}`).join(', ') || 'žádné';
                 const attempts = Object.entries(team.puzzle_attempts || {}).map(([id, count]) => `${escapeHtml(id)}: ${Number(count)}`).join(', ') || 'žádné';
-                const lineGame = ((team.game_metrics || {}).line || []).map(game => `Kalibrace · <strong>${escapeHtml(game.player_name)}</strong> [${game.connected ? 'online' : 'offline'} · ${game.excluded ? 'vyřazen' : escapeHtml(game.status)}]: ${game.swaps} výměn · cíle ${Object.entries(game.progress || {}).map(([length, count]) => `${length}×: ${count}`).join(', ') || 'žádné'}${game.result ? ` · čas ${formatLineGameTime(game.result.elapsed_seconds)} · ${Number(game.result.score_delta) >= 0 ? '+' : ''}${Number(game.result.score_delta)} b` : ''} <button onclick="manageAdminGamePlayer('${team.session_id}','${game.id}','${game.player_id}','reset')">RESTART HRÁČE</button> <button onclick="manageAdminGamePlayer('${team.session_id}','${game.id}','${game.player_id}','${game.excluded ? 'include' : 'exclude'}')">${game.excluded ? 'VRÁTIT' : 'VYŘADIT'}</button>`).join('<br>') || 'Kalibrace dosud neaktivní';
+                const lineGame = ((team.game_metrics || {}).line || []).map(game => `Kalibrace · <strong>${escapeHtml(game.player_name)}</strong> [${game.connected ? 'online' : 'offline'} · ${game.excluded ? 'vyřazen' : escapeHtml(game.status)}]: ${game.swaps} výměn · cíle ${Object.entries(game.progress || {}).map(([length, count]) => `${length}×: ${count}`).join(', ') || 'žádné'}${game.result ? ` · čas ${formatLineGameTime(game.result.elapsed_seconds)} · ${Number(game.result.score_delta) >= 0 ? '+' : ''}${Number(game.result.score_delta)} b` : ''}${cloudflareLimited ? (game.excluded ? ' · obnovit jej může spoluhráč' : ` <button onclick="manageAdminGamePlayer('${team.session_id}','${game.id}','${game.player_id}','exclude')">VYŘADIT</button>`) : ` <button onclick="manageAdminGamePlayer('${team.session_id}','${game.id}','${game.player_id}','reset')">RESTART HRÁČE</button> <button onclick="manageAdminGamePlayer('${team.session_id}','${game.id}','${game.player_id}','${game.excluded ? 'include' : 'exclude'}')">${game.excluded ? 'VRÁTIT' : 'VYŘADIT'}</button>`}`).join('<br>') || 'Kalibrace dosud neaktivní';
                 const karel = ((team.game_metrics || {}).karel || []).map(game => `<strong>Karel ${escapeHtml(game.level)}</strong>: pozice ${escapeHtml((game.player || []).join(','))}, ${game.completed} hotovo, ${game.moves} kroků, ${game.strikes} min, ${game.restarts} restartů${renderAdminMineBoard(game)}<small>Červeně miny, zeleně jedna bezpečná trasa, E = Elara, X = cíl.</small>`).join('<br>') || 'Karel dosud neaktivní';
                 const sokoban = ((team.game_metrics || {}).sokoban || []).map(game => `Sokoban ${escapeHtml(game.level)}: pozice ${escapeHtml((game.player || []).join(','))}, články na cíli ${(game.boxes || []).filter(box => (game.targets || []).some(target => target[0] === box[0] && target[1] === box[1])).length}/${(game.boxes || []).length}, ${game.moves} kroků, ${game.pushes} zatlačení, ${game.restarts} restartů`).join('<br>') || 'Sokoban dosud neaktivní';
-                const triad = ((team.game_metrics || {}).triad || []).map(game => `Tři v řadě · <strong>${escapeHtml(game.player_name)}</strong> [${game.connected ? 'online' : 'offline'} · ${game.excluded ? 'vyřazen' : escapeHtml(game.status)}]: ${game.placements} kamenů · směry ${(game.completed_orientations || []).map(escapeHtml).join(', ') || 'žádné'}${game.result ? ` · čas ${formatLineGameTime(game.result.elapsed_seconds)} · +${Number(game.result.score_delta)} b` : ''} <button onclick="manageAdminGamePlayer('${team.session_id}','${game.id}','${game.player_id}','reset')">RESTART HRÁČE</button> <button onclick="manageAdminGamePlayer('${team.session_id}','${game.id}','${game.player_id}','${game.excluded ? 'include' : 'exclude'}')">${game.excluded ? 'VRÁTIT' : 'VYŘADIT'}</button>`).join('<br>') || 'Tři v řadě dosud neaktivní';
+                const triad = ((team.game_metrics || {}).triad || []).map(game => `Tři v řadě · <strong>${escapeHtml(game.player_name)}</strong> [${game.connected ? 'online' : 'offline'} · ${game.excluded ? 'vyřazen' : escapeHtml(game.status)}]: ${game.placements} kamenů · směry ${(game.completed_orientations || []).map(escapeHtml).join(', ') || 'žádné'}${game.result ? ` · čas ${formatLineGameTime(game.result.elapsed_seconds)} · +${Number(game.result.score_delta)} b` : ''}${cloudflareLimited ? (game.excluded ? ' · obnovit jej může spoluhráč' : ` <button onclick="manageAdminGamePlayer('${team.session_id}','${game.id}','${game.player_id}','exclude')">VYŘADIT</button>`) : ` <button onclick="manageAdminGamePlayer('${team.session_id}','${game.id}','${game.player_id}','reset')">RESTART HRÁČE</button> <button onclick="manageAdminGamePlayer('${team.session_id}','${game.id}','${game.player_id}','${game.excluded ? 'include' : 'exclude'}')">${game.excluded ? 'VRÁTIT' : 'VYŘADIT'}</button>`}`).join('<br>') || 'Tři v řadě dosud neaktivní';
                 const archive = ((team.game_metrics || {}).archive || []).map(game => `Jigsaw stroje času: ${game.assembled ? 'sestaven' : 'rozložen'} · ${game.moves} prohození · pořadí ${(game.order || []).map(escapeHtml).join(' → ')}`).join('<br>') || 'Archiv budoucnosti dosud neaktivní';
                 const eventLabels = {'checkpoint_solved':'checkpoint vyřešen', 'checkpoint_found':'checkpoint nalezen', 'admin_action':'zásah GM', 'admin_penalty':'malus GM', 'admin_score_adjustment':'úprava skóre GM', 'player.message':'zpráva hráče', 'qr.detected':'načten QR', 'arg.verify':'ověření stopy', 'room.unlock':'odemčení místnosti', 'cipher_tool.unlock':'odemčení pomůcky', 'puzzle.submit':'odpověď na hádanku', 'puzzle.hint':'vyžádána nápověda', 'line_game.move':'tah kalibrace', 'line_game.reset':'restart kalibrace', 'sokoban.command':'povel Sokobanu', 'sokoban.undo':'vrácení tahu Sokobanu', 'sokoban.reset':'restart Sokobanu', 'karel.command':'povel Karlovi', 'karel.reset':'restart Karla', 'triad.place':'tah Tři v řadě', 'triad.reset':'restart Tři v řadě', 'finale.activate':'aktivace finále', 'archive.arrange':'pohyb v archivu', 'game.deadline_choice':'volba po limitu', 'team_game.player.restore':'obnova spoluhráče'};
                 const timeline = (team.timeline || []).map(item => {
@@ -2633,17 +2678,17 @@
                     <details class="admin-detail" data-detail="${team.session_id}:progress"><summary>Detail postupu a her</summary><ul class="admin-detail-list">${progressNodes}</ul><p><strong>Inventář:</strong> ${inventory}</p><p><strong>Pomůcky:</strong> ${tools}</p><p><strong>Nápovědy:</strong> ${hints}</p><p><strong>Pokusy:</strong> ${attempts}</p><p>${lineGame}</p><p>${karel}</p><p>${triad}</p><p>${sokoban}</p><p>${archive}</p></details>
                     <details class="admin-detail" data-detail="${team.session_id}:timeline"><summary>Časová osa</summary><ul class="admin-detail-list">${timeline}</ul></details>
                     <details class="admin-detail" data-detail="${team.session_id}:messages"><summary>Poslední zprávy</summary><ul class="admin-detail-list">${recentMessages}</ul></details>
-                    ${!team.game_completed && !team.administratively_ended ? `<div class="admin-actions"><button onclick="extendAdminSession('${team.session_id}',15)">+15 MINUT</button><button onclick="endAdminSession('${team.session_id}','abandoned')">UKONČIT JAKO OPUŠTĚNOU</button><button onclick="endAdminSession('${team.session_id}','technical')">TECHNICKY UKONČIT</button></div><div class="admin-actions"><input id="admin-quick-message-${team.session_id}" maxlength="500" placeholder="Rychlá zpráva týmu…" onkeypress="if(event.key === 'Enter') sendAdminQuickMessage('${team.session_id}')"><button onclick="sendAdminQuickMessage('${team.session_id}')">ODESLAT ZPRÁVU</button></div>` : ''}
-                    ${team.administratively_ended && !team.administratively_evaluated ? `<button onclick="evaluateAdminTeam('${team.session_id}')" style="width:100%;margin-top:10px">VYHODNOTIT A ZAPSAT VÝSLEDEK</button>` : ''}
-                    ${!team.started ? `<div class="admin-actions"><button onclick="startManagedTeam('${team.session_id}',false)" ${size < 1 ? 'disabled title="Nejprve se musí připojit hráč"' : ''}>SPUSTIT HRU</button><button class="danger" onclick="startManagedTeam('${team.session_id}',true)" ${size < 1 ? 'disabled title="Nejprve se musí připojit hráč"' : ''}>SPUSTIT PŘES SOFT LIMIT</button></div>` : ''}
-                    <button onclick="startAdminSpectate('${team.session_id}')" style="width:100%;margin-top:10px">ZOBRAZIT HRU JAKO HRÁČ</button>
+                    ${!cloudflareLimited && !team.game_completed && !team.administratively_ended ? `<div class="admin-actions"><button onclick="extendAdminSession('${team.session_id}',15)">+15 MINUT</button><button onclick="endAdminSession('${team.session_id}','abandoned')">UKONČIT JAKO OPUŠTĚNOU</button><button onclick="endAdminSession('${team.session_id}','technical')">TECHNICKY UKONČIT</button></div><div class="admin-actions"><input id="admin-quick-message-${team.session_id}" maxlength="500" placeholder="Rychlá zpráva týmu…" onkeypress="if(event.key === 'Enter') sendAdminQuickMessage('${team.session_id}')"><button onclick="sendAdminQuickMessage('${team.session_id}')">ODESLAT ZPRÁVU</button></div>` : ''}
+                    ${!cloudflareLimited && team.administratively_ended && !team.administratively_evaluated ? `<button onclick="evaluateAdminTeam('${team.session_id}')" style="width:100%;margin-top:10px">VYHODNOTIT A ZAPSAT VÝSLEDEK</button>` : ''}
+                    ${!cloudflareLimited && !team.started ? `<div class="admin-actions"><button onclick="startManagedTeam('${team.session_id}',false)" ${size < 1 ? 'disabled title="Nejprve se musí připojit hráč"' : ''}>SPUSTIT HRU</button><button class="danger" onclick="startManagedTeam('${team.session_id}',true)" ${size < 1 ? 'disabled title="Nejprve se musí připojit hráč"' : ''}>SPUSTIT PŘES SOFT LIMIT</button></div>` : ''}
+                    ${cloudflareLimited ? '' : `<button onclick="startAdminSpectate('${team.session_id}')" style="width:100%;margin-top:10px">ZOBRAZIT HRU JAKO HRÁČ</button>
                     <div class="admin-actions">
                         <input id="admin-amount-${team.session_id}" type="number" min="1" max="1000" value="30" aria-label="Výše bodové úpravy">
                         <input id="admin-reason-${team.session_id}" maxlength="160" placeholder="Důvod úpravy skóre…">
                         <button onclick="applyAdminScoreAdjustment('${team.session_id}',-1)">− BODY</button>
                         <button onclick="applyAdminScoreAdjustment('${team.session_id}',1)">+ BODY</button>
                     </div>
-                    <button class="admin-delete" onclick="deleteAdminTeam('${team.session_id}')" style="width:100%; margin-top:10px">ODSTRANIT TÝM</button>
+                    <button class="admin-delete" onclick="deleteAdminTeam('${team.session_id}')" style="width:100%; margin-top:10px">ODSTRANIT TÝM</button>`}
                 </article>`;
             }).join('');
             grid.querySelectorAll('details[data-detail]').forEach(detail => { detail.open = openDetails.has(detail.dataset.detail); });

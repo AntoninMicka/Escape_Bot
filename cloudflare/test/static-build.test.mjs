@@ -35,6 +35,8 @@ test("Static Assets build is minimal, fingerprinted and internally complete", as
 
   const index = await readFile(join(outputDir, "index.html"), "utf8");
   assert.doesNotMatch(index, /src="(?:operation-queue|chronos3d)\.js"/);
+  assert.match(index, /fetch\('\/api\/admin\/overview'/);
+  assert.match(index, /Authorization:`Bearer \$\{token\}`/);
   const serviceWorker = await readFile(join(outputDir, "sw.js"), "utf8");
   assert.match(serviceWorker, /const CACHE_NAME = 'escape-bot-[a-f0-9]{12}';/);
   for (const match of serviceWorker.matchAll(/"\.\/([^"?]+)"/g)) {

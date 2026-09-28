@@ -27,6 +27,7 @@ secrety. Názvy prostředí jsou `escape-bot-cf-development`,
 - statický klient na `/`, `/admin`, `/terminal` a `/display`;
 - service worker a fingerprintovaný WebGL build;
 - Worker-first směrování `/api/*` a `/ws`;
+- autentizované načtení týmů do omezeného cloudového admin přehledu;
 - autentizované správcovské vyřazení registrovaného hráče, i když je offline.
 
 Zprávy `spike.*` jsou pouze testovací kontrakt. Nejsou součástí produkčního
@@ -93,14 +94,20 @@ perzistentní: sdílí pořadí a natočení dílků, ale klíč
 a pořadí modulů odhalí až po správném sestavení obrazu; checkpoint dokončí až
 následná správná textová odpověď. `finale.activate` ověřuje úplnou trasu,
 inventář, servisní příznaky, rok, čas a pořadí modulů; při úspěchu uloží konečné
-hodnocení, dokončení hry a rozešle finální efekt. Terminálové rezervace,
-admin overview a další správcovské operace ještě čekají na další části CF-04 a
-CF-05. Samostatné API už dovoluje správci vyřadit registrovaného hráče z aktivní
+hodnocení, dokončení hry a rozešle finální efekt. Cloudový admin po ověření
+tokenu načte z lobby adresáře týmy, jejich hráče, online stav, skóre, postup a
+stav podporovaných týmových miniher. Terminálové rezervace, eventový admin
+overview a další správcovské operace ještě čekají na další části CF-04 a CF-05.
+Samostatné API už dovoluje správci vyřadit registrovaného hráče z aktivní
 `line_game` nebo `triad` i bez jeho WebSocketového připojení. Produkční deadline
 už používá Durable Object alarm: po jednorázovém
 postihu zmrazí soutěžní skóre a tým může hru ukončit nebo pokračovat mimo
 soutěž. Hráči smějí v aktivní týmové minihře pouze obnovit správcem vyřazeného
 spoluhráče; sami nikoho vyřadit nemohou.
+
+Cloudový přehled je záměrně označený jako omezená správa a nezobrazuje tlačítka
+pro dosud nepřenesené zásahy. Úplný víceeventový přehled bude používat
+`EventCoordinator` v CF-05; současné načtení z adresáře lobby je mezikrok CF-04.
 
 Produkční deploy má samostatný explicitní příkaz `npm run deploy:production`.
 Obecný `npm run deploy` záměrně není definován, aby nebylo možné bez výběru

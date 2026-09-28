@@ -220,6 +220,39 @@ describe("Cloudflare spike router", () => {
     await closeSocket(creator, "done");
   });
 
+  it("loads registered teams through the authenticated Cloudflare admin overview", async () => {
+    const bootstrap = await openSocket("https://example.test/ws?client_id=overview-alice");
+    const routePromise = nextMessage(bootstrap, "lobby.route");
+    send(bootstrap, "lobby.create", {
+      client_id: "overview-alice",
+      name: "Alice",
+      team_name: "Admin Overview Team",
+      lobby_type: "online_doom",
+      scenario_id: "chronos_online",
+    });
+    const route = await routePromise;
+
+    const unauthorized = await SELF.fetch("https://example.test/api/admin/overview");
+    expect(unauthorized.status).toBe(401);
+    const response = await SELF.fetch("https://example.test/api/admin/overview", {
+      headers: { Authorization: "Bearer local-test-admin-token" },
+    });
+    expect(response.status).toBe(200);
+    const overview = await response.json<Record<string, any>>();
+    expect(overview.cloudflare_limited).toBe(true);
+    expect(overview.teams).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        session_id: route.payload.session_id,
+        team_name: "Admin Overview Team",
+        registered_players: 1,
+        online_count: 0,
+        started: false,
+        players: [expect.objectContaining({ id: "overview-alice", name: "Alice", connected: false })],
+      }),
+    ]));
+    await closeSocket(bootstrap, "done");
+  });
+
   it("rejects invalid session routing", async () => {
     const response = await SELF.fetch("https://example.test/ws?session_id=x&client_id=phone", {
       headers: { Upgrade: "websocket" },

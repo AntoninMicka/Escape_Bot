@@ -142,7 +142,7 @@ Akceptace:
 
 **Odhad: 8–12 pracovních dnů**
 
-**Stav: jedenáctá vertikální část lokálně implementována.** Bootstrap načte katalog
+**Stav: dvanáctá vertikální část lokálně implementována.** Bootstrap načte katalog
 ze stejných realizací jako současný backend, založí sólo nebo týmovou lobby,
 vyřeší osmimístný join kód a přesměruje klienta do konkrétního `GameSession`.
 Build skládá skutečné runtime scénáře z šablon a realizací. Lobby, seznam
@@ -167,8 +167,10 @@ deadlineů nyní hru pozastaví, jednorázově uplatní postih a zmrazí soutě�
 před volbou ukončení nebo pokračování mimo soutěž. Hráči mohou obnovit správcem
 vyřazeného spoluhráče, ale vyřazení zůstává pouze správcovskou pravomocí.
 Autentizované správcovské API umí vyřadit i registrovaného offline hráče a
-změnu uloží před odpovědí. Admin overview, další správcovské operace a
-terminálové rezervace ještě nejsou přeneseny.
+změnu uloží před odpovědí. Omezený cloudový admin načte týmy z lobby adresáře a
+z jejich Durable Objectů sestaví stav hráčů, skóre, postup a aktivní týmové
+minihry. Eventový admin overview, další správcovské operace a terminálové
+rezervace ještě nejsou přeneseny.
 
 1. Směrovat spojení deterministicky podle `session_id`.
 2. Přesunout lobby, hráče, chat, herní snapshot, terminálové rezervace a

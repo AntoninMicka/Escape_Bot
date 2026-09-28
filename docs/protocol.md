@@ -330,6 +330,18 @@ bezpečné a v odpovědi vrátí `changed: false`. Obnova zůstává hráčským
 `team_game.player.restore`; běžný herní WebSocket nemá správcovskou akci pro
 vyřazení. Kompletní cloudový admin overview je samostatná část CF-05.
 
+### `GET /api/admin/overview` (Cloudflare)
+
+Požadavek s hlavičkou `Authorization: Bearer <ADMIN_TOKEN>` vrátí omezený
+cloudový přehled týmů evidovaných v lobby adresáři. Každý `GameSession` sestaví
+vlastní snapshot registrovaných hráčů, online stavu, skóre, postupu a aktivních
+`line_game`/`triad` desek. Webová stránka `/admin` používá tento endpoint na
+Cloudflare; při běhu proti FastAPI zachová původní zprávu `admin.list`.
+
+Odpověď obsahuje `cloudflare_limited: true`. Klient proto nenabízí akce, které
+ještě nemají cloudový backend; z mutací zobrazuje pouze správcovské vyřazení.
+Globální víceeventový index a úplná administrace patří do CF-05.
+
 ### `arg.verify`
 
 Asks backend to verify a physical discovery.
