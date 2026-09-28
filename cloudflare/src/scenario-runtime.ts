@@ -25,10 +25,60 @@ function clone<T>(value: T): T {
   return structuredClone(value);
 }
 
-function messageTemplate(value: unknown, replacement = ""): Record<string, unknown> {
+function messageTemplate(
+  value: unknown,
+  replacement = "",
+  placeholder = "{text}",
+): Record<string, unknown> {
   const payload = clone(record(value));
-  if (typeof payload.text === "string") payload.text = payload.text.replaceAll("{text}", replacement);
+  if (typeof payload.text === "string") payload.text = payload.text.replaceAll(placeholder, replacement);
   return payload;
+}
+
+function normalizePuzzleAnswer(value: unknown): string {
+  return String(value ?? "")
+    .trim()
+    .toUpperCase()
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^A-Z0-9]/g, "");
+}
+
+function appendUnique(target: unknown, values: unknown): string[] {
+  const result = Array.isArray(target) ? target.map(String) : [];
+  for (const value of Array.isArray(values) ? values : []) {
+    const item = String(value);
+    if (!result.includes(item)) result.push(item);
+  }
+  return result;
+}
+
+function applyRewards(
+  scenario: ScenarioDocument,
+  state: GameStateDocument,
+  rewardsValue: unknown,
+): void {
+  const rewards = record(rewardsValue);
+  state.inventory = appendUnique(state.inventory, rewards.inventory);
+  const knownTools = record(scenario.cipher_tools);
+  const tools = (Array.isArray(rewards.cipher_tools) ? rewards.cipher_tools : [])
+    .map(String)
+    .filter((toolId: string) => Object.hasOwn(knownTools, toolId));
+  state.unlocked_cipher_tools = appendUnique(state.unlocked_cipher_tools, tools);
+  state.flags = record(state.flags);
+  for (const flag of Array.isArray(rewards.flags) ? rewards.flags : []) {
+    state.flags[String(flag)] = true;
+  }
+}
+
+function puzzleUsesAnswerAdapter(scenario: ScenarioDocument, puzzle: Record<string, any>): boolean {
+  const puzzleType = String(puzzle.type || "answer");
+  const declarations = record(scenario.puzzle_components);
+  const declaration = record(declarations[puzzleType]);
+  if (Object.hasOwn(declarations, puzzleType)) {
+    return String(declaration.adapter || puzzleType) === "answer";
+  }
+  return puzzle.answer !== undefined && puzzle.answer !== null;
 }
 
 export function startScenario(
@@ -77,7 +127,7 @@ export function applyScenarioCommand(
   payload: Record<string, unknown>,
   now: string,
 ): ScenarioCommandResult {
-  if (!new Set(["player.message", "phase.hint"]).has(type)) {
+  if (!new Set(["player.message", "phase.hint", "qr.detected", "puzzle.submit", "puzzle.hint"]).has(type)) {
     return {
       state: presentGameState(scenario, currentState),
       messages: [{ type: "command.rejected", payload: { reason: `Příkaz ${type} ještě není v cloudovém enginu podporován.` } }],
@@ -90,7 +140,10 @@ export function applyScenarioCommand(
   state.event_history = history.slice(-500);
 
   if (type === "player.message") return applyPlayerMessage(scenario, state, payload);
-  return applyPhaseHint(scenario, state, payload);
+  if (type === "phase.hint") return applyPhaseHint(scenario, state, payload);
+  if (type === "qr.detected") return applyQrDetected(scenario, state, payload, now);
+  if (type === "puzzle.submit") return applyPuzzleSubmit(scenario, state, payload, now);
+  return applyPuzzleHint(scenario, state, payload);
 }
 
 function applyPlayerMessage(
@@ -158,6 +211,7 @@ function applyPhaseHint(
   payload: Record<string, unknown>,
 ): ScenarioCommandResult {
   const phase = String(state.phase || "");
+  state.hints_used = record(state.hints_used);
   if (String(payload.phase_id || "") !== phase) {
     return {
       state: presentGameState(scenario, state),
@@ -182,10 +236,16 @@ function applyPhaseHint(
   }
   const unlocked = Number(record(state.hints_used)[phase] || 0);
   const requested = Number(payload.hint_index ?? unlocked);
-  if (!Number.isInteger(requested) || requested < 0 || requested >= hints.length || requested > unlocked) {
+  if (!Number.isInteger(requested) || requested < 0 || requested >= hints.length) {
     return {
       state: presentGameState(scenario, state),
       messages: [{ type: "error", payload: { message: "Neplatný stupeň nápovědy." } }],
+    };
+  }
+  if (requested > unlocked) {
+    return {
+      state: presentGameState(scenario, state),
+      messages: [{ type: "error", payload: { message: "Nejprve odemkněte předchozí nápovědu." } }],
     };
   }
   const hint = record(hints[requested]);
@@ -194,6 +254,249 @@ function applyPhaseHint(
   if (isNew) {
     state.score = Number(state.score || 0) - cost;
     state.hints_used[phase] = unlocked + 1;
+  }
+  const messages: RuntimeMessage[] = [];
+  if (isNew) messages.push({ type: "score.update", payload: { score: state.score, penalty: cost } });
+  messages.push({
+    type: "bot.message",
+    payload: { text: `NÁPOVĚDA SYSTÉMU: ${String(hint.text || "")}`, mood: "info", channel: "general" },
+  });
+  return { state: presentGameState(scenario, state), messages };
+}
+
+function applyQrDetected(
+  scenario: ScenarioDocument,
+  state: GameStateDocument,
+  payload: Record<string, unknown>,
+  now: string,
+): ScenarioCommandResult {
+  const value = String(payload.value ?? "").trim();
+  const prefix = "escapebot://checkpoint/";
+  if (!value.startsWith(prefix) || value.length === prefix.length) {
+    return {
+      state: presentGameState(scenario, state),
+      messages: [{ type: "qr.result", payload: { accepted: false, reason: "Neznámý formát QR kódu." } }],
+    };
+  }
+
+  const token = value.slice(prefix.length);
+  const checkpointEntry = Object.entries(record(scenario.checkpoints)).find(
+    ([, definition]) => String(record(definition).token || "") === token,
+  );
+  if (!checkpointEntry) {
+    return {
+      state: presentGameState(scenario, state),
+      messages: [{
+        type: "qr.result",
+        payload: { accepted: false, reason: "Tato časová kotva nepatří do aktuálního scénáře." },
+      }],
+    };
+  }
+
+  const [checkpointId, checkpointValue] = checkpointEntry;
+  const checkpoint = record(checkpointValue);
+  state.checkpoint_states = record(state.checkpoint_states);
+  if (Object.hasOwn(state.checkpoint_states, checkpointId)) {
+    return {
+      state: presentGameState(scenario, state),
+      messages: [{
+        type: "qr.result",
+        payload: { accepted: true, duplicate: true, checkpoint_id: checkpointId },
+      }],
+    };
+  }
+
+  const requiredPhase = String(checkpoint.requires_phase || "");
+  if (requiredPhase && String(state.phase || "") !== requiredPhase) {
+    return {
+      state: presentGameState(scenario, state),
+      messages: [{
+        type: "qr.result",
+        payload: {
+          accepted: false,
+          reason: "Časová kotva zatím nereaguje. Pokračujte nejprve v hlavním příběhu.",
+          required_phase: requiredPhase,
+        },
+      }],
+    };
+  }
+
+  const missing = (Array.isArray(checkpoint.requires) ? checkpoint.requires : [])
+    .map(String)
+    .filter((required: string) => record(state.checkpoint_states[required]).status !== "solved");
+  if (missing.length) {
+    return {
+      state: presentGameState(scenario, state),
+      messages: [{
+        type: "qr.result",
+        payload: {
+          accepted: false,
+          reason: "Časová kotva je mimo sekvenci. Nejprve dokončete předchozí stanoviště.",
+          missing,
+        },
+      }],
+    };
+  }
+
+  const puzzleId = checkpoint.puzzle_id ? String(checkpoint.puzzle_id) : null;
+  const status = puzzleId ? "found" : "solved";
+  state.checkpoint_states[checkpointId] = {
+    status,
+    first_scanned_at: now,
+    ...(status === "solved" ? { solved_at: now } : {}),
+  };
+  state.unlocked_discoveries = appendUnique(state.unlocked_discoveries, [checkpointId]);
+  applyRewards(scenario, state, checkpoint.found_rewards);
+  if (status === "solved") applyRewards(scenario, state, checkpoint.rewards);
+
+  const configuredMessage = checkpoint.message ?? record(scenario.global_events).qr_detected;
+  const messages: RuntimeMessage[] = [
+    {
+      type: "qr.result",
+      payload: {
+        accepted: true,
+        duplicate: false,
+        checkpoint_id: checkpointId,
+        puzzle_id: puzzleId,
+        status,
+      },
+    },
+    { type: "bot.message", payload: messageTemplate(configuredMessage, checkpointId, "{checkpoint_id}") },
+  ];
+  const warning = record(checkpoint.warning_if_missing_flag);
+  if (warning.flag && !record(state.flags)[String(warning.flag)]) {
+    messages.push({ type: "bot.message", payload: messageTemplate(warning.message) });
+  }
+  messages.push({ type: "effect.trigger", payload: { effect: "glitch", intensity: 0.35, duration_ms: 900 } });
+  return { state: presentGameState(scenario, state), messages };
+}
+
+function applyPuzzleSubmit(
+  scenario: ScenarioDocument,
+  state: GameStateDocument,
+  payload: Record<string, unknown>,
+  now: string,
+): ScenarioCommandResult {
+  const puzzleId = String(payload.puzzle_id ?? "").trim();
+  const puzzle = record(record(scenario.puzzles)[puzzleId]);
+  if (!Object.keys(puzzle).length) {
+    return {
+      state: presentGameState(scenario, state),
+      messages: [{ type: "puzzle.result", payload: { correct: false, reason: "Neznámá hádanka." } }],
+    };
+  }
+  if (!puzzleUsesAnswerAdapter(scenario, puzzle)) {
+    return {
+      state: presentGameState(scenario, state),
+      messages: [{
+        type: "puzzle.result",
+        payload: { correct: false, reason: "Tato úloha se řeší přímo na herní mřížce." },
+      }],
+    };
+  }
+
+  const checkpointId = String(puzzle.checkpoint_id || "");
+  state.checkpoint_states = record(state.checkpoint_states);
+  const checkpointState = record(state.checkpoint_states[checkpointId]);
+  if (!Object.keys(checkpointState).length) {
+    return {
+      state: presentGameState(scenario, state),
+      messages: [{
+        type: "puzzle.result",
+        payload: { correct: false, reason: "Hádanka zatím nebyla nalezena." },
+      }],
+    };
+  }
+  if (checkpointState.status === "solved") {
+    return {
+      state: presentGameState(scenario, state),
+      messages: [{
+        type: "puzzle.result",
+        payload: { correct: true, puzzle_id: puzzleId, already_solved: true },
+      }],
+    };
+  }
+
+  state.puzzle_attempts = record(state.puzzle_attempts);
+  const attempts = Number(state.puzzle_attempts[puzzleId] || 0) + 1;
+  state.puzzle_attempts[puzzleId] = attempts;
+  const acceptedAnswers = Array.isArray(puzzle.answers) ? puzzle.answers : [puzzle.answer ?? ""];
+  const answer = normalizePuzzleAnswer(payload.answer);
+  const accepted = acceptedAnswers.some((candidate: unknown) => normalizePuzzleAnswer(candidate) === answer);
+  if (!accepted) {
+    return {
+      state: presentGameState(scenario, state),
+      messages: [
+        { type: "puzzle.result", payload: { correct: false, puzzle_id: puzzleId, attempts } },
+        { type: "bot.message", payload: messageTemplate(puzzle.failure_message) },
+      ],
+    };
+  }
+
+  checkpointState.status = "solved";
+  checkpointState.solved_at = now;
+  state.checkpoint_states[checkpointId] = checkpointState;
+  const checkpoint = record(record(scenario.checkpoints)[checkpointId]);
+  applyRewards(scenario, state, checkpoint.rewards);
+  const messages: RuntimeMessage[] = [
+    { type: "puzzle.result", payload: { correct: true, puzzle_id: puzzleId, attempts } },
+    { type: "bot.message", payload: messageTemplate(puzzle.success_message) },
+  ];
+  if (checkpoint.navigation_message) {
+    messages.push({ type: "bot.message", payload: messageTemplate(checkpoint.navigation_message) });
+  }
+  return { state: presentGameState(scenario, state), messages };
+}
+
+function applyPuzzleHint(
+  scenario: ScenarioDocument,
+  state: GameStateDocument,
+  payload: Record<string, unknown>,
+): ScenarioCommandResult {
+  const puzzleId = String(payload.puzzle_id ?? "").trim();
+  const puzzle = record(record(scenario.puzzles)[puzzleId]);
+  if (!Object.keys(puzzle).length) {
+    return {
+      state: presentGameState(scenario, state),
+      messages: [{ type: "error", payload: { message: "Neznámá hádanka." } }],
+    };
+  }
+  const checkpointId = String(puzzle.checkpoint_id || "");
+  if (record(record(state.checkpoint_states)[checkpointId]).status !== "found") {
+    return {
+      state: presentGameState(scenario, state),
+      messages: [{ type: "error", payload: { message: "Pro tuto hádanku nyní nelze použít nápovědu." } }],
+    };
+  }
+  const hints = Array.isArray(puzzle.hints) ? puzzle.hints : [];
+  if (!hints.length) {
+    return {
+      state: presentGameState(scenario, state),
+      messages: [{ type: "error", payload: { message: "Nejsou dostupné žádné nápovědy." } }],
+    };
+  }
+  const key = `puzzle.${puzzleId}`;
+  state.hints_used = record(state.hints_used);
+  const unlocked = Number(record(state.hints_used)[key] || 0);
+  const requested = Number(payload.hint_index ?? unlocked);
+  if (!Number.isInteger(requested) || requested < 0 || requested >= hints.length) {
+    return {
+      state: presentGameState(scenario, state),
+      messages: [{ type: "error", payload: { message: "Neplatný stupeň nápovědy." } }],
+    };
+  }
+  if (requested > unlocked) {
+    return {
+      state: presentGameState(scenario, state),
+      messages: [{ type: "error", payload: { message: "Nejprve odemkněte předchozí nápovědu." } }],
+    };
+  }
+  const hint = record(hints[requested]);
+  const isNew = requested === unlocked;
+  const cost = isNew ? Number(hint.penalty || 10) : 0;
+  if (isNew) {
+    state.score = Number(state.score || 0) - cost;
+    state.hints_used[key] = unlocked + 1;
   }
   const messages: RuntimeMessage[] = [];
   if (isNew) messages.push({ type: "score.update", payload: { score: state.score, penalty: cost } });

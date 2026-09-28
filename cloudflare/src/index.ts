@@ -274,6 +274,9 @@ export class GameSession extends DurableObject<Env> {
         return;
       case "player.message":
       case "phase.hint":
+      case "qr.detected":
+      case "puzzle.submit":
+      case "puzzle.hint":
         await this.handleGameCommand(socket, attachment, message);
         return;
       case "spike.broadcast": {

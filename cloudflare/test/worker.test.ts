@@ -196,6 +196,124 @@ describe("Cloudflare spike router", () => {
     session.close(1000, "done");
   });
 
+  it("persists an idempotent checkpoint and answer-puzzle journey", async () => {
+    const bootstrap = await openSocket("https://example.test/ws?client_id=checkpoint-phone");
+    const routePromise = nextMessage(bootstrap, "lobby.route");
+    send(bootstrap, "lobby.solo", {
+      client_id: "checkpoint-phone",
+      name: "Alice",
+      team_name: "Checkpoint Team",
+      lobby_type: "online_doom",
+      scenario_id: "chronos_online",
+    });
+    const route = await routePromise;
+    const session = await openSocket(
+      `https://example.test/ws?session_id=${route.payload.session_id}&client_id=checkpoint-phone`,
+    );
+
+    const connectedState = nextMessage(session, "game.state");
+    const connectedProgress = nextMessage(session, "scenario.progress");
+    session.send(JSON.stringify({
+      type: "player.message",
+      operation_id: "checkpoint-intro-1",
+      payload: { text: "Slyšíme se" },
+    }));
+    expect((await connectedState).payload.phase).toBe("searching_lost");
+    await connectedProgress;
+
+    const navigatingState = nextMessage(session, "game.state");
+    const navigatingProgress = nextMessage(session, "scenario.progress");
+    session.send(JSON.stringify({
+      type: "player.message",
+      operation_id: "checkpoint-intro-2",
+      payload: { text: "Frekvence je 734" },
+    }));
+    expect((await navigatingState).payload.phase).toBe("navigating");
+    await navigatingProgress;
+
+    const qrResult = nextMessage(session, "qr.result");
+    const foundState = nextMessage(session, "game.state");
+    const foundProgress = nextMessage(session, "scenario.progress");
+    session.send(JSON.stringify({
+      type: "qr.detected",
+      operation_id: "checkpoint-scan-1",
+      payload: {
+        value: "escapebot://checkpoint/4ec67b900c4a491ba180c8a48d5309f2",
+      },
+    }));
+    expect((await qrResult).payload).toMatchObject({
+      accepted: true,
+      checkpoint_id: "reception_archive",
+      puzzle_id: "reception_deduction",
+      status: "found",
+    });
+    expect((await foundState).payload.checkpoint_states).toMatchObject({
+      reception_archive: { status: "found" },
+    });
+    await foundProgress;
+
+    const hintScore = nextMessage(session, "score.update");
+    const hintedState = nextMessage(session, "game.state");
+    const hintedProgress = nextMessage(session, "scenario.progress");
+    session.send(JSON.stringify({
+      type: "puzzle.hint",
+      operation_id: "checkpoint-hint-1",
+      payload: { puzzle_id: "reception_deduction", hint_index: 0 },
+    }));
+    expect((await hintScore).payload).toMatchObject({ score: 1010, penalty: 10 });
+    expect((await hintedState).payload.score).toBe(1010);
+    await hintedProgress;
+
+    const puzzleResult = nextMessage(session, "puzzle.result");
+    const solvedState = nextMessage(session, "game.state");
+    const solvedProgress = nextMessage(session, "scenario.progress");
+    session.send(JSON.stringify({
+      type: "puzzle.submit",
+      operation_id: "checkpoint-answer-1",
+      payload: { puzzle_id: "reception_deduction", answer: "2 1 4 7" },
+    }));
+    expect((await puzzleResult).payload).toMatchObject({ correct: true, attempts: 1 });
+    expect((await solvedState).payload).toMatchObject({
+      score: 1010,
+      puzzle_attempts: { reception_deduction: 1 },
+      checkpoint_states: { reception_archive: { status: "solved" } },
+      flags: { reception_archive_unlocked: true },
+    });
+    expect((await solvedProgress).payload.nodes).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ id: "staircase_signal", status: "available" }),
+      ]),
+    );
+
+    const replay = nextMessage(session, "puzzle.result");
+    const replayState = nextMessage(session, "game.state");
+    const replayProgress = nextMessage(session, "scenario.progress");
+    session.send(JSON.stringify({
+      type: "puzzle.submit",
+      operation_id: "checkpoint-answer-1",
+      payload: { puzzle_id: "reception_deduction", answer: "wrong retry payload" },
+    }));
+    expect(await replay).toMatchObject({
+      operation_id: "checkpoint-answer-1",
+      payload: { correct: true, attempts: 1 },
+    });
+    await replayState;
+    await replayProgress;
+
+    const restoredState = nextMessage(session, "game.state");
+    const restoredProgress = nextMessage(session, "scenario.progress");
+    send(session, "lobby.resume", { session_id: route.payload.session_id });
+    expect((await restoredState).payload).toMatchObject({
+      score: 1010,
+      puzzle_attempts: { reception_deduction: 1 },
+      checkpoint_states: { reception_archive: { status: "solved" } },
+    });
+    await restoredProgress;
+
+    bootstrap.close(1000, "routed");
+    session.close(1000, "done");
+  });
+
   it("resolves a team join code and broadcasts both registered players", async () => {
     const creatorBootstrap = await openSocket("https://example.test/ws?client_id=creator-phone");
     const creatorRoutePromise = nextMessage(creatorBootstrap, "lobby.route");

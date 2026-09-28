@@ -21,6 +21,7 @@ secrety. Názvy prostředí jsou `escape-bot-cf-development`,
 - perzistentní autoritativní snapshot a úplný `lobby.resume` po evikci;
 - zkompilovaný scénářový snapshot, úvodní dialog a postup fázemi;
 - perzistentní chat, fázové nápovědy a idempotentní účtenky prvních herních příkazů;
+- pořadí QR checkpointů, textové rébusy a jejich stupňované nápovědy;
 - Durable Object alarm pro časový deadline;
 - oddělení stavu různých relací;
 - statický klient na `/`, `/admin`, `/terminal` a `/display`;
@@ -66,10 +67,9 @@ curl https://STAGING-DOMAIN/api/health
 Na stagingu je nutné ručně projít `/`, `/admin`, `/display`, `/terminal` a
 Chronomap, ověřit aktualizaci service workeru a HTTPS kameru v Safari na
 fyzickém iPhonu. Rozpracovaný CF-04 podporuje bootstrap, sólo/týmovou lobby,
-připojení kódem, spuštění, autoritativní resume snapshot a hratelný textový
-úvod scénáře přes `player.message` a `phase.hint`. Checkpointy, rébusy,
-terminály, deadline hry a administrace ještě čekají na další části CF-04 a
-CF-05.
+připojení kódem, spuštění, autoritativní resume snapshot, textový úvod scénáře,
+QR checkpointy a rébusy s odpovědí. Interaktivní minihry, terminály, deadline
+hry a administrace ještě čekají na další části CF-04 a CF-05.
 
 Produkční deploy má samostatný explicitní příkaz `npm run deploy:production`.
 Obecný `npm run deploy` záměrně není definován, aby nebylo možné bez výběru
