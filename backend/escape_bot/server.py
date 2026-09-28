@@ -924,6 +924,19 @@ def admin_overview(watched_sessions: set[str] | None = None) -> list[dict[str, o
         line_games = dict(state.get("interactive_games", {}))
         triad_games = dict(state.get("triad_games", {}))
         archive_games = dict(state.get("archive_games", {}))
+        connected_ids = connected_client_ids(lobby.session_id)
+        line_player_games = []
+        for game_id, container in line_games.items():
+            stored_players = container.get("players", {}) if isinstance(container, dict) and isinstance(container.get("players"), dict) else {}
+            for player_index, player_id in enumerate(lobby.players):
+                game = stored_players.get(player_id, {}) if stored_players else (container if player_index == 0 and isinstance(container, dict) else {})
+                line_player_games.append((game_id, player_id, game))
+        triad_player_games = []
+        for game_id, container in triad_games.items():
+            stored_players = container.get("players", {}) if isinstance(container, dict) and isinstance(container.get("players"), dict) else {}
+            for player_index, player_id in enumerate(lobby.players):
+                game = stored_players.get(player_id, {}) if stored_players else (container if player_index == 0 and isinstance(container, dict) else {})
+                triad_player_games.append((game_id, player_id, game))
         last_activity = str(state.get("last_activity_at", "")) or (str(timeline[0].get("at", "")) if timeline else "")
         if not last_activity:
             joined = [str(player.get("joined_at", "")) for player in lobby.players.values() if player.get("joined_at")]
@@ -937,7 +950,7 @@ def admin_overview(watched_sessions: set[str] | None = None) -> list[dict[str, o
         activity_status = classify_activity(lobby.started, game_completed, inactive_seconds)
         terminal_options = available_terminal_puzzles(machine) if machine else []
         teams.append({
-            **lobby.public("", connected_client_ids(lobby.session_id)),
+            **lobby.public("", connected_ids),
             "score": int(state.get("score", 1000)),
             "phase": str(state.get("phase", "boot")),
             "completed_nodes": sum(node.get("status") == "complete" for node in nodes),
@@ -967,11 +980,11 @@ def admin_overview(watched_sessions: set[str] | None = None) -> list[dict[str, o
             "admin_support_joined": lobby.session_id in (watched_sessions or set()),
             "game_metrics": {
                 "line": [{"id": game_id, "player_id": player_id, "player_name": str(lobby.players.get(player_id, {}).get("name", "Hráč")),
-                          "excluded": player_id in state.get("game_exclusions", {}).get(game_id, []), "status": game.get("status", ""),
+                          "connected": player_id in connected_ids,
+                          "excluded": player_id in state.get("game_exclusions", {}).get(game_id, []), "status": game.get("status", "not_started"),
                           "swaps": game.get("swaps", 0), "progress": dict(game.get("progress", {})),
                           "result": state.get("game_results", {}).get(game_id, {}).get(player_id)}
-                         for game_id, container in line_games.items()
-                         for player_id, game in (container.get("players", {}) if isinstance(container.get("players"), dict) else {next(iter(lobby.players), "legacy-client"): container}).items()],
+                         for game_id, player_id, game in line_player_games],
                 "karel": [{"id": game_id, "level": game.get("level_label", ""), "completed": len(game.get("completed_levels", [])),
                            "moves": game.get("total_moves", 0), "strikes": game.get("total_strikes", 0), "restarts": game.get("restarts", 0),
                            "player": list(game.get("player", [])), "rows": game.get("rows", 0), "columns": game.get("columns", 0),
@@ -986,11 +999,11 @@ def admin_overview(watched_sessions: set[str] | None = None) -> list[dict[str, o
                               "player": list(game.get("player", [])), "boxes": list(game.get("boxes", [])), "targets": list(game.get("targets", []))}
                              for game_id, game in sokoban_games.items()],
                 "triad": [{"id": game_id, "player_id": player_id, "player_name": str(lobby.players.get(player_id, {}).get("name", "Hráč")),
-                           "excluded": player_id in state.get("game_exclusions", {}).get(game_id, []), "status": game.get("status", ""),
+                           "connected": player_id in connected_ids,
+                           "excluded": player_id in state.get("game_exclusions", {}).get(game_id, []), "status": game.get("status", "not_started"),
                            "placements": game.get("placements", 0), "completed_orientations": list(game.get("completed_orientations", [])),
                            "result": state.get("game_results", {}).get(game_id, {}).get(player_id)}
-                          for game_id, container in triad_games.items()
-                          for player_id, game in (container.get("players", {}) if isinstance(container.get("players"), dict) else {next(iter(lobby.players), "legacy-client"): container}).items()],
+                          for game_id, player_id, game in triad_player_games],
                 "archive": [{"id": game_id, "assembled": bool(game.get("assembled")), "moves": int(game.get("moves", 0)),
                              "order": list(game.get("order", [])), "rotations": dict(game.get("rotations", {}))}
                             for game_id, game in archive_games.items()],

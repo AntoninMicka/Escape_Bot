@@ -2324,10 +2324,10 @@
                 const terminalPanel = `<div class="terminal-handoff"><strong>${team.terminal_online ? '● TERMINÁL ONLINE' : '○ TERMINÁL NEPŘIPOJEN'}</strong><p>Rezervace a přidělení se spravují v záložce TERMINÁLY.</p></div>`;
                 const hints = Object.entries(team.hints_used || {}).map(([id, count]) => `${escapeHtml(id)}: ${Number(count)}`).join(', ') || 'žádné';
                 const attempts = Object.entries(team.puzzle_attempts || {}).map(([id, count]) => `${escapeHtml(id)}: ${Number(count)}`).join(', ') || 'žádné';
-                const lineGame = ((team.game_metrics || {}).line || []).map(game => `Kalibrace · <strong>${escapeHtml(game.player_name)}</strong> [${game.excluded ? 'vyřazen' : escapeHtml(game.status)}]: ${game.swaps} výměn · cíle ${Object.entries(game.progress || {}).map(([length, count]) => `${length}×: ${count}`).join(', ')}${game.result ? ` · čas ${formatLineGameTime(game.result.elapsed_seconds)} · ${Number(game.result.score_delta) >= 0 ? '+' : ''}${Number(game.result.score_delta)} b` : ''} <button onclick="manageAdminGamePlayer('${team.session_id}','${game.id}','${game.player_id}','reset')">RESTART HRÁČE</button> <button onclick="manageAdminGamePlayer('${team.session_id}','${game.id}','${game.player_id}','${game.excluded ? 'include' : 'exclude'}')">${game.excluded ? 'VRÁTIT' : 'VYŘADIT'}</button>`).join('<br>') || 'Kalibrace dosud neaktivní';
+                const lineGame = ((team.game_metrics || {}).line || []).map(game => `Kalibrace · <strong>${escapeHtml(game.player_name)}</strong> [${game.connected ? 'online' : 'offline'} · ${game.excluded ? 'vyřazen' : escapeHtml(game.status)}]: ${game.swaps} výměn · cíle ${Object.entries(game.progress || {}).map(([length, count]) => `${length}×: ${count}`).join(', ') || 'žádné'}${game.result ? ` · čas ${formatLineGameTime(game.result.elapsed_seconds)} · ${Number(game.result.score_delta) >= 0 ? '+' : ''}${Number(game.result.score_delta)} b` : ''} <button onclick="manageAdminGamePlayer('${team.session_id}','${game.id}','${game.player_id}','reset')">RESTART HRÁČE</button> <button onclick="manageAdminGamePlayer('${team.session_id}','${game.id}','${game.player_id}','${game.excluded ? 'include' : 'exclude'}')">${game.excluded ? 'VRÁTIT' : 'VYŘADIT'}</button>`).join('<br>') || 'Kalibrace dosud neaktivní';
                 const karel = ((team.game_metrics || {}).karel || []).map(game => `<strong>Karel ${escapeHtml(game.level)}</strong>: pozice ${escapeHtml((game.player || []).join(','))}, ${game.completed} hotovo, ${game.moves} kroků, ${game.strikes} min, ${game.restarts} restartů${renderAdminMineBoard(game)}<small>Červeně miny, zeleně jedna bezpečná trasa, E = Elara, X = cíl.</small>`).join('<br>') || 'Karel dosud neaktivní';
                 const sokoban = ((team.game_metrics || {}).sokoban || []).map(game => `Sokoban ${escapeHtml(game.level)}: pozice ${escapeHtml((game.player || []).join(','))}, články na cíli ${(game.boxes || []).filter(box => (game.targets || []).some(target => target[0] === box[0] && target[1] === box[1])).length}/${(game.boxes || []).length}, ${game.moves} kroků, ${game.pushes} zatlačení, ${game.restarts} restartů`).join('<br>') || 'Sokoban dosud neaktivní';
-                const triad = ((team.game_metrics || {}).triad || []).map(game => `Tři v řadě · <strong>${escapeHtml(game.player_name)}</strong> [${game.excluded ? 'vyřazen' : escapeHtml(game.status)}]: ${game.placements} kamenů · směry ${(game.completed_orientations || []).map(escapeHtml).join(', ') || 'žádné'}${game.result ? ` · čas ${formatLineGameTime(game.result.elapsed_seconds)} · +${Number(game.result.score_delta)} b` : ''} <button onclick="manageAdminGamePlayer('${team.session_id}','${game.id}','${game.player_id}','reset')">RESTART HRÁČE</button> <button onclick="manageAdminGamePlayer('${team.session_id}','${game.id}','${game.player_id}','${game.excluded ? 'include' : 'exclude'}')">${game.excluded ? 'VRÁTIT' : 'VYŘADIT'}</button>`).join('<br>') || 'Tři v řadě dosud neaktivní';
+                const triad = ((team.game_metrics || {}).triad || []).map(game => `Tři v řadě · <strong>${escapeHtml(game.player_name)}</strong> [${game.connected ? 'online' : 'offline'} · ${game.excluded ? 'vyřazen' : escapeHtml(game.status)}]: ${game.placements} kamenů · směry ${(game.completed_orientations || []).map(escapeHtml).join(', ') || 'žádné'}${game.result ? ` · čas ${formatLineGameTime(game.result.elapsed_seconds)} · +${Number(game.result.score_delta)} b` : ''} <button onclick="manageAdminGamePlayer('${team.session_id}','${game.id}','${game.player_id}','reset')">RESTART HRÁČE</button> <button onclick="manageAdminGamePlayer('${team.session_id}','${game.id}','${game.player_id}','${game.excluded ? 'include' : 'exclude'}')">${game.excluded ? 'VRÁTIT' : 'VYŘADIT'}</button>`).join('<br>') || 'Tři v řadě dosud neaktivní';
                 const archive = ((team.game_metrics || {}).archive || []).map(game => `Jigsaw stroje času: ${game.assembled ? 'sestaven' : 'rozložen'} · ${game.moves} prohození · pořadí ${(game.order || []).map(escapeHtml).join(' → ')}`).join('<br>') || 'Archiv budoucnosti dosud neaktivní';
                 const eventLabels = {'checkpoint_solved':'checkpoint vyřešen', 'checkpoint_found':'checkpoint nalezen', 'admin_action':'zásah GM', 'admin_penalty':'malus GM', 'admin_score_adjustment':'úprava skóre GM', 'player.message':'zpráva hráče', 'qr.detected':'načten QR', 'arg.verify':'ověření stopy', 'room.unlock':'odemčení místnosti', 'cipher_tool.unlock':'odemčení pomůcky', 'puzzle.submit':'odpověď na hádanku', 'puzzle.hint':'vyžádána nápověda', 'line_game.move':'tah kalibrace', 'line_game.reset':'restart kalibrace', 'sokoban.command':'povel Sokobanu', 'sokoban.undo':'vrácení tahu Sokobanu', 'sokoban.reset':'restart Sokobanu', 'karel.command':'povel Karlovi', 'karel.reset':'restart Karla', 'triad.place':'tah Tři v řadě', 'triad.reset':'restart Tři v řadě', 'finale.activate':'aktivace finále', 'archive.arrange':'pohyb v archivu'};
                 const timeline = (team.timeline || []).map(item => {
@@ -3515,11 +3515,13 @@
             if (document.visibilityState === 'visible') {
                 ensureTerminalWakeLock();
                 reviveClientAfterOffline();
+                reviveScannerAfterResume();
             }
         });
         window.addEventListener('pageshow', () => {
             ensureTerminalWakeLock();
             reviveClientAfterOffline();
+            reviveScannerAfterResume();
         });
         window.addEventListener('online', reviveClientAfterOffline);
 
@@ -4337,6 +4339,7 @@
         let qrScanning = false;
         let qrStreamRef = null;
         let qrPendingValue = '';
+        let qrCameraRequest = 0;
 
         function renderDemoScanner(payload) {
             const panel = document.getElementById('demo-scanner-panel');
@@ -4458,29 +4461,64 @@
 
         function startScanner() {
             if (demoModeRequested || onlineModeEnabled) return;
-            if (qrScanning) return;
+            const liveTrack = qrStreamRef?.getVideoTracks?.().find(track => track.readyState === 'live');
+            if (qrScanning && liveTrack && !liveTrack.muted) {
+                qrVideo.play().catch(() => {});
+                return;
+            }
+            if (qrStreamRef) stopScanner();
+            const requestId = ++qrCameraRequest;
             qrPendingValue = '';
             document.getElementById('qr-retry').style.display = 'none';
             qrStatus.style.color = '';
             // Žádost o přístup k zadní kameře
             navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } }).then(function(stream) {
+                if (requestId !== qrCameraRequest || !document.getElementById('tab-scanner').classList.contains('active') || document.visibilityState === 'hidden') {
+                    stream.getTracks().forEach(track => track.stop());
+                    return;
+                }
                 qrScanning = true;
                 qrStreamRef = stream;
                 qrVideo.srcObject = stream;
+                stream.getVideoTracks().forEach(track => track.addEventListener('ended', () => {
+                    if (qrStreamRef !== stream) return;
+                    qrScanning = false;
+                    qrStreamRef = null;
+                    qrVideo.srcObject = null;
+                    qrStatus.innerText = "Kamera byla pozastavena. Obnovuji skener…";
+                    if (document.visibilityState === 'visible' && document.getElementById('tab-scanner').classList.contains('active')) {
+                        setTimeout(startScanner, 250);
+                    } else {
+                        document.getElementById('qr-retry').style.display = 'block';
+                    }
+                }, {once:true}));
                 qrStatus.innerText = "Skenování aktivní... Namiřte na QR kód.";
+                qrVideo.play().catch(() => {});
                 requestAnimationFrame(tickScanner);
             }).catch(err => {
+                if (requestId !== qrCameraRequest) return;
+                qrScanning = false;
                 qrStatus.innerText = "Chyba kamery: " + err.message;
+                document.getElementById('qr-retry').style.display = 'block';
             });
         }
 
         function stopScanner() {
+            qrCameraRequest += 1;
             qrScanning = false;
             if (qrStreamRef) {
                 qrStreamRef.getTracks().forEach(track => track.stop());
                 qrStreamRef = null;
             }
+            qrVideo.srcObject = null;
             qrStatus.innerText = "Skener neaktivní.";
+        }
+
+        function reviveScannerAfterResume() {
+            if (demoModeRequested || onlineModeEnabled || document.visibilityState === 'hidden') return;
+            if (!document.getElementById('tab-scanner').classList.contains('active')) return;
+            stopScanner();
+            startScanner();
         }
 
         function tickScanner() {

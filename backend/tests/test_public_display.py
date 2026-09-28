@@ -73,3 +73,17 @@ def test_terminal_resets_and_renders_minigame_before_revealing_it() -> None:
         "finaleUiState.clear()",
     ):
         assert transient_state in reset
+
+
+def test_scanner_restarts_after_ios_page_resume_and_recovers_ended_track() -> None:
+    client = (ROOT / "client" / "index.html").read_text(encoding="utf-8")
+
+    assert "reviveScannerAfterResume();" in client
+    revive = client.split("function reviveScannerAfterResume()", 1)[1].split("function tickScanner()", 1)[0]
+    assert "tab-scanner').classList.contains('active')" in revive
+    assert revive.index("stopScanner();") < revive.index("startScanner();")
+    scanner = client.split("function startScanner()", 1)[1].split("function stopScanner()", 1)[0]
+    assert "track.readyState === 'live'" in scanner
+    assert "track.addEventListener('ended'" in scanner
+    assert "setTimeout(startScanner, 250)" in scanner
+    assert "document.getElementById('qr-retry').style.display = 'block'" in scanner
