@@ -310,6 +310,26 @@ Vrátí správcem vyřazeného spoluhráče do aktivního `line_game` nebo `tria
 Odesílatel musí být jiný registrovaný hráč stejného týmu. Hráčský protokol
 záměrně nemá odpovídající akci pro vyřazení; tu smí provádět pouze správce.
 
+### `POST /api/admin/game-player` (Cloudflare)
+
+Oddělený správcovský HTTP endpoint vyřadí registrovaného člena z aktivní
+`line_game` nebo `triad`, i když hráč právě nemá otevřený WebSocket. Požadavek
+musí mít hlavičku `Authorization: Bearer <ADMIN_TOKEN>` a JSON tělo:
+
+```json
+{
+  "session_id": "9c812e8581794fcbadcc02ad9d593618",
+  "puzzle_id": "timeline_lines",
+  "player_id": "phone-bob",
+  "action": "exclude"
+}
+```
+
+Jedinou podporovanou akcí tohoto endpointu je `exclude`. Opakované vyřazení je
+bezpečné a v odpovědi vrátí `changed: false`. Obnova zůstává hráčským příkazem
+`team_game.player.restore`; běžný herní WebSocket nemá správcovskou akci pro
+vyřazení. Kompletní cloudový admin overview je samostatná část CF-05.
+
 ### `arg.verify`
 
 Asks backend to verify a physical discovery.

@@ -56,6 +56,10 @@ export interface ScenarioCommandResult {
   messages: RuntimeMessage[];
 }
 
+export interface AdminGamePlayerResult extends ScenarioCommandResult {
+  result: Record<string, unknown>;
+}
+
 function record(value: unknown): Record<string, any> {
   return value && typeof value === "object" && !Array.isArray(value)
     ? (value as Record<string, any>)
@@ -251,6 +255,105 @@ export function applyScenarioCommand(
   else if (type === "triad.place") result = applyTriadPlace(scenario, state, payload, now, actor);
   else result = applyTriadReset(scenario, state, payload, now, actor);
   return { ...result, state: presentGameState(scenario, result.state, actor, now) };
+}
+
+export function applyAdminGamePlayerExclusion(
+  scenario: ScenarioDocument,
+  currentState: GameStateDocument,
+  puzzleIdValue: string,
+  playerIdValue: string,
+  now: string,
+  actorValue: RuntimeActor,
+): AdminGamePlayerResult {
+  const actor = normalizedActor(actorValue);
+  const puzzleId = String(puzzleIdValue || "").trim();
+  const playerId = String(playerIdValue || "").trim();
+  const puzzle = record(record(scenario.puzzles)[puzzleId]);
+  const adapter = puzzleAdapter(scenario, puzzle);
+  const checkpointId = String(puzzle.checkpoint_id || "");
+  const checkpoint = record(record(currentState.checkpoint_states)[checkpointId]);
+  if (actor.teamMode !== "team" || !actor.participantIds.includes(playerId)) {
+    throw new Error("Hráč do tohoto týmu nepatří.");
+  }
+  if (!new Set(["line_game", "triad"]).has(adapter)) {
+    throw new Error("Tato minihra nepodporuje individuální správu.");
+  }
+  const state = clone(currentState);
+  state.game_exclusions = record(state.game_exclusions);
+  const excluded = Array.isArray(state.game_exclusions[puzzleId])
+    ? state.game_exclusions[puzzleId].map(String)
+    : [];
+  const changed = !excluded.includes(playerId);
+  if (!changed) {
+    const result = {
+      success: true,
+      action: "exclude",
+      changed: false,
+      puzzle_id: puzzleId,
+      player_id: playerId,
+      player_name: actor.participantNames[playerId] || "Hráč",
+      team_complete: checkpoint.status === "solved",
+      team_summary: null,
+    };
+    return {
+      state: presentGameState(scenario, state, actor, now),
+      messages: [{ type: "admin.game_player", payload: result }],
+      result,
+    };
+  }
+  if (checkpoint.status !== "found") {
+    throw new Error("Spravovat lze pouze aktivní minihru.");
+  }
+  state.last_activity_at = now;
+  if (changed) excluded.push(playerId);
+  state.game_exclusions[puzzleId] = excluded;
+  const progress = adapter === "line_game"
+    ? lineGameTeamProgress(state, puzzleId, record(puzzle.game), actor)
+    : triadTeamProgress(state, puzzleId, actor);
+  const messages: RuntimeMessage[] = [];
+  if (progress.team_complete) {
+    const mutableCheckpoint = record(record(state.checkpoint_states)[checkpointId]);
+    mutableCheckpoint.status = "solved";
+    mutableCheckpoint.solved_at = now;
+    applyRewards(scenario, state, record(record(scenario.checkpoints)[checkpointId]).rewards);
+    const defaultBonus = adapter === "line_game" ? 40 : 60;
+    const bonus = Number(record(puzzle.game).team_completion_bonus ?? defaultBonus);
+    state.score = Number(state.score || 0) + bonus;
+    messages.push(
+      {
+        type: "score.update",
+        payload: {
+          score: state.score,
+          delta: bonus,
+          bonus: Math.max(0, bonus),
+          penalty: Math.max(0, -bonus),
+          reason: adapter === "line_game" ? "line_game_team" : "triad",
+        },
+      },
+      { type: "puzzle.result", payload: { correct: true, puzzle_id: puzzleId, team_summary: progress } },
+      { type: "bot.message", payload: messageTemplate(puzzle.success_message) },
+    );
+    const navigation = record(record(scenario.checkpoints)[checkpointId]).navigation_message;
+    if (navigation) messages.push({ type: "bot.message", payload: messageTemplate(navigation) });
+  }
+  const history = Array.isArray(state.event_history) ? state.event_history : [];
+  history.push({ at: now, type: "admin.game_player", details: { action: "exclude", puzzle_id: puzzleId, player_id: playerId } });
+  state.event_history = history.slice(-500);
+  const result = {
+    success: true,
+    action: "exclude",
+    changed,
+    puzzle_id: puzzleId,
+    player_id: playerId,
+    player_name: actor.participantNames[playerId] || "Hráč",
+    team_complete: Boolean(progress.team_complete),
+    team_summary: progress.team_complete ? progress : null,
+  };
+  return {
+    state: presentGameState(scenario, state, actor, now),
+    messages: [{ type: "admin.game_player", payload: result }, ...messages],
+    result,
+  };
 }
 
 function applyPlayerMessage(

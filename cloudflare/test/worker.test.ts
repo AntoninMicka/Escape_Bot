@@ -1,4 +1,4 @@
-import { SELF } from "cloudflare:test";
+import { env, runInDurableObject, SELF } from "cloudflare:test";
 import { describe, expect, it } from "vitest";
 
 type ProtocolMessage = {
@@ -130,6 +130,94 @@ describe("Cloudflare spike router", () => {
     const response = await SELF.fetch("https://example.test/api/unknown");
     expect(response.status).toBe(404);
     expect(await response.json()).toEqual({ error: "not_found" });
+  });
+
+  it("authenticates admin exclusion and persists it for an offline registered player", async () => {
+    const sessionId = "admin-offline-session";
+    const stub = env.GAME_SESSIONS.getByName(sessionId);
+    const initialized = await stub.fetch("https://internal/internal/lobby/initialize", {
+      method: "POST",
+      body: JSON.stringify({
+        session_id: sessionId,
+        mode: "team",
+        creator_id: "admin-alice",
+        team_name: "Offline Admin Team",
+        join_code: "A0B1C2D3",
+        lobby_type: "on_site_qr",
+        scenario_id: "chronos_online",
+        player_name: "Alice",
+      }),
+    });
+    expect(initialized.status).toBe(200);
+    const joined = await stub.fetch("https://internal/internal/lobby/join", {
+      method: "POST",
+      body: JSON.stringify({ client_id: "offline-bob", player_name: "Bob" }),
+    });
+    expect(joined.status).toBe(200);
+
+    const creator = await openSocket(
+      `https://example.test/ws?session_id=${sessionId}&client_id=admin-alice`,
+    );
+    const startedState = nextMessage(creator, "game.state");
+    send(creator, "lobby.start");
+    await startedState;
+    await runInDurableObject(stub, async (instance, state) => {
+      const target = instance as unknown as {
+        snapshot: { gameState: { checkpoint_states: Record<string, Record<string, unknown>> } };
+      };
+      target.snapshot.gameState.checkpoint_states.timeline_calibration = { status: "found" };
+      await state.storage.put("session-snapshot", target.snapshot);
+    });
+
+    const payload = {
+      session_id: sessionId,
+      puzzle_id: "timeline_lines",
+      player_id: "offline-bob",
+      action: "exclude",
+    };
+    const unauthorized = await SELF.fetch("https://example.test/api/admin/game-player", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: "Bearer wrong-token" },
+      body: JSON.stringify(payload),
+    });
+    expect(unauthorized.status).toBe(401);
+    expect(await unauthorized.json()).toEqual({ error: "unauthorized" });
+
+    const response = await SELF.fetch("https://example.test/api/admin/game-player", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: "Bearer local-test-admin-token",
+      },
+      body: JSON.stringify(payload),
+    });
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({
+      success: true,
+      action: "exclude",
+      changed: true,
+      session_id: sessionId,
+      player_id: "offline-bob",
+      player_name: "Bob",
+    });
+    const duplicate = await SELF.fetch("https://example.test/api/admin/game-player", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: "Bearer local-test-admin-token",
+      },
+      body: JSON.stringify(payload),
+    });
+    expect(duplicate.status).toBe(200);
+    expect(await duplicate.json()).toMatchObject({ changed: false, revision: 4 });
+    const exclusions = await runInDurableObject(stub, (instance) => {
+      const target = instance as unknown as {
+        snapshot: { gameState: { game_exclusions: Record<string, string[]> } };
+      };
+      return target.snapshot.gameState.game_exclusions.timeline_lines;
+    });
+    expect(exclusions).toEqual(["offline-bob"]);
+    await closeSocket(creator, "done");
   });
 
   it("rejects invalid session routing", async () => {

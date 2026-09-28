@@ -1,6 +1,7 @@
 import { env } from "cloudflare:workers";
 import { describe, expect, it } from "vitest";
 import {
+  applyAdminGamePlayerExclusion,
   applyScenarioCommand,
   buildScenarioProgress,
   presentGameState,
@@ -807,5 +808,60 @@ describe("deterministic Cloudflare scenario runtime", () => {
     );
     expect(forbidden.messages[0]).toMatchObject({ type: "command.rejected" });
     expect(forbidden.state.game_exclusions.timeline_lines).toEqual([]);
+  });
+
+  it("lets only the admin boundary exclude a registered player without a game board", async () => {
+    const scenario = await chronosScenario();
+    const actor: RuntimeActor = {
+      clientId: "alice",
+      participantIds: ["alice", "bob"],
+      participantNames: { alice: "Alice", bob: "Bob" },
+      teamMode: "team",
+    };
+    let state = startScenario(scenario, 0, "2026-09-28T12:00:00.000Z", actor).state;
+    state.checkpoint_states.timeline_calibration = { status: "found" };
+    state = presentGameState(scenario, state, actor, "2026-09-28T12:00:01.000Z");
+    state.interactive_games.timeline_lines.players.alice.status = "complete";
+
+    const excluded = applyAdminGamePlayerExclusion(
+      scenario,
+      state,
+      "timeline_lines",
+      "bob",
+      "2026-09-28T12:00:02.000Z",
+      actor,
+    );
+
+    expect(excluded.result).toMatchObject({
+      success: true,
+      action: "exclude",
+      changed: true,
+      player_id: "bob",
+      player_name: "Bob",
+      team_complete: true,
+    });
+    expect(excluded.state.game_exclusions.timeline_lines).toEqual(["bob"]);
+    expect(excluded.state.checkpoint_states.timeline_calibration.status).toBe("solved");
+    expect(excluded.state.score).toBe(1040);
+    expect(excluded.messages.map((message) => message.type)).toEqual([
+      "admin.game_player",
+      "score.update",
+      "puzzle.result",
+      "bot.message",
+      "bot.message",
+    ]);
+    expect(state.interactive_games.timeline_lines.players).not.toHaveProperty("bob");
+
+    const repeated = applyAdminGamePlayerExclusion(
+      scenario,
+      excluded.state,
+      "timeline_lines",
+      "bob",
+      "2026-09-28T12:00:03.000Z",
+      actor,
+    );
+    expect(repeated.result).toMatchObject({ changed: false, team_complete: true });
+    expect(repeated.state.score).toBe(1040);
+    expect(repeated.messages).toHaveLength(1);
   });
 });

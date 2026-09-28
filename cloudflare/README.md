@@ -26,7 +26,8 @@ secrety. Názvy prostředí jsou `escape-bot-cf-development`,
 - oddělení stavu různých relací;
 - statický klient na `/`, `/admin`, `/terminal` a `/display`;
 - service worker a fingerprintovaný WebGL build;
-- Worker-first směrování `/api/*` a `/ws`.
+- Worker-first směrování `/api/*` a `/ws`;
+- autentizované správcovské vyřazení registrovaného hráče, i když je offline.
 
 Zprávy `spike.*` jsou pouze testovací kontrakt. Nejsou součástí produkčního
 Escape Bot protokolu.
@@ -50,6 +51,15 @@ službu.
 
 Délku celé hry a jednorázový postih určují pro každé prostředí Wrangler
 proměnné `GAME_DURATION_MINUTES` a `DEADLINE_PENALTY`.
+
+Správcovské API vyžaduje secret `ADMIN_TOKEN`; hodnota není součástí repozitáře.
+Lokální test používá pouze známý neprodukční token z výchozího Wrangler profilu.
+Pro staging a produkci se token nastaví zvlášť:
+
+```bash
+npm exec wrangler secret put ADMIN_TOKEN -- --env staging
+npm exec wrangler secret put ADMIN_TOKEN -- --env production
+```
 
 Lokální vývojový server:
 
@@ -84,8 +94,10 @@ a pořadí modulů odhalí až po správném sestavení obrazu; checkpoint dokon
 následná správná textová odpověď. `finale.activate` ověřuje úplnou trasu,
 inventář, servisní příznaky, rok, čas a pořadí modulů; při úspěchu uloží konečné
 hodnocení, dokončení hry a rozešle finální efekt. Terminálové rezervace,
-administrace a správcovské vyřazení hráče ještě čekají na další části CF-04 a
-CF-05. Produkční deadline už používá Durable Object alarm: po jednorázovém
+admin overview a další správcovské operace ještě čekají na další části CF-04 a
+CF-05. Samostatné API už dovoluje správci vyřadit registrovaného hráče z aktivní
+`line_game` nebo `triad` i bez jeho WebSocketového připojení. Produkční deadline
+už používá Durable Object alarm: po jednorázovém
 postihu zmrazí soutěžní skóre a tým může hru ukončit nebo pokračovat mimo
 soutěž. Hráči smějí v aktivní týmové minihře pouze obnovit správcem vyřazeného
 spoluhráče; sami nikoho vyřadit nemohou.

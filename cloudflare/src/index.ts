@@ -1,5 +1,6 @@
 import { DurableObject } from "cloudflare:workers";
 import {
+  applyAdminGamePlayerExclusion,
   applyScenarioCommand,
   buildScenarioProgress,
   presentGameState,
@@ -11,6 +12,7 @@ import {
 
 interface Env {
   APP_ENV: string;
+  ADMIN_TOKEN?: string;
   GAME_DURATION_MINUTES?: string;
   DEADLINE_PENALTY?: string;
   ASSETS: Fetcher;
@@ -179,6 +181,32 @@ function boundedInteger(value: unknown, fallback: number, minimum: number, maxim
   return Number.isInteger(parsed) && parsed >= minimum && parsed <= maximum ? parsed : fallback;
 }
 
+async function equalSecret(left: string, right: string): Promise<boolean> {
+  const encoder = new TextEncoder();
+  const [leftHash, rightHash] = await Promise.all([
+    crypto.subtle.digest("SHA-256", encoder.encode(left)),
+    crypto.subtle.digest("SHA-256", encoder.encode(right)),
+  ]);
+  const leftBytes = new Uint8Array(leftHash);
+  const rightBytes = new Uint8Array(rightHash);
+  let difference = leftBytes.length ^ rightBytes.length;
+  for (let index = 0; index < leftBytes.length; index += 1) {
+    difference |= leftBytes[index] ^ (rightBytes[index] ?? 0);
+  }
+  return difference === 0;
+}
+
+async function authorizeAdmin(request: Request, env: Env): Promise<Response | null> {
+  const configured = String(env.ADMIN_TOKEN || "");
+  if (!configured) return json({ error: "admin_disabled" }, 503);
+  const authorization = request.headers.get("Authorization") || "";
+  const supplied = authorization.startsWith("Bearer ") ? authorization.slice(7) : "";
+  if (!supplied || !(await equalSecret(supplied, configured))) {
+    return json({ error: "unauthorized" }, 401);
+  }
+  return null;
+}
+
 function randomJoinCode(): string {
   const values = crypto.getRandomValues(new Uint8Array(4));
   return [...values].map((value) => value.toString(16).padStart(2, "0")).join("").toUpperCase();
@@ -200,6 +228,13 @@ export class GameSession extends DurableObject<Env> {
 
   async fetch(request: Request): Promise<Response> {
     const url = new URL(request.url);
+    if (url.pathname === "/internal/admin/game-player" && request.method === "POST") {
+      if (request.headers.get("X-EscapeBot-Internal-Admin") !== "1") {
+        return json({ error: "not_found" }, 404);
+      }
+      const payload = await request.json<Record<string, unknown>>();
+      return this.serializeState(() => this.excludeGamePlayer(payload));
+    }
     if (url.pathname === "/internal/lobby/initialize" && request.method === "POST") {
       const payload = await request.json<Record<string, unknown>>();
       return this.serializeState(() => this.initializeLobby(payload));
@@ -591,6 +626,51 @@ export class GameSession extends DurableObject<Env> {
       await this.broadcastGameState();
     }
     return json({ status: "joined", session_id: this.snapshot.sessionId });
+  }
+
+  private async excludeGamePlayer(payload: Record<string, unknown>): Promise<Response> {
+    if (!this.snapshot.lobby.creatorId) return json({ error: "session_not_found" }, 404);
+    if (!this.snapshot.lobby.started) return json({ error: "game_not_started" }, 409);
+    if (payload.action !== "exclude") return json({ error: "unsupported_admin_action" }, 400);
+    const puzzleId = cleanText(payload.puzzle_id, 64);
+    const playerId = cleanText(payload.player_id, 128);
+    if (!puzzleId || !CLIENT_ID_PATTERN.test(playerId)) {
+      return json({ error: "invalid_admin_game_player_request" }, 400);
+    }
+    try {
+      const scenario = await this.loadScenario(this.snapshot.lobby.scenarioId);
+      const now = new Date().toISOString();
+      const result = applyAdminGamePlayerExclusion(
+        scenario,
+        this.snapshot.gameState,
+        puzzleId,
+        playerId,
+        now,
+        this.runtimeActor(this.snapshot.lobby.creatorId),
+      );
+      if (result.result.changed === false) {
+        return json({ ...result.result, session_id: this.snapshot.sessionId, revision: this.snapshot.revision });
+      }
+      for (const message of result.messages) {
+        if (message.type === "bot.message") {
+          this.snapshot.chatHistory.push({ role: "bot", ...message.payload });
+        }
+      }
+      this.snapshot.gameState = result.state;
+      this.snapshot.scenarioProgress = buildScenarioProgress(scenario, result.state);
+      this.snapshot.revision += 1;
+      this.snapshot.updatedAt = now;
+      await this.ctx.storage.put(SNAPSHOT_KEY, this.snapshot);
+
+      for (const message of result.messages) {
+        if (message.type !== "admin.game_player") this.broadcastProtocol(message);
+      }
+      await this.broadcastGameState(scenario, undefined, now);
+      this.broadcast("scenario.progress", this.snapshot.scenarioProgress);
+      return json({ ...result.result, session_id: this.snapshot.sessionId, revision: this.snapshot.revision });
+    } catch (error) {
+      return json({ error: error instanceof Error ? error.message : "Hráče se nepodařilo vyřadit." }, 400);
+    }
   }
 
   private async resumeLobby(
@@ -1135,6 +1215,27 @@ export default {
     const url = new URL(request.url);
     if (url.pathname === "/api/health") {
       return json({ status: "ok", runtime: "cloudflare", environment: env.APP_ENV });
+    }
+    if (url.pathname === "/api/admin/game-player" && request.method === "POST") {
+      const unauthorized = await authorizeAdmin(request, env);
+      if (unauthorized) return unauthorized;
+      let payload: Record<string, unknown>;
+      try {
+        payload = await request.json<Record<string, unknown>>();
+      } catch {
+        return json({ error: "invalid_json" }, 400);
+      }
+      const sessionId = cleanText(payload.session_id, 128);
+      if (!SESSION_ID_PATTERN.test(sessionId)) return json({ error: "invalid_session_id" }, 400);
+      const forwarded = new Request("https://internal/internal/admin/game-player", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-EscapeBot-Internal-Admin": "1",
+        },
+        body: JSON.stringify(payload),
+      });
+      return env.GAME_SESSIONS.getByName(sessionId).fetch(forwarded);
     }
     if (url.pathname.startsWith("/api/")) return json({ error: "not_found" }, 404);
     if (url.pathname !== "/ws") return env.ASSETS.fetch(request);
