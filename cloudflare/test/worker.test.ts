@@ -446,6 +446,27 @@ describe("Cloudflare spike router", () => {
     await creatorSokobanProgress;
     await teammateSokobanProgress;
 
+    const creatorArchive = nextMessage(creator, "archive.result");
+    const creatorArchiveState = nextMessage(creator, "game.state");
+    const creatorArchiveProgress = nextMessage(creator, "scenario.progress");
+    const teammateArchive = nextMessage(player, "archive.result");
+    const teammateArchiveState = nextMessage(player, "game.state");
+    const teammateArchiveProgress = nextMessage(player, "scenario.progress");
+    creator.send(JSON.stringify({
+      type: "archive.arrange",
+      operation_id: "early-archive-1",
+      payload: { puzzle_id: "future_archive_cipher", card_id: "tile_1", target_id: "tile_2", action: "swap" },
+    }));
+    expect((await creatorArchive).payload).toMatchObject({
+      success: false,
+      reason: "Archivní skládačka nyní není aktivní.",
+    });
+    expect((await teammateArchive).payload).toMatchObject({ success: false });
+    expect((await creatorArchiveState).payload).not.toHaveProperty("archive_games");
+    expect((await teammateArchiveState).payload).not.toHaveProperty("archive_games");
+    await creatorArchiveProgress;
+    await teammateArchiveProgress;
+
     const creatorTriad = nextMessage(creator, "triad.result");
     const creatorTriadState = nextMessage(creator, "game.state");
     const creatorTriadProgress = nextMessage(creator, "scenario.progress");

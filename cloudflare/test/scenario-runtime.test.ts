@@ -525,4 +525,66 @@ describe("deterministic Cloudflare scenario runtime", () => {
     });
     expect(takeover.messages[1].payload.text).toContain("jiný než před chvílí");
   });
+
+  it("persists the archive assembly and requires it before accepting the return vector", async () => {
+    const scenario = await chronosScenario();
+    let state = startScenario(scenario, 0, "2026-09-28T12:00:00.000Z").state;
+    state.phase = "navigating";
+    state.checkpoint_states.future_archive = { status: "found", first_scanned_at: "2026-09-28T12:00:00.000Z" };
+
+    const blocked = applyScenarioCommand(
+      scenario,
+      state,
+      "puzzle.submit",
+      { puzzle_id: "future_archive_cipher", answer: "ROK DVA NULA TRI SEDM" },
+      "2026-09-28T12:00:01.000Z",
+    );
+    expect(blocked.messages[0]).toMatchObject({
+      type: "puzzle.result",
+      payload: { correct: false, reason: "Nejprve správně sestavte obraz rekonstrukce." },
+    });
+    expect(blocked.state.puzzle_attempts.future_archive_cipher).toBeUndefined();
+    state = blocked.state;
+
+    const assembly = scenario.puzzles.future_archive_cipher.assembly;
+    const currentOrder = [...assembly.initial_order];
+    let arrangedMessages: Array<{ type: string; payload: Record<string, unknown> }> = [];
+    for (const [index, cardId] of assembly.correct_order.entries()) {
+      if (currentOrder[index] === cardId) continue;
+      const displaced = currentOrder[index];
+      const cardIndex = currentOrder.indexOf(cardId);
+      const arranged = applyScenarioCommand(
+        scenario,
+        state,
+        "archive.arrange",
+        { puzzle_id: "future_archive_cipher", card_id: cardId, target_id: displaced, action: "swap" },
+        `2026-09-28T12:00:${String(10 + index).padStart(2, "0")}.000Z`,
+      );
+      state = arranged.state;
+      arrangedMessages = arranged.messages;
+      [currentOrder[index], currentOrder[cardIndex]] = [currentOrder[cardIndex], currentOrder[index]];
+    }
+    expect(arrangedMessages[0]).toMatchObject({ type: "archive.result", payload: { success: true, assembled: true } });
+    expect(state.archive_games.future_archive_cipher).toMatchObject({ assembled: true });
+    const puzzle = state.puzzles.find((item: Record<string, unknown>) => item.id === "future_archive_cipher");
+    expect(puzzle.archive_game).toMatchObject({
+      assembled: true,
+      revealed_key: "CHRONOS",
+      module_order: ["TEMPORÁLNÍ MOTOR", "FÁZOVÝ STABILIZÁTOR", "KRYSTAL ČASOVÉ KOTVY"],
+    });
+
+    const solved = applyScenarioCommand(
+      scenario,
+      state,
+      "puzzle.submit",
+      {
+        puzzle_id: "future_archive_cipher",
+        answer: "ROK DVA NULA TRI SEDM CAS DVA JEDNA CTYRI NULA PORADI MOTOR STABILIZATOR KRYSTAL",
+      },
+      "2026-09-28T12:01:00.000Z",
+    );
+    expect(solved.messages[0]).toMatchObject({ type: "puzzle.result", payload: { correct: true, attempts: 1 } });
+    expect(solved.state.checkpoint_states.future_archive.status).toBe("solved");
+    expect(solved.state.flags.return_vector_recovered).toBe(true);
+  });
 });

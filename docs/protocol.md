@@ -48,7 +48,9 @@ Cloudflare adaptér zatím obsluhuje z herních příkazů `player.message`,
 `line_game.reset`, `karel.command`, `karel.reset`, `triad.place` a
 `triad.reset`, `sokoban.command`, `sokoban.undo` a `sokoban.reset`. Sokobanové
 povely lze stejně jako v původním backendu zadávat česky přes `player.message`
-v kanálu `lost`. Před potvrzením uloží nový stav, chat i omezenou účtenku podle
+v kanálu `lost`. Podporované je také `archive.arrange`; skládání obrazu a
+následné `puzzle.submit` zůstávají oddělené kroky. Před potvrzením uloží nový
+stav, chat i omezenou účtenku podle
 `operation_id`. Opakované doručení vrátí uložené odpovědi pouze původnímu
 odesílateli a týmový chat ani herní efekt znovu nerozešle. Výsledek tahu
 `line_game.result` i hráčova mřížka jsou soukromé pro dané zařízení, zatímco
@@ -272,6 +274,15 @@ Provede deterministickou sekvenci pohybů Elary. Povolené hodnoty jsou `up`, `d
 ### `sokoban.undo` a `sokoban.reset`
 
 `undo` vrátí poslední skutečně provedený krok včetně zatlačení článku. `reset` obnoví počáteční mapu a zvýší počítadlo restartů.
+
+### `archive.arrange`
+
+Posune archivní kartu vlevo či vpravo, otočí ji o 90 stupňů nebo prohodí dva
+dílky. Akce mají hodnoty `left`, `right`, `rotate` a `swap`; u prohození je
+`target_id` povinný. Odpověď `archive.result` oznámí, zda už je obraz sestavený.
+Odhalený klíč a pořadí modulů se objeví až v následném `game.state`. Samotné
+sestavení checkpoint neuzavře — hráč ještě odešle dešifrovaný text přes
+`puzzle.submit`.
 
 ### `arg.verify`
 

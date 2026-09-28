@@ -142,7 +142,7 @@ Akceptace:
 
 **Odhad: 8–12 pracovních dnů**
 
-**Stav: sedmá vertikální část lokálně implementována.** Bootstrap načte katalog
+**Stav: osmá vertikální část lokálně implementována.** Bootstrap načte katalog
 ze stejných realizací jako současný backend, založí sólo nebo týmovou lobby,
 vyřeší osmimístný join kód a přesměruje klienta do konkrétního `GameSession`.
 Build skládá skutečné runtime scénáře z šablon a realizací. Lobby, seznam
@@ -157,9 +157,11 @@ odhalené indicie, pohybové snímky a veřejnou mapu. `triad` ukládá oddělen
 hráčské desky, deterministické tahy protivníka a týmově slučuje dokončené
 směry. Sdílený `sokoban` zachovává víceúrovňovou kampaň, české povely z
 interkomu, undo/reset, deadline každého sektoru, bodování i varování při změně
-navigátora; interní historie tahů se klientům neposílá. Ostatní interaktivní
-minihry, alarmy produkčních deadlineů, vyřazení
-hráče a terminály ještě nejsou přeneseny.
+navigátora; interní historie tahů se klientům neposílá. Archivní
+`archive_vector` ukládá sdílené pořadí a natočení dílků. Veřejný stav
+odhalí klíč a pořadí modulů až po sestavení, přičemž dokončení checkpointu stále
+vyžaduje samostatnou správnou textovou odpověď. Ostatní interaktivní minihry,
+alarmy produkčních deadlineů, vyřazení hráče a terminály ještě nejsou přeneseny.
 
 1. Směrovat spojení deterministicky podle `session_id`.
 2. Přesunout lobby, hráče, chat, herní snapshot, terminálové rezervace a

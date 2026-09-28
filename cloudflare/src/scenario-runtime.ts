@@ -28,6 +28,13 @@ import {
   undoSokoban,
   type SokobanState,
 } from "./sokoban";
+import {
+  arrangeArchive,
+  newArchiveGame,
+  publicArchiveGame,
+  validArchiveGame,
+  type ArchiveState,
+} from "./archive-vector";
 
 export type ScenarioDocument = Record<string, any>;
 export type GameStateDocument = Record<string, any>;
@@ -196,6 +203,7 @@ export function applyScenarioCommand(
     "sokoban.command",
     "sokoban.undo",
     "sokoban.reset",
+    "archive.arrange",
     "triad.place",
     "triad.reset",
   ]).has(type)) {
@@ -223,6 +231,7 @@ export function applyScenarioCommand(
   else if (type === "sokoban.command") result = applySokobanCommand(scenario, state, payload, now, actor);
   else if (type === "sokoban.undo") result = applySokobanUndo(scenario, state, payload, now);
   else if (type === "sokoban.reset") result = applySokobanReset(scenario, state, payload, now);
+  else if (type === "archive.arrange") result = applyArchiveArrange(scenario, state, payload);
   else if (type === "triad.place") result = applyTriadPlace(scenario, state, payload, now, actor);
   else result = applyTriadReset(scenario, state, payload, now, actor);
   return { ...result, state: presentGameState(scenario, result.state, actor, now) };
@@ -488,6 +497,10 @@ function applyQrDetected(
     const puzzle = record(record(scenario.puzzles)[puzzleId]);
     ensureSokobanGame(state, puzzleId, record(puzzle.game), now);
   }
+  if (puzzleId && puzzleAdapter(scenario, record(record(scenario.puzzles)[puzzleId])) === "archive_vector") {
+    const puzzle = record(record(scenario.puzzles)[puzzleId]);
+    ensureArchiveGame(state, puzzleId, record(puzzle.assembly));
+  }
   if (puzzleId && puzzleAdapter(scenario, record(record(scenario.puzzles)[puzzleId])) === "triad") {
     const puzzle = record(record(scenario.puzzles)[puzzleId]);
     for (const participantId of actor.participantIds.length ? actor.participantIds : [actor.clientId]) {
@@ -531,7 +544,8 @@ function applyPuzzleSubmit(
       messages: [{ type: "puzzle.result", payload: { correct: false, reason: "Neznámá hádanka." } }],
     };
   }
-  if (!puzzleUsesAnswerAdapter(scenario, puzzle)) {
+  const adapter = puzzleAdapter(scenario, puzzle);
+  if (!puzzleUsesAnswerAdapter(scenario, puzzle) && adapter !== "archive_vector") {
     return {
       state: presentGameState(scenario, state),
       messages: [{
@@ -559,6 +573,15 @@ function applyPuzzleSubmit(
       messages: [{
         type: "puzzle.result",
         payload: { correct: true, puzzle_id: puzzleId, already_solved: true },
+      }],
+    };
+  }
+  if (adapter === "archive_vector" && !ensureArchiveGame(state, puzzleId, record(puzzle.assembly)).assembled) {
+    return {
+      state: presentGameState(scenario, state),
+      messages: [{
+        type: "puzzle.result",
+        payload: { correct: false, reason: "Nejprve správně sestavte obraz rekonstrukce." },
       }],
     };
   }
@@ -1224,6 +1247,67 @@ function applySokobanReset(
   }
 }
 
+function ensureArchiveGame(
+  state: GameStateDocument,
+  puzzleId: string,
+  config: Record<string, any>,
+): ArchiveState {
+  state.archive_games = record(state.archive_games);
+  let game = state.archive_games[puzzleId];
+  if (!validArchiveGame(game, config)) {
+    game = newArchiveGame(config);
+    state.archive_games[puzzleId] = game;
+  }
+  const rotations = record(game.rotations);
+  for (const card of Array.isArray(config.cards) ? config.cards : []) {
+    rotations[String(record(card).id || "")] ??= 0;
+  }
+  game.rotations = rotations;
+  return game as ArchiveState;
+}
+
+function applyArchiveArrange(
+  scenario: ScenarioDocument,
+  state: GameStateDocument,
+  payload: Record<string, unknown>,
+): ScenarioCommandResult {
+  const puzzleId = String(payload.puzzle_id ?? "").trim();
+  const puzzle = record(record(scenario.puzzles)[puzzleId]);
+  const checkpoint = record(record(state.checkpoint_states)[String(puzzle.checkpoint_id || "")]);
+  if (
+    !Object.keys(puzzle).length ||
+    puzzleAdapter(scenario, puzzle) !== "archive_vector" ||
+    checkpoint.status !== "found"
+  ) {
+    return {
+      state,
+      messages: [{
+        type: "archive.result",
+        payload: { success: false, reason: "Archivní skládačka nyní není aktivní." },
+      }],
+    };
+  }
+  try {
+    const game = ensureArchiveGame(state, puzzleId, record(puzzle.assembly));
+    const result = arrangeArchive(
+      game,
+      record(puzzle.assembly),
+      payload.card_id,
+      payload.action,
+      payload.target_id,
+    );
+    return { state, messages: [{ type: "archive.result", payload: result }] };
+  } catch (error) {
+    return {
+      state,
+      messages: [{
+        type: "archive.result",
+        payload: { success: false, reason: error instanceof Error ? error.message : "Dílek nelze přesunout." },
+      }],
+    };
+  }
+}
+
 function ensureTriadGame(
   state: GameStateDocument,
   puzzleId: string,
@@ -1482,6 +1566,13 @@ export function presentGameState(
     ) {
       const game = ensureSokobanGame(state, puzzleId, record(puzzle.game), now);
       presented.game = publicSokobanGame(record(puzzle.game), game, now);
+    }
+    if (
+      puzzleAdapter(scenario, puzzle) === "archive_vector" &&
+      (checkpointState.status === "found" || checkpointState.status === "solved")
+    ) {
+      const game = ensureArchiveGame(state, puzzleId, record(puzzle.assembly));
+      presented.archive_game = publicArchiveGame(record(puzzle.assembly), game);
     }
     if (
       actorValue &&

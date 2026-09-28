@@ -285,6 +285,7 @@ export class GameSession extends DurableObject<Env> {
       case "sokoban.command":
       case "sokoban.undo":
       case "sokoban.reset":
+      case "archive.arrange":
       case "triad.place":
       case "triad.reset":
         await this.handleGameCommand(socket, attachment, message);
@@ -954,6 +955,7 @@ export class GameSession extends DurableObject<Env> {
       interactive_games: _privateLineGames,
       karel_games: _privateKarelGames,
       sokoban_games: _privateSokobanGames,
+      archive_games: _privateArchiveGames,
       triad_games: _privateTriadGames,
       ...publicState
     } = state;
