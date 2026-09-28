@@ -4,6 +4,14 @@ Transport: JSON messages over WebSocket.
 
 Default endpoint: `/ws` na stejném hostiteli jako webový klient (při lokálním HTTPS typicky `wss://localhost:8088/ws`).
 
+Cloudflare transport vždy přidává stabilní `client_id` do query stringu. Klient
+bez uložené relace se nejprve připojí pouze s `client_id`; bootstrap po
+`lobby.solo`, `lobby.create` nebo `lobby.join` odpoví interní zprávou
+`lobby.route` a klient otevře nové spojení s `session_id` a `client_id`.
+Rozehraná a uložená relace bootstrap přeskakuje a připojuje se přímo ke svému
+`GameSession` Durable Objectu. `lobby.route` není herní doménová událost a
+klient ji neukládá do historie relace.
+
 Every message has:
 
 ```json

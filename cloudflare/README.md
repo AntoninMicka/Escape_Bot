@@ -63,8 +63,10 @@ curl https://STAGING-DOMAIN/api/health
 
 Na stagingu je nutné ručně projít `/`, `/admin`, `/display`, `/terminal` a
 Chronomap, ověřit aktualizaci service workeru a HTTPS kameru v Safari na
-fyzickém iPhonu. WebSocket zatím používá spike kontrakt CF-01; úplný klientský
-protokol je úkolem CF-04.
+fyzickém iPhonu. První část CF-04 podporuje bootstrap, sólo/týmovou lobby,
+připojení kódem, spuštění a autoritativní resume snapshot. Vlastní herní
+příkazy, obsah scénáře, terminály a administrace ještě čekají na další části
+CF-04 a CF-05.
 
 Produkční deploy má samostatný explicitní příkaz `npm run deploy:production`.
 Obecný `npm run deploy` záměrně není definován, aby nebylo možné bez výběru
@@ -75,11 +77,11 @@ Teprve poté lze CF-01 označit za dokončený.
 
 ## Důležitá transportní změna
 
-Durable Object musí být vybrán před přijetím WebSocketu. Nové cloudové připojení
-proto předá `session_id` a `client_id` v URL. Nový hráč bez relace se v pozdější
-etapě nejprve připojí k bootstrap/event endpointu, získá směrovací identitu a
-otevře cílový týmový WebSocket. Již přijatý WebSocket nelze mezi Durable Objects
-přesunout.
+Durable Object musí být vybrán před přijetím WebSocketu. Uložená cloudová relace
+proto předá `session_id` a `client_id` v URL. Nový hráč bez relace se nejprve
+připojí k bootstrap Durable Objectu, získá přes `lobby.route` směrovací identitu
+a otevře cílový týmový WebSocket. Již přijatý WebSocket se mezi Durable Objects
+nepřesouvá.
 
 Typy aplikačních zpráv z `docs/protocol.md` zůstanou zachovány; změní se pouze
 bootstrap transportu a reconnect URL.

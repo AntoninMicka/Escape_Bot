@@ -42,6 +42,39 @@ function send(socket: WebSocket, type: string, payload: Record<string, unknown> 
 }
 
 describe("GameSession Durable Object spike", () => {
+  it("restores an initialized lobby after eviction", async () => {
+    const sessionId = "initialized-lobby-session";
+    const stub = env.GAME_SESSIONS.getByName(sessionId);
+    const initialized = await stub.fetch("https://internal/internal/lobby/initialize", {
+      method: "POST",
+      body: JSON.stringify({
+        session_id: sessionId,
+        mode: "solo",
+        creator_id: "persistent-phone",
+        team_name: "Persistent Team",
+        join_code: null,
+        lobby_type: "online_doom",
+        scenario_id: "chronos_online",
+        player_name: "Alice",
+      }),
+    });
+    expect(initialized.status).toBe(200);
+    expect(await initialized.json()).toMatchObject({ status: "created", session_id: sessionId });
+    await evictDurableObject(stub);
+
+    const { socket } = await connect(sessionId, "persistent-phone");
+    const lobby = nextMessage(socket, "lobby.state");
+    const game = nextMessage(socket, "game.state");
+    send(socket, "lobby.resume", { session_id: sessionId });
+    expect((await lobby).payload).toMatchObject({
+      team_name: "Persistent Team",
+      started: true,
+      player_count: 1,
+    });
+    expect((await game).payload).toMatchObject({ phase: "briefing", score: 20 });
+    socket.close(1000, "done");
+  });
+
   it("broadcasts one message to three clients in the same session", async () => {
     const sessionId = "broadcast-session";
     const clients = await Promise.all([
@@ -73,10 +106,10 @@ describe("GameSession Durable Object spike", () => {
     const progress = nextMessage(socket, "scenario.progress");
     send(socket, "lobby.resume");
 
-    expect((await lobby).payload.players).toEqual([{ client_id: "iphone", online: true }]);
+    expect((await lobby).payload).toMatchObject({ session_id: "resume-session" });
     expect((await history).payload.messages).toEqual([]);
     expect((await game).payload).toMatchObject({ phase: "operations", score: 425, revision: 1 });
-    expect((await progress).payload).toEqual({ completed: [], available: [] });
+    expect((await progress).payload).toMatchObject({ completed: [], available: [] });
     socket.close(1000, "done");
   });
 

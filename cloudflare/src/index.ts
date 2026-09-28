@@ -9,6 +9,7 @@ interface Env {
 interface SocketAttachment {
   clientId: string;
   connectedAt: string;
+  role: "bootstrap" | "session";
 }
 
 interface ProtocolMessage {
@@ -16,14 +17,30 @@ interface ProtocolMessage {
   payload?: Record<string, unknown>;
 }
 
+interface LobbyPlayer {
+  id: string;
+  name: string;
+  joinedAt: string;
+}
+
+interface LobbySnapshot {
+  mode: "solo" | "team";
+  creatorId: string;
+  teamName: string;
+  joinCode: string | null;
+  started: boolean;
+  lobbyType: string;
+  scenarioId: string;
+  players: Record<string, LobbyPlayer>;
+  maxPlayers: number;
+  appliedScoreAdjustment: number;
+}
+
 interface SessionSnapshot {
-  schemaVersion: 1;
+  schemaVersion: 2;
   sessionId: string;
   revision: number;
-  lobby: {
-    teamName: string;
-    started: boolean;
-  };
+  lobby: LobbySnapshot;
   chatHistory: Array<Record<string, unknown>>;
   gameState: {
     phase: string;
@@ -38,9 +55,29 @@ interface SessionSnapshot {
   updatedAt: string;
 }
 
+interface DirectorySnapshot {
+  schemaVersion: 1;
+  joinCodes: Record<string, string>;
+  teamKeys: Record<string, string>;
+  creatorKeys: Record<string, string>;
+}
+
+interface RuntimeGame {
+  id: string;
+  title: string;
+  template_id: string;
+  template_version: string;
+  realization_version: string;
+  modes: string[];
+  lobby_types: string[];
+}
+
 const SNAPSHOT_KEY = "session-snapshot";
+const DIRECTORY_KEY = "lobby-directory";
+const DIRECTORY_OBJECT_NAME = "__escape_bot_lobby_directory__";
 const SESSION_ID_PATTERN = /^[A-Za-z0-9_-]{8,128}$/;
 const CLIENT_ID_PATTERN = /^[A-Za-z0-9_-]{1,128}$/;
+const JOIN_CODE_PATTERN = /^[A-F0-9]{8}$/;
 
 function json(data: unknown, status = 200): Response {
   const response = Response.json(data, { status });
@@ -57,10 +94,21 @@ function protocolMessage(type: string, payload: Record<string, unknown>): string
 
 function defaultSnapshot(sessionId = ""): SessionSnapshot {
   return {
-    schemaVersion: 1,
+    schemaVersion: 2,
     sessionId,
     revision: 0,
-    lobby: { teamName: "Cloudflare spike", started: false },
+    lobby: {
+      mode: "team",
+      creatorId: "",
+      teamName: "",
+      joinCode: null,
+      started: false,
+      lobbyType: "on_site_qr",
+      scenarioId: "hotel_kraskov",
+      players: {},
+      maxPlayers: 0,
+      appliedScoreAdjustment: 0,
+    },
     chatHistory: [],
     gameState: { phase: "lobby", score: 0, flags: {} },
     scenarioProgress: { completed: [], available: [] },
@@ -69,32 +117,86 @@ function defaultSnapshot(sessionId = ""): SessionSnapshot {
   };
 }
 
+function normalizeSnapshot(
+  stored: SessionSnapshot | (Omit<SessionSnapshot, "schemaVersion" | "lobby"> & {
+    schemaVersion?: number;
+    lobby?: Partial<LobbySnapshot>;
+  }) | undefined,
+): SessionSnapshot {
+  const fallback = defaultSnapshot(stored?.sessionId ?? "");
+  if (!stored) return fallback;
+  return {
+    ...fallback,
+    ...stored,
+    schemaVersion: 2,
+    lobby: { ...fallback.lobby, ...stored.lobby },
+    gameState: { ...fallback.gameState, ...stored.gameState },
+    scenarioProgress: { ...fallback.scenarioProgress, ...stored.scenarioProgress },
+  };
+}
+
+function defaultDirectory(): DirectorySnapshot {
+  return { schemaVersion: 1, joinCodes: {}, teamKeys: {}, creatorKeys: {} };
+}
+
+function cleanText(value: unknown, maximum: number): string {
+  return String(value ?? "").trim().replace(/\s+/g, " ").slice(0, maximum);
+}
+
+function normalizedTeamKey(lobbyType: string, scenarioId: string, teamName: string): string {
+  return `${lobbyType}\u0000${scenarioId}\u0000${teamName.normalize("NFKC").toLocaleLowerCase("cs-CZ")}`;
+}
+
+function teamSizeAdjustment(mode: "solo" | "team", maximumPlayers: number): number {
+  if (mode === "solo") return 20;
+  if (maximumPlayers < 3) return (3 - maximumPlayers) * 10;
+  if (maximumPlayers > 3) return -(maximumPlayers - 3) * 30;
+  return 0;
+}
+
+function randomJoinCode(): string {
+  const values = crypto.getRandomValues(new Uint8Array(4));
+  return [...values].map((value) => value.toString(16).padStart(2, "0")).join("").toUpperCase();
+}
+
 export class GameSession extends DurableObject<Env> {
   private snapshot: SessionSnapshot = defaultSnapshot();
+  private readonly runtimeEnv: Env;
+  private directoryQueue: Promise<void> = Promise.resolve();
+  private stateQueue: Promise<void> = Promise.resolve();
 
   constructor(ctx: DurableObjectState, env: Env) {
     super(ctx, env);
+    this.runtimeEnv = env;
     ctx.blockConcurrencyWhile(async () => {
-      this.snapshot =
-        (await ctx.storage.get<SessionSnapshot>(SNAPSHOT_KEY)) ?? defaultSnapshot();
+      this.snapshot = normalizeSnapshot(await ctx.storage.get<SessionSnapshot>(SNAPSHOT_KEY));
     });
   }
 
   async fetch(request: Request): Promise<Response> {
+    const url = new URL(request.url);
+    if (url.pathname === "/internal/lobby/initialize" && request.method === "POST") {
+      const payload = await request.json<Record<string, unknown>>();
+      return this.serializeState(() => this.initializeLobby(payload));
+    }
+    if (url.pathname === "/internal/lobby/join" && request.method === "POST") {
+      const payload = await request.json<Record<string, unknown>>();
+      return this.serializeState(() => this.joinLobby(payload));
+    }
     if (request.headers.get("Upgrade")?.toLowerCase() !== "websocket") {
       return json({ error: "websocket_upgrade_required" }, 426);
     }
 
-    const url = new URL(request.url);
-    const sessionId = request.headers.get("X-EscapeBot-Session-Id") ?? "";
     const clientId = url.searchParams.get("client_id") ?? "";
-    if (!SESSION_ID_PATTERN.test(sessionId) || !CLIENT_ID_PATTERN.test(clientId)) {
+    const bootstrap = request.headers.get("X-EscapeBot-Bootstrap") === "1";
+    const sessionId = request.headers.get("X-EscapeBot-Session-Id") ?? "";
+    if (!CLIENT_ID_PATTERN.test(clientId) || (!bootstrap && !SESSION_ID_PATTERN.test(sessionId))) {
       return json({ error: "invalid_session_or_client_id" }, 400);
     }
-    if (this.snapshot.sessionId && this.snapshot.sessionId !== sessionId) {
+    if (!bootstrap && this.snapshot.sessionId && this.snapshot.sessionId !== sessionId) {
       return json({ error: "session_routing_mismatch" }, 409);
     }
-    if (!this.snapshot.sessionId) {
+    if (!bootstrap && !this.snapshot.sessionId) {
       this.snapshot = { ...this.snapshot, sessionId, updatedAt: new Date().toISOString() };
       await this.ctx.storage.put(SNAPSHOT_KEY, this.snapshot);
     }
@@ -105,6 +207,7 @@ export class GameSession extends DurableObject<Env> {
     const attachment: SocketAttachment = {
       clientId,
       connectedAt: new Date().toISOString(),
+      role: bootstrap ? "bootstrap" : "session",
     };
     server.serializeAttachment(attachment);
     this.ctx.acceptWebSocket(server);
@@ -113,8 +216,10 @@ export class GameSession extends DurableObject<Env> {
         session_id: sessionId,
         client_id: clientId,
         revision: this.snapshot.revision,
+        bootstrap,
       }),
     );
+    if (bootstrap) await this.sendRuntimeSettings(server);
 
     return new Response(null, { status: 101, webSocket: client });
   }
@@ -137,9 +242,20 @@ export class GameSession extends DurableObject<Env> {
       return;
     }
 
+    if (attachment.role === "bootstrap") {
+      await this.handleBootstrapMessage(socket, attachment, message);
+      return;
+    }
+
     switch (message.type) {
+      case "leaderboard.get":
+        this.send(socket, "leaderboard.update", { entries: [] });
+        return;
       case "lobby.resume":
-        this.sendAuthoritativeSnapshot(socket);
+        await this.resumeLobby(socket, attachment, message.payload ?? {});
+        return;
+      case "lobby.start":
+        await this.startLobby(socket, attachment);
         return;
       case "spike.broadcast": {
         const text = String(message.payload?.text ?? "").trim();
@@ -158,6 +274,357 @@ export class GameSession extends DurableObject<Env> {
         return;
       default:
         this.send(socket, "error", { message: `Neznámý typ zprávy: ${message.type}` });
+    }
+  }
+
+  private async handleBootstrapMessage(
+    socket: WebSocket,
+    attachment: SocketAttachment,
+    message: ProtocolMessage,
+  ): Promise<void> {
+    if (message.type === "leaderboard.get") {
+      this.send(socket, "leaderboard.update", { entries: [] });
+      return;
+    }
+    if (!new Set(["lobby.solo", "lobby.create", "lobby.join"]).has(message.type)) {
+      this.send(socket, "lobby.error", { message: "Nejprve založte tým nebo se k němu připojte." });
+      return;
+    }
+
+    const payload = message.payload ?? {};
+    const requestedClientId = cleanText(payload.client_id, 128);
+    if (requestedClientId !== attachment.clientId) {
+      this.send(socket, "lobby.error", { message: "Identifikátor zařízení neodpovídá spojení." });
+      return;
+    }
+
+    try {
+      await this.serializeDirectory(async () => {
+        if (message.type === "lobby.join") {
+          await this.routeLobbyJoin(socket, attachment.clientId, payload);
+        } else {
+          await this.routeLobbyCreation(
+            socket,
+            attachment.clientId,
+            message.type === "lobby.solo" ? "solo" : "team",
+            payload,
+          );
+        }
+      });
+    } catch (error) {
+      this.send(socket, "lobby.error", {
+        message: error instanceof Error ? error.message : "Týmovou relaci nelze otevřít.",
+      });
+    }
+  }
+
+  private async routeLobbyCreation(
+    socket: WebSocket,
+    clientId: string,
+    mode: "solo" | "team",
+    payload: Record<string, unknown>,
+  ): Promise<void> {
+    const name = cleanText(payload.name, 24);
+    const teamName = cleanText(payload.team_name, 32);
+    const lobbyType = cleanText(payload.lobby_type || "on_site_qr", 32);
+    const scenarioId = cleanText(payload.scenario_id, 64);
+    if (!name) throw new Error("Jméno hráče je povinné.");
+    if (!teamName) throw new Error("Název týmu je povinný.");
+    if (!new Set(["online_doom", "on_site_qr", "geo"]).has(lobbyType)) {
+      throw new Error("Neznámý typ herní lobby.");
+    }
+
+    const games = await this.loadRuntimeGames();
+    const game = games.find((candidate) => candidate.id === scenarioId);
+    if (!game || !game.lobby_types.includes(lobbyType)) {
+      throw new Error("Vybraná hra není pro tento typ lobby dostupná.");
+    }
+
+    const directory = (await this.ctx.storage.get<DirectorySnapshot>(DIRECTORY_KEY)) ?? defaultDirectory();
+    const teamKey = normalizedTeamKey(lobbyType, scenarioId, teamName);
+    const creatorKey = `${clientId}\u0000${mode}\u0000${teamKey}`;
+    const existingForCreator = directory.creatorKeys[creatorKey];
+    if (existingForCreator) {
+      const existingJoinCode = Object.entries(directory.joinCodes).find(
+        ([, sessionId]) => sessionId === existingForCreator,
+      )?.[0] ?? null;
+      this.send(socket, "lobby.route", {
+        session_id: existingForCreator,
+        client_id: clientId,
+        mode,
+        join_code: existingJoinCode,
+      });
+      return;
+    }
+    if (directory.teamKeys[teamKey]) {
+      throw new Error("Tým s tímto názvem už existuje. Zvolte jiný název.");
+    }
+
+    const sessionId = crypto.randomUUID().replaceAll("-", "");
+    let joinCode: string | null = null;
+    if (mode === "team") {
+      do joinCode = randomJoinCode(); while (directory.joinCodes[joinCode]);
+    }
+    const initialized = await this.runtimeEnv.GAME_SESSIONS.getByName(sessionId).fetch(
+      "https://internal/internal/lobby/initialize",
+      {
+        method: "POST",
+        body: JSON.stringify({
+          session_id: sessionId,
+          mode,
+          creator_id: clientId,
+          team_name: teamName,
+          join_code: joinCode,
+          lobby_type: lobbyType,
+          scenario_id: scenarioId,
+          player_name: name,
+        }),
+      },
+    );
+    const initializationResult = await initialized.json<{ error?: string }>();
+    if (!initialized.ok) {
+      throw new Error(initializationResult.error || "Cloudovou týmovou relaci se nepodařilo vytvořit.");
+    }
+
+    directory.teamKeys[teamKey] = sessionId;
+    directory.creatorKeys[creatorKey] = sessionId;
+    if (joinCode) directory.joinCodes[joinCode] = sessionId;
+    await this.ctx.storage.put(DIRECTORY_KEY, directory);
+    this.send(socket, "lobby.route", {
+      session_id: sessionId,
+      client_id: clientId,
+      mode,
+      join_code: joinCode,
+    });
+  }
+
+  private async routeLobbyJoin(
+    socket: WebSocket,
+    clientId: string,
+    payload: Record<string, unknown>,
+  ): Promise<void> {
+    const name = cleanText(payload.name, 24);
+    const joinCode = cleanText(payload.join_code, 32).toUpperCase().replace("ESCAPEBOT://TEAM/", "");
+    if (!name) throw new Error("Jméno hráče je povinné.");
+    if (!JOIN_CODE_PATTERN.test(joinCode)) throw new Error("Připojovací kód není platný.");
+    const directory = (await this.ctx.storage.get<DirectorySnapshot>(DIRECTORY_KEY)) ?? defaultDirectory();
+    const sessionId = directory.joinCodes[joinCode];
+    if (!sessionId) throw new Error("Připojovací kód není platný nebo relace už neexistuje.");
+
+    const joined = await this.runtimeEnv.GAME_SESSIONS.getByName(sessionId).fetch(
+      "https://internal/internal/lobby/join",
+      {
+        method: "POST",
+        body: JSON.stringify({ client_id: clientId, player_name: name }),
+      },
+    );
+    const joinResult = await joined.json<{ error?: string }>();
+    if (!joined.ok) {
+      throw new Error(joinResult.error || "K týmu se nepodařilo připojit.");
+    }
+    this.send(socket, "lobby.route", {
+      session_id: sessionId,
+      client_id: clientId,
+      mode: "team",
+      join_code: joinCode,
+    });
+  }
+
+  private async initializeLobby(payload: Record<string, unknown>): Promise<Response> {
+    const sessionId = cleanText(payload.session_id, 128);
+    const clientId = cleanText(payload.creator_id, 128);
+    const name = cleanText(payload.player_name, 24);
+    const teamName = cleanText(payload.team_name, 32);
+    const mode = payload.mode === "solo" ? "solo" : "team";
+    if (!SESSION_ID_PATTERN.test(sessionId) || !CLIENT_ID_PATTERN.test(clientId) || !name || !teamName) {
+      return json({ error: "invalid_lobby" }, 400);
+    }
+    if (this.snapshot.lobby.creatorId) {
+      const sameLobby =
+        this.snapshot.sessionId === sessionId &&
+        this.snapshot.lobby.creatorId === clientId &&
+        this.snapshot.lobby.teamName === teamName;
+      return sameLobby ? json({ status: "exists" }) : json({ error: "lobby_already_initialized" }, 409);
+    }
+
+    const now = new Date().toISOString();
+    const started = mode === "solo";
+    const adjustment = started ? teamSizeAdjustment(mode, 1) : 0;
+    this.snapshot = {
+      ...defaultSnapshot(sessionId),
+      revision: 1,
+      lobby: {
+        mode,
+        creatorId: clientId,
+        teamName,
+        joinCode: payload.join_code ? cleanText(payload.join_code, 8) : null,
+        started,
+        lobbyType: cleanText(payload.lobby_type || "on_site_qr", 32),
+        scenarioId: cleanText(payload.scenario_id, 64),
+        players: { [clientId]: { id: clientId, name, joinedAt: now } },
+        maxPlayers: 1,
+        appliedScoreAdjustment: adjustment,
+      },
+      gameState: {
+        phase: started ? "briefing" : "lobby",
+        score: adjustment,
+        flags: started ? { operations_started_at: now } : {},
+      },
+      scenarioProgress: { completed: [], available: [] },
+      updatedAt: now,
+    };
+    await this.ctx.storage.put(SNAPSHOT_KEY, this.snapshot);
+    return json({ status: "created", session_id: sessionId });
+  }
+
+  private async joinLobby(payload: Record<string, unknown>): Promise<Response> {
+    const clientId = cleanText(payload.client_id, 128);
+    const name = cleanText(payload.player_name, 24);
+    if (!this.snapshot.lobby.creatorId) return json({ error: "Týmová relace neexistuje." }, 404);
+    if (!CLIENT_ID_PATTERN.test(clientId) || !name) return json({ error: "Jméno hráče je povinné." }, 400);
+    const previousAdjustment = this.snapshot.lobby.appliedScoreAdjustment;
+    if (!this.snapshot.lobby.players[clientId]) {
+      this.snapshot.lobby.players[clientId] = {
+        id: clientId,
+        name,
+        joinedAt: new Date().toISOString(),
+      };
+    } else {
+      this.snapshot.lobby.players[clientId].name = name;
+    }
+    this.snapshot.lobby.maxPlayers = Math.max(
+      this.snapshot.lobby.maxPlayers,
+      Object.keys(this.snapshot.lobby.players).length,
+    );
+    const desiredAdjustment = this.snapshot.lobby.started
+      ? teamSizeAdjustment(this.snapshot.lobby.mode, this.snapshot.lobby.maxPlayers)
+      : previousAdjustment;
+    const scoreDelta = desiredAdjustment - previousAdjustment;
+    this.snapshot.lobby.appliedScoreAdjustment = desiredAdjustment;
+    this.snapshot.gameState.score += scoreDelta;
+    this.snapshot.revision += 1;
+    this.snapshot.updatedAt = new Date().toISOString();
+    await this.ctx.storage.put(SNAPSHOT_KEY, this.snapshot);
+    this.broadcastLobbyState();
+    if (scoreDelta) {
+      this.broadcast("score.update", {
+        score: this.snapshot.gameState.score,
+        delta: scoreDelta,
+        reason: "team_size",
+      });
+      this.broadcastGameState();
+    }
+    return json({ status: "joined", session_id: this.snapshot.sessionId });
+  }
+
+  private async resumeLobby(
+    socket: WebSocket,
+    attachment: SocketAttachment,
+    payload: Record<string, unknown>,
+  ): Promise<void> {
+    if (!this.snapshot.lobby.creatorId) {
+      this.sendAuthoritativeSnapshot(socket);
+      return;
+    }
+    const requestedSession = cleanText(payload.session_id || this.snapshot.sessionId, 128);
+    if (
+      requestedSession !== this.snapshot.sessionId ||
+      !this.snapshot.lobby.players[attachment.clientId]
+    ) {
+      this.send(socket, "lobby.error", { message: "Uloženou týmovou relaci se nepodařilo obnovit." });
+      return;
+    }
+    this.broadcastLobbyState();
+    if (this.snapshot.lobby.started) this.sendAuthoritativeSnapshot(socket, false);
+  }
+
+  private async startLobby(socket: WebSocket, attachment: SocketAttachment): Promise<void> {
+    await this.serializeState(() => this.startLobbyMutation(socket, attachment));
+  }
+
+  private async startLobbyMutation(socket: WebSocket, attachment: SocketAttachment): Promise<void> {
+    if (attachment.clientId !== this.snapshot.lobby.creatorId) {
+      this.send(socket, "lobby.error", { message: "Hru může spustit pouze zakladatel týmu." });
+      return;
+    }
+    if (this.snapshot.lobby.started) {
+      this.sendAuthoritativeSnapshot(socket);
+      return;
+    }
+    const now = new Date().toISOString();
+    const adjustment = teamSizeAdjustment(this.snapshot.lobby.mode, this.snapshot.lobby.maxPlayers);
+    this.snapshot = {
+      ...this.snapshot,
+      revision: this.snapshot.revision + 1,
+      lobby: { ...this.snapshot.lobby, started: true, appliedScoreAdjustment: adjustment },
+      gameState: {
+        ...this.snapshot.gameState,
+        phase: "briefing",
+        score: this.snapshot.gameState.score + adjustment,
+        flags: { ...this.snapshot.gameState.flags, operations_started_at: now },
+      },
+      updatedAt: now,
+    };
+    await this.ctx.storage.put(SNAPSHOT_KEY, this.snapshot);
+    this.broadcastLobbyState();
+    for (const candidate of this.ctx.getWebSockets()) this.sendAuthoritativeSnapshot(candidate, false);
+  }
+
+  private async serializeDirectory<T>(operation: () => Promise<T>): Promise<T> {
+    const previous = this.directoryQueue;
+    let release: () => void = () => {};
+    this.directoryQueue = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    await previous;
+    try {
+      return await operation();
+    } finally {
+      release();
+    }
+  }
+
+  private async serializeState<T>(operation: () => Promise<T>): Promise<T> {
+    const previous = this.stateQueue;
+    let release: () => void = () => {};
+    this.stateQueue = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    await previous;
+    try {
+      return await operation();
+    } finally {
+      release();
+    }
+  }
+
+  private async loadRuntimeGames(): Promise<RuntimeGame[]> {
+    const response = await this.runtimeEnv.ASSETS.fetch("https://assets.local/runtime-catalog.json");
+    if (!response.ok) throw new Error("Cloudový katalog her není dostupný.");
+    return response.json<RuntimeGame[]>();
+  }
+
+  private async sendRuntimeSettings(socket: WebSocket): Promise<void> {
+    try {
+      const games = await this.loadRuntimeGames();
+      this.send(socket, "runtime.settings", {
+        online_mode: false,
+        gameplay_enabled: true,
+        display_leaderboard: true,
+        leaderboard_finalized: false,
+        games,
+        configurable_games: games,
+        start_queue: [],
+        checkpoints: [],
+        availability: null,
+        availability_by_lobby_type: {},
+        mapillary: { enabled: false, access_token: "" },
+        event: {},
+      });
+    } catch (error) {
+      this.send(socket, "lobby.error", {
+        message: error instanceof Error ? error.message : "Cloudový katalog her není dostupný.",
+      });
     }
   }
 
@@ -232,20 +699,65 @@ export class GameSession extends DurableObject<Env> {
     this.send(socket, "spike.deadline.scheduled", { deadline_at: deadlineAt });
   }
 
-  private sendAuthoritativeSnapshot(socket: WebSocket): void {
-    const players = this.ctx.getWebSockets().map((candidate) => {
-      const attachment = candidate.deserializeAttachment() as SocketAttachment | null;
-      return { client_id: attachment?.clientId ?? "unknown", online: true };
-    });
-    this.send(socket, "lobby.state", {
+  private connectedClientIds(): Set<string> {
+    return new Set(
+      this.ctx
+        .getWebSockets()
+        .map((socket) => socket.deserializeAttachment() as SocketAttachment | null)
+        .filter((attachment) => attachment?.role === "session")
+        .map((attachment) => attachment?.clientId ?? ""),
+    );
+  }
+
+  private lobbyPayload(clientId: string): Record<string, unknown> {
+    const connected = this.connectedClientIds();
+    const players = Object.values(this.snapshot.lobby.players);
+    return {
       session_id: this.snapshot.sessionId,
       revision: this.snapshot.revision,
-      ...this.snapshot.lobby,
-      players,
-    });
+      mode: this.snapshot.lobby.mode,
+      lobby_type: this.snapshot.lobby.lobbyType,
+      scenario_id: this.snapshot.lobby.scenarioId,
+      team_name: this.snapshot.lobby.teamName,
+      join_code: this.snapshot.lobby.joinCode,
+      started: this.snapshot.lobby.started,
+      is_creator: clientId === this.snapshot.lobby.creatorId,
+      player_count: players.length,
+      registered_players: players.length,
+      online_count: players.filter((player) => connected.has(player.id)).length,
+      max_players: this.snapshot.lobby.maxPlayers,
+      score_adjustment: this.snapshot.lobby.appliedScoreAdjustment,
+      players: players.map((player) => ({
+        id: player.id,
+        name: player.name,
+        joined_at: player.joinedAt,
+        connected: connected.has(player.id),
+      })),
+    };
+  }
+
+  private broadcastLobbyState(): void {
+    for (const socket of this.ctx.getWebSockets()) {
+      const attachment = socket.deserializeAttachment() as SocketAttachment | null;
+      if (attachment?.role === "session") {
+        this.send(socket, "lobby.state", this.lobbyPayload(attachment.clientId));
+      }
+    }
+  }
+
+  private sendAuthoritativeSnapshot(socket: WebSocket, includeLobby = true): void {
+    const attachment = socket.deserializeAttachment() as SocketAttachment | null;
+    if (includeLobby) this.send(socket, "lobby.state", this.lobbyPayload(attachment?.clientId ?? ""));
     this.send(socket, "chat.history", { messages: this.snapshot.chatHistory });
     this.send(socket, "game.state", this.gameStatePayload());
-    this.send(socket, "scenario.progress", this.snapshot.scenarioProgress);
+    this.send(socket, "scenario.progress", {
+      scenario_id: this.snapshot.lobby.scenarioId,
+      phase: this.snapshot.gameState.phase,
+      score: this.snapshot.gameState.score,
+      inventory: [],
+      nodes: [],
+      ...this.snapshot.scenarioProgress,
+    });
   }
 
   private gameStatePayload(): Record<string, unknown> {
@@ -290,12 +802,16 @@ export default {
 
     const sessionId = url.searchParams.get("session_id") ?? "";
     const clientId = url.searchParams.get("client_id") ?? "";
-    if (!SESSION_ID_PATTERN.test(sessionId) || !CLIENT_ID_PATTERN.test(clientId)) {
+    if (!CLIENT_ID_PATTERN.test(clientId) || (sessionId && !SESSION_ID_PATTERN.test(sessionId))) {
       return json({ error: "invalid_session_or_client_id" }, 400);
     }
 
     const forwarded = new Request(request);
-    forwarded.headers.set("X-EscapeBot-Session-Id", sessionId);
-    return env.GAME_SESSIONS.getByName(sessionId).fetch(forwarded);
+    if (sessionId) {
+      forwarded.headers.set("X-EscapeBot-Session-Id", sessionId);
+      return env.GAME_SESSIONS.getByName(sessionId).fetch(forwarded);
+    }
+    forwarded.headers.set("X-EscapeBot-Bootstrap", "1");
+    return env.GAME_SESSIONS.getByName(DIRECTORY_OBJECT_NAME).fetch(forwarded);
   },
 } satisfies ExportedHandler<Env>;

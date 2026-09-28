@@ -24,6 +24,7 @@ test("Static Assets build is minimal, fingerprinted and internally complete", as
   assert.ok(relativeFiles.includes("index.html"));
   assert.ok(relativeFiles.includes("display.html"));
   assert.ok(relativeFiles.includes("sw.js"));
+  assert.ok(relativeFiles.includes("runtime-catalog.json"));
   assert.ok(relativeFiles.includes("chronos-webgl/dist/index.html"));
   assert.ok(relativeFiles.some((path) => /^assets\/app\/operation-queue-[a-f0-9]{12}\.js$/.test(path)));
   assert.ok(relativeFiles.some((path) => /^assets\/app\/chronos3d-[a-f0-9]{12}\.js$/.test(path)));
@@ -39,6 +40,14 @@ test("Static Assets build is minimal, fingerprinted and internally complete", as
     if (match[1] === "") continue;
     assert.ok(relativeFiles.includes(match[1]), `Precache odkaz ${match[1]} neexistuje.`);
   }
+
+  const runtimeCatalog = JSON.parse(
+    await readFile(join(outputDir, "runtime-catalog.json"), "utf8"),
+  );
+  assert.ok(runtimeCatalog.some((game) => game.id === "chronos_online"));
+  assert.ok(
+    runtimeCatalog.find((game) => game.id === "chronos_online").lobby_types.includes("online_doom"),
+  );
 
   for (const path of files) assert.ok((await stat(path)).size <= 25 * 1024 * 1024);
 });

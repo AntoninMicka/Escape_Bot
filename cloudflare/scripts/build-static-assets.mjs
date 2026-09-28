@@ -41,6 +41,24 @@ function relativeUrl(path) {
   return relative(outputDir, path).split(sep).join("/");
 }
 
+function supportedLobbyTypes(modes) {
+  const values = new Set(modes);
+  return [
+    values.has("online_doom") || values.has("doom") || values.has("online")
+      ? "online_doom"
+      : null,
+    values.has("on_site_qr") ||
+    values.has("physical_indoor") ||
+    values.has("physical_outdoor") ||
+    values.has("hybrid")
+      ? "on_site_qr"
+      : null,
+    values.has("geo") || values.has("osm") || values.has("gnss") || values.has("location")
+      ? "geo"
+      : null,
+  ].filter(Boolean);
+}
+
 await rm(outputDir, { recursive: true, force: true });
 await mkdir(outputDir, { recursive: true });
 
@@ -78,6 +96,26 @@ const webglOutput = join(outputDir, "chronos-webgl", "dist");
 await mkdir(dirname(webglOutput), { recursive: true });
 await cp(webglSource, webglOutput, { recursive: true });
 await copyFile(join(cloudflareDir, "static", "_headers"), join(outputDir, "_headers"));
+
+const realizationDir = join(repositoryDir, "backend", "content", "realizations");
+const runtimeGames = [];
+for (const filename of (await readdir(realizationDir)).filter((name) => name.endsWith(".json")).sort()) {
+  const realization = JSON.parse(await readFile(join(realizationDir, filename), "utf8"));
+  const modes = Array.isArray(realization.modes) ? realization.modes.map(String) : [];
+  runtimeGames.push({
+    id: String(realization.id || ""),
+    title: String(realization.title || realization.id || ""),
+    template_id: String(realization.template?.id || ""),
+    template_version: String(realization.template?.version || ""),
+    realization_version: String(realization.version || ""),
+    modes,
+    lobby_types: supportedLobbyTypes(modes),
+  });
+}
+if (runtimeGames.some((game) => !game.id || !game.lobby_types.length)) {
+  throw new Error("Některá realizace nemá ID nebo podporovaný lobby režim.");
+}
+await writeFile(join(outputDir, "runtime-catalog.json"), `${JSON.stringify(runtimeGames, null, 2)}\n`);
 
 const versionInputs = (await listFiles(outputDir)).filter(
   (path) => relativeUrl(path) !== "_headers",

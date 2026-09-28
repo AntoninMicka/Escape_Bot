@@ -1872,6 +1872,7 @@
         const requestedJoinCode = new URLSearchParams(window.location.search).get('join');
         const requestedRecoveryToken = new URLSearchParams(window.location.search).get('recover');
         let savedLobby = null;
+        let routedSessionId = '';
         let lobbySyncTimer = null;
         let pendingLobbyRequest = null;
         let pendingLobbyTimer = null;
@@ -3247,7 +3248,10 @@
         function connect() {
             if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) return;
             const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-            ws = new WebSocket(`${wsProtocol}//${window.location.host}/ws`);
+            const routeParams = new URLSearchParams({client_id:clientId});
+            const targetSessionId = routedSessionId || ((!requestedJoinCode && !requestedRecoveryToken) ? savedLobby?.session_id : '');
+            if (targetSessionId) routeParams.set('session_id', targetSessionId);
+            ws = new WebSocket(`${wsProtocol}//${window.location.host}/ws?${routeParams}`);
 
             ws.onopen = () => {
                 console.log("WebSocket připojen. Zařízení:", clientId);
@@ -3441,6 +3445,7 @@
                 else if (msg.type === 'admin.session_removed') {
                     gameOperationQueue.discardSession(sessionId);
                     localStorage.removeItem('escapeBotLobby');
+                    routedSessionId = '';
                     showNotification(msg.payload.message || 'Relace byla odstraněna.', 'error');
                 }
                 else if (msg.type === 'lobby.player_identity') {
@@ -3454,6 +3459,18 @@
                     showNotification(`Identita ${msg.payload.player_name} byla obnovena v týmu ${msg.payload.team_name}.`, 'success');
                     history.replaceState({}, '', window.location.pathname + (demoModeRequested ? '?demo=1' : ''));
                 }
+                else if (msg.type === 'lobby.route') {
+                    clearPendingLobbyRequest();
+                    savedLobby = {session_id:msg.payload.session_id, mode:msg.payload.mode};
+                    routedSessionId = msg.payload.session_id;
+                    localStorage.setItem('escapeBotLobby', JSON.stringify(savedLobby));
+                    if (requestedJoinCode) history.replaceState({}, '', window.location.pathname + (demoModeRequested ? '?demo=1' : ''));
+                    const routedSocket = ws;
+                    routedSocket.onclose = null;
+                    routedSocket.close(4001, 'Routing to GameSession');
+                    ws = null;
+                    connect();
+                }
                 else if (msg.type === 'lobby.state') {
                     document.getElementById('player-identity').classList.remove('visible');
                     renderLobby(msg.payload);
@@ -3463,6 +3480,7 @@
                     onboardingWasRequested = false;
                     localStorage.removeItem('escapeBotLobby');
                     savedLobby = null;
+                    routedSessionId = '';
                     stopJoinTeamScanner();
                     document.getElementById('lobby-overlay').classList.remove('hidden');
                     document.getElementById('lobby-modes').style.display = 'grid';
