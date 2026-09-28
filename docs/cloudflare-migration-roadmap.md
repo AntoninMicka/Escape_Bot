@@ -184,7 +184,9 @@ checkpointů a miniher. Druhý průchod založí tříčlenný tým, ověří nu
 velikostní úpravu skóre, soukromé desky všech hráčů v `line_game` a `triad`,
 týmové sjednocení podmínek a společné dokončení finále. Evikce `GameSession`
 uprostřed hry i po finále zachová autoritativní stav a všechny tři identity.
-Fyzický týmový průchod zůstává součástí živé akceptace.
+Fyzický průchod se třemi hráči zůstává součástí živé akceptace, ale je vědomě
+odložen do doby, kdy budou k dispozici tři zařízení; neblokuje navazující
+implementaci CF-05.
 
 1. Směrovat spojení deterministicky podle `session_id`.
 2. Přesunout lobby, hráče, chat, herní snapshot, terminálové rezervace a

@@ -109,6 +109,9 @@ pokoje 108, všechny checkpointy a minihry, soukromí hráčských desek v
 `line_game` a `triad`, týmové sjednocení podmínek, dokončení finále a obnovu
 autoritativního stavu po evikci Durable Objectu uprostřed hry i po
 `game.complete`.
+Fyzická akceptace stejného průchodu na třech hráčských zařízeních je odložená
+do doby, kdy budou zařízení k dispozici; automatizované pokrytí tím není
+nahrazeno za živou akceptaci.
 Samostatné API už dovoluje správci vyřadit registrovaného hráče z aktivní
 `line_game` nebo `triad` i bez jeho WebSocketového připojení. Produkční deadline
 už používá Durable Object alarm: po jednorázovém
