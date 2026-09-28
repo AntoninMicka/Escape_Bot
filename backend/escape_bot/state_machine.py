@@ -92,13 +92,13 @@ class GameState:
         }
 
     @classmethod
-    def restore(cls, data: dict[str, Any]) -> "GameState":
+    def restore(cls, data: dict[str, Any], *, migrate_legacy: bool = True) -> "GameState":
         state = cls()
         state.phase = str(data.get("phase", GamePhase.BOOT.value))
         state.unlocked_discoveries = set(data.get("unlocked_discoveries", []))
         state.inventory = list(data.get("inventory", []))
         state.flags = dict(data.get("flags", {}))
-        if state.phase in {GamePhase.LOST_CONNECTED.value, GamePhase.CONNECTION_LOST.value}:
+        if migrate_legacy and state.phase in {GamePhase.LOST_CONNECTED.value, GamePhase.CONNECTION_LOST.value}:
             state.phase = GamePhase.NAVIGATING.value
             state.flags["chronomap_unlocked"] = True
         state.chat_history = list(data.get("chat_history", []))
@@ -133,8 +133,8 @@ class EscapeBotStateMachine:
         self._team_mode = "solo"
         self._participant_names: dict[str, str] = {"legacy-client": "Hráč"}
 
-    def restore_state(self, data: dict[str, Any]) -> None:
-        self.state = GameState.restore(data)
+    def restore_state(self, data: dict[str, Any], *, migrate_legacy: bool = True) -> None:
+        self.state = GameState.restore(data, migrate_legacy=migrate_legacy)
         if self.state.phase in {GamePhase.NAVIGATING.value, GamePhase.PORTAL_OPEN.value}:
             self.state.flags["chronomap_unlocked"] = True
         self._unlock_default_cipher_tools()

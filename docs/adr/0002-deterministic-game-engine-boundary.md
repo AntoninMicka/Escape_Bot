@@ -34,8 +34,10 @@ další mutace. Po dobu migrace engine přijímá i původní neobalený snapsho
 prvním příkazu jej převede na aktuální verzi.
 
 Čas je vstup příkazu. Stavový automat proto používá injektované hodiny a během
-jednoho příkazu nesmí číst systémový čas přímo. FastAPI transport zůstává v této
-etapě beze změny; přepnutí persistence na obálku bude samostatný integrační krok.
+jednoho příkazu nesmí číst systémový čas přímo. FastAPI transport zůstává jako
+adaptér nad novým enginem. Uložený snapshot si ponechává původní strukturu stavu
+a metadata enginu ukládá pod `_game_engine`. Starší server tento neznámý klíč
+ignoruje, takže rollback nevyžaduje zpětnou migraci dat.
 
 ## Důsledky
 
@@ -43,6 +45,7 @@ etapě beze změny; přepnutí persistence na obálku bude samostatný integrač
   adaptéru.
 - Retry příkazu je deterministický, pokud volající zachová `operation_id`.
 - Alarm Durable Objectu lze naplánovat podle `next_deadline_at`.
-- Změna formátu perzistence vyžaduje explicitní migraci serverového adaptéru.
+- FastAPI adaptér přijímá volitelné `operation_id`; klienti je mohou zavádět
+  postupně bez změny stávajících zpráv.
 - Paritní test musí pro reprezentativní sekvenci porovnávat odpovědi i stav
   původního rozhraní s novou hranicí.

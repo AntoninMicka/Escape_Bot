@@ -74,7 +74,7 @@ class GameEngine:
 
         machine = EscapeBotStateMachine(self.scenario, clock=lambda: command_time)
         if state_data:
-            machine.restore_state(deepcopy(state_data))
+            machine.restore_state(deepcopy(state_data), migrate_legacy=False)
         history_before = deepcopy(machine.state.event_history)
         payload = deepcopy(dict(command.payload))
         payload.update({

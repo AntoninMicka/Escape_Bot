@@ -85,6 +85,16 @@ class GameEngineBoundaryTests(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(result.next_deadline_at, first_deadline.isoformat())
 
+    async def test_apply_does_not_run_startup_only_legacy_phase_migration(self) -> None:
+        result = await self.engine.apply(
+            {"phase": "connection_lost"},
+            GameCommand("client.hello"),
+            self.actor,
+            self.now,
+        )
+
+        self.assertEqual(result.snapshot["state"]["phase"], "connection_lost")
+
     async def test_rejects_unknown_snapshot_version(self) -> None:
         with self.assertRaisesRegex(ValueError, "Unsupported game snapshot schema version"):
             await self.engine.apply(

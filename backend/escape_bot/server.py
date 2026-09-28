@@ -19,6 +19,7 @@ from fastapi.staticfiles import StaticFiles
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 
 from .protocol import Message
+from .session_adapter import GameSessionAdapter
 from .state_machine import EscapeBotStateMachine
 from .scenario import ScenarioLoader, build_checkpoint_qr_set, build_demo_checkpoint_catalog, build_puzzle_telemetry, build_scenario_progress
 from .scenario import Scenario
@@ -50,6 +51,7 @@ def configure_storage(backend: str | None = None, database_url: str | None = Non
 
 # Úložiště pro nezávislé relace hráčů (session_id -> state_machine)
 active_sessions: dict[str, EscapeBotStateMachine] = {}
+session_command_adapters: dict[str, GameSessionAdapter] = {}
 lobby_registry = LobbyRegistry()
 session_connections: dict[str, set[WebSocket]] = {}
 connection_info: dict[WebSocket, dict[str, object]] = {}
@@ -342,7 +344,7 @@ async def start_due_queue_team(current: datetime) -> bool:
         "_client_id": first_player, "_participant_ids": list(lobby.players), "_team_mode": lobby.mode,
         "_participant_names": {key: str(value.get("name", "Hráč")) for key, value in lobby.players.items()}})
     responses = [Message("queue.auto_started", {"message": "Váš rezervovaný čas nastal. Hra byla automaticky spuštěna."})]
-    responses.extend(await machine.handle(hello))
+    responses.extend(await apply_game_command(lobby.session_id, machine, hello, now=current))
     responses.extend(apply_lobby_score(lobby, machine))
     responses.append(Message("scenario.progress", build_scenario_progress(scenario, machine.state.snapshot())))
     save_lobbies(); save_sessions(); save_runtime_settings()
@@ -614,7 +616,10 @@ def load_leaderboard():
         logger.error(f"Chyba při načítání Síně slávy: {e}")
 
 def save_sessions():
-    data = {sid: sm.state.snapshot() for sid, sm in active_sessions.items()}
+    data = {
+        sid: session_command_adapters.setdefault(sid, GameSessionAdapter()).snapshot(sm)
+        for sid, sm in active_sessions.items()
+    }
     storage.save_sessions(data)
 
 def load_sessions(_default_scenario):
@@ -627,7 +632,7 @@ def load_sessions(_default_scenario):
                 logger.error("Relace %s nebyla obnovena: scénář není dostupný.", sid)
                 continue
             sm = EscapeBotStateMachine(entry.scenario)
-            sm.restore_state(s_data)
+            session_command_adapters[sid] = GameSessionAdapter.restore(sm, s_data)
             active_sessions[sid] = sm
         logger.info(f"Úspěšně obnoveno {len(active_sessions)} uložených relací.")
     except Exception as e:
@@ -972,7 +977,19 @@ def ensure_state_machine(session_id: str) -> EscapeBotStateMachine:
         if entry is None:
             raise ValueError("Scénář zvolený pro tuto lobby není dostupný.")
         active_sessions[session_id] = EscapeBotStateMachine(entry.scenario)
+    session_command_adapters.setdefault(session_id, GameSessionAdapter())
     return active_sessions[session_id]
+
+
+async def apply_game_command(
+    session_id: str,
+    state_machine: EscapeBotStateMachine,
+    message: Message,
+    *,
+    now: datetime | None = None,
+) -> list[Message]:
+    adapter = session_command_adapters.setdefault(session_id, GameSessionAdapter())
+    return await adapter.apply(state_machine, message, now=now)
 
 
 def scenario_supports_lobby(entry, lobby_type: str) -> bool:
@@ -1448,7 +1465,7 @@ async def websocket_endpoint(websocket: WebSocket):
                             hello = Message("client.hello", {"session_id": target_session, "demo_mode": False,
                                 "_client_id": first_player, "_participant_ids": list(lobby.players), "_team_mode": lobby.mode,
                                 "_participant_names": {key: str(value.get("name", "Hráč")) for key, value in lobby.players.items()}})
-                            responses = await machine.handle(hello)
+                            responses = await apply_game_command(target_session, machine, hello)
                             responses.extend(apply_lobby_score(lobby, machine))
                             responses.append(Message("scenario.progress", build_scenario_progress(scenario, machine.state.snapshot())))
                             save_lobbies(); save_sessions(); save_runtime_settings()
@@ -1885,6 +1902,7 @@ async def websocket_endpoint(websocket: WebSocket):
                         dequeue_team(target_session)
                         lobby_registry.by_session.pop(target_session, None)
                         active_sessions.pop(target_session, None)
+                        session_command_adapters.pop(target_session, None)
                         session_connections.pop(target_session, None)
                         save_lobbies()
                         save_sessions()
@@ -2048,7 +2066,7 @@ async def websocket_endpoint(websocket: WebSocket):
                                                                 "_client_id": client_id, "_participant_ids": list(lobby.players),
                                                                 "_team_mode": lobby.mode,
                                                                 "_participant_names": {key: str(value.get("name", "Hráč")) for key, value in lobby.players.items()}})
-                                responses = await state_machine.handle(hello)
+                                responses = await apply_game_command(str(session_id), state_machine, hello)
                                 responses.extend(score_messages)
                                 if demo_client:
                                     responses.append(Message("demo.catalog", {
@@ -2112,7 +2130,7 @@ async def websocket_endpoint(websocket: WebSocket):
                     if checkpoint_id not in state_machine.state.checkpoint_states:
                         checkpoint = scenario.data.get("checkpoints", {}).get(checkpoint_id, {})
                         token = str(checkpoint.get("token", ""))
-                        activation_responses = await state_machine.handle(Message("qr.detected", {
+                        activation_responses = await apply_game_command(str(session_id), state_machine, Message("qr.detected", {
                             "value": f"escapebot://checkpoint/{token}",
                         }))
                         result = next((response for response in activation_responses if response.type == "qr.result"), None)
@@ -2180,6 +2198,7 @@ async def websocket_endpoint(websocket: WebSocket):
                     if session_id not in active_sessions:
                         logger.info(f"Vytvářím novou herní relaci pro: {session_id}")
                         active_sessions[session_id] = EscapeBotStateMachine(scenario)
+                        session_command_adapters[session_id] = GameSessionAdapter()
                     else:
                         logger.info(f"Obnovuji existující relaci pro: {session_id}")
                         
@@ -2213,7 +2232,7 @@ async def websocket_endpoint(websocket: WebSocket):
                     if msg.type == "game.deadline_choice" and (not lobby_context or client_id not in lobby_context.players or socket_info.get("role") == "terminal"):
                         await send_message(websocket, Message("error", {"message": "O pokračování rozhodují hráči týmu."}))
                         continue
-                    responses = await state_machine.handle(msg)
+                    responses = await apply_game_command(str(session_id), state_machine, msg)
                     if msg.type == "client.hello" and bool(msg.payload.get("demo_mode")):
                         if demo_client:
                             checkpoints = build_demo_checkpoint_catalog(state_machine.scenario)
