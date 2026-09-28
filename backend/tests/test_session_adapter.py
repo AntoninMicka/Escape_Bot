@@ -19,7 +19,7 @@ class GameSessionAdapterTests(unittest.IsolatedAsyncioTestCase):
         self.now = datetime(2026, 9, 28, 14, 0, tzinfo=UTC)
 
     async def test_idempotency_receipt_survives_persistence_and_restart(self) -> None:
-        machine = EscapeBotStateMachine(self.scenario)
+        machine = EscapeBotStateMachine(self.scenario, clock=lambda: self.now)
         adapter = GameSessionAdapter()
         first = await adapter.apply(
             machine,
@@ -32,7 +32,7 @@ class GameSessionAdapterTests(unittest.IsolatedAsyncioTestCase):
         )
         persisted = adapter.snapshot(machine)
 
-        restored_machine = EscapeBotStateMachine(self.scenario)
+        restored_machine = EscapeBotStateMachine(self.scenario, clock=lambda: self.now)
         restored_adapter = GameSessionAdapter.restore(restored_machine, persisted)
         replayed = await restored_adapter.apply(
             restored_machine,
@@ -56,7 +56,7 @@ class GameSessionAdapterTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(restored_machine.state.last_activity_at, self.now.isoformat())
 
     async def test_concurrent_commands_are_serialized_without_lost_state(self) -> None:
-        machine = EscapeBotStateMachine(self.scenario)
+        machine = EscapeBotStateMachine(self.scenario, clock=lambda: self.now)
         adapter = GameSessionAdapter()
 
         await asyncio.gather(
@@ -80,7 +80,7 @@ class GameSessionAdapterTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(set(adapter.operation_receipts), {"message-1", "message-2"})
 
     async def test_transport_actor_fields_are_not_part_of_public_command_payload(self) -> None:
-        machine = EscapeBotStateMachine(self.scenario)
+        machine = EscapeBotStateMachine(self.scenario, clock=lambda: self.now)
         adapter = GameSessionAdapter()
 
         result = await adapter.apply(
@@ -100,7 +100,7 @@ class GameSessionAdapterTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(machine._participant_ids, ["alice", "bob"])
 
     def test_persisted_snapshot_remains_readable_by_legacy_state_restore(self) -> None:
-        machine = EscapeBotStateMachine(self.scenario)
+        machine = EscapeBotStateMachine(self.scenario, clock=lambda: self.now)
         machine.state.score = 875
         persisted = GameSessionAdapter().snapshot(machine)
 
@@ -109,7 +109,7 @@ class GameSessionAdapterTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(legacy_state.score, 875)
 
     def test_restore_accepts_legacy_raw_snapshot(self) -> None:
-        machine = EscapeBotStateMachine(self.scenario)
+        machine = EscapeBotStateMachine(self.scenario, clock=lambda: self.now)
         adapter = GameSessionAdapter.restore(machine, {"score": 640, "phase": "navigating"})
 
         self.assertEqual(machine.state.score, 640)
@@ -148,7 +148,7 @@ class ServerSessionPersistenceTests(unittest.TestCase):
                 return self.data
 
         session_id = "adapter-persistence-test"
-        machine = EscapeBotStateMachine(server.scenario)
+        machine = EscapeBotStateMachine(server.scenario, clock=lambda: datetime.now(UTC))
         machine.state.score = 930
         adapter = GameSessionAdapter(operation_receipts={"operation-1": {"responses": []}})
         storage = SessionStorage()

@@ -1,4 +1,5 @@
 import unittest
+from datetime import UTC, datetime
 from pathlib import Path
 
 from escape_bot.protocol import Message
@@ -33,7 +34,7 @@ class JuryScenarioTest(unittest.IsolatedAsyncioTestCase):
 
     async def test_geo_position_unlocks_checkpoint_on_server(self) -> None:
         scenario = self.catalog.entries["pardubice_jury_geo"].scenario
-        machine = EscapeBotStateMachine(scenario)
+        machine = EscapeBotStateMachine(scenario, clock=lambda: datetime.now(UTC))
         machine.state.phase = GamePhase.NAVIGATING
         point = scenario.data["world"]["checkpoints"][0]
 
@@ -47,7 +48,7 @@ class JuryScenarioTest(unittest.IsolatedAsyncioTestCase):
 
     async def test_geo_position_rejects_inaccurate_fix(self) -> None:
         scenario = self.catalog.entries["pardubice_jury_geo"].scenario
-        machine = EscapeBotStateMachine(scenario)
+        machine = EscapeBotStateMachine(scenario, clock=lambda: datetime.now(UTC))
         point = scenario.data["world"]["checkpoints"][0]
 
         responses = await machine.handle(Message("geo.position", {

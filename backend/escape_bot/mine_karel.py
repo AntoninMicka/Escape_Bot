@@ -2,23 +2,23 @@ from __future__ import annotations
 
 from copy import deepcopy
 from collections import deque
-from datetime import UTC, datetime, timedelta
+from datetime import datetime, timedelta
 from typing import Any
 
 DIRECTIONS = {"up": (-1, 0), "down": (1, 0), "left": (0, -1), "right": (0, 1)}
 
 
-def new_game(config: dict[str, Any], now: datetime | None = None) -> dict[str, Any]:
+def new_game(config: dict[str, Any], now: datetime) -> dict[str, Any]:
     levels = _levels(config); active = list(config.get("active_level_ids", []))
     if not active or any(item not in levels for item in active): raise ValueError("Karel vyžaduje platné aktivní úrovně.")
     for level in levels.values(): validate_level(level)
     state = {"active_level_ids": active, "level_index": 0, "completed_levels": [], "awarded_points": 0,
              "total_moves": 0, "total_strikes": 0, "restarts": 0, "status": "playing"}
-    _load_level(state, config, now or datetime.now(UTC)); return state
+    _load_level(state, config, now); return state
 
 
-def public_game(config: dict[str, Any], state: dict[str, Any], now: datetime | None = None) -> dict[str, Any]:
-    current = now or datetime.now(UTC)
+def public_game(config: dict[str, Any], state: dict[str, Any], now: datetime) -> dict[str, Any]:
+    current = now
     remaining = max(0, int((datetime.fromisoformat(state["deadline_at"]) - current).total_seconds()))
     if remaining == 0 and state["status"] == "playing": state["status"] = "expired"
     mines = {_pos(item) for item in state["mines"]}; revealed = {_pos(item) for item in state["revealed"]}
@@ -44,8 +44,8 @@ def public_game(config: dict[str, Any], state: dict[str, Any], now: datetime | N
     return result
 
 
-def execute(state: dict[str, Any], config: dict[str, Any], commands: list[str], now: datetime | None = None) -> dict[str, Any]:
-    current = now or datetime.now(UTC)
+def execute(state: dict[str, Any], config: dict[str, Any], commands: list[str], now: datetime) -> dict[str, Any]:
+    current = now
     if state["status"] != "playing" or current >= datetime.fromisoformat(state["deadline_at"]):
         state["status"] = "expired"; raise ValueError("Čas navigace vypršel. Obnovte pole povelem RESET.")
     if not commands or len(commands) > 30 or any(item not in DIRECTIONS for item in commands): raise ValueError("Neplatná navigační sekvence.")
@@ -77,8 +77,8 @@ def execute(state: dict[str, Any], config: dict[str, Any], commands: list[str], 
             "completed_level_id": completed_level_id, "game_complete": game_complete, "score_delta": score_delta}
 
 
-def reset(config: dict[str, Any], state: dict[str, Any], now: datetime | None = None) -> None:
-    state["restarts"] += 1; _load_level(state, config, now or datetime.now(UTC))
+def reset(config: dict[str, Any], state: dict[str, Any], now: datetime) -> None:
+    state["restarts"] += 1; _load_level(state, config, now)
 
 
 def _load_level(state: dict[str, Any], config: dict[str, Any], now: datetime) -> None:

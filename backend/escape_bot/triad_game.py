@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from copy import deepcopy
-from datetime import UTC, datetime, timedelta
+from datetime import datetime, timedelta
 from typing import Any
 
 VECTORS = {"horizontal": (0, 1), "vertical": (1, 0), "diagonal": (1, 1), "anti_diagonal": (1, -1)}
@@ -51,15 +51,15 @@ def _opponent_move(state: dict[str, Any], config: dict[str, Any]) -> dict[str, A
     return {"row": row, "column": column, "symbol": "opponent"}
 
 
-def new_game(config: dict[str, Any], now: datetime | None = None) -> dict[str, Any]:
-    current = now or datetime.now(UTC); size = int(config.get("size", 5))
+def new_game(config: dict[str, Any], now: datetime) -> dict[str, Any]:
+    current = now; size = int(config.get("size", 5))
     return {"size": size, "board": [[None for _ in range(size)] for _ in range(size)], "blocked": deepcopy(config.get("blocked", [])),
             "completed_orientations": [], "scored_lines": [], "placements": 0, "opponent_moves": 0, "restarts": 0, "status": "playing",
             "started_at": current.isoformat(), "deadline_at": (current + timedelta(seconds=int(config.get("time_limit_seconds", 180)))).isoformat()}
 
 
-def public_game(config: dict[str, Any], state: dict[str, Any], now: datetime | None = None) -> dict[str, Any]:
-    current = now or datetime.now(UTC); remaining = max(0, int((datetime.fromisoformat(state["deadline_at"]) - current).total_seconds()))
+def public_game(config: dict[str, Any], state: dict[str, Any], now: datetime) -> dict[str, Any]:
+    current = now; remaining = max(0, int((datetime.fromisoformat(state["deadline_at"]) - current).total_seconds()))
     if remaining == 0 and state["status"] == "playing": state["status"] = "expired"
     # Scenario layout changes also apply to already persisted games.
     state["blocked"] = deepcopy(config.get("blocked", []))
@@ -69,8 +69,8 @@ def public_game(config: dict[str, Any], state: dict[str, Any], now: datetime | N
     return result
 
 
-def place(state: dict[str, Any], config: dict[str, Any], row: int, column: int, symbol: str, now: datetime | None = None) -> dict[str, Any]:
-    current = now or datetime.now(UTC)
+def place(state: dict[str, Any], config: dict[str, Any], row: int, column: int, symbol: str, now: datetime) -> dict[str, Any]:
+    current = now
     if state["status"] != "playing" or current >= datetime.fromisoformat(state["deadline_at"]): state["status"] = "expired"; raise ValueError("Čas stabilizace vypršel. Spusťte nové pole.")
     if symbol not in config.get("symbols", ["cyan", "amber"]): raise ValueError("Neplatný typ uzlu.")
     if not (0 <= row < state["size"] and 0 <= column < state["size"]): raise ValueError("Pole leží mimo mřížku.")
@@ -92,5 +92,5 @@ def place(state: dict[str, Any], config: dict[str, Any], row: int, column: int, 
             "new_lines": new_lines, "opponent_move": opponent_move, "game_complete": complete}
 
 
-def reset(config: dict[str, Any], state: dict[str, Any], now: datetime | None = None) -> None:
+def reset(config: dict[str, Any], state: dict[str, Any], now: datetime) -> None:
     restarts = int(state.get("restarts", 0)) + 1; state.clear(); state.update(new_game(config, now)); state["restarts"] = restarts

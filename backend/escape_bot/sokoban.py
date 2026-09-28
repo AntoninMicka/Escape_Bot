@@ -16,7 +16,7 @@ COMMAND_NAMES = {
 }
 
 
-def new_game(config: dict[str, Any], now: datetime | None = None) -> dict[str, Any]:
+def new_game(config: dict[str, Any], now: datetime) -> dict[str, Any]:
     levels = _levels_by_id(config)
     active_ids = list(config.get("active_level_ids", []))
     if not active_ids or any(level_id not in levels for level_id in active_ids):
@@ -34,12 +34,12 @@ def new_game(config: dict[str, Any], now: datetime | None = None) -> dict[str, A
         "status": "playing",
         "command_history": [],
     }
-    _load_level(state, config, now or datetime.now(UTC))
+    _load_level(state, config, now)
     return state
 
 
-def public_game(config: dict[str, Any], state: dict[str, Any], now: datetime | None = None) -> dict[str, Any]:
-    current = now or datetime.now(UTC)
+def public_game(config: dict[str, Any], state: dict[str, Any], now: datetime) -> dict[str, Any]:
+    current = now
     remaining = max(0, int((_parse_time(state["deadline_at"]) - current).total_seconds()))
     if remaining == 0 and state.get("status") == "playing":
         state["status"] = "expired"
@@ -57,9 +57,9 @@ def public_game(config: dict[str, Any], state: dict[str, Any], now: datetime | N
 
 def execute(
     state: dict[str, Any], config: dict[str, Any], commands: list[str],
-    max_commands: int = 30, now: datetime | None = None,
+    now: datetime, max_commands: int = 30,
 ) -> dict[str, Any]:
-    current = now or datetime.now(UTC)
+    current = now
     if state.get("status") == "expired":
         raise ValueError("Čas této úrovně vypršel. Obnovte ji povelem RESET.")
     if state.get("status") != "playing":
@@ -156,12 +156,12 @@ def undo(state: dict[str, Any]) -> bool:
     return True
 
 
-def reset_level(config: dict[str, Any], state: dict[str, Any], now: datetime | None = None) -> None:
+def reset_level(config: dict[str, Any], state: dict[str, Any], now: datetime) -> None:
     if state.get("status") == "complete":
         raise ValueError("Všechny úrovně už byly dokončeny.")
     state["status"] = "playing"
     state["restarts"] = int(state.get("restarts", 0)) + 1
-    _load_level(state, config, now or datetime.now(UTC))
+    _load_level(state, config, now)
 
 
 def parse_commands(text: str, max_commands: int = 30) -> list[str] | None:

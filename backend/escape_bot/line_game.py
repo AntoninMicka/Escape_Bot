@@ -6,12 +6,12 @@ from math import ceil
 from typing import Any
 
 
-def new_game(config: dict[str, Any], now: datetime | None = None) -> dict[str, Any]:
+def new_game(config: dict[str, Any], now: datetime) -> dict[str, Any]:
     size = int(config.get("size", 7))
     colors = list(config.get("colors", []))
     if size < 5 or len(colors) != 5:
         raise ValueError("Swap game requires a board of at least 5×5 and exactly five colors.")
-    started = now or datetime.now(UTC)
+    started = now
     state = {
         "progress": {str(length): 0 for length in config.get("objectives", {})},
         "status": "playing",
@@ -25,8 +25,8 @@ def new_game(config: dict[str, Any], now: datetime | None = None) -> dict[str, A
     return state
 
 
-def public_game(config: dict[str, Any], state: dict[str, Any], now: datetime | None = None) -> dict[str, Any]:
-    current = now or datetime.now(UTC)
+def public_game(config: dict[str, Any], state: dict[str, Any], now: datetime) -> dict[str, Any]:
+    current = now
     remaining = max(0, int((_parse_time(state["deadline_at"]) - current).total_seconds()))
     if remaining == 0 and state.get("status") == "playing":
         state["status"] = "expired"
@@ -48,9 +48,9 @@ def swap(
     state: dict[str, Any],
     first: tuple[int, int],
     second: tuple[int, int],
-    now: datetime | None = None,
+    now: datetime,
 ) -> dict[str, Any]:
-    current = now or datetime.now(UTC)
+    current = now
     if state.get("status") != "playing":
         raise ValueError("Kalibrace není aktivní; spusťte nový pokus.")
     if current >= _parse_time(state["deadline_at"]):
@@ -118,15 +118,15 @@ def swap(
     }
 
 
-def reset_game(config: dict[str, Any], state: dict[str, Any], now: datetime | None = None) -> None:
+def reset_game(config: dict[str, Any], state: dict[str, Any], now: datetime) -> None:
     state.clear()
     state.update(new_game(config, now))
 
 
 def completion_time_score(
-    config: dict[str, Any], state: dict[str, Any], now: datetime | None = None
+    config: dict[str, Any], state: dict[str, Any], now: datetime
 ) -> int:
-    current = now or datetime.now(UTC)
+    current = now
     elapsed = max(0, int((current - _parse_time(state["started_at"])).total_seconds()))
     neutral = int(config.get("neutral_time_seconds", 180))
     interval = max(1, int(config.get("score_interval_seconds", 10)))

@@ -20,7 +20,7 @@ SCENARIO_PATH = Path(__file__).resolve().parents[1] / "scenario.json"
 class StateMachineCheckpointTests(unittest.IsolatedAsyncioTestCase):
     def setUp(self) -> None:
         self.scenario = ScenarioLoader.load(str(SCENARIO_PATH))
-        self.machine = EscapeBotStateMachine(self.scenario)
+        self.machine = EscapeBotStateMachine(self.scenario, clock=lambda: datetime.now(UTC))
         self.machine.state.phase = GamePhase.NAVIGATING
 
     def test_every_declared_voice_has_a_local_audio_file(self) -> None:
@@ -430,7 +430,7 @@ class StateMachineCheckpointTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(event["details"]["puzzle_id"], "reception_deduction")
         self.assertTrue(event["at"])
 
-        restored = EscapeBotStateMachine(self.scenario)
+        restored = EscapeBotStateMachine(self.scenario, clock=lambda: datetime.now(UTC))
         restored.restore_state(self.machine.state.snapshot())
         self.assertEqual(restored.state.event_history, self.machine.state.event_history)
 
@@ -470,7 +470,7 @@ class StateMachineCheckpointTests(unittest.IsolatedAsyncioTestCase):
                 snapshot = self.machine.state.snapshot()
                 snapshot["phase"] = legacy_phase.value
                 snapshot["flags"] = {}
-                restored = EscapeBotStateMachine(self.scenario)
+                restored = EscapeBotStateMachine(self.scenario, clock=lambda: datetime.now(UTC))
                 restored.restore_state(snapshot)
                 self.assertEqual(restored.state.phase, GamePhase.NAVIGATING)
                 self.assertTrue(restored.state.flags["chronomap_unlocked"])
@@ -541,7 +541,7 @@ class StateMachineCheckpointTests(unittest.IsolatedAsyncioTestCase):
                 "vote_code": {"event": "player.message", "match": "equals", "value": "12", "next_phase": "evidence_walk", "set_flags": {"map_unlocked": True}},
             },
         }
-        machine = EscapeBotStateMachine(Scenario(data))
+        machine = EscapeBotStateMachine(Scenario(data), clock=lambda: datetime.now(UTC))
 
         hello = await machine.handle(Message("client.hello", {}))
         self.assertEqual(machine.state.phase, "briefing")
@@ -557,7 +557,7 @@ class StateMachineCheckpointTests(unittest.IsolatedAsyncioTestCase):
     def test_puzzle_catalog_includes_every_available_room(self) -> None:
         data = deepcopy(self.scenario.data)
         data["rooms"]["12"] = {"title": "Porotní archiv", "pin": "1212", "requires_checkpoints": []}
-        machine = EscapeBotStateMachine(Scenario(data))
+        machine = EscapeBotStateMachine(Scenario(data), clock=lambda: datetime.now(UTC))
 
         room = next(item for item in machine._puzzle_state() if item.get("room_id") == "12")
 
@@ -568,7 +568,7 @@ class StateMachineCheckpointTests(unittest.IsolatedAsyncioTestCase):
         data = deepcopy(self.scenario.data)
         data["puzzle_components"] = {"custom_alignment": {"adapter": "line_game"}}
         data["puzzles"]["timeline_lines"]["type"] = "custom_alignment"
-        machine = EscapeBotStateMachine(Scenario(data))
+        machine = EscapeBotStateMachine(Scenario(data), clock=lambda: datetime.now(UTC))
         machine.state.checkpoint_states["timeline_calibration"] = {"status": "found"}
 
         item = next(item for item in machine._puzzle_state() if item["id"] == "timeline_lines")
@@ -742,7 +742,7 @@ class StateMachineCheckpointTests(unittest.IsolatedAsyncioTestCase):
         self.assertFalse(self.response(rejected, "line_game.result").payload["success"])
         self.assertEqual(game["board"], original_board)
         self.assertEqual(game["swaps"], 0)
-        restored = EscapeBotStateMachine(self.scenario)
+        restored = EscapeBotStateMachine(self.scenario, clock=lambda: datetime.now(UTC))
         restored.restore_state(self.machine.state.snapshot())
         self.assertEqual(restored.state.interactive_games["timeline_lines"], game)
 
@@ -869,7 +869,7 @@ class StateMachineCheckpointTests(unittest.IsolatedAsyncioTestCase):
         undone = await self.machine.handle(Message("sokoban.undo", {"puzzle_id": "sports_sokoban"}))
         self.assertTrue(self.response(undone, "sokoban.result").payload["undo"])
         game = self.machine.state.sokoban_games["sports_sokoban"]
-        restored = EscapeBotStateMachine(self.scenario)
+        restored = EscapeBotStateMachine(self.scenario, clock=lambda: datetime.now(UTC))
         restored.restore_state(self.machine.state.snapshot())
         self.assertEqual(restored.state.sokoban_games["sports_sokoban"], game)
 
@@ -901,10 +901,11 @@ class StateMachineCheckpointTests(unittest.IsolatedAsyncioTestCase):
         }
         for level_id, commands in solutions.items():
             config = {**base, "active_level_ids": [level_id]}
-            game = new_sokoban(config)
+            command_time = datetime.now(UTC)
+            game = new_sokoban(config, command_time)
             result = None
             for offset in range(0, len(commands), 30):
-                result = execute_sokoban(game, config, commands[offset:offset + 30])
+                result = execute_sokoban(game, config, commands[offset:offset + 30], command_time)
             self.assertIsNotNone(result)
             self.assertTrue(result["game_complete"], level_id)
             self.assertEqual(result["score_delta"], 30)
@@ -949,8 +950,9 @@ class StateMachineCheckpointTests(unittest.IsolatedAsyncioTestCase):
         for level in config["levels"]:
             validate_level(level)
             self.assertGreater(len(safe_path(level)), 1, level["id"])
-        game = new_karel({**config, "active_level_ids": ["field_a"]})
-        public = public_karel(config, game)
+        command_time = datetime.now(UTC)
+        game = new_karel({**config, "active_level_ids": ["field_a"]}, command_time)
+        public = public_karel(config, game, command_time)
         self.assertEqual(len(public["text_grid"]), public["rows"])
         self.assertTrue(all(len(row.split()) == public["columns"] for row in public["text_grid"]))
         self.assertNotIn("mines", public)
@@ -1158,7 +1160,7 @@ class StateMachineCheckpointTests(unittest.IsolatedAsyncioTestCase):
             current_order[index], current_order[card_index] = current_order[card_index], current_order[index]
         self.assertIsNotNone(arranged)
         self.assertTrue(self.response(arranged, "archive.result").payload["assembled"])
-        restored = EscapeBotStateMachine(self.scenario)
+        restored = EscapeBotStateMachine(self.scenario, clock=lambda: datetime.now(UTC))
         restored.restore_state(self.machine.state.snapshot())
         archive_puzzle = next(item for item in restored._puzzle_state() if item["id"] == "future_archive_cipher")
         self.assertTrue(archive_puzzle["archive_game"]["assembled"])

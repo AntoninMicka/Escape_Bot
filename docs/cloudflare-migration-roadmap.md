@@ -97,9 +97,9 @@ Akceptace:
 
 Stav feature větve: deterministické `apply`, verzovaný snapshot, idempotentní
 `operation_id`, oddělené odpovědi odesílateli a týmové broadcasty, FastAPI
-adaptér a validační schémata příkazů jsou implementované. Zbývá odstranit
-poslední provozní závislosti z doménové cesty a převést celý scenario journey na
-paritní test původního a nového rozhraní.
+adaptér, validační schémata příkazů a explicitní autoritativní čas bez síťových
+či procesních závislostí v doménové cestě jsou implementované. Zbývá převést
+celý scenario journey na paritní test původního a nového rozhraní.
 
 Akceptace:
 

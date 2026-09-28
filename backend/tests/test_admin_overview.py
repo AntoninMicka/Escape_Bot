@@ -1,4 +1,5 @@
 import unittest
+from datetime import UTC, datetime
 from pathlib import Path
 from unittest.mock import patch
 
@@ -32,7 +33,7 @@ class AdminOverviewTests(unittest.TestCase):
         lobby.add_player("alice", "Alice")
         lobby.add_player("bob", "Bob")
         registry.by_session[lobby.session_id] = lobby
-        machine = EscapeBotStateMachine(ScenarioLoader.load(str(SCENARIO_PATH)))
+        machine = EscapeBotStateMachine(ScenarioLoader.load(str(SCENARIO_PATH)), clock=lambda: datetime.now(UTC))
         machine._team_mode = "team"
         machine._participant_ids = ["alice", "bob"]
         machine._participant_names = {"alice": "Alice", "bob": "Bob"}

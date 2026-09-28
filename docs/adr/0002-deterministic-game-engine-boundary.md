@@ -43,10 +43,12 @@ přednost, takže opakované doručení vždy vrátí původní výsledek. Při 
 uložené týmové zprávy vrátí pouze odesílateli; celý tým je znovu nedostane.
 
 Čas je vstup příkazu. Stavový automat proto používá injektované hodiny a během
-jednoho příkazu nesmí číst systémový čas přímo. FastAPI transport zůstává jako
-adaptér nad novým enginem. Uložený snapshot si ponechává původní strukturu stavu
-a metadata enginu ukládá pod `_game_engine`. Starší server tento neznámý klíč
-ignoruje, takže rollback nevyžaduje zpětnou migraci dat.
+jednoho příkazu nesmí číst systémový čas přímo. Stejně tak nečte procesní
+proměnné a nevolá Ollama ani jinou síťovou službu; případné generativní služby
+patří do aplikační orchestrace jako samostatný efekt. FastAPI transport zůstává
+jako adaptér nad novým enginem. Uložený snapshot si ponechává původní strukturu
+stavu a metadata enginu ukládá pod `_game_engine`. Starší server tento neznámý
+klíč ignoruje, takže rollback nevyžaduje zpětnou migraci dat.
 
 ## Důsledky
 

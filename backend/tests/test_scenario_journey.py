@@ -1,4 +1,5 @@
 import unittest
+from datetime import UTC, datetime
 from pathlib import Path
 
 from escape_bot.protocol import Message
@@ -15,7 +16,7 @@ REALIZATION_PATH = Path(__file__).resolve().parents[1] / "content" / "realizatio
 class CompleteScenarioJourneyTest(unittest.IsolatedAsyncioTestCase):
     def setUp(self) -> None:
         self.scenario = ScenarioLoader.load_composed(str(TEMPLATE_PATH), str(REALIZATION_PATH))
-        self.machine = EscapeBotStateMachine(self.scenario)
+        self.machine = EscapeBotStateMachine(self.scenario, clock=lambda: datetime.now(UTC))
 
     @staticmethod
     def response(responses, message_type):
@@ -62,7 +63,7 @@ class CompleteScenarioJourneyTest(unittest.IsolatedAsyncioTestCase):
         for commands in karel_solutions:
             await self.send("karel.command", puzzle_id="courtyard_karel", commands=commands)
 
-        restored_machine = EscapeBotStateMachine(self.scenario)
+        restored_machine = EscapeBotStateMachine(self.scenario, clock=lambda: datetime.now(UTC))
         restored_machine.restore_state(self.machine.state.snapshot())
         self.machine = restored_machine
         reconnect = await self.send("client.hello")

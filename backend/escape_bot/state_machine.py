@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import os
 import math
 import unicodedata
 import urllib.parse
@@ -11,7 +10,6 @@ from typing import Any, Callable
 
 from .protocol import Message, reply
 from .scenario import Scenario
-from .ollama_adapter import OllamaAdapter
 from .line_game import new_game, public_game, reset_game, swap
 from .sokoban import (
     execute as execute_sokoban,
@@ -24,9 +22,6 @@ from .sokoban import (
 from .mine_karel import execute as execute_karel, new_game as new_karel, public_game as public_karel, reset as reset_karel
 from .triad_game import new_game as new_triad, place as place_triad, public_game as public_triad, reset as reset_triad
 from .puzzle_components import component_for, declared_components
-
-LLM_ENABLED = os.getenv("ESCAPEBOT_LLM_ENABLED", "").lower() in {"1", "true", "yes", "on"}
-
 
 def _normalize_puzzle_answer(value: Any) -> str:
     decomposed = unicodedata.normalize("NFKD", str(value).strip().upper())
@@ -121,13 +116,12 @@ class GameState:
 
 
 class EscapeBotStateMachine:
-    def __init__(self, scenario: Scenario, clock: Callable[[], datetime] | None = None) -> None:
+    def __init__(self, scenario: Scenario, clock: Callable[[], datetime]) -> None:
         self.state = GameState()
         self.scenario = scenario
-        self._clock = clock or (lambda: datetime.now(UTC))
+        self._clock = clock
         self._command_now: datetime | None = None
         self._unlock_default_cipher_tools()
-        self.ai = OllamaAdapter(model="llama3") # Možno změnit model např. na llama3.1
         self._current_player_id = "legacy-client"
         self._participant_ids = ["legacy-client"]
         self._team_mode = "solo"
@@ -586,17 +580,6 @@ class EscapeBotStateMachine:
 
         p_data = self.scenario.get_phase_data(str(self.state.phase))
         
-        ai_prompt = p_data.get("ai_system_prompt")
-        if LLM_ENABLED and ai_prompt:
-            knowledge_base = self.scenario.data.get("knowledge_base", "")
-            if knowledge_base:
-                ai_prompt += f"\n\nDŮLEŽITÉ INFORMACE O SVĚTĚ A PŘÍBĚHU (ZNALOSTNÍ BÁZE):\n{knowledge_base}"
-                
-            # Zkusíme vygenerovat odpověď pomocí AI
-            ai_response = await self.ai.generate_response(ai_prompt, self.state.chat_history)
-            if ai_response:
-                return [reply("bot.message", {"text": ai_response, "mood": "alert", "channel": "lost"}, message)]
-                
         def_msg = p_data.get("default_message", {}).copy()
         def_msg["text"] = def_msg.get("text", "").replace("{text}", text)
         return [reply("bot.message", def_msg, message)]
@@ -946,7 +929,7 @@ class EscapeBotStateMachine:
         elif action == "reset":
             config = puzzle.get("game", {})
             game = self._line_game_state(puzzle_id, config, player_id) if adapter == "line_game" else self._triad_state(puzzle_id, config, player_id)
-            (reset_game if adapter == "line_game" else reset_triad)(config, game)
+            (reset_game if adapter == "line_game" else reset_triad)(config, game, self._now())
             self.state.game_results.get(puzzle_id, {}).pop(player_id, None)
         else: raise ValueError("Neplatná administrační akce.")
         game_type = adapter

@@ -1,4 +1,5 @@
 from pathlib import Path
+from datetime import UTC, datetime
 
 from escape_bot.scenario import ScenarioLoader
 from escape_bot.server import apply_deadline_end, apply_operational_end, apply_outcome_score, leaderboard_score, record_completed_result
@@ -10,7 +11,7 @@ SCENARIO_PATH = Path(__file__).resolve().parents[1] / "scenario.json"
 
 
 def machine() -> EscapeBotStateMachine:
-    return EscapeBotStateMachine(ScenarioLoader.load(str(SCENARIO_PATH)))
+    return EscapeBotStateMachine(ScenarioLoader.load(str(SCENARIO_PATH)), clock=lambda: datetime.now(UTC))
 
 
 def test_completion_bonus_is_applied_exactly_once_with_score_audit() -> None:

@@ -45,6 +45,14 @@ class GameEngineBoundaryTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn("responses", receipt)
         self.assertFalse(result.replayed)
 
+    async def test_same_inputs_produce_the_same_result(self) -> None:
+        command = GameCommand("player.message", {"text": "Neznámý dotaz"})
+
+        first = await self.engine.apply(None, command, self.actor, self.now)
+        second = await self.engine.apply(None, command, self.actor, self.now)
+
+        self.assertEqual(first, second)
+
     async def test_operation_retry_returns_original_receipt_without_duplicate_mutation(self) -> None:
         command = GameCommand("player.message", {"text": "Jednou"}, operation_id="stable-operation")
         first = await self.engine.apply(None, command, self.actor, self.now)
@@ -196,7 +204,7 @@ class GameEngineBoundaryTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_command_boundary_matches_legacy_state_machine(self) -> None:
         scenario = ScenarioLoader.load(str(SCENARIO_PATH))
-        legacy = EscapeBotStateMachine(scenario)
+        legacy = EscapeBotStateMachine(scenario, clock=lambda: self.now)
         snapshot = None
         commands = (
             GameCommand("client.hello", request_id="hello", operation_id="operation-1"),

@@ -27,7 +27,6 @@ from .scenario import ScenarioLoader, build_checkpoint_qr_set, build_demo_checkp
 from .scenario import Scenario
 from .scenario_catalog import load_scenario_catalog
 from .scenario_composer import compose_documents
-from .ollama_adapter import OllamaAdapter
 from .team_lobby import Lobby, LobbyRegistry, classify_activity
 from .mine_karel import safe_path as karel_safe_path
 from .storage import Storage, create_storage
@@ -635,7 +634,7 @@ def load_sessions(_default_scenario):
             if entry is None:
                 logger.error("Relace %s nebyla obnovena: scénář není dostupný.", sid)
                 continue
-            sm = EscapeBotStateMachine(entry.scenario)
+            sm = EscapeBotStateMachine(entry.scenario, clock=lambda: datetime.now(UTC))
             session_command_adapters[sid] = GameSessionAdapter.restore(sm, s_data)
             active_sessions[sid] = sm
         logger.info(f"Úspěšně obnoveno {len(active_sessions)} uložených relací.")
@@ -694,10 +693,6 @@ async def lifespan(app: FastAPI):
     load_sessions(scenario)
     monitor_task = asyncio.create_task(operations_monitor())
     queue_monitor_task = asyncio.create_task(queue_monitor())
-    # Volitelný experiment; produkční hra ani start serveru LLM nevyžadují.
-    if os.getenv("ESCAPEBOT_LLM_ENABLED", "").lower() in {"1", "true", "yes", "on"}:
-        ai_checker = OllamaAdapter()
-        asyncio.create_task(ai_checker.ensure_model())
     yield
     monitor_task.cancel()
     queue_monitor_task.cancel()
@@ -982,7 +977,7 @@ def ensure_state_machine(session_id: str) -> EscapeBotStateMachine:
         entry = scenario_catalog.entries.get(lobby.scenario_id if lobby else selected_scenario_id)
         if entry is None:
             raise ValueError("Scénář zvolený pro tuto lobby není dostupný.")
-        active_sessions[session_id] = EscapeBotStateMachine(entry.scenario)
+        active_sessions[session_id] = EscapeBotStateMachine(entry.scenario, clock=lambda: datetime.now(UTC))
     session_command_adapters.setdefault(session_id, GameSessionAdapter())
     return active_sessions[session_id]
 
@@ -2209,7 +2204,7 @@ async def websocket_endpoint(websocket: WebSocket):
                     demo_client = DEMO_MODE_ENABLED and bool(msg.payload.get("demo_mode"))
                     if session_id not in active_sessions:
                         logger.info(f"Vytvářím novou herní relaci pro: {session_id}")
-                        active_sessions[session_id] = EscapeBotStateMachine(scenario)
+                        active_sessions[session_id] = EscapeBotStateMachine(scenario, clock=lambda: datetime.now(UTC))
                         session_command_adapters[session_id] = GameSessionAdapter()
                     else:
                         logger.info(f"Obnovuji existující relaci pro: {session_id}")

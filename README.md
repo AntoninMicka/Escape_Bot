@@ -7,7 +7,7 @@ Escape Bot je lokální ARG/escape-room systém s odlehčeným webovým frontend
 - Backend sloužící jako herní State Machine a komunikační centrum (WebSockets / HTTP).
 - HTML/JS/CSS webový interkom (náhrada za složitý nativní klient) pro snadné nasazení na iPady a počítače v místnosti.
 - Scénář "Ztracená v čase" pro Hotel Kraskov – oprava stroje času pomocí logických hádanek, fyzických artefaktů a QR checkpointů.
-- Volitelné adaptéry pro Ollama a ComfyUI bez vlivu na deterministický herní průchod; LLM se zapíná pouze explicitně přes `ESCAPEBOT_LLM_ENABLED=1`.
+- Adaptéry pro Ollama a ComfyUI jsou prototypy pro budoucí aplikační orchestraci; deterministický herní engine je nevolá ani nečte jejich procesní konfiguraci.
 - Základní ARG verifikace fyzických objevů.
 - Připravené místo pro CRT/glitch shadery a zvukové události.
 - Devět klíčových replik Kapitánky a Elary má lokální české MP3 v `client/assets/voices`; klient při chybě souboru zachová systémový hlasový fallback. Nahrávky lze reprodukovat skriptem `scripts/generate_voices.py` s lokálním českým modelem Piper (`python3 scripts/generate_voices.py --model /cesta/k/model.onnx --overwrite`), takže text scénáře neopouští počítač.
