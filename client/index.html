@@ -3297,6 +3297,9 @@
                 else if (msg.type === 'terminal.status') {
                     updateTerminalEligibility(msg.payload);
                 }
+                else if (msg.type === 'command.rejected') {
+                    showNotification(msg.payload.reason || 'Herní příkaz nebyl přijat.', 'error');
+                }
                 else if (msg.type === 'terminal.attached') {
                     terminalAttached = true;
                     resetTerminalMiniGameUiState();
@@ -5020,7 +5023,7 @@
             geoWatchId = navigator.geolocation.watchPosition(position => {
                 const status = document.getElementById('geo-tracking-status');
                 if (status) status.textContent = `${position.coords.latitude.toFixed(6)}, ${position.coords.longitude.toFixed(6)} · ±${Math.round(position.coords.accuracy)} m`;
-                ws?.send(JSON.stringify({type:'geo.position', payload:{lat:position.coords.latitude, lon:position.coords.longitude, accuracy:position.coords.accuracy}}));
+                sendGameCommand('geo.position', {lat:position.coords.latitude, lon:position.coords.longitude, accuracy:position.coords.accuracy});
             }, error => showNotification(`Polohu nelze načíst: ${error.message}`, 'error'), {enableHighAccuracy:true, maximumAge:2000, timeout:15000});
         }
 

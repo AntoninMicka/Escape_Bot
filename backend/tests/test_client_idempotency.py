@@ -28,8 +28,11 @@ def test_gameplay_commands_use_persistent_operation_queue() -> None:
         "sokoban.undo",
         "sokoban.reset",
         "puzzle.submit",
+        "geo.position",
     ):
         assert f"sendGameCommand('{message_type}'" in client
+
+    assert "msg.type === 'command.rejected'" in client
 
 
 def test_operation_queue_is_part_of_current_offline_cache() -> None:

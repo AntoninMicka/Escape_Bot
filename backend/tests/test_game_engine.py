@@ -1,7 +1,9 @@
 import unittest
+from copy import deepcopy
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
+from escape_bot.command_validation import CommandValidationError
 from escape_bot.game_engine import ActorContext, GameCommand, GameEngine
 from escape_bot.protocol import Message
 from escape_bot.scenario import ScenarioLoader
@@ -55,6 +57,44 @@ class GameEngineBoundaryTests(unittest.IsolatedAsyncioTestCase):
             [item["text"] for item in retried.snapshot["state"]["chat_history"] if item["role"] == "player"],
             ["Jednou"],
         )
+
+    async def test_invalid_command_is_rejected_before_snapshot_mutation(self) -> None:
+        initial = await self.engine.apply(
+            None,
+            GameCommand("client.hello", operation_id="hello"),
+            self.actor,
+            self.now,
+        )
+        snapshot_before = deepcopy(initial.snapshot)
+
+        with self.assertRaisesRegex(CommandValidationError, "Missing command field: answer"):
+            await self.engine.apply(
+                snapshot_before,
+                GameCommand("puzzle.submit", {"puzzle_id": "reception"}, operation_id="invalid"),
+                self.actor,
+                self.now + timedelta(minutes=1),
+            )
+
+        self.assertNotIn("invalid", snapshot_before["operation_receipts"])
+        self.assertEqual(initial.snapshot, snapshot_before)
+
+    async def test_known_operation_receipt_is_replayed_before_payload_validation(self) -> None:
+        first = await self.engine.apply(
+            None,
+            GameCommand("player.message", {"text": "Jednou"}, operation_id="stable-operation"),
+            self.actor,
+            self.now,
+        )
+
+        replayed = await self.engine.apply(
+            first.snapshot,
+            GameCommand("player.message", {}, operation_id="stable-operation"),
+            self.actor,
+            self.now + timedelta(minutes=1),
+        )
+
+        self.assertTrue(replayed.replayed)
+        self.assertEqual(replayed.snapshot, first.snapshot)
 
     async def test_raw_legacy_snapshot_is_accepted_and_upgraded(self) -> None:
         legacy = {"score": 725, "phase": "navigating"}

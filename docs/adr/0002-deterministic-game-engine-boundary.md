@@ -33,6 +33,13 @@ Snapshot verze 1 obsahuje `state` a omezený seznam `operation_receipts`.
 další mutace. Po dobu migrace engine přijímá i původní neobalený snapshot a při
 prvním příkazu jej převede na aktuální verzi.
 
+Každý veřejný typ příkazu má před spuštěním stavového automatu explicitní
+schéma. Transportní metadata aktéra se z payloadu oddělí a neprocházejí jako
+veřejná pole příkazu. Neplatný nebo neznámý příkaz skončí terminální odpovědí
+`command.rejected` se stejným `operation_id`, aniž by změnil snapshot, audit či
+čas poslední aktivity. Již uložená idempotency účtenka má před validací retry
+přednost, takže opakované doručení vždy vrátí původní výsledek.
+
 Čas je vstup příkazu. Stavový automat proto používá injektované hodiny a během
 jednoho příkazu nesmí číst systémový čas přímo. FastAPI transport zůstává jako
 adaptér nad novým enginem. Uložený snapshot si ponechává původní strukturu stavu

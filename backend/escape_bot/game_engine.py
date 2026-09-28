@@ -5,6 +5,7 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from typing import Any, Mapping
 
+from .command_validation import validate_game_command
 from .protocol import Message
 from .scenario import Scenario
 from .state_machine import EscapeBotStateMachine
@@ -71,6 +72,8 @@ class GameEngine:
                 operation_id=command.operation_id,
                 replayed=True,
             )
+
+        validate_game_command(command.type, command.payload)
 
         machine = EscapeBotStateMachine(self.scenario, clock=lambda: command_time)
         if state_data:

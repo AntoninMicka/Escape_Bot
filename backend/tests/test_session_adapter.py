@@ -75,6 +75,26 @@ class GameSessionAdapterTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(set(player_messages), {"První", "Druhý"})
         self.assertEqual(set(adapter.operation_receipts), {"message-1", "message-2"})
 
+    async def test_transport_actor_fields_are_not_part_of_public_command_payload(self) -> None:
+        machine = EscapeBotStateMachine(self.scenario)
+        adapter = GameSessionAdapter()
+
+        responses = await adapter.apply(
+            machine,
+            Message("client.hello", {
+                "session_id": "session-1",
+                "_client_id": "alice",
+                "_participant_ids": ["alice", "bob"],
+                "_team_mode": "team",
+                "_participant_names": {"alice": "Alice", "bob": "Bob"},
+            }),
+            now=self.now,
+        )
+
+        self.assertTrue(responses)
+        self.assertEqual(machine._current_player_id, "alice")
+        self.assertEqual(machine._participant_ids, ["alice", "bob"])
+
     def test_persisted_snapshot_remains_readable_by_legacy_state_restore(self) -> None:
         machine = EscapeBotStateMachine(self.scenario)
         machine.state.score = 875

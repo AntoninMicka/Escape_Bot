@@ -228,6 +228,13 @@ Asks backend to verify a physical discovery.
 Potvrzuje, že příkaz označený `operation_id` byl aplikován a jeho nový snapshot
 byl uložen. Klient po tomto potvrzení odstraní příkaz z lokální retry fronty.
 
+### `command.rejected`
+
+Odmítne herní příkaz, jehož payload neodpovídá schématu nebo jehož typ není
+podporovaný. Odpověď obsahuje `command`, čitelný `reason` a přebírá původní
+`request_id` i `operation_id`. Jde o terminální výsledek: klient příkaz se
+stejným `operation_id` už neopakuje a autoritativní stav se nezmění.
+
 ### `game.state`
 
 Broadcasts current state.

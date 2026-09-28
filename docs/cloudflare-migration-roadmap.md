@@ -95,6 +95,12 @@ Akceptace:
 5. Doplnit validační schéma příkazů a verzování snapshotu.
 6. Spustit stejné scénářové testy proti původnímu i novému adaptéru.
 
+Stav feature větve: deterministické `apply`, verzovaný snapshot, idempotentní
+`operation_id`, FastAPI adaptér a validační schémata příkazů jsou implementované.
+Zbývá rozdělit odpovědi odesílateli od týmových broadcastů, odstranit poslední
+provozní závislosti z doménové cesty a převést celý scenario journey na paritní
+test původního a nového rozhraní.
+
 Akceptace:
 
 - celý současný scenario journey projde přes nové doménové API;
@@ -270,4 +276,3 @@ První implementační větev po této roadmapě:
 ```text
 feature/cf-01-durable-object-spike
 ```
-

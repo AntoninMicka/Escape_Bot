@@ -18,6 +18,7 @@ from fastapi.responses import JSONResponse, RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 
+from .command_validation import CommandValidationError
 from .protocol import Message
 from .session_adapter import GameSessionAdapter
 from .state_machine import EscapeBotStateMachine
@@ -2234,7 +2235,16 @@ async def websocket_endpoint(websocket: WebSocket):
                     if msg.type == "game.deadline_choice" and (not lobby_context or client_id not in lobby_context.players or socket_info.get("role") == "terminal"):
                         await send_message(websocket, Message("error", {"message": "O pokračování rozhodují hráči týmu."}))
                         continue
-                    responses = await apply_game_command(str(session_id), state_machine, msg)
+                    try:
+                        responses = await apply_game_command(str(session_id), state_machine, msg)
+                    except CommandValidationError as error:
+                        await send_message(websocket, Message(
+                            "command.rejected",
+                            {"command": msg.type, "reason": str(error)},
+                            request_id=msg.request_id,
+                            operation_id=msg.operation_id,
+                        ))
+                        continue
                     if msg.type == "client.hello" and bool(msg.payload.get("demo_mode")):
                         if demo_client:
                             checkpoints = build_demo_checkpoint_catalog(state_machine.scenario)

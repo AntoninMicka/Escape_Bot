@@ -58,6 +58,11 @@ class GameSessionAdapter:
         now: datetime | None,
     ) -> list[Message]:
         actor = _actor_context(machine, message.payload)
+        public_payload = {
+            key: deepcopy(value)
+            for key, value in message.payload.items()
+            if not str(key).startswith("_")
+        }
         envelope = {
             "schema_version": ENGINE_SNAPSHOT_VERSION,
             "state": machine.state.snapshot(),
@@ -67,7 +72,7 @@ class GameSessionAdapter:
             envelope,
             GameCommand(
                 message.type,
-                message.payload,
+                public_payload,
                 request_id=message.request_id,
                 operation_id=message.operation_id,
             ),
