@@ -115,6 +115,12 @@ Akceptace:
 
 **Odhad: 2–4 pracovní dny**
 
+**Stav: lokální implementace připravena; zbývá staging a fyzická iOS
+akceptace.** Reprodukovatelný build vytváří pouze runtime soubory, aplikační a
+WebGL skripty používají obsahový fingerprint, Static Assets obsluhují klientské
+trasy a `/api/*` s `/ws` mají přednostní průchod Workerem. Cache a bezpečnostní
+hlavičky jsou definované v `_headers`.
+
 1. Připravit reprodukovatelný build adresář bez `node_modules` a zdrojových
    duplicit WebGL assetů.
 2. Nasadit `/`, `/admin`, `/display`, `/terminal`, service worker a WebGL build

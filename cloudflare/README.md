@@ -1,8 +1,9 @@
-# Cloudflare CF-01 spike
+# Cloudflare runtime (CF-01 až CF-03)
 
-Izolovaný technický spike pro budoucí Cloudflare runtime Escape Botu. Není
-zapojený do současného FastAPI serveru ani klienta a není určený k produkčnímu
-nasazení.
+Samostatný Cloudflare runtime Escape Botu. CF-01 ověřuje Worker, Durable Object
+a WebSocket hibernaci, CF-03 přidává reprodukovatelný balíček klienta pro
+Workers Static Assets. Současný FastAPI provoz tím není nahrazený a produkční
+nasazení zatím není určené k použití.
 
 Používá stejný Cloudflare účet a lokální Wrangler přihlášení jako ostatní
 projekty, ale nesdílí s nimi Worker, Durable Object namespace, D1 databázi ani
@@ -20,7 +21,9 @@ secrety. Názvy prostředí jsou `escape-bot-cf-development`,
 - perzistentní autoritativní snapshot a úplný `lobby.resume` po evikci;
 - Durable Object alarm pro časový deadline;
 - oddělení stavu různých relací.
-- diagnostickou stránku na `/` pro ruční kontrolu v prohlížeči.
+- statický klient na `/`, `/admin`, `/terminal` a `/display`;
+- service worker a fingerprintovaný WebGL build;
+- Worker-first směrování `/api/*` a `/ws`.
 
 Zprávy `spike.*` jsou pouze testovací kontrakt. Nejsou součástí produkčního
 Escape Bot protokolu.
@@ -33,6 +36,10 @@ npm ci
 npm run check
 npm exec wrangler deploy -- --dry-run --env staging
 ```
+
+`npm run build` nejprve sestaví WebGL a potom vytvoří `cloudflare/dist`. Do
+výsledku kopíruje jen používané klientské soubory, nikoli `node_modules` ani
+zdrojový WebGL projekt. `dist` je generovaný a neukládá se do Gitu.
 
 Cloudflare Vitest runner otevírá lokální loopback port. V omezeném sandboxu
 proto může vyžadovat povolení síťového socketu, přestože nekontaktuje produkční
@@ -54,8 +61,10 @@ npm run deploy:staging
 curl https://STAGING-DOMAIN/api/health
 ```
 
-Kořenová staging adresa zobrazí diagnostiku. Pro broadcast otevřete dvě nebo
-více karet se stejným Session ID, připojte je a odešlete testovací zprávu.
+Na stagingu je nutné ručně projít `/`, `/admin`, `/display`, `/terminal` a
+Chronomap, ověřit aktualizaci service workeru a HTTPS kameru v Safari na
+fyzickém iPhonu. WebSocket zatím používá spike kontrakt CF-01; úplný klientský
+protokol je úkolem CF-04.
 
 Produkční deploy má samostatný explicitní příkaz `npm run deploy:production`.
 Obecný `npm run deploy` záměrně není definován, aby nebylo možné bez výběru

@@ -2,6 +2,7 @@ __pycache__/
 *.py[cod]
 .venv/
 node_modules/
+cloudflare/dist/
 .env
 .env.*
 !.env.cloud.example

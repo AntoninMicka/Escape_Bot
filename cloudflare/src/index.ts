@@ -1,8 +1,8 @@
 import { DurableObject } from "cloudflare:workers";
-import { diagnosticPage } from "./diagnostic";
 
 interface Env {
   APP_ENV: string;
+  ASSETS: Fetcher;
   GAME_SESSIONS: DurableObjectNamespace<GameSession>;
 }
 
@@ -43,7 +43,12 @@ const SESSION_ID_PATTERN = /^[A-Za-z0-9_-]{8,128}$/;
 const CLIENT_ID_PATTERN = /^[A-Za-z0-9_-]{1,128}$/;
 
 function json(data: unknown, status = 200): Response {
-  return Response.json(data, { status });
+  const response = Response.json(data, { status });
+  response.headers.set("Cache-Control", "no-store");
+  response.headers.set("Permissions-Policy", "camera=(self), geolocation=(self), microphone=()");
+  response.headers.set("Referrer-Policy", "same-origin");
+  response.headers.set("X-Content-Type-Options", "nosniff");
+  return response;
 }
 
 function protocolMessage(type: string, payload: Record<string, unknown>): string {
@@ -274,11 +279,11 @@ export class GameSession extends DurableObject<Env> {
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
-    if (url.pathname === "/") return diagnosticPage();
     if (url.pathname === "/api/health") {
       return json({ status: "ok", runtime: "cloudflare", environment: env.APP_ENV });
     }
-    if (url.pathname !== "/ws") return json({ error: "not_found" }, 404);
+    if (url.pathname.startsWith("/api/")) return json({ error: "not_found" }, 404);
+    if (url.pathname !== "/ws") return env.ASSETS.fetch(request);
     if (request.headers.get("Upgrade")?.toLowerCase() !== "websocket") {
       return json({ error: "websocket_upgrade_required" }, 426);
     }
