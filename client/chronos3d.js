@@ -210,7 +210,7 @@
         if(!progress){if(message)message.textContent='Nejprve založte nebo obnovte herní relaci.';return}
         if(!target||target.floor!==player.floor||localDistance(target)>2.8){if(message)message.textContent='V dosahu není aktivní časová kotva.';messageUntil=performance.now()+1800;startLoop();return}
         if(typeof ws==='undefined'||!ws||ws.readyState!==WebSocket.OPEN){if(message)message.textContent='Backend není připojen.';return}
-        ws.send(JSON.stringify({type:'qr.detected',payload:{value:`escapebot://checkpoint/${target.token}`}}));
+        sendQrDetection(`escapebot://checkpoint/${target.token}`);
         if(message)message.textContent=`Aktivuji: ${target.name}. Otevřete ARCHIV HÁDANEK.`;
         messageUntil=performance.now()+2600;startLoop();
     }

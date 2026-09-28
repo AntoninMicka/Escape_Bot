@@ -1,7 +1,8 @@
-const CACHE_NAME = 'escape-bot-v126';
+const CACHE_NAME = 'escape-bot-v127';
 const ASSETS_TO_CACHE = [
     './',
     './index.html',
+    './operation-queue.js',
     './chronos3d.js',
     './chronos-webgl/dist/index.html',
     './chronos-webgl/dist/assets/chronos.js',

@@ -83,11 +83,20 @@ class GameEngine:
             "_team_mode": actor.team_mode,
             "_participant_names": dict(actor.participant_names),
         })
-        responses = tuple(
+        raw_responses = tuple(
             await machine.handle(
                 Message(command.type, payload, command.request_id),
                 now=command_time,
             )
+        )
+        responses = tuple(
+            Message(
+                response.type,
+                response.payload,
+                response.request_id,
+                response.operation_id or command.operation_id,
+            )
+            for response in raw_responses
         )
         state = machine.state.snapshot()
         audit_events = tuple(_new_suffix(history_before, machine.state.event_history))

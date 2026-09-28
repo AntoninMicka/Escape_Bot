@@ -34,6 +34,8 @@ class GameEngineBoundaryTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(result.snapshot["state"]["last_activity_at"], self.now.isoformat())
         self.assertEqual(result.audit_events[0]["at"], self.now.isoformat())
         self.assertEqual(result.audit_events[0]["type"], "player.message")
+        self.assertTrue(result.responses)
+        self.assertTrue(all(item.operation_id == "message-1" for item in result.responses))
         self.assertFalse(result.replayed)
 
     async def test_operation_retry_returns_original_receipt_without_duplicate_mutation(self) -> None:
@@ -141,7 +143,7 @@ class GameEngineBoundaryTests(unittest.IsolatedAsyncioTestCase):
             snapshot = result.snapshot
 
             self.assertEqual(
-                [message.to_json() for message in result.responses],
-                [message.to_json() for message in legacy_responses],
+                [(message.type, message.payload, message.request_id) for message in result.responses],
+                [(message.type, message.payload, message.request_id) for message in legacy_responses],
             )
             self.assertEqual(result.snapshot["state"], legacy.state.snapshot())

@@ -45,7 +45,8 @@ ignoruje, takže rollback nevyžaduje zpětnou migraci dat.
   adaptéru.
 - Retry příkazu je deterministický, pokud volající zachová `operation_id`.
 - Alarm Durable Objectu lze naplánovat podle `next_deadline_at`.
-- FastAPI adaptér přijímá volitelné `operation_id`; klienti je mohou zavádět
-  postupně bez změny stávajících zpráv.
+- Webový klient ukládá nepotvrzené herní příkazy do omezené lokální fronty,
+  potvrzuje je první odpovědí se stejným `operation_id` a po reconnectu je
+  opakuje až po obnovení stejné lobby.
 - Paritní test musí pro reprezentativní sekvenci porovnávat odpovědi i stav
   původního rozhraní s novou hranicí.

@@ -10,9 +10,18 @@ Every message has:
 {
   "type": "message.type",
   "request_id": "optional-client-id",
+  "operation_id": "optional-stable-mutation-id",
   "payload": {}
 }
 ```
+
+`request_id` slouží ke korelaci jednoho požadavku a odpovědi. Herní příkazy,
+které mění stav nebo skóre, navíc používají stabilní `operation_id` dlouhé 1 až
+128 znaků. Klient jej vytvoří před prvním odesláním, ponechá příkaz v lokální
+frontě do `operation.ack` nebo jiné odpovědi se stejným `operation_id` a po
+reconnectu odešle tentýž příkaz se stejným ID. Backend takový retry znovu
+neaplikuje, ale vrátí uložené odpovědi. Lobby, terminálové párování, podpora,
+administrace a read-only dotazy tuto doménovou idempotency frontu nepoužívají.
 
 ## Client -> Backend
 
@@ -213,6 +222,11 @@ Asks backend to verify a physical discovery.
 ```
 
 ## Backend -> Client
+
+### `operation.ack`
+
+Potvrzuje, že příkaz označený `operation_id` byl aplikován a jeho nový snapshot
+byl uložen. Klient po tomto potvrzení odstraní příkaz z lokální retry fronty.
 
 ### `game.state`
 

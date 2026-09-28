@@ -1199,10 +1199,11 @@
         </div>
     </div>
 
-    <button id="build-version" class="build-version" type="button" title="Kliknutím zkontrolovat aktualizaci">BUILD v105 · SW …</button>
+    <button id="build-version" class="build-version" type="button" title="Kliknutím zkontrolovat aktualizaci">BUILD v118 · SW …</button>
 
+    <script src="operation-queue.js"></script>
     <script>
-        const APP_BUILD_VERSION = 'v117';
+        const APP_BUILD_VERSION = 'v118';
         let ws;
         const input = document.getElementById('msgInput');
         let currentChannel = 'general';
@@ -1791,7 +1792,7 @@
         function unlockCipherTool(toolId, label, cost) {
             if (!ws || ws.readyState !== WebSocket.OPEN) { showNotification('Terminál není připojen.', 'error'); return; }
             if (!window.confirm(`Trvale odemknout pomůcku ${label} za ${cost} bodů?`)) return;
-            ws.send(JSON.stringify({type: 'cipher_tool.unlock', payload: {tool_id: toolId}}));
+            sendGameCommand('cipher_tool.unlock', {tool_id: toolId});
         }
 
         // Panel lze na větší obrazovce přesunout za jeho záhlaví.
@@ -1876,7 +1877,35 @@
         let pendingLobbyTimer = null;
         let reconnectTimer = null;
         let selectedLobbyType = '';
+        let replayedOperationsSocket = null;
         try { savedLobby = JSON.parse(localStorage.getItem('escapeBotLobby') || 'null'); } catch (_) { savedLobby = null; }
+        const gameOperationQueue = new EscapeBotOperationQueue({
+            storage: localStorage,
+            storageKey: `escapeBotPendingOperations:${clientId}`,
+            createId: () => window.crypto?.randomUUID?.() || `${clientId}-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+        });
+
+        function sendGameCommand(type, payload = {}) {
+            if (!ws || ws.readyState !== WebSocket.OPEN || !sessionId) return false;
+            const message = gameOperationQueue.enqueue(type, payload, sessionId);
+            ws.send(JSON.stringify(message));
+            return true;
+        }
+
+        function sendQrDetection(value) {
+            if (!ws || ws.readyState !== WebSocket.OPEN) return false;
+            if (String(value).toLowerCase().startsWith('escapebot://terminal/')) {
+                ws.send(JSON.stringify({type:'qr.detected', payload:{value}}));
+                return true;
+            }
+            return sendGameCommand('qr.detected', {value});
+        }
+
+        function replayPendingGameOperations() {
+            if (!ws || ws.readyState !== WebSocket.OPEN || !sessionId || replayedOperationsSocket === ws) return;
+            replayedOperationsSocket = ws;
+            gameOperationQueue.pendingForSession(sessionId).forEach(message => ws.send(JSON.stringify(message)));
+        }
 
         function lobbyPlayerName() {
             return document.getElementById('lobby-player-name').value.trim();
@@ -2966,6 +2995,7 @@
             if (payload.started) {
                 stopReversePlayerScanner();
                 document.getElementById('lobby-overlay').classList.add('hidden');
+                replayPendingGameOperations();
                 if (gameJustStarted && !adminModeRequested) {
                     onboardingWasRequested = false;
                     setTimeout(beginOnboarding, 120);
@@ -3246,6 +3276,7 @@
 
             ws.onmessage = (event) => {
                 const msg = JSON.parse(event.data);
+                gameOperationQueue.acknowledge(msg.operation_id);
                 
                 // Skrytí indikátoru při přijetí jakékoliv odpovědi od serveru
                 document.getElementById('typing-indicator').style.display = 'none';
@@ -3405,6 +3436,7 @@
                     showNotification(msg.payload.message || 'Chyba administrace.', 'error');
                 }
                 else if (msg.type === 'admin.session_removed') {
+                    gameOperationQueue.discardSession(sessionId);
                     localStorage.removeItem('escapeBotLobby');
                     showNotification(msg.payload.message || 'Relace byla odstraněna.', 'error');
                 }
@@ -3836,12 +3868,12 @@
 
         function submitPin() {
             if (!currentPin || !ws || ws.readyState !== WebSocket.OPEN) return;
-            ws.send(JSON.stringify({ type: 'room.unlock', payload: { pin: currentPin } }));
+            sendGameCommand('room.unlock', {pin: currentPin});
         }
 
         function requestRoomHint(roomId) {
             if (!window.confirm('Zobrazit další nápovědu k panelu? Nový stupeň odečte body.')) return;
-            if (ws?.readyState === WebSocket.OPEN) ws.send(JSON.stringify({type:'room.hint', payload:{room_id:roomId}}));
+            if (ws?.readyState === WebSocket.OPEN) sendGameCommand('room.hint', {room_id:roomId});
         }
 
         function sendMsg() {
@@ -3851,7 +3883,9 @@
                 return;
             }
             
-            ws.send(JSON.stringify({ type: 'player.message', payload: { text: input.value, channel: currentChannel } }));
+            const outgoingChat = {text: input.value, channel: currentChannel};
+            if (currentChannel === 'support') ws.send(JSON.stringify({type:'player.message', payload:outgoingChat}));
+            else sendGameCommand('player.message', outgoingChat);
             
             const chatBox = document.getElementById('chat-' + currentChannel);
             chatBox.innerHTML += `<div class="message player"><img class="avatar" src="${getAvatarURL('player', currentChannel)}" alt="Avatar"><div class="msg-content"><b>[Ty]:</b> <span class="msg-text">${input.value}</span></div></div>`;
@@ -3937,7 +3971,7 @@
             const acquired = hintIndex < Number(phaseHintsState?.unlocked || 0);
             const cost = Number((phaseHintsState?.costs || [])[hintIndex] || 0);
             if (!acquired && !window.confirm(`Odemknout nápovědu ${hintIndex + 1} za ${cost} bodů?`)) return;
-            if (ws?.readyState === WebSocket.OPEN) ws.send(JSON.stringify({type:'phase.hint', payload:{phase_id:phaseHintsState.phase_id, hint_index:hintIndex}}));
+            if (ws?.readyState === WebSocket.OPEN) sendGameCommand('phase.hint', {phase_id:phaseHintsState.phase_id, hint_index:hintIndex});
         }
 
         function renderRoomPin(puzzle) {
@@ -4132,12 +4166,12 @@
             const first = selectedArchivePiece;
             selectedArchivePiece = '';
             if (!ws || ws.readyState !== WebSocket.OPEN) return;
-            ws.send(JSON.stringify({type:'archive.arrange', payload:{puzzle_id:puzzleId, card_id:first, target_id:cardId, action:'swap'}}));
+            sendGameCommand('archive.arrange', {puzzle_id:puzzleId, card_id:first, target_id:cardId, action:'swap'});
         }
 
         function arrangeArchiveCard(puzzleId, cardId, action) {
             if (!ws || ws.readyState !== WebSocket.OPEN) return;
-            ws.send(JSON.stringify({type:'archive.arrange', payload:{puzzle_id:puzzleId, card_id:cardId, action}}));
+            sendGameCommand('archive.arrange', {puzzle_id:puzzleId, card_id:cardId, action});
         }
 
         function activateFinale(puzzleId) {
@@ -4148,7 +4182,7 @@
             const modules = [...state.modules];
             if (modules.length !== 3) { showNotification('Konfigurace modulů není úplná.', 'error'); return; }
             if (!window.confirm('Spustit finální návratovou sekvenci?')) return;
-            ws.send(JSON.stringify({type:'finale.activate', payload:{puzzle_id:puzzleId, year, time, modules}}));
+            sendGameCommand('finale.activate', {puzzle_id:puzzleId, year, time, modules});
         }
 
         function startFinaleEffect(seconds) {
@@ -4273,14 +4307,14 @@
             return `<div class="line-game">${renderTeamGameProgress(puzzle, solved)}<div class="line-game-progress">${objectives}</div><p>SPLŇTE LIBOVOLNÉ <strong>${game.required_orientation_count || 3} ZE 3 SMĚRŮ</strong></p>${waiting}<div class="line-game-meta"><span>VAŠE UZLY: ${game.placements}</span><span>TAHY AUTOMATU: ${game.opponent_moves || 0}</span><span>RESTARTY: ${game.restarts}</span><strong class="line-game-timer" data-deadline="${escapeHtml(game.deadline_at)}">ČAS ${formatLineGameTime(game.remaining_seconds)}</strong></div><p><strong>ČERVENÝ UZEL</strong> pokládá automat a blokuje vaše vznikající řady.</p><div class="puzzle-actions"><button class="${selectedTriadSymbol === 'cyan' ? 'active' : ''}" onclick="selectTriadSymbol('cyan')">AZUROVÁ</button><button class="${selectedTriadSymbol === 'amber' ? 'active' : ''}" onclick="selectTriadSymbol('amber')">JANTAROVÁ</button></div><div class="line-game-board" style="grid-template-columns:repeat(${game.size},1fr)">${cells}</div><button onclick="resetTriad('${escapeHtml(puzzle.id)}')">NOVÉ POLE</button></div>`;
         }
         function selectTriadSymbol(symbol) { selectedTriadSymbol = symbol; renderPuzzles(); }
-        function placeTriad(puzzleId,row,column) { if (ws?.readyState === WebSocket.OPEN) ws.send(JSON.stringify({type:'triad.place',payload:{puzzle_id:puzzleId,row,column,symbol:selectedTriadSymbol}})); }
-        function resetTriad(puzzleId) { if (window.confirm('Obnovit celé pole?')) ws.send(JSON.stringify({type:'triad.reset',payload:{puzzle_id:puzzleId}})); }
+        function placeTriad(puzzleId,row,column) { if (ws?.readyState === WebSocket.OPEN) sendGameCommand('triad.place', {puzzle_id:puzzleId,row,column,symbol:selectedTriadSymbol}); }
+        function resetTriad(puzzleId) { if (window.confirm('Obnovit celé pole?')) sendGameCommand('triad.reset', {puzzle_id:puzzleId}); }
 
         function sendKarelCommand(puzzleId, command) {
-            if (ws?.readyState === WebSocket.OPEN) ws.send(JSON.stringify({type:'karel.command', payload:{puzzle_id:puzzleId, commands:[command]}}));
+            if (ws?.readyState === WebSocket.OPEN) sendGameCommand('karel.command', {puzzle_id:puzzleId, commands:[command]});
         }
         function resetKarel(puzzleId) {
-            if (window.confirm('Obnovit minové pole?')) ws.send(JSON.stringify({type:'karel.reset', payload:{puzzle_id:puzzleId}}));
+            if (window.confirm('Obnovit minové pole?')) sendGameCommand('karel.reset', {puzzle_id:puzzleId});
         }
 
         function prepareKarelAnimation(payload) {
@@ -4289,7 +4323,7 @@
             pendingKarelAnimation = {puzzleId:puzzle.id, base:JSON.parse(JSON.stringify(puzzle.game)), frames:payload.frames || [], index:0, running:false, timer:null};
         }
         function chooseDeadline(choice) {
-            if (ws?.readyState === WebSocket.OPEN) ws.send(JSON.stringify({type:'game.deadline_choice', payload:{choice}}));
+            if (ws?.readyState === WebSocket.OPEN) sendGameCommand('game.deadline_choice', {choice});
         }
         function renderDeadlineChoice(flags) {
             let panel = document.getElementById('deadline-choice');
@@ -4453,13 +4487,13 @@
             const first = [selectedLineCell.row, selectedLineCell.column];
             selectedLineCell = null;
             document.querySelectorAll('.line-game-cell.selected').forEach(cell => cell.classList.remove('selected'));
-            ws.send(JSON.stringify({type: 'line_game.move', payload: {puzzle_id: puzzleId, first, second: [row, column]}}));
+            sendGameCommand('line_game.move', {puzzle_id: puzzleId, first, second: [row, column]});
         }
 
         function resetLineGame(puzzleId) {
             if (!window.confirm('Spustit nový pokus? Dosavadní kombinace i čas budou resetovány.')) return;
             if (!ws || ws.readyState !== WebSocket.OPEN) { showNotification('Terminál není připojen.', 'error'); return; }
-            ws.send(JSON.stringify({type: 'line_game.reset', payload: {puzzle_id: puzzleId}}));
+            sendGameCommand('line_game.reset', {puzzle_id: puzzleId});
         }
 
         function formatLineGameTime(seconds) {
@@ -4525,18 +4559,18 @@
         function sendSokobanCommand(puzzleId, command) {
             if (pendingSokobanAnimation) { showNotification('Probíhá přehrávání sekvence.', 'error'); return; }
             if (!ws || ws.readyState !== WebSocket.OPEN) { showNotification('Terminál není připojen.', 'error'); return; }
-            ws.send(JSON.stringify({type:'sokoban.command', payload:{puzzle_id:puzzleId, commands:[command]}}));
+            sendGameCommand('sokoban.command', {puzzle_id:puzzleId, commands:[command]});
         }
 
         function undoSokoban(puzzleId) {
             if (!ws || ws.readyState !== WebSocket.OPEN) return;
-            ws.send(JSON.stringify({type:'sokoban.undo', payload:{puzzle_id:puzzleId}}));
+            sendGameCommand('sokoban.undo', {puzzle_id:puzzleId});
         }
 
         function resetSokoban(puzzleId) {
             if (!window.confirm('Obnovit aktuální sektor a jeho časový limit? Dokončené sektory zůstanou započítané.')) return;
             if (!ws || ws.readyState !== WebSocket.OPEN) return;
-            ws.send(JSON.stringify({type:'sokoban.reset', payload:{puzzle_id:puzzleId}}));
+            sendGameCommand('sokoban.reset', {puzzle_id:puzzleId});
         }
 
         function prepareSokobanAnimation(payload) {
@@ -4624,7 +4658,7 @@
             const answer = input ? input.value.trim() : '';
             if (!answer) { showNotification('Zadejte výsledný kód.', 'error'); return; }
             if (!ws || ws.readyState !== WebSocket.OPEN) { showNotification('Terminál není připojen.', 'error'); return; }
-            ws.send(JSON.stringify({type: 'puzzle.submit', payload: {puzzle_id: puzzleId, answer}}));
+            sendGameCommand('puzzle.submit', {puzzle_id: puzzleId, answer});
         }
 
         function requestStaticHint(puzzleId, hintIndex, puzzleType, roomId) {
@@ -4635,7 +4669,7 @@
             if (!ws || ws.readyState !== WebSocket.OPEN) { showNotification('Terminál není připojen.', 'error'); return; }
             const type = puzzleType === 'room_pin' ? 'room.hint' : 'puzzle.hint';
             const payload = puzzleType === 'room_pin' ? {room_id:roomId, hint_index:hintIndex} : {puzzle_id:puzzleId, hint_index:hintIndex};
-            ws.send(JSON.stringify({type, payload}));
+            sendGameCommand(type, payload);
         }
 
         // --- LOGIKA OPTICKÉHO SKENERU ---
@@ -5255,7 +5289,7 @@
         function simulateQrScan(value, label) {
             if (!ws || ws.readyState !== WebSocket.OPEN) { showNotification('Terminál není připojen.', 'error'); return; }
             showNotification(`${onlineModeEnabled ? 'Online checkpoint' : 'Demo sken'}: ${label}`, 'info');
-            ws.send(JSON.stringify({type: 'qr.detected', payload: {value}}));
+            sendQrDetection(value);
         }
 
         function startFreshDemoSession() {
@@ -5340,7 +5374,7 @@
                     if (ws && ws.readyState === WebSocket.OPEN && code.data !== qrPendingValue) {
                         qrPendingValue = code.data;
                         showNotification('Optická shoda. Odesílám k analýze.', 'success');
-                        ws.send(JSON.stringify({ type: 'qr.detected', payload: { value: code.data } }));
+                        sendQrDetection(code.data);
                     }
                     
                     document.getElementById('scanner-container').style.borderColor = '#f00';

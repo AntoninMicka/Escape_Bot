@@ -934,6 +934,8 @@ async def broadcast_session(session_id: str, messages: list[Message], exclude: W
                 outgoing = message
                 if message.type == "game.state" and session_id in active_sessions:
                     outgoing = state_message_for(websocket, session_id, active_sessions[session_id])
+                    outgoing.request_id = message.request_id
+                    outgoing.operation_id = message.operation_id
                 await send_message(websocket, outgoing)
             except Exception:
                 pass
@@ -2275,6 +2277,12 @@ async def websocket_endpoint(websocket: WebSocket):
                         for active_socket in list(app.state.active_websockets):
                             try: await send_message(active_socket, availability_update)
                             except Exception: pass
+                    if msg.operation_id:
+                        await send_message(websocket, Message(
+                            "operation.ack",
+                            {"operation_id": msg.operation_id},
+                            operation_id=msg.operation_id,
+                        ))
                     if session_id:
                         # A line-game board belongs to one player. Its result contains
                         # animation frames for that player's board and must never be
