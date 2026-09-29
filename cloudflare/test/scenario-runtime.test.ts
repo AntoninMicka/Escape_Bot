@@ -1,6 +1,8 @@
 import { env } from "cloudflare:workers";
 import { describe, expect, it } from "vitest";
 import {
+  applyAdminCheckpointTransition,
+  applyAdminGameReset,
   applyAdminGamePlayerExclusion,
   applyScenarioCommand,
   buildScenarioProgress,
@@ -914,6 +916,126 @@ describe("deterministic Cloudflare scenario runtime", () => {
     expect(repeated.result).toMatchObject({ changed: false, team_complete: true });
     expect(repeated.state.score).toBe(1040);
     expect(repeated.messages).toHaveLength(1);
+  });
+
+  it("applies audited checkpoint overrides and a penalty exactly once per state transition", async () => {
+    const scenario = await chronosScenario();
+    const actor: RuntimeActor = {
+      clientId: "alice",
+      participantIds: ["alice", "bob"],
+      participantNames: { alice: "Alice", bob: "Bob" },
+      teamMode: "team",
+    };
+    const initial = startScenario(scenario, 0, "2026-09-28T12:00:00.000Z", actor).state;
+    const found = applyAdminCheckpointTransition(
+      scenario,
+      initial,
+      {
+        checkpointId: "timeline_calibration",
+        status: "found",
+        presetId: "technical",
+        presetLabel: "Technická chyba / uznat bez postihu",
+        penalty: 0,
+      },
+      "2026-09-28T12:00:01.000Z",
+      actor,
+    );
+    expect(found.result).toMatchObject({ changed: true, previous_status: "locked", status: "found", penalty: 0 });
+    expect(found.state.checkpoint_states.timeline_calibration).toMatchObject({
+      status: "found",
+      first_scanned_at: "2026-09-28T12:00:01.000Z",
+      admin_override_at: "2026-09-28T12:00:01.000Z",
+    });
+    expect(found.state.interactive_games.timeline_lines.players).toHaveProperty("alice");
+    expect(found.state.interactive_games.timeline_lines.players).toHaveProperty("bob");
+    expect(initial.checkpoint_states).not.toHaveProperty("timeline_calibration");
+
+    const solved = applyAdminCheckpointTransition(
+      scenario,
+      found.state,
+      {
+        checkpointId: "timeline_calibration",
+        status: "solved",
+        presetId: "minigame_skip",
+        presetLabel: "Přeskočení minihry",
+        penalty: 50,
+      },
+      "2026-09-28T12:00:02.000Z",
+      actor,
+    );
+    expect(solved.result).toMatchObject({ previous_status: "found", status: "solved", penalty: 50, score: 950 });
+    expect(solved.state.flags.timeline_calibrated).toBe(true);
+    expect(solved.state.flags.admin_penalties).toHaveLength(1);
+    expect(solved.state.flags.admin_score_adjustments).toHaveLength(1);
+    expect(solved.state.flags.admin_actions).toHaveLength(2);
+    expect(solved.state.event_history.at(-1)).toMatchObject({
+      type: "admin_action",
+      label: expect.stringContaining("timeline_calibration"),
+      details: { action: "checkpoint", checkpoint_id: "timeline_calibration", status: "solved", penalty: 50 },
+    });
+    expect(solved.messages.map((message) => message.type)).toEqual(["admin.checkpoint", "score.update", "bot.message"]);
+    expect(() => applyAdminCheckpointTransition(
+      scenario,
+      solved.state,
+      {
+        checkpointId: "timeline_calibration",
+        status: "solved",
+        presetId: "minigame_skip",
+        presetLabel: "Přeskočení minihry",
+        penalty: 50,
+      },
+      "2026-09-28T12:00:03.000Z",
+      actor,
+    )).toThrow("Checkpoint už je dokončený");
+  });
+
+  it("resets each supported active minigame without changing checkpoint progress", async () => {
+    const scenario = await chronosScenario();
+    const actor: RuntimeActor = {
+      clientId: "alice",
+      participantIds: ["alice", "bob"],
+      participantNames: { alice: "Alice", bob: "Bob" },
+      teamMode: "team",
+    };
+    const cases = [
+      ["timeline_calibration", "timeline_lines", "line_game"],
+      ["courtyard_minefield", "courtyard_karel", "mine_karel"],
+      ["courtyard_alignment", "temporal_triad", "triad"],
+      ["sports_archive", "sports_sokoban", "sokoban"],
+    ] as const;
+    for (const [checkpointId, puzzleId, adapter] of cases) {
+      const initial = startScenario(scenario, 0, "2026-09-28T12:00:00.000Z", actor).state;
+      const found = applyAdminCheckpointTransition(
+        scenario,
+        initial,
+        {
+          checkpointId,
+          status: "found",
+          presetId: "technical",
+          presetLabel: "Technická chyba / uznat bez postihu",
+          penalty: 0,
+        },
+        "2026-09-28T12:00:01.000Z",
+        actor,
+      );
+      found.state.game_results[puzzleId] = { alice: { score_delta: 10 } };
+      const reset = applyAdminGameReset(
+        scenario,
+        found.state,
+        puzzleId,
+        "2026-09-28T12:00:02.000Z",
+        actor,
+      );
+      expect(reset.result).toMatchObject({ changed: true, puzzle_id: puzzleId, checkpoint_id: checkpointId, adapter });
+      expect(reset.state.checkpoint_states[checkpointId].status).toBe("found");
+      expect(reset.state.game_results).not.toHaveProperty(puzzleId);
+      expect(reset.state.event_history.at(-1)).toMatchObject({
+        type: "admin_action",
+        label: `Restart minihry ${puzzleId}`,
+        details: { action: "game_reset", puzzle_id: puzzleId, adapter },
+      });
+      expect(reset.messages.map((message) => message.type)).toEqual(["admin.game_reset", "bot.message"]);
+    }
   });
 
   it("transfers every player-owned game reference to a recovered device identity", () => {

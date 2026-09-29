@@ -9,6 +9,8 @@ import {
   type EventSnapshot,
 } from "./event-coordinator";
 import {
+  applyAdminCheckpointTransition,
+  applyAdminGameReset,
   applyAdminGamePlayerExclusion,
   applyScenarioCommand,
   buildScenarioProgress,
@@ -32,13 +34,20 @@ interface Env {
 }
 
 const ADMIN_CAPABILITIES = {
-  checkpoint_states: [],
-  game_reset_adapters: [],
+  checkpoint_states: ["found", "solved"],
+  game_reset_adapters: ["line_game", "mine_karel", "triad", "sokoban"],
   game_player_actions: ["exclude"],
   terminal_reservation: true,
   scenario_play_modes: false,
   terminal_catalog: false,
   terminal_assignment: false,
+} as const;
+
+const ADMIN_RESOLUTION_PRESETS = {
+  technical: { label: "Technická chyba / uznat bez postihu", penalty: 0 },
+  minor_help: { label: "Drobná pomoc Game Mastera", penalty: 20 },
+  minigame_skip: { label: "Přeskočení minihry", penalty: 50 },
+  cipher_solved: { label: "Šifra vyřešená Game Masterem", penalty: 75 },
 } as const;
 
 interface SocketAttachment {
@@ -542,6 +551,20 @@ export class GameSession extends DurableObject<Env> {
       }
       const payload = await request.json<Record<string, unknown>>();
       return this.serializeState(() => this.excludeGamePlayer(payload));
+    }
+    if (url.pathname === "/internal/admin/checkpoint" && request.method === "POST") {
+      if (request.headers.get("X-EscapeBot-Internal-Admin") !== "1") {
+        return json({ error: "not_found" }, 404);
+      }
+      const payload = await request.json<Record<string, unknown>>();
+      return this.serializeState(() => this.changeAdminCheckpoint(payload));
+    }
+    if (url.pathname === "/internal/admin/game-reset" && request.method === "POST") {
+      if (request.headers.get("X-EscapeBot-Internal-Admin") !== "1") {
+        return json({ error: "not_found" }, 404);
+      }
+      const payload = await request.json<Record<string, unknown>>();
+      return this.serializeState(() => this.resetAdminGame(payload));
     }
     if (url.pathname === "/internal/admin/support" && request.method === "POST") {
       if (request.headers.get("X-EscapeBot-Internal-Admin") !== "1") {
@@ -1622,7 +1645,7 @@ export class GameSession extends DurableObject<Env> {
       teams,
       leaderboard,
       admin_capabilities: ADMIN_CAPABILITIES,
-      resolution_presets: {},
+      resolution_presets: ADMIN_RESOLUTION_PRESETS,
       scenario_catalog: [],
       scenario_errors: [],
       puzzle_catalog: terminalCatalog,
@@ -2230,6 +2253,110 @@ export class GameSession extends DurableObject<Env> {
     return /^[A-Za-z0-9._:-]{1,128}$/.test(operationId)
       ? { receiptKey: `admin-${action}:${operationId}` }
       : null;
+  }
+
+  private async changeAdminCheckpoint(payload: Record<string, unknown>): Promise<Response> {
+    const operation = this.adminOperation(payload, "checkpoint");
+    if (!operation) return json({ error: "invalid_operation_id" }, 400);
+    const previous = this.snapshot.operationReceipts[operation.receiptKey]?.[0];
+    if (previous) {
+      return json({ ...objectRecord(previous.payload), changed: false, session_id: this.snapshot.sessionId, revision: this.snapshot.revision });
+    }
+    const flags = objectRecord(this.snapshot.gameState.flags);
+    if (!this.snapshot.lobby.started || flags.game_completed || flags.administratively_ended) {
+      return json({ error: "session_not_active", message: "Postup lze měnit pouze v aktivní hře." }, 409);
+    }
+    const checkpointId = cleanText(payload.checkpoint_id, 128);
+    const status = cleanText(payload.status, 16);
+    const presetId = cleanText(payload.penalty_preset || "technical", 32) as keyof typeof ADMIN_RESOLUTION_PRESETS;
+    if (!checkpointId || !new Set(["found", "solved"]).has(status)) {
+      return json({ error: "invalid_checkpoint_transition", message: "Neplatný checkpoint nebo cílový stav." }, 400);
+    }
+    const preset = ADMIN_RESOLUTION_PRESETS[presetId];
+    if (!preset) return json({ error: "invalid_penalty_preset", message: "Neznámá předvolba postihu." }, 400);
+    try {
+      const scenario = await this.loadScenario(this.snapshot.lobby.scenarioId);
+      const now = new Date().toISOString();
+      const mutation = applyAdminCheckpointTransition(
+        scenario,
+        this.snapshot.gameState,
+        {
+          checkpointId,
+          status: status as "found" | "solved",
+          presetId,
+          presetLabel: preset.label,
+          penalty: preset.penalty,
+        },
+        now,
+        this.runtimeActor(this.snapshot.lobby.creatorId),
+      );
+      for (const message of mutation.messages) {
+        if (message.type === "bot.message") this.snapshot.chatHistory.push({ role: "bot", ...message.payload });
+      }
+      this.snapshot.gameState = mutation.state;
+      this.snapshot.scenarioProgress = buildScenarioProgress(scenario, mutation.state);
+      this.snapshot.revision += 1;
+      this.snapshot.updatedAt = now;
+      this.snapshot.operationReceipts[operation.receiptKey] = [{ type: "admin.checkpoint", payload: mutation.result }];
+      while (Object.keys(this.snapshot.operationReceipts).length > 500) {
+        delete this.snapshot.operationReceipts[Object.keys(this.snapshot.operationReceipts)[0]];
+      }
+      await this.ctx.storage.put(SNAPSHOT_KEY, this.snapshot);
+      for (const message of mutation.messages) {
+        if (!message.type.startsWith("admin.")) this.broadcastProtocol(message);
+      }
+      await this.broadcastGameState(scenario, undefined, now);
+      this.broadcast("scenario.progress", this.snapshot.scenarioProgress);
+      return json({ ...mutation.result, session_id: this.snapshot.sessionId, revision: this.snapshot.revision });
+    } catch (error) {
+      return json({ error: "checkpoint_transition_failed", message: error instanceof Error ? error.message : "Postup se nepodařilo změnit." }, 400);
+    }
+  }
+
+  private async resetAdminGame(payload: Record<string, unknown>): Promise<Response> {
+    const operation = this.adminOperation(payload, "game-reset");
+    if (!operation) return json({ error: "invalid_operation_id" }, 400);
+    const previous = this.snapshot.operationReceipts[operation.receiptKey]?.[0];
+    if (previous) {
+      return json({ ...objectRecord(previous.payload), changed: false, session_id: this.snapshot.sessionId, revision: this.snapshot.revision });
+    }
+    const flags = objectRecord(this.snapshot.gameState.flags);
+    if (!this.snapshot.lobby.started || flags.game_completed || flags.administratively_ended) {
+      return json({ error: "session_not_active", message: "Minihru lze restartovat pouze v aktivní hře." }, 409);
+    }
+    const puzzleId = cleanText(payload.puzzle_id, 128);
+    if (!puzzleId) return json({ error: "invalid_puzzle_id" }, 400);
+    try {
+      const scenario = await this.loadScenario(this.snapshot.lobby.scenarioId);
+      const now = new Date().toISOString();
+      const mutation = applyAdminGameReset(
+        scenario,
+        this.snapshot.gameState,
+        puzzleId,
+        now,
+        this.runtimeActor(this.snapshot.lobby.creatorId),
+      );
+      for (const message of mutation.messages) {
+        if (message.type === "bot.message") this.snapshot.chatHistory.push({ role: "bot", ...message.payload });
+      }
+      this.snapshot.gameState = mutation.state;
+      this.snapshot.scenarioProgress = buildScenarioProgress(scenario, mutation.state);
+      this.snapshot.revision += 1;
+      this.snapshot.updatedAt = now;
+      this.snapshot.operationReceipts[operation.receiptKey] = [{ type: "admin.game_reset", payload: mutation.result }];
+      while (Object.keys(this.snapshot.operationReceipts).length > 500) {
+        delete this.snapshot.operationReceipts[Object.keys(this.snapshot.operationReceipts)[0]];
+      }
+      await this.ctx.storage.put(SNAPSHOT_KEY, this.snapshot);
+      for (const message of mutation.messages) {
+        if (!message.type.startsWith("admin.")) this.broadcastProtocol(message);
+      }
+      await this.broadcastGameState(scenario, undefined, now);
+      this.broadcast("scenario.progress", this.snapshot.scenarioProgress);
+      return json({ ...mutation.result, session_id: this.snapshot.sessionId, revision: this.snapshot.revision });
+    } catch (error) {
+      return json({ error: "game_reset_failed", message: error instanceof Error ? error.message : "Minihru se nepodařilo restartovat." }, 400);
+    }
   }
 
   private async extendAdminSession(payload: Record<string, unknown>): Promise<Response> {
@@ -3736,7 +3863,7 @@ export default {
       });
       return env.GAME_SESSIONS.getByName(sessionId).fetch(forwarded);
     }
-    const adminSessionRoute = url.pathname.match(/^\/api\/admin\/sessions\/([^/]+)\/(support|spectate|finalize|extend|end|score-adjustment)$/);
+    const adminSessionRoute = url.pathname.match(/^\/api\/admin\/sessions\/([^/]+)\/(support|spectate|finalize|extend|end|score-adjustment|checkpoint|game-reset)$/);
     if (adminSessionRoute) {
       const unauthorized = await authorizeAdmin(request, env);
       if (unauthorized) return unauthorized;
@@ -3787,7 +3914,7 @@ export default {
           },
         );
       }
-      if (new Set(["extend", "end", "score-adjustment"]).has(action) && request.method === "POST") {
+      if (new Set(["extend", "end", "score-adjustment", "checkpoint", "game-reset"]).has(action) && request.method === "POST") {
         let payload: Record<string, unknown>;
         try {
           payload = await request.json<Record<string, unknown>>();

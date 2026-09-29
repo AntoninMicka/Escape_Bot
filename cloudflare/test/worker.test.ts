@@ -394,6 +394,132 @@ describe("Cloudflare spike router", () => {
     await closeSocket(creator, "done");
   });
 
+  it("applies idempotent checkpoint overrides and resets an active minigame", async () => {
+    const sessionId = "admin-checkpoint-reset-session";
+    const stub = env.GAME_SESSIONS.getByName(sessionId);
+    expect((await stub.fetch("https://internal/internal/lobby/initialize", {
+      method: "POST",
+      body: JSON.stringify({
+        session_id: sessionId,
+        mode: "team",
+        creator_id: "checkpoint-alice",
+        team_name: "Checkpoint Admin Team",
+        join_code: "C0A1B2D3",
+        lobby_type: "on_site_qr",
+        scenario_id: "chronos_online",
+        player_name: "Alice",
+      }),
+    })).status).toBe(200);
+    const creator = await openSocket(
+      `https://example.test/ws?session_id=${sessionId}&client_id=checkpoint-alice`,
+    );
+    const startedState = nextMessage(creator, "game.state");
+    send(creator, "lobby.start");
+    await startedState;
+
+    const checkpointUrl = `https://example.test/api/admin/sessions/${sessionId}/checkpoint`;
+    const foundPayload = {
+      checkpoint_id: "timeline_calibration",
+      status: "found",
+      penalty_preset: "technical",
+      operation_id: "checkpoint-found-001",
+    };
+    const unauthorized = await SELF.fetch(checkpointUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: "Bearer wrong-token" },
+      body: JSON.stringify(foundPayload),
+    });
+    expect(unauthorized.status).toBe(401);
+
+    const found = await SELF.fetch(checkpointUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: "Bearer local-test-admin-token" },
+      body: JSON.stringify(foundPayload),
+    });
+    expect(found.status).toBe(200);
+    expect(await found.json()).toMatchObject({
+      changed: true,
+      checkpoint_id: "timeline_calibration",
+      previous_status: "locked",
+      status: "found",
+      penalty: 0,
+    });
+    const duplicateFound = await SELF.fetch(checkpointUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: "Bearer local-test-admin-token" },
+      body: JSON.stringify(foundPayload),
+    });
+    expect(duplicateFound.status).toBe(200);
+    expect(await duplicateFound.json()).toMatchObject({ changed: false, status: "found" });
+
+    await runInDurableObject(stub, async (instance, state) => {
+      const target = instance as unknown as {
+        snapshot: { gameState: { interactive_games: Record<string, any> } };
+      };
+      target.snapshot.gameState.interactive_games.timeline_lines.players["checkpoint-alice"].swaps = 9;
+      await state.storage.put("session-snapshot", target.snapshot);
+    });
+    const resetUrl = `https://example.test/api/admin/sessions/${sessionId}/game-reset`;
+    const resetPayload = { puzzle_id: "timeline_lines", operation_id: "game-reset-001" };
+    const reset = await SELF.fetch(resetUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: "Bearer local-test-admin-token" },
+      body: JSON.stringify(resetPayload),
+    });
+    expect(reset.status).toBe(200);
+    expect(await reset.json()).toMatchObject({ changed: true, puzzle_id: "timeline_lines", adapter: "line_game" });
+    const duplicateReset = await SELF.fetch(resetUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: "Bearer local-test-admin-token" },
+      body: JSON.stringify(resetPayload),
+    });
+    expect(duplicateReset.status).toBe(200);
+    expect(await duplicateReset.json()).toMatchObject({ changed: false, puzzle_id: "timeline_lines" });
+
+    const solvePayload = {
+      checkpoint_id: "timeline_calibration",
+      status: "solved",
+      penalty_preset: "minigame_skip",
+      operation_id: "checkpoint-solved-001",
+    };
+    const solved = await SELF.fetch(checkpointUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: "Bearer local-test-admin-token" },
+      body: JSON.stringify(solvePayload),
+    });
+    expect(solved.status).toBe(200);
+    expect(await solved.json()).toMatchObject({ changed: true, status: "solved", penalty: 50 });
+    const duplicateSolved = await SELF.fetch(checkpointUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: "Bearer local-test-admin-token" },
+      body: JSON.stringify(solvePayload),
+    });
+    expect(duplicateSolved.status).toBe(200);
+    expect(await duplicateSolved.json()).toMatchObject({ changed: false, status: "solved", penalty: 50 });
+
+    const persisted = await runInDurableObject(stub, (instance) => {
+      const target = instance as unknown as {
+        snapshot: {
+          gameState: {
+            score: number;
+            checkpoint_states: Record<string, Record<string, unknown>>;
+            interactive_games: Record<string, any>;
+            flags: Record<string, any>;
+            event_history: Array<Record<string, any>>;
+          };
+        };
+      };
+      return target.snapshot.gameState;
+    });
+    expect(persisted.checkpoint_states.timeline_calibration.status).toBe("solved");
+    expect(persisted.interactive_games.timeline_lines.players["checkpoint-alice"].swaps).toBe(0);
+    expect(persisted.flags.admin_penalties).toHaveLength(1);
+    expect(persisted.flags.admin_score_adjustments).toHaveLength(1);
+    expect(persisted.event_history.filter((event) => event.type === "admin_action" && event.details.action === "checkpoint")).toHaveLength(2);
+    expect(persisted.event_history.filter((event) => event.type === "admin_action" && event.details.action === "game_reset")).toHaveLength(1);
+    await closeSocket(creator, "done");
+  });
+
   it("sends persistent support messages and spectates any registered team player", async () => {
     const sessionId = "admin-support-spectator-session";
     const stub = env.GAME_SESSIONS.getByName(sessionId);
@@ -612,13 +738,18 @@ describe("Cloudflare spike router", () => {
     const overview = await response.json<Record<string, any>>();
     expect(overview.cloudflare_limited).toBe(true);
     expect(overview.admin_capabilities).toEqual({
-      checkpoint_states: [],
-      game_reset_adapters: [],
+      checkpoint_states: ["found", "solved"],
+      game_reset_adapters: ["line_game", "mine_karel", "triad", "sokoban"],
       game_player_actions: ["exclude"],
       terminal_reservation: true,
       scenario_play_modes: false,
       terminal_catalog: false,
       terminal_assignment: false,
+    });
+    expect(overview.resolution_presets).toMatchObject({
+      technical: { penalty: 0 },
+      minigame_skip: { penalty: 50 },
+      cipher_solved: { penalty: 75 },
     });
     expect(overview.teams).toEqual(expect.arrayContaining([
       expect.objectContaining({

@@ -15,9 +15,9 @@ novou podobu autentizace administrátora.
 
 | Priorita | Akce | Legacy backend | Cloudflare Worker | Současné UI | Výsledek inventury |
 | --- | --- | --- | --- | --- | --- |
-| 1 | Potvrdit nalezení checkpointu | `admin.checkpoint`, stav `found` | chybí | v Cloudflare režimu skryté | **chybí** – portovat validovaný a auditovaný přechod |
-| 2 | Dokončit/přeskočit checkpoint | `admin.checkpoint`, stav `solved`, `penalty_preset` | chybí; overview neposílá presety | v Cloudflare režimu skryté | **chybí** – portovat přechod, odměny a právě jednu penalizaci |
-| 3 | Restart celé aktivní minihry | `admin.game_reset` pro Kalibraci, Karla, Tři v řadě a Sokoban | chybí | v Cloudflare režimu skryté | **chybí** – resetovat pouze aktivní komponentu |
+| 1 | Potvrdit nalezení checkpointu | `admin.checkpoint`, stav `found` | autorizovaný a idempotentní session endpoint | tlačítko podle `admin_capabilities` | **hotovo** |
+| 2 | Dokončit/přeskočit checkpoint | `admin.checkpoint`, stav `solved`, `penalty_preset` | autorizovaný a idempotentní session endpoint včetně presetů | tlačítko podle `admin_capabilities` | **hotovo** |
+| 3 | Restart celé aktivní minihry | `admin.game_reset` pro Kalibraci, Karla, Tři v řadě a Sokoban | autorizovaný a idempotentní session endpoint | tlačítko podle adaptéru v `admin_capabilities` | **hotovo** |
 | 4 | Vyřadit hráče z týmové minihry | `admin.game_player: exclude` | autorizovaný `/api/admin/game-player`; jen Kalibrace a Tři v řadě | tlačítko je viditelné u podporovaných metrik | **hotovo**, ponechat jako regresní rozsah |
 | 5 | Vrátit vyřazeného hráče | `admin.game_player: include` | endpoint akci odmítne | text odkazuje na obnovu spoluhráčem, tlačítko chybí | **částečně** – rozšířit existující kontrakt |
 | 6 | Restartovat desku jednoho hráče | `admin.game_player: reset` | endpoint akci odmítne | tlačítko chybí | **částečně** – rozšířit existující kontrakt |
@@ -105,8 +105,9 @@ nepoužívají.
 
 1. **Hotovo:** přidat `admin_capabilities` do obou runtime a otestovat jeho
    přesnost.
-2. Portovat checkpoint `found` a `solved` včetně penalizačních presetů.
-3. Portovat restart celé minihry.
+2. **Hotovo:** portovat checkpoint `found` a `solved` včetně penalizačních
+   presetů.
+3. **Hotovo:** portovat restart celé minihry.
 4. Rozšířit hráčské akce o `include` a `reset`.
 5. Přepnout administrační UI z `cloudflare_limited` na schopnosti serveru.
 6. Doplnit režimy hraní a terminálový katalog; přímé přidělení řešit pouze

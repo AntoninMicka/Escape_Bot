@@ -177,7 +177,10 @@ následná správná textová odpověď. `finale.activate` ověřuje úplnou tra
 inventář, servisní příznaky, rok, čas a pořadí modulů; při úspěchu uloží konečné
 hodnocení, dokončení hry a rozešle finální efekt. Cloudový admin po ověření
 tokenu načte z lobby adresáře týmy, jejich hráče, online stav, skóre, postup a
-stav podporovaných týmových miniher. Samostatný terminál se registruje v lobby
+stav podporovaných týmových miniher. Podle serverových `admin_capabilities` může
+Game Master auditovaně potvrdit nebo dokončit checkpoint s volitelným postihem
+a restartovat aktivní Kalibraci, Karla, Tři v řadě nebo Sokoban; opakovaný
+požadavek se stejným `operation_id` změnu znovu neprovede. Samostatný terminál se registruje v lobby
 adresáři, správce jej rezervuje pro hádanku a první způsobilý tým jej
 jednorázovým QR přesměruje do svého `GameSession`. Terminál nezvyšuje počet
 hráčů a po dokončení, odpojení nebo nové registraci se bezpečně uvolní při

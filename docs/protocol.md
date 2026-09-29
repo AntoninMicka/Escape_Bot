@@ -347,9 +347,24 @@ vlastní snapshot registrovaných hráčů, online stavu, skóre, postupu a akti
 Cloudflare; při běhu proti FastAPI zachová původní zprávu `admin.list`.
 
 Odpověď obsahuje `cloudflare_limited: true`. Klient proto nenabízí akce, které
-ještě nemají cloudový backend; z mutací zobrazuje správcovské vyřazení a
-vystavení návratového QR.
-Globální víceeventový index a úplná administrace patří do CF-05.
+ještě nemají cloudový backend. Přesné pole `admin_capabilities` určuje podporované
+checkpointové přechody, adaptéry restartovatelných miniher, hráčské akce a
+terminálové operace; klient nesmí dostupnost tlačítek odvozovat pouze z
+`cloudflare_limited`.
+
+### Checkpointové zásahy a restart minihry (Cloudflare)
+
+`POST /api/admin/sessions/:session_id/checkpoint` přijímá `checkpoint_id`, stav
+`found` nebo `solved`, `penalty_preset` a jedinečné `operation_id`. Ruční nález
+inicializuje stejný týmový stav minihry jako platné QR. Dokončení aplikuje odměny
+a nejvýše jednou odečte postih z presetů zveřejněných v `admin.overview`.
+
+`POST /api/admin/sessions/:session_id/game-reset` přijímá `puzzle_id` a
+`operation_id`. Restartuje pouze aktivní nedokončenou minihru typu `line_game`,
+`mine_karel`, `triad` nebo `sokoban`; ostatní postup relace, checkpoint a
+vyřazení hráčů zachová. Oba endpointy vyžadují `Authorization: Bearer
+<ADMIN_TOKEN>`, ukládají audit a při opakování stejného `operation_id` vracejí
+`changed: false` bez další penalizace či resetu.
 
 ### `POST /api/admin/player-recovery` a `lobby.recover` (Cloudflare)
 

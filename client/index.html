@@ -2381,10 +2381,20 @@
             input.value = '';
         }
 
+        function performAdminCheckpoint(sessionId, checkpointId, status, presetId = 'technical') {
+            if (latestAdminPayload?.cloudflare_limited) {
+                runCloudflareAdminAction(sessionId,'checkpoint',{checkpoint_id:checkpointId,status,penalty_preset:presetId})
+                    .then(result=>showNotification(result.changed===false?'Tento zásah už byl proveden.':'Postup checkpointu byl upraven.','success'))
+                    .catch(error=>showNotification(error.message,'error'));
+                return;
+            }
+            sendAdmin('admin.checkpoint', {session_id:sessionId, checkpoint_id:checkpointId, status, penalty_preset:presetId});
+        }
+
         function setAdminCheckpoint(sessionId, checkpointId, status, presetId = 'technical') {
             const verb = status === 'solved' ? 'ručně dokončit / přeskočit' : 'ručně potvrdit jako nalezený';
             if (!window.confirm(`Opravdu ${verb} checkpoint „${checkpointId}“? Zásah se zapíše do časové osy.`)) return;
-            sendAdmin('admin.checkpoint', {session_id:sessionId, checkpoint_id:checkpointId, status, penalty_preset:presetId});
+            performAdminCheckpoint(sessionId, checkpointId, status, presetId);
         }
 
         function assignAdminTerminalPuzzle(sessionId) {
@@ -2476,7 +2486,7 @@
             const preset = select.value;
             const description = select.options[select.selectedIndex]?.textContent || preset;
             if (!window.confirm(`Dokončit checkpoint „${checkpointId}“?\nPostih: ${description}`)) return;
-            sendAdmin('admin.checkpoint', {session_id:sessionId, checkpoint_id:checkpointId, status:'solved', penalty_preset:preset});
+            performAdminCheckpoint(sessionId, checkpointId, 'solved', preset);
         }
 
         const adminChatDrafts = {};
@@ -2604,6 +2614,12 @@
 
         function resetAdminGame(sessionId, puzzleId) {
             if (!window.confirm(`Restartovat aktivní minihru „${puzzleId}“ do výchozího stavu aktuální úrovně?`)) return;
+            if (latestAdminPayload?.cloudflare_limited) {
+                runCloudflareAdminAction(sessionId,'game-reset',{puzzle_id:puzzleId})
+                    .then(result=>showNotification(result.changed===false?'Tento restart už byl proveden.':'Minihra byla restartována.','success'))
+                    .catch(error=>showNotification(error.message,'error'));
+                return;
+            }
             sendAdmin('admin.game_reset', {session_id:sessionId, puzzle_id:puzzleId});
         }
 
@@ -2791,6 +2807,11 @@
         let scenarioEditorTemplateDoc = null;
         let scenarioEditorRealizationDoc = null;
 
+        function adminCapabilityValues(name) {
+            const value = latestAdminPayload?.admin_capabilities?.[name];
+            return Array.isArray(value) ? new Set(value) : new Set();
+        }
+
         function applyAdminFilters() { renderAdminOverview(); }
 
         function renderAdminOverview(payload = null) {
@@ -2843,6 +2864,8 @@
             }
             const priority = {abandoned:0, suspicious:1, active:2};
             const resolutionPresets = latestAdminPayload.resolution_presets || {};
+            const checkpointCapabilities = adminCapabilityValues('checkpoint_states');
+            const gameResetCapabilities = adminCapabilityValues('game_reset_adapters');
             grid.innerHTML = [...teams].sort((a, b) => (priority[a.activity_status] ?? 3) - (priority[b.activity_status] ?? 3)).map(team => {
                 const size = Number(team.registered_players || 0);
                 const online = Number(team.online_count || 0);
@@ -2856,11 +2879,12 @@
                 const lastActivity = team.last_activity ? new Date(team.last_activity).toLocaleString('cs-CZ') : 'bez zaznamenané události';
                 const progressNodes = ((team.progress || {}).nodes || []).map(node => {
                     const isCheckpoint = node.kind === 'checkpoint';
-                    const canFind = isCheckpoint && (node.status === 'available' || node.status === 'locked');
-                    const canSolve = isCheckpoint && node.status !== 'complete';
-                    const restartable = node.status === 'active' && ['line_game', 'mine_karel', 'triad', 'sokoban'].includes(node.puzzle_type);
+                    const canFind = isCheckpoint && checkpointCapabilities.has('found') && (node.status === 'available' || node.status === 'locked');
+                    const canSolve = isCheckpoint && checkpointCapabilities.has('solved') && node.status !== 'complete';
+                    const restartable = node.status === 'active' && gameResetCapabilities.has(node.puzzle_type);
                     const presetOptions = Object.entries(resolutionPresets).map(([id, preset]) => `<option value="${escapeHtml(id)}">${escapeHtml(preset.label)} (${Number(preset.penalty) ? `−${Number(preset.penalty)} b` : '0 b'})</option>`).join('');
-                    const actions = cloudflareLimited || !isCheckpoint ? '' : `<div class="admin-node-actions">${canFind ? `<button onclick="setAdminCheckpoint('${team.session_id}','${node.id}','found')">POTVRDIT NÁLEZ</button>` : ''}${restartable ? `<button onclick="resetAdminGame('${team.session_id}','${node.puzzle_id}')">RESTART MINIHRY</button>` : ''}${canSolve ? `<select id="admin-resolution-${team.session_id}-${node.id}">${presetOptions}</select><button class="danger" onclick="resolveAdminCheckpoint('${team.session_id}','${node.id}')">DOKONČIT PODLE VOLBY</button>` : ''}</div>`;
+                    const actionButtons = `${canFind ? `<button onclick="setAdminCheckpoint('${team.session_id}','${node.id}','found')">POTVRDIT NÁLEZ</button>` : ''}${restartable ? `<button onclick="resetAdminGame('${team.session_id}','${node.puzzle_id}')">RESTART MINIHRY</button>` : ''}${canSolve ? `<select id="admin-resolution-${team.session_id}-${node.id}">${presetOptions}</select><button class="danger" onclick="resolveAdminCheckpoint('${team.session_id}','${node.id}')">DOKONČIT PODLE VOLBY</button>` : ''}`;
+                    const actions = isCheckpoint && actionButtons ? `<div class="admin-node-actions">${actionButtons}</div>` : '';
                     const solutionId = `admin-solution-${team.session_id}-${node.id}`;
                     const solution = node.solution ? `<div><strong>SPRÁVNÉ ŘEŠENÍ:</strong> <span id="${solutionId}">${escapeHtml(node.solution)}</span> <button class="icon-action" type="button" onclick="copyAdminSolution('${solutionId}')" title="Kopírovat řešení" aria-label="Kopírovat řešení">📋</button></div>` : '';
                     return `<li>${node.status === 'complete' ? '✓' : (node.status === 'active' ? '▶' : (node.status === 'available' ? '○' : '·'))} ${escapeHtml(node.label)} <small>[${escapeHtml(node.status)}]</small>${solution}</li>${actions}`;

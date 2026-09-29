@@ -60,6 +60,10 @@ export interface AdminGamePlayerResult extends ScenarioCommandResult {
   result: Record<string, unknown>;
 }
 
+export interface AdminScenarioMutationResult extends ScenarioCommandResult {
+  result: Record<string, unknown>;
+}
+
 export function finalizeCompletedScore(
   state: GameStateDocument,
   messages: RuntimeMessage[],
@@ -456,6 +460,247 @@ export function applyAdminGamePlayerExclusion(
   return {
     state: presentGameState(scenario, state, actor, now),
     messages: [{ type: "admin.game_player", payload: result }, ...messages],
+    result,
+  };
+}
+
+export function applyAdminCheckpointTransition(
+  scenario: ScenarioDocument,
+  currentState: GameStateDocument,
+  options: {
+    checkpointId: string;
+    status: "found" | "solved";
+    presetId: string;
+    presetLabel: string;
+    penalty: number;
+  },
+  now: string,
+  actorValue: RuntimeActor,
+): AdminScenarioMutationResult {
+  const actor = normalizedActor(actorValue);
+  const checkpointId = String(options.checkpointId || "").trim();
+  const checkpointDefinition = record(record(scenario.checkpoints)[checkpointId]);
+  if (!Object.keys(checkpointDefinition).length) throw new Error("Neznámý checkpoint.");
+  if (!new Set(["found", "solved"]).has(options.status)) throw new Error("Neplatný cílový stav checkpointu.");
+  const penalty = options.status === "solved" ? Number(options.penalty || 0) : 0;
+  if (!Number.isInteger(penalty) || penalty < 0 || penalty > 1000) throw new Error("Neplatný postih administrátorského zásahu.");
+
+  const state = clone(currentState);
+  state.checkpoint_states = record(state.checkpoint_states);
+  let checkpoint = record(state.checkpoint_states[checkpointId]);
+  const previousStatus = String(checkpoint.status || "locked");
+  if (previousStatus === "solved") throw new Error("Checkpoint už je dokončený.");
+  if (previousStatus === "found" && options.status === "found") {
+    throw new Error("Checkpoint už byl potvrzen jako nalezený.");
+  }
+  if (!Object.keys(checkpoint).length) {
+    checkpoint = { status: "found", first_scanned_at: now };
+    state.checkpoint_states[checkpointId] = checkpoint;
+    state.unlocked_discoveries = appendUnique(state.unlocked_discoveries, [checkpointId]);
+    applyRewards(scenario, state, checkpointDefinition.found_rewards);
+  }
+  checkpoint.status = options.status;
+  checkpoint.admin_override_at = now;
+  if (options.status === "solved") {
+    checkpoint.solved_at = now;
+    applyRewards(scenario, state, checkpointDefinition.rewards);
+  }
+  const puzzleId = String(checkpointDefinition.puzzle_id || "");
+  const puzzle = record(record(scenario.puzzles)[puzzleId]);
+  if (options.status === "found" && puzzleId && Object.keys(puzzle).length) {
+    const adapter = puzzleAdapter(scenario, puzzle);
+    if (adapter === "line_game") {
+      for (const participantId of actor.participantIds.length ? actor.participantIds : [actor.clientId]) {
+        ensureLineGame(state, puzzleId, record(puzzle.game), { ...actor, clientId: participantId }, now);
+      }
+    } else if (adapter === "mine_karel") {
+      ensureKarelGame(state, puzzleId, record(puzzle.game), now);
+    } else if (adapter === "sokoban") {
+      ensureSokobanGame(state, puzzleId, record(puzzle.game), now);
+    } else if (adapter === "archive_vector") {
+      ensureArchiveGame(state, puzzleId, record(puzzle.assembly));
+    } else if (adapter === "triad") {
+      for (const participantId of actor.participantIds.length ? actor.participantIds : [actor.clientId]) {
+        ensureTriadGame(state, puzzleId, record(puzzle.game), { ...actor, clientId: participantId }, now);
+      }
+    }
+  }
+
+  state.last_activity_at = now;
+  state.flags = record(state.flags);
+  const scoreBefore = Number(state.score || 0);
+  if (penalty) {
+    state.score = scoreBefore - penalty;
+    const adjustment = {
+      delta: -penalty,
+      amount: penalty,
+      reason: options.presetLabel,
+      at: now,
+      score_before: scoreBefore,
+      score_after: state.score,
+    };
+    state.flags.admin_penalties = [
+      ...(Array.isArray(state.flags.admin_penalties) ? state.flags.admin_penalties : []),
+      adjustment,
+    ];
+    state.flags.admin_score_adjustments = [
+      ...(Array.isArray(state.flags.admin_score_adjustments) ? state.flags.admin_score_adjustments : []),
+      adjustment,
+    ];
+  }
+  const label = `Checkpoint ${checkpointId}: ${options.status} · ${options.presetLabel}`;
+  state.flags.admin_actions = [
+    ...(Array.isArray(state.flags.admin_actions) ? state.flags.admin_actions : []),
+    {
+      action: "checkpoint",
+      label,
+      at: now,
+      checkpoint_id: checkpointId,
+      previous_status: previousStatus,
+      status: options.status,
+      penalty,
+      penalty_preset: options.presetId,
+    },
+  ];
+  const history = Array.isArray(state.event_history) ? state.event_history : [];
+  history.push({
+    at: now,
+    type: "admin_action",
+    label,
+    details: {
+      action: "checkpoint",
+      checkpoint_id: checkpointId,
+      previous_status: previousStatus,
+      status: options.status,
+      penalty,
+      penalty_preset: options.presetId,
+    },
+  });
+  state.event_history = history.slice(-500);
+
+  const result = {
+    success: true,
+    changed: true,
+    checkpoint_id: checkpointId,
+    previous_status: previousStatus,
+    status: options.status,
+    penalty,
+    penalty_preset: options.presetId,
+    score: Number(state.score || 0),
+  };
+  const messages: RuntimeMessage[] = [{ type: "admin.checkpoint", payload: result }];
+  if (penalty) {
+    messages.push({
+      type: "score.update",
+      payload: {
+        score: state.score,
+        delta: -penalty,
+        penalty,
+        bonus: 0,
+        reason: "admin_resolution",
+        description: options.presetLabel,
+      },
+    });
+  }
+  messages.push({
+    type: "bot.message",
+    payload: { text: `Game Master upravil postup: ${label}.`, mood: "info", channel: "general" },
+  });
+  return {
+    state: presentGameState(scenario, state, actor, now),
+    messages,
+    result,
+  };
+}
+
+export function applyAdminGameReset(
+  scenario: ScenarioDocument,
+  currentState: GameStateDocument,
+  puzzleIdValue: string,
+  now: string,
+  actorValue: RuntimeActor,
+): AdminScenarioMutationResult {
+  const actor = normalizedActor(actorValue);
+  const puzzleId = String(puzzleIdValue || "").trim();
+  const puzzle = record(record(scenario.puzzles)[puzzleId]);
+  if (!Object.keys(puzzle).length) throw new Error("Neznámá minihra.");
+  const adapter = puzzleAdapter(scenario, puzzle);
+  if (!new Set(["line_game", "mine_karel", "triad", "sokoban"]).has(adapter)) {
+    throw new Error("Tato hádanka nemá restartovatelnou minihru.");
+  }
+  const checkpointId = String(puzzle.checkpoint_id || "");
+  if (record(record(currentState.checkpoint_states)[checkpointId]).status !== "found") {
+    throw new Error("Restartovat lze pouze aktivní, nedokončenou minihru.");
+  }
+
+  const state = clone(currentState);
+  const config = record(puzzle.game);
+  if (adapter === "line_game") {
+    state.interactive_games = record(state.interactive_games);
+    const container = record(state.interactive_games[puzzleId]);
+    const players = record(container.players);
+    if (Object.keys(players).length) {
+      for (const game of Object.values(players)) {
+        if (validLineGame(game)) resetLineGame(config, game, now);
+      }
+    } else if (validLineGame(container)) {
+      resetLineGame(config, container, now);
+    } else {
+      for (const playerId of actor.participantIds.length ? actor.participantIds : [actor.clientId]) {
+        ensureLineGame(state, puzzleId, config, { ...actor, clientId: playerId }, now);
+      }
+    }
+  } else if (adapter === "mine_karel") {
+    resetKarelGame(config, ensureKarelGame(state, puzzleId, config, now), now);
+  } else if (adapter === "sokoban") {
+    resetSokobanLevel(config, ensureSokobanGame(state, puzzleId, config, now), now);
+  } else {
+    state.triad_games = record(state.triad_games);
+    const container = record(state.triad_games[puzzleId]);
+    const players = record(container.players);
+    const validTriad = (value: unknown) => Array.isArray(record(value).board) && Boolean(record(value).deadline_at);
+    if (Object.keys(players).length) {
+      for (const game of Object.values(players)) {
+        if (validTriad(game)) resetTriadGame(config, game as TriadState, now);
+      }
+    } else if (validTriad(container)) {
+      resetTriadGame(config, container as TriadState, now);
+    } else {
+      for (const playerId of actor.participantIds.length ? actor.participantIds : [actor.clientId]) {
+        ensureTriadGame(state, puzzleId, config, { ...actor, clientId: playerId }, now);
+      }
+    }
+  }
+  state.game_results = record(state.game_results);
+  delete state.game_results[puzzleId];
+  state.last_activity_at = now;
+  state.flags = record(state.flags);
+  const label = `Restart minihry ${puzzleId}`;
+  state.flags.admin_actions = [
+    ...(Array.isArray(state.flags.admin_actions) ? state.flags.admin_actions : []),
+    { action: "game_reset", label, at: now, puzzle_id: puzzleId, checkpoint_id: checkpointId, adapter },
+  ];
+  const history = Array.isArray(state.event_history) ? state.event_history : [];
+  history.push({
+    at: now,
+    type: "admin_action",
+    label,
+    details: { action: "game_reset", puzzle_id: puzzleId, checkpoint_id: checkpointId, adapter },
+  });
+  state.event_history = history.slice(-500);
+  const result = {
+    success: true,
+    changed: true,
+    puzzle_id: puzzleId,
+    checkpoint_id: checkpointId,
+    adapter,
+  };
+  return {
+    state: presentGameState(scenario, state, actor, now),
+    messages: [
+      { type: "admin.game_reset", payload: result },
+      { type: "bot.message", payload: { text: `Game Master provedl: ${label}.`, mood: "info", channel: "general" } },
+    ],
     result,
   };
 }
