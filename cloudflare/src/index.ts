@@ -1,4 +1,6 @@
 import { DurableObject } from "cloudflare:workers";
+export { EventCoordinator } from "./event-coordinator";
+import { EVENT_ID_PATTERN, type EventCoordinator } from "./event-coordinator";
 import {
   applyAdminGamePlayerExclusion,
   applyScenarioCommand,
@@ -18,6 +20,7 @@ interface Env {
   DEADLINE_PENALTY?: string;
   ASSETS: Fetcher;
   GAME_SESSIONS: DurableObjectNamespace<GameSession>;
+  EVENTS: DurableObjectNamespace<EventCoordinator>;
 }
 
 interface SocketAttachment {
@@ -2317,6 +2320,34 @@ export default {
         "https://internal/internal/admin/overview",
         { headers: { "X-EscapeBot-Internal-Admin": "1" } },
       );
+    }
+    const eventRoute = url.pathname.match(/^\/api\/admin\/events\/([^/]+)$/);
+    if (eventRoute && new Set(["GET", "PUT"]).has(request.method)) {
+      const unauthorized = await authorizeAdmin(request, env);
+      if (unauthorized) return unauthorized;
+      let eventId: string;
+      try {
+        eventId = decodeURIComponent(eventRoute[1]);
+      } catch {
+        return json({ error: "invalid_event_id" }, 400);
+      }
+      if (!EVENT_ID_PATTERN.test(eventId)) return json({ error: "invalid_event_id" }, 400);
+      if (request.method === "GET") {
+        return env.EVENTS.getByName(eventId).fetch("https://internal/internal/event", {
+          headers: { "X-EscapeBot-Internal-Admin": "1" },
+        });
+      }
+      let payload: Record<string, unknown>;
+      try {
+        payload = await request.json<Record<string, unknown>>();
+      } catch {
+        return json({ error: "invalid_json" }, 400);
+      }
+      return env.EVENTS.getByName(eventId).fetch("https://internal/internal/event", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json", "X-EscapeBot-Internal-Admin": "1" },
+        body: JSON.stringify({ ...payload, id: eventId }),
+      });
     }
     if (url.pathname === "/api/admin/player-recovery" && request.method === "POST") {
       const unauthorized = await authorizeAdmin(request, env);

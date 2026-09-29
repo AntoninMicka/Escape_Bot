@@ -1,4 +1,4 @@
-# Cloudflare runtime (CF-01 až CF-04)
+# Cloudflare runtime (CF-01 až CF-05)
 
 Samostatný Cloudflare runtime Escape Botu. CF-01 ověřuje Worker, Durable Object
 a WebSocket hibernaci, CF-03 přidává reprodukovatelný balíček klienta pro
@@ -30,6 +30,8 @@ secrety. Názvy prostředí jsou `escape-bot-cf-development`,
 - autentizované načtení týmů do omezeného cloudového admin přehledu;
 - jednorázové obnovení hráčské identity na novém zařízení;
 - autentizované správcovské vyřazení registrovaného hráče, i když je offline.
+- samostatný SQLite-backed `EventCoordinator` pro každý event, včetně
+  idempotentní konfigurace a ochrany proti přepsání novější revize.
 
 Zprávy `spike.*` jsou pouze testovací kontrakt. Nejsou součástí produkčního
 Escape Bot protokolu.
@@ -62,6 +64,12 @@ Pro staging a produkci se token nastaví zvlášť:
 npm exec wrangler secret put ADMIN_TOKEN -- --env staging
 npm exec wrangler secret put ADMIN_TOKEN -- --env production
 ```
+
+První část CF-05 zpřístupňuje konfiguraci konkrétního eventu přes autorizované
+`GET` a `PUT /api/admin/events/:event_id`. Zápis vyžaduje stabilní
+`operation_id`; volitelné `expected_revision` odmítne změnu, pokud správce
+vychází ze staršího snapshotu. Konfigurace kontroluje časové pásmo, pořadí
+časů, právě jednu hlavní hru a existenci všech her v runtime katalogu.
 
 Lokální vývojový server:
 
@@ -127,8 +135,9 @@ registrovaných hráčů se nezmění.
 
 Cloudový přehled je záměrně označený jako omezená správa a kromě vyřazení a
 vystavení návratového QR nezobrazuje tlačítka pro dosud nepřenesené zásahy.
-Úplný víceeventový přehled bude používat
-`EventCoordinator` v CF-05; současné načtení z adresáře lobby je mezikrok CF-04.
+Úplný víceeventový přehled bude používat nový `EventCoordinator`; jeho
+perzistentní konfigurace a HTTP API už jsou součástí první části CF-05,
+zatímco současné načtení týmů z adresáře lobby zůstává mezikrokem CF-04.
 
 Produkční deploy má samostatný explicitní příkaz `npm run deploy:production`.
 Obecný `npm run deploy` záměrně není definován, aby nebylo možné bez výběru

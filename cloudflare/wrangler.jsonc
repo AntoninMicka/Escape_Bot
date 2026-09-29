@@ -20,11 +20,19 @@
       {
         "name": "GAME_SESSIONS",
         "class_name": "GameSession"
+      },
+      {
+        "name": "EVENTS",
+        "class_name": "EventCoordinator"
       }
     ]
   },
   "exports": {
     "GameSession": {
+      "type": "durable-object",
+      "storage": "sqlite"
+    },
+    "EventCoordinator": {
       "type": "durable-object",
       "storage": "sqlite"
     }
@@ -42,6 +50,10 @@
           {
             "name": "GAME_SESSIONS",
             "class_name": "GameSession"
+          },
+          {
+            "name": "EVENTS",
+            "class_name": "EventCoordinator"
           }
         ]
       },
@@ -58,6 +70,10 @@
           {
             "name": "GAME_SESSIONS",
             "class_name": "GameSession"
+          },
+          {
+            "name": "EVENTS",
+            "class_name": "EventCoordinator"
           }
         ]
       },
@@ -74,6 +90,10 @@
           {
             "name": "GAME_SESSIONS",
             "class_name": "GameSession"
+          },
+          {
+            "name": "EVENTS",
+            "class_name": "EventCoordinator"
           }
         ]
       },

@@ -6,5 +6,8 @@ declare namespace Cloudflare {
     GAME_SESSIONS: DurableObjectNamespace<
       import("../src/index").GameSession
     >;
+    EVENTS: DurableObjectNamespace<
+      import("../src/index").EventCoordinator
+    >;
   }
 }

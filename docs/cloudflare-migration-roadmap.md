@@ -210,6 +210,13 @@ Akceptace:
 
 **Odhad: 6–9 pracovních dnů**
 
+**Stav: první vertikální část lokálně implementována.** Každé `event_id` se
+směruje do samostatného SQLite-backed `EventCoordinator` Durable Objectu.
+Autorizované HTTP API načte nebo uloží validovanou konfiguraci eventu,
+`operation_id` brání opakovanému zápisu a `expected_revision` chrání novější
+změny před přepsáním. Snapshot přežije evikci a testy ověřují izolaci dvou
+eventů. Napojení aktivního eventu na klienty, týmy a nástěnku ještě zbývá.
+
 1. Vytvořit jeden `EventCoordinator` Durable Object pro každý event.
 2. Přesunout runtime nastavení, startovní frontu, oznámení, globální stop,
    finalizaci výsledků a nastavení nástěnky.
