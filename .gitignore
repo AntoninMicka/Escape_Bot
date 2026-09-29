@@ -6,6 +6,8 @@ cloudflare/dist/
 .env
 .env.*
 !.env.cloud.example
+cloudflare/.dev.vars*
+cloudflare/.wrangler/
 backups/
 build/
 .qt/

@@ -45,6 +45,26 @@ U DOOM mapy lze volitelně zapnout nejbližší uliční fotografie Mapillary. V
 
 ## Rychlý start backendu
 
+Pro běžný vývoj, diagnostiku, testy i vzdálené nasazení používejte kořenový
+wrapper `run.sh`. Příkaz `./run.sh help` vypíše všechny podporované operace.
+Nejčastější lokální příkazy jsou:
+
+```bash
+./run.sh setup all
+./run.sh dev backend --demo
+./run.sh debug cloudflare
+./run.sh test all
+./run.sh check
+```
+
+`check` nic nenasazuje. Backendové testy si před spuštěním zálohují
+`backend/sessions.json` a `backend/lobbies.json` a vždy je obnoví. Cloudflare a
+GCP deploy mají samostatné cíle, podporují bezpečný dry-run a vzdálenou změnu
+provedou až po explicitním potvrzení; příklady jsou v
+[`cloudflare/README.md`](cloudflare/README.md).
+
+Přímý start původního backendu zůstává dostupný:
+
 ```bash
 cd Escape_Bot/backend
 python3 -m venv .venv

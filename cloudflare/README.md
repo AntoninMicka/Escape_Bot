@@ -38,6 +38,35 @@ Escape Bot protokolu.
 
 ## Lokální kontrola
 
+Z kořene repozitáře lze stejné operace spouštět jednotným wrapperem:
+
+```bash
+./run.sh setup cloudflare
+./run.sh dev cloudflare
+./run.sh debug cloudflare
+./run.sh test cloudflare
+./run.sh deploy cloudflare staging --dry-run
+```
+
+Pro lokální admin rozhraní lze vytvořit ignorovaný soubor
+`cloudflare/.dev.vars` s řádkem `ADMIN_TOKEN=...`. Debug režim nastaví
+`WRANGLER_LOG=debug`. Skutečný staging nebo produkční deploy vyžaduje potvrzení
+slovem `DEPLOY`; `--yes` je určené pouze pro vědomou automatizaci. Produkční
+deploy wrapper odmítne, pokud pracovní strom není čistý.
+
+Nasazení existujícího kontejnerového runtime na GCP VM je dostupné odděleně a
+vyžaduje neměnný Artifact Registry digest:
+
+```bash
+./run.sh deploy gcp \
+  --project=PROJECT --zone=ZONE --vm=VM \
+  --image=REGION-docker.pkg.dev/PROJECT/escape-bot/app@sha256:DIGEST \
+  --dry-run
+```
+
+Bez `--dry-run` wrapper zobrazí přesný cíl, vyžádá potvrzení a předá řízení
+existujícímu `deploy/gcp/deploy.sh`, který po nasazení ověří health a readiness.
+
 ```bash
 cd cloudflare
 npm ci
@@ -172,9 +201,11 @@ přesměruje do stejného `GameSession`, zatímco staré se odpojí; přenesou s
 soukromé desky, výsledky, vyřazení, navigátor i idempotency účtenky a počet
 registrovaných hráčů se nezmění.
 
-Cloudový přehled je záměrně označený jako omezená správa a kromě vyřazení a
-vystavení návratového QR nezobrazuje tlačítka pro dosud nepřenesené zásahy.
-Úplný víceeventový přehled bude používat nový `EventCoordinator`; jeho
+Cloudový přehled je stále označený jako omezená správa. Zobrazuje pouze
+autoritativně přenesené zásahy: návratový QR, náhled hráče, podporu, vyřazení
+hráče, prodloužení a provozní ukončení hry, bodovou úpravu a finalizaci
+výsledku. Tlačítka bez bezpečného Worker endpointu zůstávají skrytá. Úplný
+víceeventový přehled bude používat nový `EventCoordinator`; jeho
 perzistentní konfigurace, aktivní výběr, HTTP API a napojení admin formuláře už
 jsou součástí CF-05, zatímco současné načtení týmů z adresáře lobby zůstává
 mezikrokem CF-04.
