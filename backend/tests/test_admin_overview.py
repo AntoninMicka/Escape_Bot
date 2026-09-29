@@ -15,6 +15,14 @@ SCENARIO_PATH = Path(__file__).resolve().parents[1] / "scenario.json"
 class AdminOverviewTests(unittest.TestCase):
     def test_admin_capabilities_match_implemented_legacy_actions(self):
         self.assertEqual(server.admin_capabilities_payload(), {
+            "actions": [
+                "managed_team_create", "managed_start", "managed_start_override",
+                "event_runtime", "leaderboard_finalize", "event_settings",
+                "score_adjustment", "session_extend", "session_end", "support_message",
+                "checkpoint", "scenario_play_modes", "terminal_reservation", "spectate",
+                "game_reset", "game_player", "team_finalize", "player_recovery", "team_delete",
+            ],
+            "http_actions": [],
             "checkpoint_states": ["found", "solved"],
             "game_reset_adapters": ["line_game", "mine_karel", "triad", "sokoban"],
             "game_player_actions": ["exclude", "include", "reset"],

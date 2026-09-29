@@ -886,6 +886,18 @@ describe("Cloudflare spike router", () => {
     const overview = await response.json<Record<string, any>>();
     expect(overview.cloudflare_limited).toBe(true);
     expect(overview.admin_capabilities).toEqual({
+      actions: [
+        "managed_start", "event_runtime", "leaderboard_finalize", "event_settings",
+        "score_adjustment", "session_extend", "session_end", "support_message",
+        "checkpoint", "scenario_play_modes", "terminal_reservation", "spectate",
+        "game_reset", "game_player", "team_finalize", "player_recovery",
+      ],
+      http_actions: [
+        "managed_start", "event_runtime", "leaderboard_finalize", "event_settings",
+        "score_adjustment", "session_extend", "session_end", "support_message",
+        "checkpoint", "scenario_play_modes", "terminal_reservation", "spectate",
+        "game_reset", "game_player", "team_finalize", "player_recovery",
+      ],
       checkpoint_states: ["found", "solved"],
       game_reset_adapters: ["line_game", "mine_karel", "triad", "sokoban"],
       game_player_actions: ["exclude", "include", "reset"],

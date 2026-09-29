@@ -58,6 +58,9 @@ test("Static Assets build is minimal, fingerprinted and internally complete", as
   assert.match(index, /adminCapabilityValues\('checkpoint_states'\)/);
   assert.match(index, /adminCapabilityValues\('game_reset_adapters'\)/);
   assert.match(index, /adminCapabilityValues\('game_player_actions'\)/);
+  assert.match(index, /adminCapabilityValues\('actions'\)/);
+  assert.match(index, /adminCapabilityValues\('http_actions'\)/);
+  assert.doesNotMatch(index, /cloudflare_limited/);
   assert.match(index, /!team\.game_completed && !team\.administratively_ended/);
   assert.match(index, /\/api\/admin\/sessions\/\$\{encodeURIComponent\(adminSpectatingSession\)\}\/spectate\?player_id=/);
   assert.match(index, /ZOBRAZIT HRÁČE/);

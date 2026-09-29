@@ -74,6 +74,14 @@ ADMIN_RESOLUTION_PRESETS = {
 def admin_capabilities_payload() -> dict[str, object]:
     """Describe only admin actions implemented by this runtime."""
     return {
+        "actions": [
+            "managed_team_create", "managed_start", "managed_start_override",
+            "event_runtime", "leaderboard_finalize", "event_settings",
+            "score_adjustment", "session_extend", "session_end", "support_message",
+            "checkpoint", "scenario_play_modes", "terminal_reservation", "spectate",
+            "game_reset", "game_player", "team_finalize", "player_recovery", "team_delete",
+        ],
+        "http_actions": [],
         "checkpoint_states": ["found", "solved"],
         "game_reset_adapters": ["line_game", "mine_karel", "triad", "sokoban"],
         "game_player_actions": ["exclude", "include", "reset"],

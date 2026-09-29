@@ -50,6 +50,8 @@ zdrojem pravdy. Minimální tvar:
 
 ```json
 {
+  "actions": ["managed_start", "checkpoint", "game_reset", "game_player"],
+  "http_actions": ["managed_start", "checkpoint", "game_reset", "game_player"],
   "checkpoint_states": ["found", "solved"],
   "game_reset_adapters": ["line_game", "mine_karel", "triad", "sokoban"],
   "game_player_actions": ["exclude", "include", "reset"],
@@ -110,7 +112,9 @@ nepoužívají.
 3. **Hotovo:** portovat restart celé minihry.
 4. **Hotovo:** hráčské akce podporují `exclude`, `include` i individuální
    `reset`.
-5. Přepnout administrační UI z `cloudflare_limited` na schopnosti serveru.
+5. **Hotovo:** administrační UI rozhoduje o viditelnosti přes `actions` a o
+   HTTP/WebSocket transportu přes `http_actions`; `cloudflare_limited` už není
+   zdrojem rozhodování klienta.
 6. **Částečně:** režimy hraní jsou hotové; zbývá samostatná správa globálního
    terminálového katalogu. Přímé přidělení řešit pouze tehdy, pokud nestačí
    existující rezervace.

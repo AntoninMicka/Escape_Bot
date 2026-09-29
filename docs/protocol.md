@@ -352,11 +352,13 @@ vlastní snapshot registrovaných hráčů, online stavu, skóre, postupu a akti
 `line_game`/`triad` desek. Webová stránka `/admin` používá tento endpoint na
 Cloudflare; při běhu proti FastAPI zachová původní zprávu `admin.list`.
 
-Odpověď obsahuje `cloudflare_limited: true`. Klient proto nenabízí akce, které
-ještě nemají cloudový backend. Přesné pole `admin_capabilities` určuje podporované
-checkpointové přechody, adaptéry restartovatelných miniher, hráčské akce a
-terminálové operace; klient nesmí dostupnost tlačítek odvozovat pouze z
-`cloudflare_limited`.
+Odpověď kvůli zpětné kompatibilitě stále obsahuje `cloudflare_limited: true`,
+ale klient podle něj nerozhoduje. `admin_capabilities.actions` určuje podporované
+administrátorské operace a `admin_capabilities.http_actions` jejich HTTP
+transport; ostatní podporované akce používají legacy WebSocket. Další pole
+určují checkpointové přechody, adaptéry restartovatelných miniher, hráčské akce
+a terminálové operace. Neimplementovaná akce proto není zobrazena ani omylem
+odeslána nesprávným transportem.
 
 ### Checkpointové zásahy a restart minihry (Cloudflare)
 
