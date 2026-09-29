@@ -81,6 +81,14 @@ zahájením týmové i sólo hry časová pravidla znovu autoritativně ověří
 povolen pouze eventu ve stavu `open` a jen tehdy, když se celá nastavená délka
 hry vejde do aktuálního denního okna i celkové obálky. Přímý WebSocket požadavek
 tuto kontrolu neobejde; již rozehrané relace změna rozvrhu násilně neukončuje.
+Před skutečným startem adresář relací navíc atomicky rezervuje startovní slot.
+Do dostupnosti započítá rozehrané týmy i krátké souběžné rezervace a podle
+konfigurace konkrétní hry vynutí `max_active_teams` a
+`start_interval_minutes`. Rezervace je pro stejnou relaci idempotentní a po
+nastavené délce hry automaticky vyprší, takže výpočet nemusí synchronně
+procházet všechny týmové Durable Objecty; při dřívějším dokončení ji týmová
+relace bezpečně uvolní. Automatické řazení a spuštění
+čekajících týmů z fronty zůstává navazujícím krokem CF-05.
 
 Lokální vývojový server:
 

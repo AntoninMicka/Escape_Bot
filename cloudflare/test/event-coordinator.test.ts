@@ -56,6 +56,17 @@ function closeSocket(socket: WebSocket): Promise<void> {
   });
 }
 
+function dateInZone(value: Date, timeZone: string): string {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(value);
+  const values = new Map(parts.map((part) => [part.type, part.value]));
+  return `${values.get("year")}-${values.get("month")}-${values.get("day")}`;
+}
+
 function eventConfiguration(overrides: Record<string, unknown> = {}): Record<string, unknown> {
   return {
     name: "Podzimní setkání",
@@ -331,6 +342,91 @@ describe("EventCoordinator Durable Object", () => {
     );
     expect(await snapshot.json()).toMatchObject({ started: false });
     await closeSocket(socket);
+    const cleared = await SELF.fetch("https://example.test/api/admin/events/active", {
+      method: "DELETE",
+      headers: authorization,
+    });
+    await cleared.json();
+  });
+
+  it("atomically enforces per-game capacity and start interval", async () => {
+    const now = new Date();
+    const utcHour = now.getUTCHours();
+    const offset = 12 - utcHour;
+    const timezone = offset === 0 ? "UTC" : `Etc/GMT${offset > 0 ? `-${offset}` : `+${Math.abs(offset)}`}`;
+    const date = dateInZone(now, timezone);
+    const eventWindow = {
+      starts_at: new Date(now.valueOf() - 60 * 60_000).toISOString(),
+      ends_at: new Date(now.valueOf() + 6 * 60 * 60_000).toISOString(),
+      status: "open",
+      timezone,
+      daily_windows: [{ date, enabled: true, opens_at: "00:00", closes_at: "23:59" }],
+    };
+    const gameConfiguration = {
+      game_id: "hotel_kraskov",
+      role: "primary",
+      queue_enabled: true,
+      leaderboard_enabled: true,
+      weight: 1,
+      start_interval_minutes: 30,
+      max_active_teams: 1,
+    };
+    const created = await putEvent("capacity-event", eventConfiguration({
+      ...eventWindow,
+      games: [{
+        ...gameConfiguration,
+      }],
+      operation_id: "capacity-event-create",
+    }));
+    expect(created.status).toBe(200);
+    await created.json();
+
+    const createTeam = async (clientId: string, teamName: string): Promise<{ bootstrap: WebSocket; session: WebSocket }> => {
+      const bootstrap = await openBootstrap(clientId);
+      const route = nextMessage(bootstrap, "lobby.route");
+      bootstrap.send(JSON.stringify({
+        type: "lobby.create",
+        payload: {
+          client_id: clientId,
+          name: clientId,
+          team_name: teamName,
+          lobby_type: "on_site_qr",
+          scenario_id: "hotel_kraskov",
+        },
+      }));
+      const routed = await route;
+      const session = await openSession(String(routed.payload.session_id), clientId);
+      return { bootstrap, session };
+    };
+    const first = await createTeam("capacity-one", "Kapacita jedna");
+    const second = await createTeam("capacity-two", "Kapacita dva");
+
+    const started = nextMessage(first.session, "lobby.state");
+    first.session.send(JSON.stringify({ type: "lobby.start", payload: {} }));
+    expect((await started).payload).toMatchObject({ started: true });
+
+    const rejected = nextMessage(second.session, "lobby.error");
+    second.session.send(JSON.stringify({ type: "lobby.start", payload: {} }));
+    expect(String((await rejected).payload.message)).toContain("Kapacita současně hrajících týmů je naplněna.");
+
+    const expanded = await putEvent("capacity-event", eventConfiguration({
+      ...eventWindow,
+      games: [{ ...gameConfiguration, max_active_teams: 4 }],
+      operation_id: "capacity-event-expand",
+      expected_revision: 1,
+    }));
+    expect(expanded.status).toBe(200);
+    await expanded.json();
+    const intervalRejected = nextMessage(second.session, "lobby.error");
+    second.session.send(JSON.stringify({ type: "lobby.start", payload: {} }));
+    expect(String((await intervalRejected).payload.message)).toContain("Ještě neuplynul minimální rozestup mezi starty.");
+
+    await Promise.all([
+      closeSocket(first.bootstrap),
+      closeSocket(first.session),
+      closeSocket(second.bootstrap),
+      closeSocket(second.session),
+    ]);
     const cleared = await SELF.fetch("https://example.test/api/admin/events/active", {
       method: "DELETE",
       headers: authorization,
