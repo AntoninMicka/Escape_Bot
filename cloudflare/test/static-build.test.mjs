@@ -42,6 +42,10 @@ test("Static Assets build is minimal, fingerprinted and internally complete", as
   assert.match(index, /fetch\('\/api\/admin\/events\/active'/);
   assert.match(index, /fetch\('\/api\/admin\/events\/active\/runtime'/);
   assert.match(index, /fetch\('\/api\/admin\/events\/active\/start'/);
+  assert.match(index, /fetch\('\/api\/admin\/teams'/);
+  assert.match(index, /fetch\(`\/api\/admin\/sessions\/\$\{encodeURIComponent\(sessionId\)\}`/);
+  assert.match(index, /adminSupports\('managed_start_override'\)/);
+  assert.match(index, /PŘIPOJOVACÍ KÓD/);
   assert.match(index, /\/api\/admin\/events\/active\/leaderboard\/finalize/);
   assert.match(index, /\/api\/admin\/sessions\/\$\{encodeURIComponent\(sessionId\)\}\/finalize/);
   assert.match(index, /channel=event&event_id=/);

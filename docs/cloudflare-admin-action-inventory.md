@@ -31,6 +31,12 @@ QR endpoint, prodloužení a ukončení relace, bodové úpravy, podpora, náhle
 hráče, návratový QR, uzavření výsledku a řízený start nejsou blokátorem této
 etapy. Musí ale zůstat v regresních testech.
 
+Cloudflare administrace navíc podporuje idempotentní založení prázdného
+řízeného lobby s připojovacím QR, start s výslovným obejitím pouze minimálního
+rozestupu a úplné odstranění týmové relace. Obejít nelze kapacitu, provozní
+okno ani zastavený provoz. Odstranění vyčistí připojovací a návratové tokeny,
+frontu, startovní rezervaci a vazby terminálů a zapíše audit.
+
 ## Povinný kontrakt Cloudflare akcí
 
 Každý nový měnící endpoint musí:

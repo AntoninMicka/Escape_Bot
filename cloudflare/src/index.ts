@@ -35,7 +35,9 @@ interface Env {
 
 const ADMIN_CAPABILITIES = {
   actions: [
+    "managed_team_create",
     "managed_start",
+    "managed_start_override",
     "event_runtime",
     "leaderboard_finalize",
     "event_settings",
@@ -52,9 +54,12 @@ const ADMIN_CAPABILITIES = {
     "game_player",
     "team_finalize",
     "player_recovery",
+    "team_delete",
   ],
   http_actions: [
+    "managed_team_create",
     "managed_start",
+    "managed_start_override",
     "event_runtime",
     "leaderboard_finalize",
     "event_settings",
@@ -71,6 +76,7 @@ const ADMIN_CAPABILITIES = {
     "game_player",
     "team_finalize",
     "player_recovery",
+    "team_delete",
   ],
   checkpoint_states: ["found", "solved"],
   game_reset_adapters: ["line_game", "mine_karel", "triad", "sokoban"],
@@ -406,6 +412,18 @@ function randomJoinCode(): string {
   return [...values].map((value) => value.toString(16).padStart(2, "0")).join("").toUpperCase();
 }
 
+const PRODUCTION_CANONICAL_HOST = "escape.proofofidea.cz";
+const PRODUCTION_ALIAS_HOSTS = new Set(["escape.antoninmicka.cz", "escape.tonymicka.cz"]);
+
+export function productionCanonicalRedirect(request: Request, appEnvironment: string): Response | null {
+  const url = new URL(request.url);
+  if (appEnvironment !== "production" || !PRODUCTION_ALIAS_HOSTS.has(url.hostname)) return null;
+  url.hostname = PRODUCTION_CANONICAL_HOST;
+  url.protocol = "https:";
+  url.port = "";
+  return Response.redirect(url.toString(), 308);
+}
+
 export class GameSession extends DurableObject<Env> {
   private snapshot: SessionSnapshot = defaultSnapshot();
   private readonly runtimeEnv: Env;
@@ -487,6 +505,20 @@ export class GameSession extends DurableObject<Env> {
       }
       const payload = await request.json<Record<string, unknown>>();
       return this.serializeDirectory(() => this.startManagedSession(payload));
+    }
+    if (url.pathname === "/internal/admin/managed-create" && request.method === "POST") {
+      if (request.headers.get("X-EscapeBot-Internal-Admin") !== "1") {
+        return json({ error: "not_found" }, 404);
+      }
+      const payload = await request.json<Record<string, unknown>>();
+      return this.serializeDirectory(() => this.createManagedSession(payload));
+    }
+    if (url.pathname === "/internal/admin/team-delete" && request.method === "POST") {
+      if (request.headers.get("X-EscapeBot-Internal-Admin") !== "1") {
+        return json({ error: "not_found" }, 404);
+      }
+      const payload = await request.json<Record<string, unknown>>();
+      return this.serializeDirectory(() => this.deleteManagedSession(payload));
     }
     if (url.pathname === "/internal/event/start-claim" && request.method === "POST") {
       if (request.headers.get("X-EscapeBot-Internal-Session") !== "1") {
@@ -684,6 +716,12 @@ export class GameSession extends DurableObject<Env> {
       }
       const payload = await request.json<Record<string, unknown>>();
       return this.serializeState(() => this.finalizeSessionResult(payload));
+    }
+    if (url.pathname === "/internal/admin/delete" && request.method === "POST") {
+      if (request.headers.get("X-EscapeBot-Internal-Admin") !== "1") {
+        return json({ error: "not_found" }, 404);
+      }
+      return this.serializeState(() => this.deleteAdminSession());
     }
     if (url.pathname === "/internal/lobby/initialize" && request.method === "POST") {
       const payload = await request.json<Record<string, unknown>>();
@@ -1514,7 +1552,8 @@ export class GameSession extends DurableObject<Env> {
     const name = cleanText(payload.player_name, 24);
     const teamName = cleanText(payload.team_name, 32);
     const mode = payload.mode === "solo" ? "solo" : "team";
-    if (!SESSION_ID_PATTERN.test(sessionId) || !CLIENT_ID_PATTERN.test(clientId) || !name || !teamName) {
+    const managedEmpty = payload.managed_empty === true && mode === "team";
+    if (!SESSION_ID_PATTERN.test(sessionId) || !CLIENT_ID_PATTERN.test(clientId) || (!managedEmpty && !name) || !teamName) {
       return json({ error: "invalid_lobby" }, 400);
     }
     if (this.snapshot.lobby.creatorId) {
@@ -1551,8 +1590,8 @@ export class GameSession extends DurableObject<Env> {
         lobbyType: cleanText(payload.lobby_type || "on_site_qr", 32),
         scenarioId: cleanText(payload.scenario_id, 64),
         eventId: cleanText(payload.event_id, 64),
-        players: { [clientId]: { id: clientId, name, joinedAt: now } },
-        maxPlayers: 1,
+        players: managedEmpty ? {} : { [clientId]: { id: clientId, name, joinedAt: now } },
+        maxPlayers: managedEmpty ? 0 : 1,
         appliedScoreAdjustment: adjustment,
       },
       chatHistory,
@@ -1585,6 +1624,9 @@ export class GameSession extends DurableObject<Env> {
         name,
         joinedAt: new Date().toISOString(),
       };
+      if (!this.activeLobbyPlayerIds().some((playerId) => playerId !== clientId)) {
+        this.snapshot.lobby.creatorId = clientId;
+      }
     } else if (this.snapshot.lobby.players[clientId].leftAt) {
       return json({ error: "Tento hráč už hru trvale opustil." }, 409);
     } else {
@@ -1817,6 +1859,30 @@ export class GameSession extends DurableObject<Env> {
     this.broadcastLobbyState();
     if (this.snapshot.lobby.started) await this.broadcastGameState();
     return json(recoveryResult);
+  }
+
+  private async deleteAdminSession(): Promise<Response> {
+    if (!this.snapshot.lobby.creatorId) return json({ error: "session_not_found" }, 404);
+    const result = {
+      success: true,
+      session_id: this.snapshot.sessionId,
+      team_name: this.snapshot.lobby.teamName,
+    };
+    for (const socket of this.ctx.getWebSockets()) {
+      if (socket.readyState !== WebSocket.OPEN) continue;
+      try {
+        this.send(socket, "admin.session_removed", {
+          message: "Týmová relace byla odstraněna administrátorem.",
+        });
+        socket.close(4001, "Session removed by administrator");
+      } catch {
+        // Storage deletion remains authoritative even if a stale socket cannot be notified.
+      }
+    }
+    await this.ctx.storage.deleteAlarm();
+    await this.ctx.storage.deleteAll();
+    this.snapshot = defaultSnapshot();
+    return json(result);
   }
 
   private async adminOverview(): Promise<Response> {
@@ -3148,6 +3214,7 @@ export class GameSession extends DurableObject<Env> {
     gameDurationMinutes: number,
     claimSessionId = "",
     managedOverride = false,
+    softIntervalOverride = false,
   ): Promise<Record<string, unknown>> {
     const schedule = eventStartAvailability(event, new Date(), gameDurationMinutes);
     const configuration = event.games.find((game) => game.game_id === gameId);
@@ -3173,19 +3240,29 @@ export class GameSession extends DurableObject<Env> {
     const capacityAvailableAt = capacityReleases.length ? Math.min(...capacityReleases) : now;
     const ownClaim = claimSessionId ? validClaimMap.get(claimSessionId) : undefined;
     const activeTeams = validClaims.length;
-    const nextStartAt = Math.max(now, intervalAvailableAt, activeTeams >= maximum ? capacityAvailableAt : now);
+    const nextStartAt = Math.max(
+      now,
+      softIntervalOverride ? now : intervalAvailableAt,
+      activeTeams >= maximum ? capacityAvailableAt : now,
+    );
     const reasons = schedule.start_allowed ? [] : [schedule.reason];
     const managedBlocked = !managedOverride && event.runtime.launch_mode === "managed";
     if (managedBlocked) {
       reasons.push("Event je v řízeném režimu; start povoluje Game Master.");
     }
     if (!ownClaim && activeTeams >= maximum) reasons.push("Kapacita současně hrajících týmů je naplněna.");
-    if (!ownClaim && now < intervalAvailableAt) reasons.push("Ještě neuplynul minimální rozestup mezi starty.");
+    if (!ownClaim && !softIntervalOverride && now < intervalAvailableAt) {
+      reasons.push("Ještě neuplynul minimální rozestup mezi starty.");
+    }
     const allowed = schedule.start_allowed && !managedBlocked && (Boolean(ownClaim) || reasons.length === 0);
     return {
       ...schedule,
       start_allowed: allowed,
-      reason: allowed ? "Start splňuje čas, kapacitu i rozestup eventu." : reasons.join(" "),
+      reason: allowed
+        ? softIntervalOverride
+          ? "Start splňuje čas a kapacitu; minimální rozestup byl vědomě obejit."
+          : "Start splňuje čas, kapacitu i rozestup eventu."
+        : reasons.join(" "),
       active_teams: activeTeams,
       max_active_teams: maximum,
       start_interval_minutes: intervalMinutes,
@@ -3635,10 +3712,157 @@ export class GameSession extends DurableObject<Env> {
     return json({ ...result, event });
   }
 
-  private async startManagedSession(payload: Record<string, unknown>): Promise<Response> {
+  private async createManagedSession(payload: Record<string, unknown>): Promise<Response> {
+    const operationId = cleanText(payload.operation_id, 128);
+    const teamName = cleanText(payload.team_name, 32);
+    const lobbyType = cleanText(payload.lobby_type || "on_site_qr", 32);
+    if (!/^[A-Za-z0-9._:-]{1,128}$/.test(operationId)) {
+      return json({ error: "invalid_operation_id" }, 400);
+    }
+    if (!teamName) return json({ error: "team_name_required", message: "Název týmu je povinný." }, 400);
+    if (!new Set(["online_doom", "on_site_qr", "geo"]).has(lobbyType)) {
+      return json({ error: "invalid_lobby_type" }, 400);
+    }
+    const directory = normalizeDirectory(await this.ctx.storage.get<DirectorySnapshot>(DIRECTORY_KEY));
+    const receiptKey = `managed-create:${operationId}`;
+    const previousReceipt = directory.adminOperationReceipts[receiptKey];
+    if (previousReceipt) return json({ ...previousReceipt, changed: false });
+
+    let event: EventSnapshot | null;
+    try {
+      event = await this.loadActiveEvent(true);
+    } catch {
+      return json({ error: "active_event_unavailable" }, 503);
+    }
+    if (!event) return json({ error: "active_event_required", message: "Nejprve vytvořte a aktivujte event." }, 409);
+    if (event.runtime.launch_mode !== "managed") {
+      return json({ error: "managed_mode_required", message: "Event není v řízeném režimu." }, 409);
+    }
+    const scenarioId = cleanText(payload.scenario_id || event.primary_game_id, 64);
+    const games = await this.loadRuntimeGames();
+    const game = games.find((candidate) => candidate.id === scenarioId);
+    if (!event.games.some((configuration) => configuration.game_id === scenarioId) || !game?.lobby_types.includes(lobbyType)) {
+      return json({ error: "invalid_managed_game", message: "Vybraná hra není pro řízené lobby dostupná." }, 400);
+    }
+    const teamKey = `${event.id}\u0000${normalizedTeamKey(lobbyType, scenarioId, teamName)}`;
+    if (directory.teamKeys[teamKey]) {
+      return json({ error: "duplicate_team_name", message: "Tým s tímto názvem už existuje." }, 409);
+    }
+
+    const sessionId = crypto.randomUUID().replaceAll("-", "");
+    const creatorId = `admin-${crypto.randomUUID().replaceAll("-", "")}`;
+    let joinCode: string;
+    do joinCode = randomJoinCode(); while (directory.joinCodes[joinCode]);
+    const initialized = await this.runtimeEnv.GAME_SESSIONS.getByName(sessionId).fetch(
+      "https://internal/internal/lobby/initialize",
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          session_id: sessionId,
+          mode: "team",
+          creator_id: creatorId,
+          team_name: teamName,
+          join_code: joinCode,
+          lobby_type: lobbyType,
+          scenario_id: scenarioId,
+          event_id: event.id,
+          player_name: "",
+          managed_empty: true,
+        }),
+      },
+    );
+    const initializedResult = await initialized.json<Record<string, unknown>>();
+    if (!initialized.ok) return json(initializedResult, initialized.status);
+
+    const now = new Date().toISOString();
+    directory.teamKeys[teamKey] = sessionId;
+    directory.joinCodes[joinCode] = sessionId;
+    const result = {
+      success: true,
+      changed: true,
+      session_id: sessionId,
+      team_name: teamName,
+      join_code: joinCode,
+      lobby_type: lobbyType,
+      scenario_id: scenarioId,
+      event_id: event.id,
+    };
+    directory.adminAudit = [
+      ...directory.adminAudit,
+      { at: now, type: "admin.team_create", label: `Game Master založil tým ${teamName}.`, session_id: sessionId },
+    ].slice(-500);
+    directory.adminOperationReceipts[receiptKey] = result;
+    while (Object.keys(directory.adminOperationReceipts).length > 200) {
+      delete directory.adminOperationReceipts[Object.keys(directory.adminOperationReceipts)[0]];
+    }
+    await this.ctx.storage.put(DIRECTORY_KEY, directory);
+    return json(result, 201);
+  }
+
+  private async deleteManagedSession(payload: Record<string, unknown>): Promise<Response> {
+    const operationId = cleanText(payload.operation_id, 128);
     const sessionId = cleanText(payload.session_id, 128);
+    if (!/^[A-Za-z0-9._:-]{1,128}$/.test(operationId)) {
+      return json({ error: "invalid_operation_id" }, 400);
+    }
     if (!SESSION_ID_PATTERN.test(sessionId)) return json({ error: "invalid_session_id" }, 400);
     const directory = normalizeDirectory(await this.ctx.storage.get<DirectorySnapshot>(DIRECTORY_KEY));
+    const receiptKey = `team-delete:${sessionId}:${operationId}`;
+    const previousReceipt = directory.adminOperationReceipts[receiptKey];
+    if (previousReceipt) return json({ ...previousReceipt, changed: false });
+    const known = [...Object.values(directory.teamKeys), ...Object.values(directory.creatorKeys), ...Object.values(directory.joinCodes)]
+      .includes(sessionId);
+    if (!known) return json({ error: "session_not_found" }, 404);
+
+    const deleted = await this.runtimeEnv.GAME_SESSIONS.getByName(sessionId).fetch(
+      "https://internal/internal/admin/delete",
+      { method: "POST", headers: { "X-EscapeBot-Internal-Admin": "1" } },
+    );
+    const deletedResult = await deleted.json<Record<string, unknown>>();
+    if (!deleted.ok) return json(deletedResult, deleted.status);
+
+    for (const [key, value] of Object.entries(directory.teamKeys)) if (value === sessionId) delete directory.teamKeys[key];
+    for (const [key, value] of Object.entries(directory.creatorKeys)) if (value === sessionId) delete directory.creatorKeys[key];
+    for (const [key, value] of Object.entries(directory.joinCodes)) if (value === sessionId) delete directory.joinCodes[key];
+    for (const [key, value] of Object.entries(directory.recoveryTokens)) if (value.sessionId === sessionId) delete directory.recoveryTokens[key];
+    for (const [key, value] of Object.entries(directory.terminalRoutes)) if (value.sessionId === sessionId) delete directory.terminalRoutes[key];
+    for (const device of Object.values(directory.terminalDevices)) {
+      if (device.sessionId !== sessionId) continue;
+      device.status = "free";
+      device.sessionId = "";
+      device.controllerId = "";
+      device.online = false;
+      device.updatedAt = new Date().toISOString();
+    }
+    delete directory.startClaims[sessionId];
+    delete directory.startQueue[sessionId];
+    const now = new Date().toISOString();
+    const result = { success: true, changed: true, session_id: sessionId, team_name: deletedResult.team_name || "" };
+    directory.adminAudit = [
+      ...directory.adminAudit,
+      { at: now, type: "admin.team_delete", label: `Game Master odstranil tým ${result.team_name || sessionId}.`, session_id: sessionId },
+    ].slice(-500);
+    directory.adminOperationReceipts[receiptKey] = result;
+    while (Object.keys(directory.adminOperationReceipts).length > 200) {
+      delete directory.adminOperationReceipts[Object.keys(directory.adminOperationReceipts)[0]];
+    }
+    await this.ctx.storage.put(DIRECTORY_KEY, directory);
+    const settings = await this.runtimeSettingsPayload();
+    await this.broadcastRuntimeSettings(settings, directory);
+    await this.scheduleStartQueueAlarm(Array.isArray(settings.start_queue) ? settings.start_queue as Array<Record<string, unknown>> : []);
+    return json(result);
+  }
+
+  private async startManagedSession(payload: Record<string, unknown>): Promise<Response> {
+    const operationId = cleanText(payload.operation_id, 128);
+    const sessionId = cleanText(payload.session_id, 128);
+    if (!/^[A-Za-z0-9._:-]{1,128}$/.test(operationId)) return json({ error: "invalid_operation_id" }, 400);
+    if (!SESSION_ID_PATTERN.test(sessionId)) return json({ error: "invalid_session_id" }, 400);
+    const directory = normalizeDirectory(await this.ctx.storage.get<DirectorySnapshot>(DIRECTORY_KEY));
+    const receiptKey = `managed-start:${sessionId}:${operationId}`;
+    const previousReceipt = directory.adminOperationReceipts[receiptKey];
+    if (previousReceipt) return json({ ...previousReceipt, changed: false });
     const knownSessionIds = new Set([
       ...Object.values(directory.teamKeys),
       ...Object.values(directory.creatorKeys),
@@ -3675,7 +3899,8 @@ export class GameSession extends DurableObject<Env> {
         delete directory.startClaims[claimedSessionId];
       }
     }
-    const availability = await this.eventGameAvailability(event, directory, gameId, duration, sessionId, true);
+    const overrideSoft = payload.override_soft === true;
+    const availability = await this.eventGameAvailability(event, directory, gameId, duration, sessionId, true, overrideSoft);
     if (availability.start_allowed !== true) {
       return json({ error: "start_not_allowed", ...availability }, 409);
     }
@@ -3709,7 +3934,24 @@ export class GameSession extends DurableObject<Env> {
     }
     const settings = await this.runtimeSettingsPayload();
     await this.broadcastRuntimeSettings(settings, directory);
-    return json({ ...result, session_id: sessionId });
+    const response = { ...result, session_id: sessionId, override_soft: overrideSoft };
+    const now = new Date().toISOString();
+    directory.adminAudit = [
+      ...directory.adminAudit,
+      {
+        at: now,
+        type: "admin.managed_start",
+        label: overrideSoft ? "Game Master spustil tým přes minimální rozestup." : "Game Master spustil tým.",
+        session_id: sessionId,
+        override_soft: overrideSoft,
+      },
+    ].slice(-500);
+    directory.adminOperationReceipts[receiptKey] = response;
+    while (Object.keys(directory.adminOperationReceipts).length > 200) {
+      delete directory.adminOperationReceipts[Object.keys(directory.adminOperationReceipts)[0]];
+    }
+    await this.ctx.storage.put(DIRECTORY_KEY, directory);
+    return json(response);
   }
 
   webSocketClose(socket: WebSocket, code: number, reason: string): void {
@@ -4134,6 +4376,8 @@ export class GameSession extends DurableObject<Env> {
 
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
+    const canonicalRedirect = productionCanonicalRedirect(request, env.APP_ENV);
+    if (canonicalRedirect) return canonicalRedirect;
     const url = new URL(request.url);
     if (url.pathname === "/api/health") {
       return json({ status: "ok", runtime: "cloudflare", environment: env.APP_ENV });
@@ -4165,6 +4409,24 @@ export default {
       return env.GAME_SESSIONS.getByName(DIRECTORY_OBJECT_NAME).fetch(
         "https://internal/internal/admin/overview",
         { headers: { "X-EscapeBot-Internal-Admin": "1" } },
+      );
+    }
+    if (url.pathname === "/api/admin/teams" && request.method === "POST") {
+      const unauthorized = await authorizeAdmin(request, env);
+      if (unauthorized) return unauthorized;
+      let payload: Record<string, unknown>;
+      try {
+        payload = await request.json<Record<string, unknown>>();
+      } catch {
+        return json({ error: "invalid_json" }, 400);
+      }
+      return env.GAME_SESSIONS.getByName(DIRECTORY_OBJECT_NAME).fetch(
+        "https://internal/internal/admin/managed-create",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "X-EscapeBot-Internal-Admin": "1" },
+          body: JSON.stringify(payload),
+        },
       );
     }
     if (url.pathname === "/api/admin/events/active/runtime" && request.method === "PATCH") {
@@ -4200,6 +4462,32 @@ export default {
           method: "POST",
           headers: { "Content-Type": "application/json", "X-EscapeBot-Internal-Admin": "1" },
           body: JSON.stringify(payload),
+        },
+      );
+    }
+    const adminTeamRoute = url.pathname.match(/^\/api\/admin\/sessions\/([^/]+)$/);
+    if (adminTeamRoute && request.method === "DELETE") {
+      const unauthorized = await authorizeAdmin(request, env);
+      if (unauthorized) return unauthorized;
+      let sessionId: string;
+      try {
+        sessionId = decodeURIComponent(adminTeamRoute[1]);
+      } catch {
+        return json({ error: "invalid_session_id" }, 400);
+      }
+      if (!SESSION_ID_PATTERN.test(sessionId)) return json({ error: "invalid_session_id" }, 400);
+      let payload: Record<string, unknown>;
+      try {
+        payload = await request.json<Record<string, unknown>>();
+      } catch {
+        return json({ error: "invalid_json" }, 400);
+      }
+      return env.GAME_SESSIONS.getByName(DIRECTORY_OBJECT_NAME).fetch(
+        "https://internal/internal/admin/team-delete",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "X-EscapeBot-Internal-Admin": "1" },
+          body: JSON.stringify({ ...payload, session_id: sessionId }),
         },
       );
     }

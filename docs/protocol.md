@@ -372,6 +372,21 @@ určují checkpointové přechody, adaptéry restartovatelných miniher, hráčs
 a terminálové operace. Neimplementovaná akce proto není zobrazena ani omylem
 odeslána nesprávným transportem.
 
+### Řízené lobby a odstranění týmu (Cloudflare)
+
+`POST /api/admin/teams` přijímá název týmu, hru, typ lobby a jedinečné
+`operation_id`. Je dostupný pouze v řízeném režimu aktivního eventu a vytvoří
+prázdné týmové lobby s připojovacím kódem. První hráč, který se kódem připojí,
+se stane zakladatelem. `POST /api/admin/events/active/start` vyžaduje
+`operation_id`; volba `override_soft: true` smí obejít pouze minimální rozestup
+startů, nikoli kapacitu, provozní okno nebo zastavený provoz.
+
+`DELETE /api/admin/sessions/:session_id` přijímá jedinečné `operation_id`,
+odpojí klienty a odstraní relaci i její připojovací a návratové tokeny, frontu,
+startovní rezervaci a vazby terminálů. Všechny tři operace vyžadují
+`Authorization: Bearer <ADMIN_TOKEN>`, ukládají audit a při opakování stejného
+identifikátoru vracejí `changed: false`.
+
 ### Checkpointové zásahy a restart minihry (Cloudflare)
 
 `POST /api/admin/sessions/:session_id/checkpoint` přijímá `checkpoint_id`, stav

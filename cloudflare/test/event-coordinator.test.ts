@@ -532,7 +532,7 @@ describe("EventCoordinator Durable Object", () => {
     })).json();
   });
 
-  it("blocks player starts in managed mode, allows an admin start, and globally stops active games", async () => {
+  const managedAdminScenario = async () => {
     const now = new Date();
     const offset = 12 - now.getUTCHours();
     const timezone = offset === 0 ? "UTC" : `Etc/GMT${offset > 0 ? `-${offset}` : `+${Math.abs(offset)}`}`;
@@ -549,7 +549,7 @@ describe("EventCoordinator Durable Object", () => {
         queue_enabled: true,
         leaderboard_enabled: true,
         weight: 1,
-        start_interval_minutes: 0,
+        start_interval_minutes: 30,
         max_active_teams: 4,
       }],
       operation_id: "managed-runtime-create",
@@ -571,6 +571,7 @@ describe("EventCoordinator Durable Object", () => {
     }));
     const sessionId = String((await route).payload.session_id);
     const session = await openSession(sessionId, "managed-runtime-captain");
+    await closeSocket(bootstrap);
 
     const managedSettings = nextMessage(session, "runtime.settings");
     const managed = await patchActiveRuntime({
@@ -590,12 +591,107 @@ describe("EventCoordinator Durable Object", () => {
     const adminStart = await SELF.fetch("https://example.test/api/admin/events/active/start", {
       method: "POST",
       headers: { ...authorization, "Content-Type": "application/json" },
-      body: JSON.stringify({ session_id: sessionId }),
+      body: JSON.stringify({ operation_id: "managed-runtime-start", session_id: sessionId }),
     });
     expect(adminStart.status).toBe(200);
     expect(await adminStart.json()).toMatchObject({ changed: true, started: true, session_id: sessionId });
     expect((await startedState).payload.started).toBe(true);
     expect((await startedSettings).payload).toMatchObject({ gameplay_enabled: true, launch_mode: "managed" });
+
+    const managedCreated = await SELF.fetch("https://example.test/api/admin/teams", {
+      method: "POST",
+      headers: { ...authorization, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        operation_id: "managed-team-create",
+        team_name: "Tým založený správcem",
+        scenario_id: "hotel_kraskov",
+        lobby_type: "on_site_qr",
+      }),
+    });
+    expect(managedCreated.status).toBe(201);
+    const managedTeam = await managedCreated.json<Record<string, any>>();
+    expect(managedTeam).toMatchObject({ changed: true, team_name: "Tým založený správcem" });
+    expect(managedTeam.join_code).toMatch(/^[A-F0-9]{8}$/);
+    const duplicateCreate = await SELF.fetch("https://example.test/api/admin/teams", {
+      method: "POST",
+      headers: { ...authorization, "Content-Type": "application/json" },
+      body: JSON.stringify({ operation_id: "managed-team-create", team_name: "jiný název" }),
+    });
+    expect(await duplicateCreate.json()).toMatchObject({ changed: false, session_id: managedTeam.session_id });
+
+    const managedBootstrap = await openBootstrap("managed-created-player");
+    const managedRoute = nextMessage(managedBootstrap, "lobby.route");
+    managedBootstrap.send(JSON.stringify({
+      type: "lobby.join",
+      payload: {
+        client_id: "managed-created-player",
+        name: "Bob",
+        join_code: managedTeam.join_code,
+      },
+    }));
+    expect((await managedRoute).payload.session_id).toBe(managedTeam.session_id);
+    const managedSession = await openSession(managedTeam.session_id, "managed-created-player");
+    await closeSocket(managedBootstrap);
+    const managedLobby = nextMessage(managedSession, "lobby.state");
+    managedSession.send(JSON.stringify({ type: "lobby.resume", payload: { session_id: managedTeam.session_id } }));
+    expect((await managedLobby).payload).toMatchObject({ registered_players: 1, is_creator: true });
+
+    const intervalRejected = await SELF.fetch("https://example.test/api/admin/events/active/start", {
+      method: "POST",
+      headers: { ...authorization, "Content-Type": "application/json" },
+      body: JSON.stringify({ operation_id: "managed-team-normal-start", session_id: managedTeam.session_id }),
+    });
+    expect(intervalRejected.status).toBe(409);
+    expect(String((await intervalRejected.json<Record<string, any>>()).reason)).toContain("minimální rozestup");
+
+    const managedStarted = nextMessage(managedSession, "lobby.state");
+    const overrideStart = await SELF.fetch("https://example.test/api/admin/events/active/start", {
+      method: "POST",
+      headers: { ...authorization, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        operation_id: "managed-team-override-start",
+        session_id: managedTeam.session_id,
+        override_soft: true,
+      }),
+    });
+    expect(overrideStart.status).toBe(200);
+    expect(await overrideStart.json()).toMatchObject({ changed: true, override_soft: true });
+    expect((await managedStarted).payload.started).toBe(true);
+    const duplicateOverride = await SELF.fetch("https://example.test/api/admin/events/active/start", {
+      method: "POST",
+      headers: { ...authorization, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        operation_id: "managed-team-override-start",
+        session_id: managedTeam.session_id,
+        override_soft: true,
+      }),
+    });
+    expect(await duplicateOverride.json()).toMatchObject({ changed: false, override_soft: true });
+
+    const removedNotice = nextMessage(managedSession, "admin.session_removed");
+    const deleted = await SELF.fetch(`https://example.test/api/admin/sessions/${managedTeam.session_id}`, {
+      method: "DELETE",
+      headers: { ...authorization, "Content-Type": "application/json" },
+      body: JSON.stringify({ operation_id: "managed-team-delete" }),
+    });
+    expect(deleted.status).toBe(200);
+    expect(await deleted.json()).toMatchObject({ changed: true, session_id: managedTeam.session_id });
+    await removedNotice;
+    const duplicateDelete = await SELF.fetch(`https://example.test/api/admin/sessions/${managedTeam.session_id}`, {
+      method: "DELETE",
+      headers: { ...authorization, "Content-Type": "application/json" },
+      body: JSON.stringify({ operation_id: "managed-team-delete" }),
+    });
+    expect(await duplicateDelete.json()).toMatchObject({ changed: false, session_id: managedTeam.session_id });
+
+    const staleBootstrap = await openBootstrap("managed-stale-player");
+    const staleJoin = nextMessage(staleBootstrap, "lobby.error");
+    staleBootstrap.send(JSON.stringify({
+      type: "lobby.join",
+      payload: { client_id: "managed-stale-player", name: "Cyril", join_code: managedTeam.join_code },
+    }));
+    expect(String((await staleJoin).payload.message)).toContain("neexistuje");
+    await Promise.all([closeSocket(managedSession), closeSocket(staleBootstrap)]);
 
     const stoppedNotice = nextMessage(session, "operations.stopped");
     const stoppedSettings = nextMessage(session, "runtime.settings");
@@ -657,13 +753,22 @@ describe("EventCoordinator Durable Object", () => {
       },
     }));
     expect(String((await blocked).payload.message)).toContain("zastaven správcem");
+    await closeSocket(blockedBootstrap);
 
-    await Promise.all([closeSocket(bootstrap), closeSocket(session), closeSocket(blockedBootstrap)]);
+    const deletedStoppedSession = await SELF.fetch(`https://example.test/api/admin/sessions/${sessionId}`, {
+      method: "DELETE",
+      headers: { ...authorization, "Content-Type": "application/json" },
+      body: JSON.stringify({ operation_id: "managed-runtime-delete-stopped" }),
+    });
+    expect(deletedStoppedSession.status).toBe(200);
+    expect(await deletedStoppedSession.json()).toMatchObject({ changed: true, session_id: sessionId });
+
+    await closeSocket(session);
     await (await SELF.fetch("https://example.test/api/admin/events/active", {
       method: "DELETE",
       headers: authorization,
     })).json();
-  });
+  };
 
   it("rejects invalid event configuration before writing it", async () => {
     const invalid = await putEvent("invalid-event", eventConfiguration({
@@ -918,6 +1023,7 @@ describe("EventCoordinator Durable Object", () => {
     }));
     const sessionId = String((await route).payload.session_id);
     const session = await openSession(sessionId, "queued-captain");
+    await closeSocket(bootstrap);
     const queuedSettings = nextMessage(session, "runtime.settings");
     session.send(JSON.stringify({ type: "lobby.queue", payload: {} }));
     expect((await queuedSettings).payload.start_queue).toEqual([
@@ -932,7 +1038,6 @@ describe("EventCoordinator Durable Object", () => {
       expect.objectContaining({ session_id: sessionId, position: 1 }),
     ]);
 
-    await closeSocket(bootstrap);
     await evictDurableObject(env.GAME_SESSIONS.getByName("__escape_bot_lobby_directory__"));
     const started = nextMessage(session, "lobby.state");
     expect(await runDurableObjectAlarm(env.GAME_SESSIONS.getByName("__escape_bot_lobby_directory__"))).toBe(true);
@@ -1010,4 +1115,6 @@ describe("EventCoordinator Durable Object", () => {
     expect(clearedPayload.games).toHaveLength(4);
     await closeSocket(restoredObserver);
   });
+
+  it("blocks player starts in managed mode, allows admin team operations, and globally stops active games", managedAdminScenario);
 });

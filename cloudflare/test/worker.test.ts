@@ -1,5 +1,6 @@
 import { env, runDurableObjectAlarm, runInDurableObject, SELF } from "cloudflare:test";
 import { describe, expect, it } from "vitest";
+import { productionCanonicalRedirect } from "../src/index";
 
 type ProtocolMessage = {
   type: string;
@@ -74,6 +75,23 @@ function closeSocket(socket: WebSocket, reason: string): Promise<void> {
 }
 
 describe("Cloudflare spike router", () => {
+  it("redirects production aliases to the canonical hostname while preserving the request target", () => {
+    const redirect = productionCanonicalRedirect(
+      new Request("https://escape.antoninmicka.cz/admin?team=abc"),
+      "production",
+    );
+    expect(redirect?.status).toBe(308);
+    expect(redirect?.headers.get("Location")).toBe("https://escape.proofofidea.cz/admin?team=abc");
+    expect(productionCanonicalRedirect(
+      new Request("https://escape.proofofidea.cz/admin"),
+      "production",
+    )).toBeNull();
+    expect(productionCanonicalRedirect(
+      new Request("https://escape.tonymicka.cz/"),
+      "staging",
+    )).toBeNull();
+  });
+
   it("serves the application shell from Static Assets", async () => {
     const response = await SELF.fetch("https://example.test/");
     expect(response.status).toBe(200);
@@ -931,16 +949,16 @@ describe("Cloudflare spike router", () => {
     expect(overview.cloudflare_limited).toBe(true);
     expect(overview.admin_capabilities).toEqual({
       actions: [
-        "managed_start", "event_runtime", "leaderboard_finalize", "event_settings",
+        "managed_team_create", "managed_start", "managed_start_override", "event_runtime", "leaderboard_finalize", "event_settings",
         "score_adjustment", "session_extend", "session_end", "support_message",
         "checkpoint", "scenario_play_modes", "terminal_catalog", "terminal_reservation", "spectate",
-        "game_reset", "game_player", "team_finalize", "player_recovery",
+        "game_reset", "game_player", "team_finalize", "player_recovery", "team_delete",
       ],
       http_actions: [
-        "managed_start", "event_runtime", "leaderboard_finalize", "event_settings",
+        "managed_team_create", "managed_start", "managed_start_override", "event_runtime", "leaderboard_finalize", "event_settings",
         "score_adjustment", "session_extend", "session_end", "support_message",
         "checkpoint", "scenario_play_modes", "terminal_catalog", "terminal_reservation", "spectate",
-        "game_reset", "game_player", "team_finalize", "player_recovery",
+        "game_reset", "game_player", "team_finalize", "player_recovery", "team_delete",
       ],
       checkpoint_states: ["found", "solved"],
       game_reset_adapters: ["line_game", "mine_karel", "triad", "sokoban"],

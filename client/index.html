@@ -1970,11 +1970,23 @@
                 showNotification(error.message || 'Týmy se nepodařilo načíst.', 'error');
             }
         }
-        function createManagedTeam() {
+        async function createManagedTeam() {
             if (!adminSupports('managed_team_create')) { showNotification('Tento runtime neumí zakládat tým z administrace.', 'error'); return; }
             const input = document.getElementById('admin-new-team-name');
             const teamName = input.value.trim();
             if (!teamName) { showNotification('Zadejte název týmu.', 'error'); input.focus(); return; }
+            if (adminUsesHttp('managed_team_create')) {
+                try {
+                    const operationId=crypto.randomUUID?.()||`managed-create-${Date.now()}`;
+                    const response=await fetch('/api/admin/teams',{method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${adminToken()}`},body:JSON.stringify({operation_id:operationId,team_name:teamName,scenario_id:activeEvent?.primary_game_id||'',lobby_type:'on_site_qr'})});
+                    const result=await response.json().catch(()=>({}));
+                    if(!response.ok)throw new Error(result.message||result.error||'Tým se nepodařilo založit.');
+                    input.value='';
+                    showNotification(result.changed===false?'Tým už byl založen.':`Tým byl založen. Kód: ${result.join_code}`,'success');
+                    await loadAdminOverview();
+                } catch(error) { showNotification(error.message||'Tým se nepodařilo založit.','error'); }
+                return;
+            }
             sendAdmin('admin.team_create', {team_name:teamName});
             input.value = '';
         }
@@ -1982,7 +1994,8 @@
             if (!window.confirm(overrideSoft ? 'Spustit tým a vědomě obejít soft rozestup?' : 'Spustit hru tohoto týmu?')) return;
             if (adminUsesHttp('managed_start')) {
                 try {
-                    const response=await fetch('/api/admin/events/active/start',{method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${adminToken()}`},body:JSON.stringify({session_id:sessionId})});
+                    const operationId=crypto.randomUUID?.()||`managed-start-${Date.now()}`;
+                    const response=await fetch('/api/admin/events/active/start',{method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${adminToken()}`},body:JSON.stringify({operation_id:operationId,session_id:sessionId,override_soft:overrideSoft})});
                     const result=await response.json().catch(()=>({}));
                     if(!response.ok)throw new Error(result.message||result.reason||result.error||'Tým se nepodařilo spustit.');
                     showNotification(result.changed===false?'Tým už hraje.':'Tým byl spuštěn.','success');loadAdminOverview();
@@ -2345,8 +2358,19 @@
             sendAdmin('admin.score_adjustment', {session_id:sessionId, delta, reason});
         }
 
-        function deleteAdminTeam(sessionId) {
+        async function deleteAdminTeam(sessionId) {
             if (!window.confirm('Opravdu trvale odstranit tento tým a ukončit jeho relaci?')) return;
+            if (adminUsesHttp('team_delete')) {
+                try {
+                    const operationId=crypto.randomUUID?.()||`team-delete-${Date.now()}`;
+                    const response=await fetch(`/api/admin/sessions/${encodeURIComponent(sessionId)}`,{method:'DELETE',headers:{'Content-Type':'application/json',Authorization:`Bearer ${adminToken()}`},body:JSON.stringify({operation_id:operationId})});
+                    const result=await response.json().catch(()=>({}));
+                    if(!response.ok)throw new Error(result.message||result.error||'Tým se nepodařilo odstranit.');
+                    showNotification(result.changed===false?'Tým už byl odstraněn.':'Tým byl odstraněn.','success');
+                    await loadAdminOverview();
+                } catch(error) { showNotification(error.message||'Tým se nepodařilo odstranit.','error'); }
+                return;
+            }
             sendAdmin('admin.delete', {session_id:sessionId});
         }
 
@@ -2905,7 +2929,7 @@
             const abandoned = teams.filter(team => team.activity_status === 'abandoned').length;
             const onlinePlayers = teams.reduce((sum, team) => sum + Number(team.online_count || 0), 0);
             const managedGrid=document.getElementById('admin-managed-grid');
-            if(managedGrid){const waiting=allTeams.filter(team=>!team.started);managedGrid.innerHTML=waiting.length?waiting.map(team=>`<article class="admin-team"><h2>${escapeHtml(team.team_name)}</h2><p>${Number(team.registered_players||0)} hráčů · ${Number(team.online_count||0)} online · ${escapeHtml(team.scenario_id||'')}</p><button onclick="startManagedTeam('${team.session_id}',false)" ${Number(team.registered_players||0)<1||launchMode!=='managed'||!adminSupports('managed_start')?'disabled':''}>SPUSTIT HRU</button></article>`).join(''):'<p>Žádné připravené lobby nečeká na start.</p>';}
+            if(managedGrid){const waiting=allTeams.filter(team=>!team.started);managedGrid.innerHTML=waiting.length?waiting.map(team=>{const joinUrl=team.join_code?`${window.location.origin}/?join=${encodeURIComponent(team.join_code)}`:'';return `<article class="admin-team"><h2>${escapeHtml(team.team_name)}</h2><p>${Number(team.registered_players||0)} hráčů · ${Number(team.online_count||0)} online · ${escapeHtml(team.scenario_id||'')}</p>${team.join_code?`<p>PŘIPOJOVACÍ KÓD: <strong>${escapeHtml(team.join_code)}</strong></p><img src="/api/qr?data=${encodeURIComponent(joinUrl)}" alt="QR pro připojení k týmu ${escapeHtml(team.team_name)}" style="width:180px;max-width:100%;background:#fff;padding:8px">`:''}<div class="admin-actions"><button onclick="startManagedTeam('${team.session_id}',false)" ${Number(team.registered_players||0)<1||launchMode!=='managed'||!adminSupports('managed_start')?'disabled':''}>SPUSTIT HRU</button>${adminSupports('managed_start_override')?`<button class="danger" onclick="startManagedTeam('${team.session_id}',true)" ${Number(team.registered_players||0)<1||launchMode!=='managed'?'disabled':''}>SPUSTIT PŘES SOFT LIMIT</button>`:''}</div></article>`}).join(''):'<p>Žádné připravené lobby nečeká na start.</p>';}
             const managedCreate=document.querySelector('#admin-new-team-name + button');if(managedCreate){const unavailable=!adminSupports('managed_team_create');managedCreate.disabled=launchMode!=='managed'||unavailable;managedCreate.title=unavailable?'Tento runtime neumí zakládat tým z administrace.':launchMode==='managed'?'':'Nejprve zapněte řízený režim.';}
             document.getElementById('admin-status').textContent = `Zobrazeno: ${teams.length}/${allTeams.length} týmů · aktualizováno ${new Date().toLocaleTimeString('cs-CZ')}`;
             document.getElementById('admin-summary').innerHTML = `<div>VYFILTROVÁNO<br><strong>${teams.length}/${allTeams.length}</strong></div><div>HRÁČI ONLINE<br><strong>${onlinePlayers}</strong></div><div>PODEZŘELÉ<br><strong>${suspicious}</strong></div><div>OPUŠTĚNÉ<br><strong>${abandoned}</strong></div>`;

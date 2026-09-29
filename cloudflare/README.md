@@ -220,7 +220,9 @@ registrovaných hráčů se nezmění.
 Cloudový přehled je stále označený jako omezená správa. Zobrazuje pouze
 autoritativně přenesené zásahy: návratový QR, náhled hráče, podporu, vyřazení
 hráče, prodloužení a provozní ukončení hry, bodovou úpravu a finalizaci
-výsledku. Tlačítka bez bezpečného Worker endpointu zůstávají skrytá. Úplný
+výsledku. Řízený režim navíc dovoluje založit prázdné týmové lobby s QR,
+spustit je standardně nebo přes minimální rozestup a auditovaně odstranit
+celou relaci. Tlačítka bez bezpečného Worker endpointu zůstávají skrytá. Úplný
 víceeventový přehled bude používat nový `EventCoordinator`; jeho
 perzistentní konfigurace, aktivní výběr, HTTP API a napojení admin formuláře už
 jsou součástí CF-05, zatímco současné načtení týmů z adresáře lobby zůstává
@@ -230,12 +232,15 @@ Produkční deploy má samostatný explicitní příkaz `npm run deploy:producti
 Obecný `npm run deploy` záměrně není definován, aby nebylo možné bez výběru
 prostředí změnit výchozí Worker.
 
-Produkční Worker používá tři Cloudflare Custom Domains nad stejnými Durable
-Objecty a stejným stavem hry:
+Produkční Worker přijímá tři Cloudflare Custom Domains. Hlavní origin, na kterém
+zůstávají uložená relace klienta a oprávnění kamery, je:
 
-- `https://escape.antoninmicka.cz`
-- `https://escape.tonymicka.cz`
 - `https://escape.proofofidea.cz`
+
+Aliasové adresy `https://escape.antoninmicka.cz` a
+`https://escape.tonymicka.cz` Worker trvale přesměruje stavem 308 na hlavní
+origin se zachováním cesty a query stringu. Uživatel tak nepřechází mezi třemi
+oddělenými browserovými úložišti.
 
 Wrangler při produkčním deployi spravuje jejich DNS záznamy a TLS certifikáty.
 Všechny tři domény proto musí být ve stejném dostupném Cloudflare účtu a před
