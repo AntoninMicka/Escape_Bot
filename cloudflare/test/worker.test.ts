@@ -611,6 +611,15 @@ describe("Cloudflare spike router", () => {
     expect(response.status).toBe(200);
     const overview = await response.json<Record<string, any>>();
     expect(overview.cloudflare_limited).toBe(true);
+    expect(overview.admin_capabilities).toEqual({
+      checkpoint_states: [],
+      game_reset_adapters: [],
+      game_player_actions: ["exclude"],
+      terminal_reservation: true,
+      scenario_play_modes: false,
+      terminal_catalog: false,
+      terminal_assignment: false,
+    });
     expect(overview.teams).toEqual(expect.arrayContaining([
       expect.objectContaining({
         session_id: route.payload.session_id,

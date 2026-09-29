@@ -13,6 +13,17 @@ SCENARIO_PATH = Path(__file__).resolve().parents[1] / "scenario.json"
 
 
 class AdminOverviewTests(unittest.TestCase):
+    def test_admin_capabilities_match_implemented_legacy_actions(self):
+        self.assertEqual(server.admin_capabilities_payload(), {
+            "checkpoint_states": ["found", "solved"],
+            "game_reset_adapters": ["line_game", "mine_karel", "triad", "sokoban"],
+            "game_player_actions": ["exclude", "include", "reset"],
+            "terminal_reservation": True,
+            "scenario_play_modes": True,
+            "terminal_catalog": True,
+            "terminal_assignment": True,
+        })
+
     def test_lobby_without_game_does_not_break_admin_overview(self):
         registry = LobbyRegistry()
         lobby = Lobby("waiting-session", "team", "alice", "Waiting team")

@@ -31,6 +31,16 @@ interface Env {
   EVENTS: DurableObjectNamespace<EventCoordinator>;
 }
 
+const ADMIN_CAPABILITIES = {
+  checkpoint_states: [],
+  game_reset_adapters: [],
+  game_player_actions: ["exclude"],
+  terminal_reservation: true,
+  scenario_play_modes: false,
+  terminal_catalog: false,
+  terminal_assignment: false,
+} as const;
+
 interface SocketAttachment {
   clientId: string;
   connectedAt: string;
@@ -1611,6 +1621,7 @@ export class GameSession extends DurableObject<Env> {
       cloudflare_limited: true,
       teams,
       leaderboard,
+      admin_capabilities: ADMIN_CAPABILITIES,
       resolution_presets: {},
       scenario_catalog: [],
       scenario_errors: [],

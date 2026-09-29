@@ -54,7 +54,9 @@ zdrojem pravdy. Minimální tvar:
   "game_reset_adapters": ["line_game", "mine_karel", "triad", "sokoban"],
   "game_player_actions": ["exclude", "include", "reset"],
   "terminal_reservation": true,
-  "scenario_play_modes": false
+  "scenario_play_modes": false,
+  "terminal_catalog": false,
+  "terminal_assignment": false
 }
 ```
 
@@ -101,7 +103,8 @@ nepoužívají.
 
 ## Pořadí implementace po inventuře
 
-1. Přidat `admin_capabilities` do obou runtime a otestovat jeho přesnost.
+1. **Hotovo:** přidat `admin_capabilities` do obou runtime a otestovat jeho
+   přesnost.
 2. Portovat checkpoint `found` a `solved` včetně penalizačních presetů.
 3. Portovat restart celé minihry.
 4. Rozšířit hráčské akce o `include` a `reset`.

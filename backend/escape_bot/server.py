@@ -69,6 +69,21 @@ ADMIN_RESOLUTION_PRESETS = {
     "minigame_skip": {"label": "Přeskočení minihry", "penalty": 50},
     "cipher_solved": {"label": "Šifra vyřešená Game Masterem", "penalty": 75},
 }
+
+
+def admin_capabilities_payload() -> dict[str, object]:
+    """Describe only admin actions implemented by this runtime."""
+    return {
+        "checkpoint_states": ["found", "solved"],
+        "game_reset_adapters": ["line_game", "mine_karel", "triad", "sokoban"],
+        "game_player_actions": ["exclude", "include", "reset"],
+        "terminal_reservation": True,
+        "scenario_play_modes": True,
+        "terminal_catalog": True,
+        "terminal_assignment": True,
+    }
+
+
 DEMO_MODE_ENABLED = os.getenv("ESCAPEBOT_DEMO_MODE", "").lower() in {"1", "true", "yes", "on"}
 ADMIN_TOKEN = os.getenv("ESCAPEBOT_ADMIN_TOKEN", "")
 runtime_settings = {"online_mode": False, "gameplay_enabled": True, "max_active_teams": 4,
@@ -1156,6 +1171,7 @@ async def send_admin_overview(websocket: WebSocket) -> None:
     await send_message(websocket, Message("admin.overview", {
         "teams": admin_overview(admin_support_sessions.get(websocket, set())),
         "leaderboard": leaderboard_entries(),
+        "admin_capabilities": admin_capabilities_payload(),
         "abandonment_thresholds": {"suspicious_seconds": 1800, "abandoned_seconds": 3600},
         "resolution_presets": ADMIN_RESOLUTION_PRESETS,
         "scenario_catalog": scenario_catalog.public(),
