@@ -384,6 +384,20 @@ export class GameSession extends DurableObject<Env> {
         request.method === "DELETE" ? "" : cleanText(payload.event_id, 64),
       ));
     }
+    if (url.pathname === "/internal/admin/event-runtime" && request.method === "PATCH") {
+      if (request.headers.get("X-EscapeBot-Internal-Admin") !== "1") {
+        return json({ error: "not_found" }, 404);
+      }
+      const payload = await request.json<Record<string, unknown>>();
+      return this.serializeDirectory(() => this.updateActiveEventRuntime(payload));
+    }
+    if (url.pathname === "/internal/admin/managed-start" && request.method === "POST") {
+      if (request.headers.get("X-EscapeBot-Internal-Admin") !== "1") {
+        return json({ error: "not_found" }, 404);
+      }
+      const payload = await request.json<Record<string, unknown>>();
+      return this.serializeDirectory(() => this.startManagedSession(payload));
+    }
     if (url.pathname === "/internal/event/start-claim" && request.method === "POST") {
       if (request.headers.get("X-EscapeBot-Internal-Session") !== "1") {
         return json({ error: "not_found" }, 404);
@@ -518,6 +532,13 @@ export class GameSession extends DurableObject<Env> {
         return json({ error: "not_found" }, 404);
       }
       return this.adminSpectatorSnapshot(cleanText(url.searchParams.get("player_id"), 128));
+    }
+    if (url.pathname === "/internal/admin/operations" && request.method === "POST") {
+      if (request.headers.get("X-EscapeBot-Internal-Admin") !== "1") {
+        return json({ error: "not_found" }, 404);
+      }
+      const payload = await request.json<Record<string, unknown>>();
+      return this.serializeState(() => this.stopSessionOperations(payload));
     }
     if (url.pathname === "/internal/lobby/initialize" && request.method === "POST") {
       const payload = await request.json<Record<string, unknown>>();
@@ -717,6 +738,22 @@ export class GameSession extends DurableObject<Env> {
     if (requestedClientId !== attachment.clientId) {
       this.send(socket, "lobby.error", { message: "Identifikátor zařízení neodpovídá spojení." });
       return;
+    }
+    if (new Set(["lobby.solo", "lobby.create"]).has(message.type)) {
+      try {
+        const event = await this.loadActiveEvent(true);
+        if (event && (!event.runtime.gameplay_enabled || event.runtime.launch_mode === "managed")) {
+          this.send(socket, "lobby.error", {
+            message: !event.runtime.gameplay_enabled
+              ? "Herní provoz je zastaven správcem."
+              : "Event je v řízeném režimu; nový tým zakládá Game Master.",
+          });
+          return;
+        }
+      } catch {
+        this.send(socket, "lobby.error", { message: "Nastavení eventu není dostupné. Založení týmu je dočasně zablokováno." });
+        return;
+      }
     }
 
     try {
@@ -2123,6 +2160,50 @@ export class GameSession extends DurableObject<Env> {
     });
   }
 
+  private async stopSessionOperations(payload: Record<string, unknown>): Promise<Response> {
+    const operationId = cleanText(payload.operation_id, 128);
+    if (!/^[A-Za-z0-9._:-]{1,128}$/.test(operationId)) {
+      return json({ error: "invalid_operation_id" }, 400);
+    }
+    const receiptKey = `admin-operations:${operationId}`;
+    if (this.snapshot.operationReceipts[receiptKey]) {
+      return json({ changed: false, session_id: this.snapshot.sessionId, revision: this.snapshot.revision });
+    }
+    const flags = objectRecord(this.snapshot.gameState.flags);
+    const changed = this.snapshot.lobby.started && !flags.game_completed && !flags.administratively_ended;
+    const now = new Date().toISOString();
+    if (changed) {
+      flags.administratively_ended = true;
+      flags.administratively_ended_at = now;
+      flags.administratively_ended_reason = "manual";
+      flags.deadline_choice_pending = false;
+      const actions = Array.isArray(flags.admin_actions) ? flags.admin_actions : [];
+      actions.push({ action: "operations_stop", label: "Globální zastavení herního provozu", at: now });
+      flags.admin_actions = actions;
+      this.snapshot.gameState.flags = flags;
+      this.snapshot.deadlineAt = null;
+      this.snapshot.deadlineKind = null;
+      this.snapshot.revision += 1;
+      this.snapshot.updatedAt = now;
+    }
+    this.snapshot.operationReceipts[receiptKey] = [{
+      type: "operations.stopped",
+      payload: { message: "Herní provoz byl ukončen Game Masterem. Výsledek týmu je připraven k vyhodnocení." },
+    }];
+    while (Object.keys(this.snapshot.operationReceipts).length > 500) {
+      delete this.snapshot.operationReceipts[Object.keys(this.snapshot.operationReceipts)[0]];
+    }
+    await this.ctx.storage.put(SNAPSHOT_KEY, this.snapshot);
+    if (changed) {
+      await this.scheduleNextAlarm();
+      this.broadcast("operations.stopped", {
+        message: "Herní provoz byl ukončen Game Masterem. Výsledek týmu je připraven k vyhodnocení.",
+      });
+      await this.broadcastGameState();
+    }
+    return json({ changed, session_id: this.snapshot.sessionId, revision: this.snapshot.revision });
+  }
+
   private async adminSpectatorSnapshot(playerId: string): Promise<Response> {
     if (!this.snapshot.lobby.creatorId) return json({ error: "session_not_found" }, 404);
     const player = this.snapshot.lobby.players[playerId];
@@ -2236,6 +2317,7 @@ export class GameSession extends DurableObject<Env> {
     gameId: string,
     gameDurationMinutes: number,
     claimSessionId = "",
+    managedOverride = false,
   ): Promise<Record<string, unknown>> {
     const schedule = eventStartAvailability(event, new Date(), gameDurationMinutes);
     const configuration = event.games.find((game) => game.game_id === gameId);
@@ -2263,9 +2345,13 @@ export class GameSession extends DurableObject<Env> {
     const activeTeams = validClaims.length;
     const nextStartAt = Math.max(now, intervalAvailableAt, activeTeams >= maximum ? capacityAvailableAt : now);
     const reasons = schedule.start_allowed ? [] : [schedule.reason];
+    const managedBlocked = !managedOverride && event.runtime.launch_mode === "managed";
+    if (managedBlocked) {
+      reasons.push("Event je v řízeném režimu; start povoluje Game Master.");
+    }
     if (!ownClaim && activeTeams >= maximum) reasons.push("Kapacita současně hrajících týmů je naplněna.");
     if (!ownClaim && now < intervalAvailableAt) reasons.push("Ještě neuplynul minimální rozestup mezi starty.");
-    const allowed = schedule.start_allowed && (Boolean(ownClaim) || reasons.length === 0);
+    const allowed = schedule.start_allowed && !managedBlocked && (Boolean(ownClaim) || reasons.length === 0);
     return {
       ...schedule,
       start_allowed: allowed,
@@ -2372,8 +2458,12 @@ export class GameSession extends DurableObject<Env> {
       const position = (positions.get(item.gameId) ?? 0) + 1;
       positions.set(item.gameId, position);
       const interval = Number(availability.start_interval_minutes || 0) * 60_000;
-      let base = Date.parse(String(availability.next_start_at || ""));
-      if (!Number.isFinite(base) && event.status === "open") {
+      const automaticStartsEnabled = event.status === "open" && event.runtime.gameplay_enabled && event.runtime.launch_mode === "free";
+      let base = automaticStartsEnabled ? Date.parse(String(availability.next_start_at || "")) : Number.NaN;
+      if (
+        !Number.isFinite(base) &&
+        automaticStartsEnabled
+      ) {
         base = Math.max(now + 60_000, Date.parse(event.starts_at));
       }
       const planned = Number.isFinite(base) ? new Date(base + interval * (position - 1)).toISOString() : "";
@@ -2440,6 +2530,9 @@ export class GameSession extends DurableObject<Env> {
       const configuration = event?.games.find((game) => game.game_id === gameId);
       if (!event || !configuration?.queue_enabled) {
         return json({ error: "queue_disabled", message: "Fronta pro tuto hru není zapnutá." }, 409);
+      }
+      if (!event.runtime.gameplay_enabled || event.runtime.launch_mode !== "free") {
+        return json({ error: "queue_disabled", message: "Automatická fronta je dostupná jen při spuštěném volném režimu." }, 409);
       }
       if (!directory.startQueue[sessionId]) {
         directory.startQueue[sessionId] = {
@@ -2540,11 +2633,11 @@ export class GameSession extends DurableObject<Env> {
     const startQueue = await this.publicStartQueue(event, directory, gameDurationMinutes);
     return {
       online_mode: false,
-      gameplay_enabled: true,
-      display_leaderboard: true,
+      gameplay_enabled: event?.runtime.gameplay_enabled ?? true,
+      display_leaderboard: event?.runtime.display_leaderboard ?? true,
       leaderboard_finalized: Boolean(event?.leaderboard_finalized),
       max_active_teams: 4,
-      launch_mode: "free",
+      launch_mode: event?.runtime.launch_mode ?? "free",
       start_interval_minutes: 15,
       soft_start_interval_minutes: 15,
       hard_start_interval_minutes: 5,
@@ -2563,7 +2656,7 @@ export class GameSession extends DurableObject<Env> {
       availability_by_lobby_type: availability
         ? { online_doom: availability, on_site_qr: availability, geo: availability }
         : {},
-      display_announcements: [],
+      display_announcements: event?.runtime.display_announcements ?? [],
       mapillary: { enabled: false, access_token: "" },
       event: event ?? {},
     };
@@ -2611,6 +2704,123 @@ export class GameSession extends DurableObject<Env> {
     await this.broadcastRuntimeSettings(settings, directory);
     await this.scheduleStartQueueAlarm(Array.isArray(settings.start_queue) ? settings.start_queue as Array<Record<string, unknown>> : []);
     return json({ changed, active_event_id: event?.id ?? "", event: event ?? {} });
+  }
+
+  private async updateActiveEventRuntime(payload: Record<string, unknown>): Promise<Response> {
+    const directory = normalizeDirectory(await this.ctx.storage.get<DirectorySnapshot>(DIRECTORY_KEY));
+    if (!directory.activeEventId) return json({ error: "active_event_required" }, 409);
+    const response = await this.runtimeEnv.EVENTS.getByName(directory.activeEventId).fetch(
+      "https://internal/internal/event/runtime",
+      {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json", "X-EscapeBot-Internal-Admin": "1" },
+        body: JSON.stringify(payload),
+      },
+    );
+    const result = await response.json<Record<string, unknown>>();
+    if (!response.ok) return json(result, response.status);
+    const event = objectRecord(result.event) as unknown as EventSnapshot;
+    const runtimePayload = objectRecord(payload.runtime ?? payload);
+    const stopping = Object.hasOwn(runtimePayload, "gameplay_enabled") && runtimePayload.gameplay_enabled === false;
+    if (stopping) {
+      directory.startClaims = {};
+      await this.ctx.storage.put(DIRECTORY_KEY, directory);
+      const operationId = cleanText(payload.operation_id, 128);
+      const sessionIds = [...new Set([
+        ...Object.values(directory.teamKeys),
+        ...Object.values(directory.creatorKeys),
+        ...Object.values(directory.joinCodes),
+      ])].filter((sessionId) => SESSION_ID_PATTERN.test(sessionId));
+      await Promise.allSettled(sessionIds.map(async (sessionId) => {
+        const stopped = await this.runtimeEnv.GAME_SESSIONS.getByName(sessionId).fetch(
+          "https://internal/internal/admin/operations",
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json", "X-EscapeBot-Internal-Admin": "1" },
+            body: JSON.stringify({ operation_id: operationId }),
+          },
+        );
+        await stopped.text();
+      }));
+    }
+    const settings = await this.runtimeSettingsPayload();
+    await this.broadcastRuntimeSettings(settings, directory);
+    await this.scheduleStartQueueAlarm(Array.isArray(settings.start_queue) ? settings.start_queue as Array<Record<string, unknown>> : []);
+    return json({ ...result, event });
+  }
+
+  private async startManagedSession(payload: Record<string, unknown>): Promise<Response> {
+    const sessionId = cleanText(payload.session_id, 128);
+    if (!SESSION_ID_PATTERN.test(sessionId)) return json({ error: "invalid_session_id" }, 400);
+    const directory = normalizeDirectory(await this.ctx.storage.get<DirectorySnapshot>(DIRECTORY_KEY));
+    const knownSessionIds = new Set([
+      ...Object.values(directory.teamKeys),
+      ...Object.values(directory.creatorKeys),
+      ...Object.values(directory.joinCodes),
+    ]);
+    if (!knownSessionIds.has(sessionId)) return json({ error: "session_not_found" }, 404);
+    let event: EventSnapshot | null;
+    try {
+      event = await this.loadActiveEvent(true);
+    } catch {
+      return json({ error: "active_event_unavailable" }, 503);
+    }
+    if (!event) return json({ error: "active_event_required" }, 409);
+    if (!event.runtime.gameplay_enabled) return json({ error: "gameplay_stopped", message: "Herní provoz je zastaven." }, 409);
+    if (event.runtime.launch_mode !== "managed") {
+      return json({ error: "managed_mode_required", message: "Event není v řízeném režimu." }, 409);
+    }
+    const target = this.runtimeEnv.GAME_SESSIONS.getByName(sessionId);
+    const snapshotResponse = await target.fetch(
+      "https://internal/internal/admin/snapshot",
+      { headers: { "X-EscapeBot-Internal-Admin": "1" } },
+    );
+    const snapshot = await snapshotResponse.json<Record<string, unknown>>();
+    if (!snapshotResponse.ok) return json(snapshot, snapshotResponse.status);
+    if (snapshot.started) return json({ changed: false, started: true, session_id: sessionId });
+    if (Number(snapshot.registered_players || 0) < 1) return json({ error: "team_empty" }, 409);
+    const gameId = cleanText(snapshot.scenario_id, 64);
+    const duration = boundedInteger(this.runtimeEnv.GAME_DURATION_MINUTES, 165, 15, 720);
+    for (const [claimedSessionId, claim] of Object.entries(directory.startClaims)) {
+      if (!Number.isFinite(Date.parse(claim.expiresAt)) || Date.parse(claim.expiresAt) <= Date.now()) {
+        delete directory.startClaims[claimedSessionId];
+      }
+    }
+    const availability = await this.eventGameAvailability(event, directory, gameId, duration, sessionId, true);
+    if (availability.start_allowed !== true) {
+      return json({ error: "start_not_allowed", ...availability }, 409);
+    }
+    const claimedAt = new Date();
+    directory.startClaims[sessionId] = {
+      gameId,
+      claimedAt: claimedAt.toISOString(),
+      expiresAt: new Date(Math.min(
+        claimedAt.valueOf() + duration * 60_000,
+        Date.parse(String(availability.closing_at)),
+      )).toISOString(),
+    };
+    directory.lastGameStarts[gameId] = claimedAt.toISOString();
+    const queued = directory.startQueue[sessionId];
+    delete directory.startQueue[sessionId];
+    await this.ctx.storage.put(DIRECTORY_KEY, directory);
+    const started = await target.fetch(
+      "https://internal/internal/lobby/auto-start",
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-EscapeBot-Internal-Directory": "1" },
+        body: JSON.stringify({ closing_at: availability.closing_at }),
+      },
+    );
+    const result = await started.json<Record<string, unknown>>();
+    if (!started.ok) {
+      delete directory.startClaims[sessionId];
+      if (queued) directory.startQueue[sessionId] = queued;
+      await this.ctx.storage.put(DIRECTORY_KEY, directory);
+      return json(result, started.status);
+    }
+    const settings = await this.runtimeSettingsPayload();
+    await this.broadcastRuntimeSettings(settings, directory);
+    return json({ ...result, session_id: sessionId });
   }
 
   webSocketClose(socket: WebSocket, code: number, reason: string): void {
@@ -3027,6 +3237,42 @@ export default {
       return env.GAME_SESSIONS.getByName(DIRECTORY_OBJECT_NAME).fetch(
         "https://internal/internal/admin/overview",
         { headers: { "X-EscapeBot-Internal-Admin": "1" } },
+      );
+    }
+    if (url.pathname === "/api/admin/events/active/runtime" && request.method === "PATCH") {
+      const unauthorized = await authorizeAdmin(request, env);
+      if (unauthorized) return unauthorized;
+      let payload: Record<string, unknown>;
+      try {
+        payload = await request.json<Record<string, unknown>>();
+      } catch {
+        return json({ error: "invalid_json" }, 400);
+      }
+      return env.GAME_SESSIONS.getByName(DIRECTORY_OBJECT_NAME).fetch(
+        "https://internal/internal/admin/event-runtime",
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json", "X-EscapeBot-Internal-Admin": "1" },
+          body: JSON.stringify(payload),
+        },
+      );
+    }
+    if (url.pathname === "/api/admin/events/active/start" && request.method === "POST") {
+      const unauthorized = await authorizeAdmin(request, env);
+      if (unauthorized) return unauthorized;
+      let payload: Record<string, unknown>;
+      try {
+        payload = await request.json<Record<string, unknown>>();
+      } catch {
+        return json({ error: "invalid_json" }, 400);
+      }
+      return env.GAME_SESSIONS.getByName(DIRECTORY_OBJECT_NAME).fetch(
+        "https://internal/internal/admin/managed-start",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "X-EscapeBot-Internal-Admin": "1" },
+          body: JSON.stringify(payload),
+        },
       );
     }
     if (url.pathname === "/api/admin/events/active" && new Set(["GET", "DELETE"]).has(request.method)) {

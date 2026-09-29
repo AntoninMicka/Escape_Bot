@@ -40,6 +40,10 @@ test("Static Assets build is minimal, fingerprinted and internally complete", as
   assert.match(index, /fetch\('\/api\/admin\/terminal-reserve'/);
   assert.match(index, /fetch\(`\/api\/admin\/events\/\$\{encodeURIComponent\(eventId\)\}`/);
   assert.match(index, /fetch\('\/api\/admin\/events\/active'/);
+  assert.match(index, /fetch\('\/api\/admin\/events\/active\/runtime'/);
+  assert.match(index, /fetch\('\/api\/admin\/events\/active\/start'/);
+  assert.match(index, /launchMode = msg\.payload\.launch_mode === 'managed'/);
+  assert.match(index, /onclick="toggleDisplayLeaderboard\(\)"/);
   assert.match(index, /\/api\/admin\/sessions\/\$\{encodeURIComponent\(sessionId\)\}\/support/);
   assert.match(index, /\/api\/admin\/sessions\/\$\{encodeURIComponent\(adminSpectatingSession\)\}\/spectate\?player_id=/);
   assert.match(index, /ZOBRAZIT HRÁČE/);

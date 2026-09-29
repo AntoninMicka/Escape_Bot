@@ -6,6 +6,9 @@ interface EventCoordinatorEnv {
 
 type EventStatus = "draft" | "ready" | "open" | "paused" | "ended" | "archived";
 type EventGameRole = "primary" | "competitive" | "side";
+type EventLaunchMode = "free" | "managed";
+type AnnouncementPriority = "emergency" | "high" | "normal" | "low";
+type AnnouncementCategory = "organization" | "lost_found" | "refreshment" | "results" | "important";
 
 interface EventGameConfiguration {
   game_id: string;
@@ -24,8 +27,32 @@ export interface EventDailyWindow {
   closes_at: string;
 }
 
+export interface EventAnnouncement {
+  id: string;
+  text: string;
+  priority: AnnouncementPriority;
+  category: AnnouncementCategory;
+  published: boolean;
+  starts_at: string;
+  ends_at: string;
+  link_url: string;
+  link_label: string;
+  override_minutes: number;
+  override_until: string;
+  fallback_priority: Exclude<AnnouncementPriority, "emergency">;
+  event_id: string;
+  game_id: string;
+}
+
+export interface EventRuntimeSettings {
+  gameplay_enabled: boolean;
+  launch_mode: EventLaunchMode;
+  display_leaderboard: boolean;
+  display_announcements: EventAnnouncement[];
+}
+
 export interface EventSnapshot {
-  schema_version: 2;
+  schema_version: 3;
   id: string;
   revision: number;
   name: string;
@@ -42,6 +69,7 @@ export interface EventSnapshot {
     logo_url: string;
     accent_color: string;
   };
+  runtime: EventRuntimeSettings;
   leaderboard_finalized: boolean;
   leaderboard_finalized_at: string;
   created_at: string;
@@ -67,9 +95,86 @@ export const EVENT_ID_PATTERN = /^[A-Za-z0-9_-]{1,64}$/;
 const OPERATION_ID_PATTERN = /^[A-Za-z0-9._:-]{1,128}$/;
 const EVENT_STATUSES = new Set<EventStatus>(["draft", "ready", "open", "paused", "ended", "archived"]);
 const EVENT_GAME_ROLES = new Set<EventGameRole>(["primary", "competitive", "side"]);
+const ANNOUNCEMENT_PRIORITIES = new Set<AnnouncementPriority>(["emergency", "high", "normal", "low"]);
+const ANNOUNCEMENT_CATEGORIES = new Set<AnnouncementCategory>(["organization", "lost_found", "refreshment", "results", "important"]);
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 const TIME_PATTERN = /^(?:[01]\d|2[0-3]):[0-5]\d$/;
 const MAX_EVENT_DAYS = 370;
+
+function defaultRuntimeSettings(): EventRuntimeSettings {
+  return {
+    gameplay_enabled: true,
+    launch_mode: "free",
+    display_leaderboard: true,
+    display_announcements: [],
+  };
+}
+
+function optionalTimestamp(value: unknown, label: string, timezone: string): string {
+  const timestamp = String(value ?? "").trim();
+  if (!timestamp) return "";
+  const local = timestamp.match(/^(\d{4}-\d{2}-\d{2})T((?:[01]\d|2[0-3]):[0-5]\d)$/);
+  if (local) return new Date(zonedLocalTimestamp(local[1], local[2], timezone)).toISOString();
+  const parsed = Date.parse(timestamp);
+  if (!Number.isFinite(parsed)) throw new Error(`${label} musí být platný čas.`);
+  return new Date(parsed).toISOString();
+}
+
+function normalizeAnnouncements(value: unknown, event: EventSnapshot): EventAnnouncement[] {
+  if (!Array.isArray(value)) throw new Error("Oznámení musí být seznam položek.");
+  if (value.length > 20) throw new Error("Lze uložit nejvýše 20 oznámení.");
+  return value.map((rawValue) => {
+    const raw = rawValue && typeof rawValue === "object" && !Array.isArray(rawValue)
+      ? rawValue as Record<string, unknown>
+      : {};
+    const text = String(raw.text ?? "").trim().slice(0, 501);
+    if (!text || text.length > 500) throw new Error("Každé oznámení musí obsahovat nejvýše 500 znaků.");
+    const priority = cleanText(raw.priority || "normal", 16) as AnnouncementPriority;
+    if (!ANNOUNCEMENT_PRIORITIES.has(priority)) throw new Error("Oznámení má neplatnou prioritu.");
+    const category = cleanText(raw.category || "organization", 32) as AnnouncementCategory;
+    if (!ANNOUNCEMENT_CATEGORIES.has(category)) throw new Error("Oznámení má neplatnou kategorii.");
+    const fallback = cleanText(raw.fallback_priority || "high", 16) as Exclude<AnnouncementPriority, "emergency">;
+    if (!new Set(["high", "normal", "low"]).has(fallback)) throw new Error("Náhradní priorita oznámení není platná.");
+    const eventId = cleanText(raw.event_id, 64);
+    const gameId = cleanText(raw.game_id, 64);
+    if (gameId && !eventId) throw new Error("Oznámení konkrétní hry musí patřit eventu.");
+    if (eventId && eventId !== event.id) throw new Error("Oznámení odkazuje na jiný než aktivní event.");
+    if (gameId && !event.scenario_ids.includes(gameId)) throw new Error("Oznámení odkazuje na hru mimo aktivní event.");
+    const linkUrl = String(raw.link_url ?? "").trim().slice(0, 501);
+    if (linkUrl.length > 500 || (linkUrl && !/^(?:https?:\/\/|\/)/i.test(linkUrl))) {
+      throw new Error("Odkaz oznámení musí být bezpečná HTTP(S) nebo lokální adresa.");
+    }
+    const linkLabel = String(raw.link_label || "Více informací").trim().slice(0, 81);
+    if (linkLabel.length > 80) throw new Error("Text odkazu oznámení je příliš dlouhý.");
+    const overrideMinutes = boundedNumber(raw.override_minutes, 0, 0, 1440);
+    let overrideUntil = optionalTimestamp(raw.override_until, "Konec nouzového překrytí", event.timezone);
+    if (priority === "emergency" && overrideMinutes && !overrideUntil) {
+      overrideUntil = new Date(Date.now() + overrideMinutes * 60_000).toISOString();
+    }
+    if (priority !== "emergency") overrideUntil = "";
+    const startsAt = optionalTimestamp(raw.starts_at, "Začátek oznámení", event.timezone);
+    const endsAt = optionalTimestamp(raw.ends_at, "Konec oznámení", event.timezone);
+    if (startsAt && endsAt && Date.parse(startsAt) >= Date.parse(endsAt)) {
+      throw new Error("Konec oznámení musí následovat po jeho začátku.");
+    }
+    return {
+      id: cleanText(raw.id, 64) || crypto.randomUUID(),
+      text,
+      priority,
+      category,
+      published: raw.published !== false,
+      starts_at: startsAt,
+      ends_at: endsAt,
+      link_url: linkUrl,
+      link_label: linkLabel || "Více informací",
+      override_minutes: overrideMinutes,
+      override_until: overrideUntil,
+      fallback_priority: fallback,
+      event_id: eventId,
+      game_id: gameId,
+    };
+  });
+}
 
 function json(data: unknown, status = 200): Response {
   const response = Response.json(data, { status });
@@ -179,6 +284,9 @@ export function eventStartAvailability(
   if (!Number.isFinite(now)) return fallback;
   const eventStart = Date.parse(event.starts_at);
   const eventEnd = Date.parse(event.ends_at);
+  if (!event.runtime.gameplay_enabled) {
+    return { ...fallback, start_allowed: false, reason: "Herní provoz je zastaven správcem." };
+  }
   if (event.status !== "open") {
     return { ...fallback, start_allowed: false, reason: `Event není otevřený (stav: ${event.status}).` };
   }
@@ -302,7 +410,12 @@ export class EventCoordinator extends DurableObject<EventCoordinatorEnv> {
           dailyWindows = [];
         }
       }
-      this.snapshot = { ...stored, schema_version: 2, daily_windows: dailyWindows };
+      this.snapshot = {
+        ...stored,
+        schema_version: 3,
+        daily_windows: dailyWindows,
+        runtime: { ...defaultRuntimeSettings(), ...(stored.runtime ?? {}) },
+      };
     });
   }
 
@@ -324,6 +437,15 @@ export class EventCoordinator extends DurableObject<EventCoordinatorEnv> {
         return json({ error: "invalid_json" }, 400);
       }
       return this.serializeUpdate(() => this.updateEvent(payload));
+    }
+    if (url.pathname === "/internal/event/runtime" && request.method === "PATCH") {
+      let payload: Record<string, unknown>;
+      try {
+        payload = await request.json<Record<string, unknown>>();
+      } catch {
+        return json({ error: "invalid_json" }, 400);
+      }
+      return this.serializeUpdate(() => this.updateRuntime(payload));
     }
     return json({ error: "not_found" }, 404);
   }
@@ -373,7 +495,7 @@ export class EventCoordinator extends DurableObject<EventCoordinatorEnv> {
     }
     const now = new Date().toISOString();
     this.snapshot = {
-      schema_version: 2,
+      schema_version: 3,
       revision: (this.snapshot?.revision ?? 0) + 1,
       created_at: this.snapshot?.created_at ?? now,
       updated_at: now,
@@ -382,6 +504,62 @@ export class EventCoordinator extends DurableObject<EventCoordinatorEnv> {
     };
     await this.ctx.storage.put(EVENT_SNAPSHOT_KEY, this.snapshot);
     return json({ changed: true, event: publicSnapshot(this.snapshot) });
+  }
+
+  private async updateRuntime(payload: Record<string, unknown>): Promise<Response> {
+    if (!this.snapshot) return json({ error: "event_not_found" }, 404);
+    const operationId = cleanText(payload.operation_id, 128);
+    if (!OPERATION_ID_PATTERN.test(operationId)) return json({ error: "invalid_operation_id" }, 400);
+    if (this.snapshot.applied_operations.includes(operationId)) {
+      return json({ changed: false, event: publicSnapshot(this.snapshot) });
+    }
+    const expectedRevision = payload.expected_revision;
+    if (
+      expectedRevision !== undefined &&
+      (!Number.isInteger(expectedRevision) || Number(expectedRevision) !== this.snapshot.revision)
+    ) {
+      return json({
+        error: "revision_conflict",
+        expected_revision: expectedRevision,
+        current_revision: this.snapshot.revision,
+      }, 409);
+    }
+    const supplied = payload.runtime && typeof payload.runtime === "object" && !Array.isArray(payload.runtime)
+      ? payload.runtime as Record<string, unknown>
+      : payload;
+    const runtime = { ...this.snapshot.runtime };
+    try {
+      if (Object.hasOwn(supplied, "gameplay_enabled")) {
+        if (typeof supplied.gameplay_enabled !== "boolean") throw new Error("Stav herního provozu musí být ano/ne.");
+        runtime.gameplay_enabled = supplied.gameplay_enabled;
+      }
+      if (Object.hasOwn(supplied, "display_leaderboard")) {
+        if (typeof supplied.display_leaderboard !== "boolean") throw new Error("Viditelnost žebříčku musí být ano/ne.");
+        runtime.display_leaderboard = supplied.display_leaderboard;
+      }
+      if (Object.hasOwn(supplied, "launch_mode")) {
+        const launchMode = cleanText(supplied.launch_mode, 16) as EventLaunchMode;
+        if (!new Set<EventLaunchMode>(["free", "managed"]).has(launchMode)) {
+          throw new Error("Neznámý režim spouštění.");
+        }
+        runtime.launch_mode = launchMode;
+      }
+      if (Object.hasOwn(supplied, "display_announcements")) {
+        runtime.display_announcements = normalizeAnnouncements(supplied.display_announcements, this.snapshot);
+      }
+    } catch (error) {
+      return json({ error: "invalid_runtime_settings", message: error instanceof Error ? error.message : "Runtime nastavení není platné." }, 400);
+    }
+    const changed = JSON.stringify(runtime) !== JSON.stringify(this.snapshot.runtime);
+    this.snapshot = {
+      ...this.snapshot,
+      revision: changed ? this.snapshot.revision + 1 : this.snapshot.revision,
+      updated_at: changed ? new Date().toISOString() : this.snapshot.updated_at,
+      runtime,
+      applied_operations: [...this.snapshot.applied_operations, operationId].slice(-500),
+    };
+    await this.ctx.storage.put(EVENT_SNAPSHOT_KEY, this.snapshot);
+    return json({ changed, event: publicSnapshot(this.snapshot) });
   }
 
   private async normalizeEvent(
@@ -452,6 +630,7 @@ export class EventCoordinator extends DurableObject<EventCoordinatorEnv> {
         logo_url: cleanText(payload.branding_logo_url, 500),
         accent_color: accentColor.toLowerCase(),
       },
+      runtime: sameEvent ? this.snapshot!.runtime : defaultRuntimeSettings(),
       leaderboard_finalized: sameEvent ? Boolean(this.snapshot?.leaderboard_finalized) : false,
       leaderboard_finalized_at: sameEvent ? String(this.snapshot?.leaderboard_finalized_at || "") : "",
     };

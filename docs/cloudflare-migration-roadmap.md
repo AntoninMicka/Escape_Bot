@@ -210,7 +210,7 @@ Akceptace:
 
 **Odhad: 6–9 pracovních dnů**
 
-**Stav: šestá vertikální část lokálně implementována.** Každé `event_id` se
+**Stav: sedmá vertikální část lokálně implementována.** Každé `event_id` se
 směruje do samostatného SQLite-backed `EventCoordinator` Durable Objectu.
 Autorizované HTTP API načte nebo uloží validovanou konfiguraci eventu,
 `operation_id` brání opakovanému zápisu a `expected_revision` chrání novější
@@ -228,12 +228,18 @@ zobrazenou nedostupnost proto nelze obejít přímou WebSocket zprávou.
 Startovní brána nyní atomicky započítává rozehrané týmy i souběžné rezervace a
 pro každou hru vynucuje její kapacitu a minimální rozestup startů. Perzistentní
 fronta přežije hibernaci, promítá plánované časy všem klientům a alarmem
-automaticky spustí první způsobilý tým. Oznámení a další runtime přepínače ještě
-zbývají. Cloudový admin nyní směruje idempotentní zprávy podpory přímo do
+automaticky spustí první způsobilý tým. Cloudový admin nyní směruje
+idempotentní zprávy podpory přímo do
 zvolené `GameSession`, která je uloží před doručením týmu. Read-only spectator
 náhled lze otevřít pro libovolného registrovaného hráče týmu, včetně offline
 hráče; privátní stav se prezentuje jeho perspektivou bez přihlášení nebo
 převzetí jeho identity.
+Runtime eventu nyní perzistentně ukládá povolení herního provozu, volný nebo
+řízený režim startů, viditelnost pořadí a validovaná oznámení nástěnky. Změny
+jsou revizně chráněné a okamžitě se vysílají klientům. Řízený režim nelze obejít
+hráčským WebSocket příkazem; správce může spustit připravené lobby. Globální stop
+zruší aktivní startovní rezervace a idempotentně ukončí rozehrané relace.
+Z runtime části tohoto bodu tak zbývá finalizace výsledků.
 
 1. Vytvořit jeden `EventCoordinator` Durable Object pro každý event.
 2. Přesunout runtime nastavení, startovní frontu, oznámení, globální stop,

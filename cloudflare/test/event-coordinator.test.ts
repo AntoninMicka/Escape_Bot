@@ -1,4 +1,4 @@
-import { env, evictDurableObject, runDurableObjectAlarm, SELF } from "cloudflare:test";
+import { env, evictDurableObject, runDurableObjectAlarm, runInDurableObject, SELF } from "cloudflare:test";
 import { describe, expect, it } from "vitest";
 import { eventStartAvailability, type EventSnapshot } from "../src/event-coordinator";
 
@@ -107,6 +107,14 @@ async function putEvent(eventId: string, payload: Record<string, unknown>): Prom
   });
 }
 
+async function patchActiveRuntime(payload: Record<string, unknown>): Promise<Response> {
+  return SELF.fetch("https://example.test/api/admin/events/active/runtime", {
+    method: "PATCH",
+    headers: { ...authorization, "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+}
+
 describe("EventCoordinator Durable Object", () => {
   it("persists an idempotent event update and rejects stale revisions", async () => {
     const unauthorized = await SELF.fetch("https://example.test/api/admin/events/autumn-2026");
@@ -128,7 +136,7 @@ describe("EventCoordinator Durable Object", () => {
     expect(createdPayload).toMatchObject({
       changed: true,
       event: {
-        schema_version: 2,
+        schema_version: 3,
         id: "autumn-2026",
         revision: 1,
         name: "Podzimní setkání",
@@ -139,6 +147,12 @@ describe("EventCoordinator Durable Object", () => {
         scenario_ids: ["hotel_kraskov", "chronos_online"],
         branding: { title: "Chronos 2026", accent_color: "#65f7ff" },
         leaderboard_finalized: false,
+        runtime: {
+          gameplay_enabled: true,
+          launch_mode: "free",
+          display_leaderboard: true,
+          display_announcements: [],
+        },
       },
     });
     expect(createdPayload.event).not.toHaveProperty("applied_operations");
@@ -220,6 +234,233 @@ describe("EventCoordinator Durable Object", () => {
     expect(await secondSnapshot.json()).toMatchObject({ id: "event-beta", name: "Event Beta", status: "paused" });
   });
 
+  it("upgrades a stored schema v2 event with safe runtime defaults", async () => {
+    const eventId = "legacy-runtime-event";
+    const created = await putEvent(eventId, eventConfiguration({ operation_id: "legacy-runtime-create", activate: false }));
+    expect(created.status).toBe(200);
+    await created.json();
+    const stub = env.EVENTS.getByName(eventId);
+    await runInDurableObject(stub, async (_instance, state) => {
+      const stored = await state.storage.get<Record<string, any>>("event-snapshot");
+      expect(stored).toBeDefined();
+      delete stored!.runtime;
+      stored!.schema_version = 2;
+      await state.storage.put("event-snapshot", stored);
+    });
+    await evictDurableObject(stub);
+    const restored = await SELF.fetch(`https://example.test/api/admin/events/${eventId}`, { headers: authorization });
+    expect(restored.status).toBe(200);
+    expect(await restored.json()).toMatchObject({
+      schema_version: 3,
+      runtime: {
+        gameplay_enabled: true,
+        launch_mode: "free",
+        display_leaderboard: true,
+        display_announcements: [],
+      },
+    });
+  });
+
+  it("persists event runtime controls and broadcasts validated announcements", async () => {
+    await (await SELF.fetch("https://example.test/api/admin/events/active", {
+      method: "DELETE",
+      headers: authorization,
+    })).json();
+    const observer = await openBootstrap("runtime-controls-observer");
+    await nextMessage(observer, "runtime.settings");
+    const activated = nextMessage(observer, "runtime.settings");
+    const created = await putEvent("runtime-controls-event", eventConfiguration({
+      operation_id: "runtime-controls-create",
+    }));
+    expect(created.status).toBe(200);
+    await created.json();
+    await activated;
+
+    const update = nextMessage(observer, "runtime.settings");
+    const patched = await patchActiveRuntime({
+      operation_id: "runtime-controls-patch",
+      expected_revision: 1,
+      runtime: {
+        launch_mode: "managed",
+        display_leaderboard: false,
+        display_announcements: [{
+          text: "Registrace týmů končí v 17:30.",
+          priority: "high",
+          category: "organization",
+          published: true,
+          event_id: "runtime-controls-event",
+          starts_at: "2026-10-10T12:00",
+          ends_at: "2026-10-10T13:00",
+          link_url: "/pravidla",
+          link_label: "Pravidla",
+        }],
+      },
+    });
+    expect(patched.status).toBe(200);
+    const patchedPayload = await patched.json<Record<string, any>>();
+    expect(patchedPayload).toMatchObject({
+      changed: true,
+      event: {
+        revision: 2,
+        runtime: {
+          gameplay_enabled: true,
+          launch_mode: "managed",
+          display_leaderboard: false,
+          display_announcements: [expect.objectContaining({
+            text: "Registrace týmů končí v 17:30.",
+            priority: "high",
+            event_id: "runtime-controls-event",
+            starts_at: "2026-10-10T10:00:00.000Z",
+            ends_at: "2026-10-10T11:00:00.000Z",
+            link_url: "/pravidla",
+          })],
+        },
+      },
+    });
+    expect((await update).payload).toMatchObject({
+      gameplay_enabled: true,
+      launch_mode: "managed",
+      display_leaderboard: false,
+      display_announcements: [expect.objectContaining({ text: "Registrace týmů končí v 17:30." })],
+    });
+
+    const invalid = await patchActiveRuntime({
+      operation_id: "runtime-controls-invalid-link",
+      expected_revision: 2,
+      runtime: { display_announcements: [{ text: "Nebezpečný odkaz", link_url: "javascript:alert(1)" }] },
+    });
+    expect(invalid.status).toBe(400);
+    expect(await invalid.json()).toMatchObject({ error: "invalid_runtime_settings" });
+
+    const invalidBoolean = await patchActiveRuntime({
+      operation_id: "runtime-controls-invalid-boolean",
+      expected_revision: 2,
+      runtime: { display_leaderboard: "false" },
+    });
+    expect(invalidBoolean.status).toBe(400);
+    expect(await invalidBoolean.json()).toMatchObject({ error: "invalid_runtime_settings" });
+
+    await closeSocket(observer);
+    await evictDurableObject(env.EVENTS.getByName("runtime-controls-event"));
+    await evictDurableObject(env.GAME_SESSIONS.getByName("__escape_bot_lobby_directory__"));
+    const restored = await openBootstrap("runtime-controls-restored");
+    expect((await nextMessage(restored, "runtime.settings")).payload).toMatchObject({
+      launch_mode: "managed",
+      display_leaderboard: false,
+      display_announcements: [expect.objectContaining({ text: "Registrace týmů končí v 17:30." })],
+    });
+    await closeSocket(restored);
+    await (await SELF.fetch("https://example.test/api/admin/events/active", {
+      method: "DELETE",
+      headers: authorization,
+    })).json();
+  });
+
+  it("blocks player starts in managed mode, allows an admin start, and globally stops active games", async () => {
+    const now = new Date();
+    const offset = 12 - now.getUTCHours();
+    const timezone = offset === 0 ? "UTC" : `Etc/GMT${offset > 0 ? `-${offset}` : `+${Math.abs(offset)}`}`;
+    const date = dateInZone(now, timezone);
+    const created = await putEvent("managed-runtime-event", eventConfiguration({
+      starts_at: new Date(now.valueOf() - 60 * 60_000).toISOString(),
+      ends_at: new Date(now.valueOf() + 6 * 60 * 60_000).toISOString(),
+      status: "open",
+      timezone,
+      daily_windows: [{ date, enabled: true, opens_at: "00:00", closes_at: "23:59" }],
+      games: [{
+        game_id: "hotel_kraskov",
+        role: "primary",
+        queue_enabled: true,
+        leaderboard_enabled: true,
+        weight: 1,
+        start_interval_minutes: 0,
+        max_active_teams: 4,
+      }],
+      operation_id: "managed-runtime-create",
+    }));
+    expect(created.status).toBe(200);
+    await created.json();
+
+    const bootstrap = await openBootstrap("managed-runtime-captain");
+    const route = nextMessage(bootstrap, "lobby.route");
+    bootstrap.send(JSON.stringify({
+      type: "lobby.create",
+      payload: {
+        client_id: "managed-runtime-captain",
+        name: "Alice",
+        team_name: "Řízený tým",
+        lobby_type: "on_site_qr",
+        scenario_id: "hotel_kraskov",
+      },
+    }));
+    const sessionId = String((await route).payload.session_id);
+    const session = await openSession(sessionId, "managed-runtime-captain");
+
+    const managedSettings = nextMessage(session, "runtime.settings");
+    const managed = await patchActiveRuntime({
+      operation_id: "managed-runtime-enable",
+      expected_revision: 1,
+      runtime: { launch_mode: "managed" },
+    });
+    expect(managed.status).toBe(200);
+    expect((await managedSettings).payload.launch_mode).toBe("managed");
+
+    const rejected = nextMessage(session, "lobby.error");
+    session.send(JSON.stringify({ type: "lobby.start", payload: {} }));
+    expect(String((await rejected).payload.message)).toContain("řízeném režimu");
+
+    const startedState = nextMessage(session, "lobby.state");
+    const startedSettings = nextMessage(session, "runtime.settings");
+    const adminStart = await SELF.fetch("https://example.test/api/admin/events/active/start", {
+      method: "POST",
+      headers: { ...authorization, "Content-Type": "application/json" },
+      body: JSON.stringify({ session_id: sessionId }),
+    });
+    expect(adminStart.status).toBe(200);
+    expect(await adminStart.json()).toMatchObject({ changed: true, started: true, session_id: sessionId });
+    expect((await startedState).payload.started).toBe(true);
+    expect((await startedSettings).payload).toMatchObject({ gameplay_enabled: true, launch_mode: "managed" });
+
+    const stoppedNotice = nextMessage(session, "operations.stopped");
+    const stoppedSettings = nextMessage(session, "runtime.settings");
+    const stopped = await patchActiveRuntime({
+      operation_id: "managed-runtime-stop",
+      expected_revision: 2,
+      runtime: { gameplay_enabled: false },
+    });
+    expect(stopped.status).toBe(200);
+    expect((await stoppedNotice).payload.message).toContain("ukončen Game Masterem");
+    expect((await stoppedSettings).payload.gameplay_enabled).toBe(false);
+    const snapshot = await env.GAME_SESSIONS.getByName(sessionId).fetch(
+      "https://internal/internal/admin/snapshot",
+      { headers: { "X-EscapeBot-Internal-Admin": "1" } },
+    );
+    expect(await snapshot.json()).toMatchObject({ administratively_ended: true, end_reason: "manual" });
+    await runInDurableObject(env.GAME_SESSIONS.getByName(sessionId), async (_instance, state) => {
+      expect(await state.storage.getAlarm()).toBeNull();
+    });
+
+    const blockedBootstrap = await openBootstrap("managed-runtime-new-player");
+    const blocked = nextMessage(blockedBootstrap, "lobby.error");
+    blockedBootstrap.send(JSON.stringify({
+      type: "lobby.solo",
+      payload: {
+        client_id: "managed-runtime-new-player",
+        name: "Bob",
+        team_name: "Pozdní tým",
+        lobby_type: "on_site_qr",
+        scenario_id: "hotel_kraskov",
+      },
+    }));
+    expect(String((await blocked).payload.message)).toContain("zastaven správcem");
+
+    await Promise.all([closeSocket(bootstrap), closeSocket(session), closeSocket(blockedBootstrap)]);
+    await (await SELF.fetch("https://example.test/api/admin/events/active", {
+      method: "DELETE",
+      headers: authorization,
+    })).json();
+  });
+
   it("rejects invalid event configuration before writing it", async () => {
     const invalid = await putEvent("invalid-event", eventConfiguration({
       operation_id: "invalid-create",
@@ -255,7 +496,7 @@ describe("EventCoordinator Durable Object", () => {
     const createdPayload = await created.json<Record<string, any>>();
     expect(createdPayload).toMatchObject({
       event: {
-        schema_version: 2,
+        schema_version: 3,
         starts_at: "2026-10-09T13:00:00.000Z",
         ends_at: "2026-10-11T10:00:00.000Z",
         daily_windows: dailyWindows,
