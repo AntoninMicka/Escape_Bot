@@ -370,7 +370,7 @@ export function applyAdminGamePlayerAction(
   currentState: GameStateDocument,
   puzzleIdValue: string,
   playerIdValue: string,
-  actionValue: "exclude" | "include",
+  actionValue: "exclude" | "include" | "reset",
   now: string,
   actorValue: RuntimeActor,
 ): AdminGamePlayerResult {
@@ -388,7 +388,7 @@ export function applyAdminGamePlayerAction(
   if (!new Set(["line_game", "triad"]).has(adapter)) {
     throw new Error("Tato minihra nepodporuje individuální správu.");
   }
-  if (!new Set(["exclude", "include"]).has(action)) {
+  if (!new Set(["exclude", "include", "reset"]).has(action)) {
     throw new Error("Neplatná administrační akce.");
   }
   const state = clone(currentState);
@@ -396,7 +396,7 @@ export function applyAdminGamePlayerAction(
   const excluded = Array.isArray(state.game_exclusions[puzzleId])
     ? state.game_exclusions[puzzleId].map(String)
     : [];
-  const changed = action === "exclude" ? !excluded.includes(playerId) : excluded.includes(playerId);
+  const changed = action === "reset" || (action === "exclude" ? !excluded.includes(playerId) : excluded.includes(playerId));
   if (!changed) {
     const result = {
       success: true,
@@ -419,7 +419,19 @@ export function applyAdminGamePlayerAction(
   }
   state.last_activity_at = now;
   if (action === "exclude") excluded.push(playerId);
-  else excluded.splice(excluded.indexOf(playerId), 1);
+  else if (action === "include") excluded.splice(excluded.indexOf(playerId), 1);
+  else {
+    const playerActor = { ...actor, clientId: playerId };
+    if (adapter === "line_game") {
+      resetLineGame(record(puzzle.game), ensureLineGame(state, puzzleId, record(puzzle.game), playerActor, now), now);
+    } else {
+      resetTriadGame(record(puzzle.game), ensureTriadGame(state, puzzleId, record(puzzle.game), playerActor, now), now);
+    }
+    state.game_results = record(state.game_results);
+    const results = record(state.game_results[puzzleId]);
+    delete results[playerId];
+    state.game_results[puzzleId] = results;
+  }
   state.game_exclusions[puzzleId] = excluded;
   const progress = adapter === "line_game"
     ? lineGameTeamProgress(state, puzzleId, record(puzzle.game), actor)
@@ -457,13 +469,15 @@ export function applyAdminGamePlayerAction(
     type: "admin_action",
     label: action === "exclude"
       ? `Game Master vyřadil hráče ${playerName} z minihry ${puzzleId}.`
-      : `Game Master vrátil hráče ${playerName} do minihry ${puzzleId}.`,
+      : action === "include"
+        ? `Game Master vrátil hráče ${playerName} do minihry ${puzzleId}.`
+        : `Game Master restartoval desku hráče ${playerName} v minihře ${puzzleId}.`,
     details: {
       action,
       puzzle_id: puzzleId,
       player_id: playerId,
-      previous_state: action === "exclude" ? "included" : "excluded",
-      new_state: action === "exclude" ? "excluded" : "included",
+      previous_state: action === "exclude" ? "included" : action === "include" ? "excluded" : "current_board",
+      new_state: action === "exclude" ? "excluded" : action === "include" ? "included" : "initial_board",
     },
   });
   state.event_history = history.slice(-500);

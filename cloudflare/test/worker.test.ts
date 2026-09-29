@@ -411,13 +411,53 @@ describe("Cloudflare spike router", () => {
     });
     expect(includeDuplicate.status).toBe(200);
     expect(await includeDuplicate.json()).toMatchObject({ changed: false, revision: 5 });
-    const exclusions = await runInDurableObject(stub, (instance) => {
+    await runInDurableObject(stub, async (instance, state) => {
       const target = instance as unknown as {
-        snapshot: { gameState: { game_exclusions: Record<string, string[]> } };
+        snapshot: { gameState: { game_results: Record<string, Record<string, unknown>> } };
       };
-      return target.snapshot.gameState.game_exclusions.timeline_lines;
+      target.snapshot.gameState.game_results.timeline_lines = { "offline-bob": { score_delta: 20 } };
+      await state.storage.put("session-snapshot", target.snapshot);
     });
-    expect(exclusions).toEqual([]);
+    const resetPayload = { ...payload, action: "reset", operation_id: "reset-offline-bob-001" };
+    const reset = await SELF.fetch("https://example.test/api/admin/game-player", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: "Bearer local-test-admin-token",
+      },
+      body: JSON.stringify(resetPayload),
+    });
+    expect(reset.status).toBe(200);
+    expect(await reset.json()).toMatchObject({ action: "reset", changed: true, revision: 6 });
+    const resetDuplicate = await SELF.fetch("https://example.test/api/admin/game-player", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: "Bearer local-test-admin-token",
+      },
+      body: JSON.stringify(resetPayload),
+    });
+    expect(resetDuplicate.status).toBe(200);
+    expect(await resetDuplicate.json()).toMatchObject({ action: "reset", changed: false, revision: 6 });
+    const playerState = await runInDurableObject(stub, (instance) => {
+      const target = instance as unknown as {
+        snapshot: {
+          gameState: {
+            game_exclusions: Record<string, string[]>;
+            game_results: Record<string, Record<string, unknown>>;
+            interactive_games: Record<string, { players: Record<string, Record<string, unknown>> }>;
+          };
+        };
+      };
+      return {
+        exclusions: target.snapshot.gameState.game_exclusions.timeline_lines,
+        results: target.snapshot.gameState.game_results.timeline_lines,
+        board: target.snapshot.gameState.interactive_games.timeline_lines.players["offline-bob"],
+      };
+    });
+    expect(playerState.exclusions).toEqual([]);
+    expect(playerState.results).toEqual({});
+    expect(playerState.board).toMatchObject({ swaps: 0, status: "playing" });
     await closeSocket(creator, "done");
   });
 
@@ -848,7 +888,7 @@ describe("Cloudflare spike router", () => {
     expect(overview.admin_capabilities).toEqual({
       checkpoint_states: ["found", "solved"],
       game_reset_adapters: ["line_game", "mine_karel", "triad", "sokoban"],
-      game_player_actions: ["exclude", "include"],
+      game_player_actions: ["exclude", "include", "reset"],
       terminal_reservation: true,
       scenario_play_modes: true,
       terminal_catalog: false,

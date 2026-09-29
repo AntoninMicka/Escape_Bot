@@ -335,11 +335,14 @@ musí mít hlavičku `Authorization: Bearer <ADMIN_TOKEN>` a JSON tělo:
 }
 ```
 
-Podporované akce jsou `exclude` a `include`. Opakování stejného `operation_id`
-ani požadavek na již platný stav změnu neprovede a vrátí `changed: false`.
-Zásah se zapíše do časové osy a server rozešle autoritativní stav. Obnova
-spoluhráčem zůstává dostupná příkazem `team_game.player.restore`; běžný herní
-WebSocket nemá správcovskou akci pro vyřazení.
+Podporované akce jsou `exclude`, `include` a `reset`. `reset` obnoví pouze desku
+zvoleného hráče a odstraní jeho individuální výsledek; stav spoluhráčů,
+checkpoint, skóre a případné vyřazení hráče zachová. Opakování stejného
+`operation_id` ani požadavek na již platné vyřazení či zařazení změnu neprovede
+a vrátí `changed: false`. Zásah se zapíše do časové osy a server rozešle
+autoritativní stav. Obnova spoluhráčem zůstává dostupná příkazem
+`team_game.player.restore`; běžný herní WebSocket nemá správcovskou akci pro
+vyřazení.
 
 ### `GET /api/admin/overview` (Cloudflare)
 

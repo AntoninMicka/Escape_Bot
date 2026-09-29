@@ -180,7 +180,8 @@ tokenu načte z lobby adresáře týmy, jejich hráče, online stav, skóre, pos
 stav podporovaných týmových miniher. Podle serverových `admin_capabilities` může
 Game Master auditovaně potvrdit nebo dokončit checkpoint s volitelným postihem
 a restartovat aktivní Kalibraci, Karla, Tři v řadě nebo Sokoban. U týmové
-Kalibrace a Tří v řadě může hráče vyřadit i znovu vrátit. Záložka Režimy hry
+Kalibrace a Tří v řadě může hráče vyřadit, znovu vrátit nebo restartovat pouze
+jeho vlastní desku bez změny checkpointu a spoluhráčů. Záložka Režimy hry
 ukládá atomicky způsob hraní všech hádanek (`phones`, `supplemental`,
 `exclusive`) a změnu okamžitě rozešle rozehraným relacím; opakovaný požadavek
 se stejným `operation_id` změnu znovu neprovede. Samostatný terminál se registruje v lobby

@@ -20,7 +20,7 @@ novou podobu autentizace administrátora.
 | 3 | Restart celé aktivní minihry | `admin.game_reset` pro Kalibraci, Karla, Tři v řadě a Sokoban | autorizovaný a idempotentní session endpoint | tlačítko podle adaptéru v `admin_capabilities` | **hotovo** |
 | 4 | Vyřadit hráče z týmové minihry | `admin.game_player: exclude` | autorizovaný `/api/admin/game-player`; jen Kalibrace a Tři v řadě | tlačítko je viditelné u podporovaných metrik | **hotovo**, ponechat jako regresní rozsah |
 | 5 | Vrátit vyřazeného hráče | `admin.game_player: include` | autorizovaný a idempotentní `/api/admin/game-player` | tlačítko podle `admin_capabilities` | **hotovo** |
-| 6 | Restartovat desku jednoho hráče | `admin.game_player: reset` | endpoint akci odmítne | tlačítko chybí | **částečně** – rozšířit existující kontrakt |
+| 6 | Restartovat desku jednoho hráče | `admin.game_player: reset` | autorizovaný a idempotentní `/api/admin/game-player` | tlačítko podle `admin_capabilities` | **hotovo** |
 | 7 | Rezervovat hádanku volnému terminálu | `admin.terminal_reserve` | autorizovaný `/api/admin/terminal-reserve` | dostupné v záložce Terminály | **hotovo**, zachovat rezervaci zařízení oddělenou od týmu |
 | 8 | Nastavit způsob hraní hádanky | `admin.scenario_play_modes` | autorizovaný a idempotentní `/api/admin/scenario-play-modes` | dostupné v záložce Režimy hry | **hotovo** – atomický dokument všech hádanek |
 | 9 | Nastavit globální katalog terminálů | `admin.terminal_catalog` | chybí | legacy formulář existuje | **chybí** – lze sloučit s nastavením způsobů hraní |
@@ -108,7 +108,8 @@ nepoužívají.
 2. **Hotovo:** portovat checkpoint `found` a `solved` včetně penalizačních
    presetů.
 3. **Hotovo:** portovat restart celé minihry.
-4. **Částečně:** hráčské akce podporují `include`; zbývá individuální `reset`.
+4. **Hotovo:** hráčské akce podporují `exclude`, `include` i individuální
+   `reset`.
 5. Přepnout administrační UI z `cloudflare_limited` na schopnosti serveru.
 6. **Částečně:** režimy hraní jsou hotové; zbývá samostatná správa globálního
    terminálového katalogu. Přímé přidělení řešit pouze tehdy, pokud nestačí

@@ -36,7 +36,7 @@ interface Env {
 const ADMIN_CAPABILITIES = {
   checkpoint_states: ["found", "solved"],
   game_reset_adapters: ["line_game", "mine_karel", "triad", "sokoban"],
-  game_player_actions: ["exclude", "include"],
+  game_player_actions: ["exclude", "include", "reset"],
   terminal_reservation: true,
   scenario_play_modes: true,
   terminal_catalog: false,
@@ -1520,7 +1520,7 @@ export class GameSession extends DurableObject<Env> {
       return json({ ...objectRecord(previous.payload), changed: false, session_id: this.snapshot.sessionId, revision: this.snapshot.revision });
     }
     const action = cleanText(payload.action, 16);
-    if (!new Set(["exclude", "include"]).has(action)) return json({ error: "unsupported_admin_action" }, 400);
+    if (!new Set(["exclude", "include", "reset"]).has(action)) return json({ error: "unsupported_admin_action" }, 400);
     const puzzleId = cleanText(payload.puzzle_id, 64);
     const playerId = cleanText(payload.player_id, 128);
     if (!puzzleId || !CLIENT_ID_PATTERN.test(playerId)) {
@@ -1534,7 +1534,7 @@ export class GameSession extends DurableObject<Env> {
         this.snapshot.gameState,
         puzzleId,
         playerId,
-        action as "exclude" | "include",
+        action as "exclude" | "include" | "reset",
         now,
         this.runtimeActor(this.snapshot.lobby.creatorId),
       );

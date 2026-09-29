@@ -1024,6 +1024,70 @@ describe("deterministic Cloudflare scenario runtime", () => {
     )).toThrow("Checkpoint už je dokončený");
   });
 
+  it("resets only one player's line or triad board and preserves exclusions and teammates", async () => {
+    const scenario = await chronosScenario();
+    const actor: RuntimeActor = {
+      clientId: "alice",
+      participantIds: ["alice", "bob"],
+      participantNames: { alice: "Alice", bob: "Bob" },
+      teamMode: "team",
+    };
+    const cases = [
+      ["timeline_calibration", "timeline_lines", "interactive_games", "swaps"],
+      ["courtyard_alignment", "temporal_triad", "triad_games", "placements"],
+    ] as const;
+    for (const [checkpointId, puzzleId, storeName, progressField] of cases) {
+      const initial = startScenario(scenario, 0, "2026-09-28T12:00:00.000Z", actor).state;
+      const found = applyAdminCheckpointTransition(
+        scenario,
+        initial,
+        {
+          checkpointId,
+          status: "found",
+          presetId: "technical",
+          presetLabel: "Technická chyba / uznat bez postihu",
+          penalty: 0,
+        },
+        "2026-09-28T12:00:01.000Z",
+        actor,
+      );
+      const players = found.state[storeName][puzzleId].players;
+      players.bob[progressField] = 7;
+      players.bob.status = "complete";
+      const aliceBefore = structuredClone(players.alice);
+      found.state.game_results[puzzleId] = {
+        alice: { score_delta: 10 },
+        bob: { score_delta: 20 },
+      };
+      found.state.game_exclusions[puzzleId] = ["bob"];
+
+      const reset = applyAdminGamePlayerAction(
+        scenario,
+        found.state,
+        puzzleId,
+        "bob",
+        "reset",
+        "2026-09-28T12:00:02.000Z",
+        actor,
+      );
+      expect(reset.result).toMatchObject({ action: "reset", changed: true, player_id: "bob", team_complete: false });
+      expect(reset.state[storeName][puzzleId].players.alice).toEqual(aliceBefore);
+      expect(reset.state[storeName][puzzleId].players.bob).toMatchObject({
+        [progressField]: 0,
+        status: "playing",
+        started_at: "2026-09-28T12:00:02.000Z",
+      });
+      expect(reset.state.game_results[puzzleId]).toEqual({ alice: { score_delta: 10 } });
+      expect(reset.state.game_exclusions[puzzleId]).toEqual(["bob"]);
+      expect(reset.state.checkpoint_states[checkpointId].status).toBe("found");
+      expect(reset.state.event_history.at(-1)).toMatchObject({
+        type: "admin_action",
+        label: expect.stringContaining("restartoval desku hráče Bob"),
+        details: { action: "reset", previous_state: "current_board", new_state: "initial_board" },
+      });
+    }
+  });
+
   it("resets each supported active minigame without changing checkpoint progress", async () => {
     const scenario = await chronosScenario();
     const actor: RuntimeActor = {
