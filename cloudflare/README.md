@@ -132,6 +132,9 @@ zmrazené při deadline, takže následující bonusy a postihy zůstávají pou
 herním průchodu. Ručně ukončenou relaci správce vyhodnotí přes
 `POST /api/admin/sessions/:session_id/finalize` a celé pořadí uzavře přes
 `POST /api/admin/events/active/leaderboard/finalize`.
+Globální výběr hádanek povolených pro terminály spravuje autorizovaný a
+idempotentní `POST /api/admin/terminal-catalog`; používá stejný dokument jako
+`scenario-play-modes`, takže katalog a režimy hraní se nemohou rozejít.
 Fanout do týmových relací používá samostatné časové omezení každého cíle;
 chyba nebo neodpovídající Durable Object proto nezadrží zdravé týmy ani
 eventový kanál.

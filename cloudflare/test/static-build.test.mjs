@@ -60,6 +60,7 @@ test("Static Assets build is minimal, fingerprinted and internally complete", as
   assert.match(index, /adminCapabilityValues\('game_player_actions'\)/);
   assert.match(index, /adminCapabilityValues\('actions'\)/);
   assert.match(index, /adminCapabilityValues\('http_actions'\)/);
+  assert.match(index, /\/api\/admin\/terminal-catalog/);
   assert.doesNotMatch(index, /cloudflare_limited/);
   assert.match(index, /!team\.game_completed && !team\.administratively_ended/);
   assert.match(index, /\/api\/admin\/sessions\/\$\{encodeURIComponent\(adminSpectatingSession\)\}\/spectate\?player_id=/);

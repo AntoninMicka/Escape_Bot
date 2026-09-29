@@ -386,6 +386,20 @@ uvolní rezervace volných terminálů pro hádanky přepnuté na `phones` a roz
 nové `runtime.settings` i autoritativní `game.state` rozehraným relacím.
 Opakování stejného `operation_id` vrací `changed: false`.
 
+### `POST /api/admin/terminal-catalog` (Cloudflare)
+
+Autentizovaný endpoint přijímá jedinečné `operation_id` a neprázdné pole
+`puzzle_ids`. Katalog není druhý konfigurační dokument: atomicky přepíše stejná
+data jako režimy hraní. Již povolená hádanka si zachová `supplemental` nebo
+`exclusive`, nově přidaná dostane bezpečnější `supplemental` a odebraná
+`phones`. Režim pouze pro terminál se nastavuje v detailním editoru způsobů
+hraní.
+
+Změna se audituje, opakovaný identifikátor vrací `changed: false` a rezervace
+volných terminálů na odebrané hádanky se zruší. Již připojený týmový terminál
+se násilně neodpojuje. Nové nastavení se rozešle v `runtime.settings` a
+rozehrané relace znovu publikují autoritativní `game.state`.
+
 ### `POST /api/admin/player-recovery` a `lobby.recover` (Cloudflare)
 
 Autentizovaný správce pošle `session_id` a `player_id`. Worker vrátí náhodný

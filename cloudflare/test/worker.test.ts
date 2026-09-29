@@ -841,6 +841,50 @@ describe("Cloudflare spike router", () => {
       after: { timeline_lines: "supplemental" },
     });
 
+    const terminalCatalogPayload = { operation_id: "terminal-catalog-001", puzzle_ids: ["timeline_lines", "bowling_binary"] };
+    expect((await SELF.fetch("https://example.test/api/admin/terminal-catalog", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: "Bearer wrong-token" },
+      body: JSON.stringify(terminalCatalogPayload),
+    })).status).toBe(401);
+    const terminalCatalogResponse = await SELF.fetch("https://example.test/api/admin/terminal-catalog", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...authorization },
+      body: JSON.stringify(terminalCatalogPayload),
+    });
+    expect(terminalCatalogResponse.status).toBe(200);
+    expect(await terminalCatalogResponse.json()).toMatchObject({
+      success: true,
+      changed: true,
+      puzzle_ids: ["bowling_binary", "timeline_lines"],
+      modes: { bowling_binary: "supplemental", timeline_lines: "supplemental", time_machine_finale: "phones" },
+    });
+    const terminalCatalogDuplicate = await SELF.fetch("https://example.test/api/admin/terminal-catalog", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...authorization },
+      body: JSON.stringify(terminalCatalogPayload),
+    });
+    expect(await terminalCatalogDuplicate.json()).toMatchObject({ changed: false, puzzle_ids: ["bowling_binary", "timeline_lines"] });
+    const invalidTerminalCatalog = await SELF.fetch("https://example.test/api/admin/terminal-catalog", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...authorization },
+      body: JSON.stringify({ operation_id: "terminal-catalog-002", puzzle_ids: ["unknown-puzzle"] }),
+    });
+    expect(invalidTerminalCatalog.status).toBe(400);
+    expect(await invalidTerminalCatalog.json()).toMatchObject({ error: "invalid_terminal_catalog" });
+    const catalogOverviewResponse = await SELF.fetch("https://example.test/api/admin/overview", { headers: authorization });
+    const catalogOverview = await catalogOverviewResponse.json<Record<string, any>>();
+    expect(catalogOverview.puzzle_catalog).toEqual(expect.arrayContaining([
+      expect.objectContaining({ id: "timeline_lines", play_mode: "supplemental" }),
+      expect.objectContaining({ id: "bowling_binary", play_mode: "supplemental" }),
+      expect.objectContaining({ id: "time_machine_finale", play_mode: "phones" }),
+    ]));
+    expect(catalogOverview.admin_audit.at(-1)).toMatchObject({
+      type: "admin.terminal_catalog",
+      before: expect.arrayContaining(["timeline_lines", "time_machine_finale"]),
+      after: ["bowling_binary", "timeline_lines"],
+    });
+
     const sessionId = "scenario-mode-session";
     const session = env.GAME_SESSIONS.getByName(sessionId);
     expect((await session.fetch("https://internal/internal/lobby/initialize", {
@@ -889,13 +933,13 @@ describe("Cloudflare spike router", () => {
       actions: [
         "managed_start", "event_runtime", "leaderboard_finalize", "event_settings",
         "score_adjustment", "session_extend", "session_end", "support_message",
-        "checkpoint", "scenario_play_modes", "terminal_reservation", "spectate",
+        "checkpoint", "scenario_play_modes", "terminal_catalog", "terminal_reservation", "spectate",
         "game_reset", "game_player", "team_finalize", "player_recovery",
       ],
       http_actions: [
         "managed_start", "event_runtime", "leaderboard_finalize", "event_settings",
         "score_adjustment", "session_extend", "session_end", "support_message",
-        "checkpoint", "scenario_play_modes", "terminal_reservation", "spectate",
+        "checkpoint", "scenario_play_modes", "terminal_catalog", "terminal_reservation", "spectate",
         "game_reset", "game_player", "team_finalize", "player_recovery",
       ],
       checkpoint_states: ["found", "solved"],
@@ -903,7 +947,7 @@ describe("Cloudflare spike router", () => {
       game_player_actions: ["exclude", "include", "reset"],
       terminal_reservation: true,
       scenario_play_modes: true,
-      terminal_catalog: false,
+      terminal_catalog: true,
       terminal_assignment: false,
     });
     expect(overview.resolution_presets).toMatchObject({

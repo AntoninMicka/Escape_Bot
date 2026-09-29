@@ -19,7 +19,7 @@ class AdminOverviewTests(unittest.TestCase):
                 "managed_team_create", "managed_start", "managed_start_override",
                 "event_runtime", "leaderboard_finalize", "event_settings",
                 "score_adjustment", "session_extend", "session_end", "support_message",
-                "checkpoint", "scenario_play_modes", "terminal_reservation", "spectate",
+                "checkpoint", "scenario_play_modes", "terminal_catalog", "terminal_reservation", "spectate",
                 "game_reset", "game_player", "team_finalize", "player_recovery", "team_delete",
             ],
             "http_actions": [],
@@ -31,6 +31,25 @@ class AdminOverviewTests(unittest.TestCase):
             "terminal_catalog": True,
             "terminal_assignment": True,
         })
+
+    def test_admin_puzzle_catalog_exposes_effective_terminal_modes(self):
+        with patch.dict(server.runtime_settings, {
+            "puzzle_play_modes": {"timeline_lines": "supplemental"},
+            "terminal_puzzle_ids": [],
+        }, clear=False):
+            catalog = {item["id"]: item for item in server.admin_puzzle_catalog()}
+
+        self.assertEqual(catalog["timeline_lines"]["play_mode"], "supplemental")
+        self.assertIn("title", catalog["timeline_lines"])
+        self.assertIn("checkpoint_id", catalog["timeline_lines"])
+
+    def test_global_terminal_admin_messages_reach_authenticated_dispatch(self):
+        self.assertTrue({
+            "admin.scenario_play_modes",
+            "admin.terminal_catalog",
+            "admin.terminal_reserve",
+            "admin.terminal_assign",
+        }.issubset(server.ADMIN_MESSAGE_TYPES))
 
     def test_lobby_without_game_does_not_break_admin_overview(self):
         registry = LobbyRegistry()

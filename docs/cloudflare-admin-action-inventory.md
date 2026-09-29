@@ -23,7 +23,7 @@ novou podobu autentizace administrátora.
 | 6 | Restartovat desku jednoho hráče | `admin.game_player: reset` | autorizovaný a idempotentní `/api/admin/game-player` | tlačítko podle `admin_capabilities` | **hotovo** |
 | 7 | Rezervovat hádanku volnému terminálu | `admin.terminal_reserve` | autorizovaný `/api/admin/terminal-reserve` | dostupné v záložce Terminály | **hotovo**, zachovat rezervaci zařízení oddělenou od týmu |
 | 8 | Nastavit způsob hraní hádanky | `admin.scenario_play_modes` | autorizovaný a idempotentní `/api/admin/scenario-play-modes` | dostupné v záložce Režimy hry | **hotovo** – atomický dokument všech hádanek |
-| 9 | Nastavit globální katalog terminálů | `admin.terminal_catalog` | chybí | legacy formulář existuje | **chybí** – lze sloučit s nastavením způsobů hraní |
+| 9 | Nastavit globální katalog terminálů | `admin.terminal_catalog` | podporováno nad společným dokumentem režimů | autorizovaný a idempotentní `/api/admin/terminal-catalog` | společný formulář v záložce Terminály | **hotovo** – katalog je odvozen ze způsobů hraní, nevzniká druhý zdroj pravdy |
 | 10 | Přidělit hádanku připojenému týmovému terminálu | `admin.terminal_assign` | přímý ekvivalent chybí; Worker používá rezervaci před převzetím | týmový panel je v Cloudflare režimu skrytý | **chybí / přehodnotit** – preferovat současný rezervační model |
 | 11 | Uživatel explicitně opustí hru | neexistuje | neexistuje | chybí | **nové** – navržený kontrakt `lobby.leave` níže |
 
@@ -50,14 +50,14 @@ zdrojem pravdy. Minimální tvar:
 
 ```json
 {
-  "actions": ["managed_start", "checkpoint", "game_reset", "game_player"],
-  "http_actions": ["managed_start", "checkpoint", "game_reset", "game_player"],
+  "actions": ["managed_start", "checkpoint", "game_reset", "game_player", "terminal_catalog"],
+  "http_actions": ["managed_start", "checkpoint", "game_reset", "game_player", "terminal_catalog"],
   "checkpoint_states": ["found", "solved"],
   "game_reset_adapters": ["line_game", "mine_karel", "triad", "sokoban"],
   "game_player_actions": ["exclude", "include", "reset"],
   "terminal_reservation": true,
   "scenario_play_modes": false,
-  "terminal_catalog": false,
+  "terminal_catalog": true,
   "terminal_assignment": false
 }
 ```
@@ -115,9 +115,10 @@ nepoužívají.
 5. **Hotovo:** administrační UI rozhoduje o viditelnosti přes `actions` a o
    HTTP/WebSocket transportu přes `http_actions`; `cloudflare_limited` už není
    zdrojem rozhodování klienta.
-6. **Částečně:** režimy hraní jsou hotové; zbývá samostatná správa globálního
-   terminálového katalogu. Přímé přidělení řešit pouze tehdy, pokud nestačí
-   existující rezervace.
+6. **Hotovo:** režimy hraní i samostatný formulář globálního terminálového
+   katalogu používají jeden atomický dokument; odebrání hádanky ruší pouze
+   nevyužité rezervace. Přímé přidělení není potřeba, existující rezervační
+   model pokrývá provozní scénář bez vazby zařízení na konkrétní tým.
 7. Implementovat `lobby.leave` shodně v legacy i Cloudflare runtime.
 8. Provést automatické testy, lokální vykreslený smoke test, staging a teprve
    potom produkční akceptaci.

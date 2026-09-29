@@ -885,7 +885,7 @@
         <section id="admin-tab-teams" class="admin-section"><div id="admin-summary" class="admin-summary"></div><div class="admin-filters"><input id="admin-team-search" type="search" placeholder="Hledat tým, hráče nebo kód…" oninput="applyAdminFilters()"><select id="admin-activity-filter" onchange="applyAdminFilters()"><option value="ongoing" selected>Neukončené týmy</option><option value="all">Všechny stavy</option><option value="active">Aktivní</option><option value="suspicious">Podezřelé</option><option value="abandoned">Opuštěné</option><option value="completed">Dokončené</option><option value="ended">Ukončené bez dokončení</option></select><select id="admin-online-filter" onchange="applyAdminFilters()"><option value="all">Online i offline</option><option value="online">Alespoň jeden online</option><option value="offline">Všichni offline</option></select></div><div id="admin-team-grid" class="admin-grid"></div></section>
         <section id="admin-tab-managed" class="admin-section hidden"><h2>[ REŽIM SPOUŠTĚNÍ ]</h2><div class="admin-toolbar"><button id="admin-mode-free" onclick="setLaunchMode('free')">VOLNÝ REŽIM</button><button id="admin-mode-managed" onclick="setLaunchMode('managed')">ŘÍZENÝ REŽIM</button></div><p>Přepnutí zachová všechny existující týmy i jejich pořadí. Řízený režim zakáže hráčům zakládat a spouštět hry.</p><h2>[ ŘÍZENÉ LOBBY ]</h2><div class="admin-toolbar"><input id="admin-new-team-name" maxlength="32" placeholder="Název nového týmu"><button onclick="createManagedTeam()">ZALOŽIT TÝM</button></div><div id="admin-managed-lights"></div><div id="admin-managed-grid" class="admin-grid"></div></section>
         <section id="admin-tab-scenario" class="admin-section hidden"><h2>[ NÁHLED A NASTAVENÍ SCÉNÁŘE ]</h2><p>Určete, na jakých zařízeních je každá hádanka hratelná. Změna neovlivní pořadí checkpointů.</p><div id="admin-scenario-grid" class="admin-grid"></div><button onclick="saveScenarioPlayModes()" style="width:100%;margin-top:14px">ULOŽIT ZPŮSOB HRANÍ</button></section>
-        <section id="admin-tab-terminals" class="admin-section hidden"><h2>[ TERMINÁLY AKTUÁLNÍ HRY ]</h2><p>Volný terminál vyhraďte hádance, nikoliv konkrétnímu týmu. Připojí se k prvnímu týmu, který načte jeho QR a má tuto hádanku právě dostupnou. Více terminálů může být vyhrazeno stejné hádance.</p><div id="admin-terminal-grid" class="admin-grid"></div></section>
+        <section id="admin-tab-terminals" class="admin-section hidden"><h2>[ GLOBÁLNÍ KATALOG TERMINÁLŮ ]</h2><p>Vyberte hádanky, které smějí běžet na terminálech. Odebrání z katalogu zruší nevyužité rezervace; rozehrané připojení týmu se nepřeruší.</p><div id="terminal-catalog-settings" class="admin-settings-fields"></div><button id="terminal-catalog-save" onclick="saveTerminalCatalog()" style="width:100%;margin:14px 0">ULOŽIT KATALOG TERMINÁLŮ</button><h2>[ TERMINÁLY AKTUÁLNÍ HRY ]</h2><p>Volný terminál vyhraďte hádance, nikoliv konkrétnímu týmu. Připojí se k prvnímu týmu, který načte jeho QR a má tuto hádanku právě dostupnou. Více terminálů může být vyhrazeno stejné hádance.</p><div id="admin-terminal-grid" class="admin-grid"></div></section>
         <section id="admin-tab-analytics" class="admin-section admin-analytics hidden"><h2>[ TELEMETRIE OBTÍŽNOSTI ]</h2><div class="admin-toolbar"><label>OBDOBÍ <select id="analytics-period" onchange="renderAdminAnalytics()"><option value="all">Celá historie</option><option value="1">Posledních 24 hodin</option><option value="7">Posledních 7 dní</option><option value="30">Posledních 30 dní</option></select></label><button onclick="exportTelemetryCsv(true)">ANONYMIZOVANÉ CSV</button><button onclick="exportTelemetryCsv(false)">INTERNÍ CSV</button></div><div id="admin-analytics-summary" class="admin-summary"></div><div id="admin-analytics-content"></div></section>
         <section id="admin-tab-chats" class="admin-section hidden"><h2>[ PODPORA TÝMŮ ]</h2><div id="admin-chat-grid" class="admin-grid"></div></section>
         <section id="admin-tab-display" class="admin-section hidden"><h2>[ OZNÁMENÍ NA VEŘEJNÉ OBRAZOVCE ]</h2><div id="display-health" class="cipher-note">Stav obrazovky se načítá…</div><p>Na jedné obrazovce se zobrazí hlavní oznámení a až dvě vedlejší. Oznámení lze ponechat jako koncept nebo naplánovat.</p><div id="display-announcement-editor"></div><div class="admin-toolbar"><button onclick="addDisplayAnnouncement()">+ PŘIDAT OZNÁMENÍ</button><button onclick="saveDisplayAnnouncements()">ULOŽIT ZMĚNY</button><button id="admin-display-leaderboard-toggle" onclick="toggleDisplayLeaderboard()">POŘADÍ NA NÁSTĚNCE</button><button onclick="window.open('/display','_blank','noopener')">OTEVŘÍT NÁSTĚNKU</button></div><h2>[ ŽIVÝ NÁHLED ]</h2><div id="display-announcement-preview" class="admin-grid"></div></section>
@@ -2407,13 +2407,34 @@
         function renderTerminalCatalogSettings() {
             const target = document.getElementById('terminal-catalog-settings');
             if (!target) return;
-            const enabled = new Set(runtimeTerminalPuzzleIds);
-            target.innerHTML = runtimePuzzleCatalog.map(puzzle => `<label><input type="checkbox" value="${escapeHtml(puzzle.id)}" ${enabled.has(puzzle.id) ? 'checked' : ''}> ${escapeHtml(puzzle.title)}</label>`).join('');
+            const saveButton = document.getElementById('terminal-catalog-save');
+            if (!adminSupports('terminal_catalog')) {
+                target.innerHTML = '<p>Tento runtime nepodporuje správu globálního katalogu terminálů.</p>';
+                if (saveButton) saveButton.hidden = true;
+                return;
+            }
+            if (saveButton) saveButton.hidden = false;
+            const catalog = latestAdminPayload?.puzzle_catalog || runtimePuzzleCatalog;
+            const enabled = new Set(catalog.filter(puzzle => puzzle.play_mode !== 'phones').map(puzzle => puzzle.id));
+            target.innerHTML = catalog.map(puzzle => `<label><input type="checkbox" value="${escapeHtml(puzzle.id)}" ${enabled.has(puzzle.id) ? 'checked' : ''}> ${escapeHtml(puzzle.title)} <small>(${escapeHtml(puzzle.play_mode || 'phones')})</small></label>`).join('') || '<p>Scénář neobsahuje žádné hádanky.</p>';
         }
 
-        function saveTerminalCatalog() {
+        async function saveTerminalCatalog() {
+            if (!adminSupports('terminal_catalog')) { showNotification('Tento runtime nepodporuje správu globálního katalogu terminálů.', 'error'); return; }
             const puzzleIds = [...document.querySelectorAll('#terminal-catalog-settings input:checked')].map(input => input.value);
             if (!puzzleIds.length) { showNotification('Globální katalog musí obsahovat alespoň jednu hádanku.', 'error'); return; }
+            if (!window.confirm('Uložit globální katalog terminálů? Odebrané hádanky už nepůjde nově rezervovat.')) return;
+            if (adminUsesHttp('terminal_catalog')) {
+                try {
+                    const operationId=crypto.randomUUID?.()||`terminal-catalog-${Date.now()}`;
+                    const response=await fetch('/api/admin/terminal-catalog',{method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${adminToken()}`},body:JSON.stringify({operation_id:operationId,puzzle_ids:puzzleIds})});
+                    const result=await response.json().catch(()=>({}));
+                    if(!response.ok)throw new Error(result.message||result.error||'Katalog terminálů se nepodařilo uložit.');
+                    showNotification(result.changed===false?'Katalog terminálů už byl nastaven.':'Katalog terminálů byl uložen.','success');
+                    await loadAdminOverview();
+                } catch(error) { showNotification(error.message||'Katalog terminálů se nepodařilo uložit.','error'); }
+                return;
+            }
             sendAdmin('admin.terminal_catalog', {puzzle_ids:puzzleIds});
         }
 
@@ -2890,6 +2911,7 @@
             renderAdminChats(allTeams);
             renderAdminAnalytics();
             renderScenarioSettings();
+            renderTerminalCatalogSettings();
             renderScenarioEditorCatalog();
             renderTerminalAssignments();
             if (!teams.length) {
@@ -3749,6 +3771,8 @@
                     if(Array.isArray(msg.payload.start_queue))runtimeStartQueue = msg.payload.start_queue;
                     if(Array.isArray(msg.payload.checkpoints))runtimeCheckpoints = msg.payload.checkpoints;
                     if(Array.isArray(msg.payload.games))runtimeGames = msg.payload.games;
+                    if(Array.isArray(msg.payload.puzzle_catalog))runtimePuzzleCatalog = msg.payload.puzzle_catalog;
+                    if(Array.isArray(msg.payload.terminal_puzzle_ids))runtimeTerminalPuzzleIds = msg.payload.terminal_puzzle_ids;
                     if(Array.isArray(msg.payload.configurable_games))renderEventGameConfig(msg.payload.configurable_games,activeEvent);
                     const eventFields={'event-id':activeEvent?.id||'','event-name':activeEvent?.name||'','event-start':localEventValue(activeEvent?.starts_at),'event-end':localEventValue(activeEvent?.ends_at),'event-status':activeEvent?.status||'draft','event-timezone':activeEvent?.timezone||msg.payload.timezone||'Europe/Prague','event-branding-title':activeEvent?.branding?.title||'','event-branding-logo':activeEvent?.branding?.logo_url||'','event-branding-color':activeEvent?.branding?.accent_color||'#65f7ff'};
                     Object.entries(eventFields).forEach(([id,value])=>{const field=document.getElementById(id);if(field&&document.activeElement!==field)field.value=value;});

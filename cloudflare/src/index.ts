@@ -45,6 +45,7 @@ const ADMIN_CAPABILITIES = {
     "support_message",
     "checkpoint",
     "scenario_play_modes",
+    "terminal_catalog",
     "terminal_reservation",
     "spectate",
     "game_reset",
@@ -63,6 +64,7 @@ const ADMIN_CAPABILITIES = {
     "support_message",
     "checkpoint",
     "scenario_play_modes",
+    "terminal_catalog",
     "terminal_reservation",
     "spectate",
     "game_reset",
@@ -75,7 +77,7 @@ const ADMIN_CAPABILITIES = {
   game_player_actions: ["exclude", "include", "reset"],
   terminal_reservation: true,
   scenario_play_modes: true,
-  terminal_catalog: false,
+  terminal_catalog: true,
   terminal_assignment: false,
 } as const;
 
@@ -463,6 +465,13 @@ export class GameSession extends DurableObject<Env> {
       }
       const payload = await request.json<Record<string, unknown>>();
       return this.serializeDirectory(() => this.updateScenarioPlayModes(payload));
+    }
+    if (url.pathname === "/internal/admin/terminal-catalog" && request.method === "POST") {
+      if (request.headers.get("X-EscapeBot-Internal-Admin") !== "1") {
+        return json({ error: "not_found" }, 404);
+      }
+      const payload = await request.json<Record<string, unknown>>();
+      return this.serializeDirectory(() => this.updateTerminalCatalog(payload));
     }
     if (url.pathname === "/internal/runtime/scenario-play-modes" && request.method === "GET") {
       if (request.headers.get("X-EscapeBot-Internal-Directory") !== "1") {
@@ -1301,6 +1310,63 @@ export class GameSession extends DurableObject<Env> {
       ].slice(-500);
     }
     const result = { success: true, changed, modes, updated_at: now };
+    directory.adminOperationReceipts[receiptKey] = result;
+    while (Object.keys(directory.adminOperationReceipts).length > 200) {
+      delete directory.adminOperationReceipts[Object.keys(directory.adminOperationReceipts)[0]];
+    }
+    await this.ctx.storage.put(DIRECTORY_KEY, directory);
+    if (changed) {
+      const settings = await this.runtimeSettingsPayload();
+      await this.broadcastRuntimeSettings(settings, directory);
+    }
+    return json(result);
+  }
+
+  private async updateTerminalCatalog(payload: Record<string, unknown>): Promise<Response> {
+    const operationId = cleanText(payload.operation_id, 128);
+    if (!/^[A-Za-z0-9._:-]{1,128}$/.test(operationId)) {
+      return json({ error: "invalid_operation_id" }, 400);
+    }
+    const directory = normalizeDirectory(await this.ctx.storage.get<DirectorySnapshot>(DIRECTORY_KEY));
+    const receiptKey = `terminal-catalog:${operationId}`;
+    const previousReceipt = directory.adminOperationReceipts[receiptKey];
+    if (previousReceipt) return json({ ...previousReceipt, changed: false });
+
+    if (!Array.isArray(payload.puzzle_ids)) {
+      return json({ error: "invalid_terminal_catalog", message: "Katalog terminálu musí být seznam hádanek." }, 400);
+    }
+    const catalog = await this.puzzleCatalog();
+    const knownIds = catalog.map((puzzle) => puzzle.id).sort();
+    const puzzleIds = [...new Set(payload.puzzle_ids.map((value) => cleanText(value, 128)))].sort();
+    if (!puzzleIds.length || puzzleIds.some((puzzleId) => !knownIds.includes(puzzleId))) {
+      return json({ error: "invalid_terminal_catalog", message: "Vyberte alespoň jednu platnou hádanku pro terminál." }, 400);
+    }
+
+    const selected = new Set(puzzleIds);
+    const beforeModes = Object.fromEntries(catalog.map((puzzle) => [puzzle.id, puzzle.play_mode])) as Record<string, "phones" | "supplemental" | "exclusive">;
+    const before = knownIds.filter((puzzleId) => beforeModes[puzzleId] !== "phones");
+    const modes = Object.fromEntries(knownIds.map((puzzleId) => [
+      puzzleId,
+      selected.has(puzzleId)
+        ? (beforeModes[puzzleId] === "phones" ? "supplemental" : beforeModes[puzzleId])
+        : "phones",
+    ])) as Record<string, "phones" | "supplemental" | "exclusive">;
+    const changed = JSON.stringify(before) !== JSON.stringify(puzzleIds);
+    const now = new Date().toISOString();
+    if (changed) {
+      directory.puzzlePlayModes = modes;
+      for (const device of Object.values(directory.terminalDevices)) {
+        if (device.status === "free" && device.puzzleId && !selected.has(device.puzzleId)) {
+          device.puzzleId = "";
+          device.updatedAt = now;
+        }
+      }
+      directory.adminAudit = [
+        ...directory.adminAudit,
+        { at: now, type: "admin.terminal_catalog", label: "Game Master změnil globální katalog terminálů.", before, after: puzzleIds },
+      ].slice(-500);
+    }
+    const result = { success: true, changed, puzzle_ids: puzzleIds, modes, updated_at: now };
     directory.adminOperationReceipts[receiptKey] = result;
     while (Object.keys(directory.adminOperationReceipts).length > 200) {
       delete directory.adminOperationReceipts[Object.keys(directory.adminOperationReceipts)[0]];
@@ -4030,6 +4096,24 @@ export default {
       }
       return env.GAME_SESSIONS.getByName(DIRECTORY_OBJECT_NAME).fetch(
         "https://internal/internal/admin/scenario-play-modes",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "X-EscapeBot-Internal-Admin": "1" },
+          body: JSON.stringify(payload),
+        },
+      );
+    }
+    if (url.pathname === "/api/admin/terminal-catalog" && request.method === "POST") {
+      const unauthorized = await authorizeAdmin(request, env);
+      if (unauthorized) return unauthorized;
+      let payload: Record<string, unknown>;
+      try {
+        payload = await request.json<Record<string, unknown>>();
+      } catch {
+        return json({ error: "invalid_json" }, 400);
+      }
+      return env.GAME_SESSIONS.getByName(DIRECTORY_OBJECT_NAME).fetch(
+        "https://internal/internal/admin/terminal-catalog",
         {
           method: "POST",
           headers: { "Content-Type": "application/json", "X-EscapeBot-Internal-Admin": "1" },
