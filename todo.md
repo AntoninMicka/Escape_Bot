@@ -19,6 +19,8 @@
 - [ ] Změřit obtížnost a délku jednotlivých etap, upravit nápovědy, časové limity a bodování podle dat, ne pouze podle autorského průchodu.
 - [ ] Udělat zátěžový/provozní test více týmů se startovními rozestupy a ověřit, že se nepotkávají u úzkých stanovišť ani si neprozrazují řešení.
 - [ ] Projít s Game Masterem administraci, podporu, technický skip, obnovu hráče, diskvalifikaci či ukončení hry a nouzové postupy při výpadku.
+- [ ] Dokončit podle [`docs/cloudflare-admin-action-inventory.md`](docs/cloudflare-admin-action-inventory.md) cloudovou paritu zásahů nad checkpointy a minihrami; zobrazovat pouze akce oznámené serverem.
+- [ ] Přidat explicitní a potvrzovaný `lobby.leave`, který je odlišný od dočasného odpojení a bezpečně řeší odchod posledního hráče.
 - [ ] Před ostrým během uzavřít obsahový freeze; po něm přijímat pouze opravy chyb, bezpečnosti, nejasností a provozních blokátorů.
 - [ ] Po prvním ostrém běhu udělat retrospektivu a teprve poté seřadit oddíly 14–17 podle skutečné obchodní a hráčské hodnoty.
 

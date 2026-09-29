@@ -5,6 +5,10 @@ a WebSocket hibernaci, CF-03 přidává reprodukovatelný balíček klienta pro
 Workers Static Assets. Současný FastAPI provoz tím není nahrazený a produkční
 nasazení zatím není určené k použití.
 
+Aktuální parita zásahů Game Mastera nad hádankami, minihrami a navržený
+kontrakt pro explicitní odchod hráče jsou popsány v
+[`docs/cloudflare-admin-action-inventory.md`](../docs/cloudflare-admin-action-inventory.md).
+
 Používá stejný Cloudflare účet a lokální Wrangler přihlášení jako ostatní
 projekty, ale nesdílí s nimi Worker, Durable Object namespace, D1 databázi ani
 secrety. Názvy prostředí jsou `escape-bot-cf-development`,
