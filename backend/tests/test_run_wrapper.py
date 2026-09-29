@@ -26,6 +26,7 @@ def test_run_wrapper_has_valid_bash_syntax_and_documents_main_workflows() -> Non
     assert result.returncode == 0
     assert "dev backend" in result.stdout
     assert "debug cloudflare" in result.stdout
+    assert "admin-token cloudflare staging|production" in result.stdout
     assert "deploy cloudflare staging|production" in result.stdout
     assert "deploy gcp" in result.stdout
     assert "sessions.json a lobbies.json" in result.stdout
@@ -39,6 +40,17 @@ def test_run_wrapper_rejects_unknown_or_incomplete_actions() -> None:
     incomplete = invoke("deploy", "gcp", "--project=test")
     assert incomplete.returncode == 2
     assert "--project, --zone, --vm a --image" in incomplete.stderr
+
+    invalid_environment = invoke("admin-token", "cloudflare", "local")
+    assert invalid_environment.returncode == 2
+    assert "staging nebo production" in invalid_environment.stderr
+
+
+def test_admin_token_uses_interactive_wrangler_secret_input() -> None:
+    wrapper = RUN.read_text(encoding="utf-8")
+
+    assert "wrangler secret put ADMIN_TOKEN -- --env" in wrapper
+    assert "Token nepředávejte jako argument" in wrapper
 
 
 def test_gcp_dry_run_requires_digest_and_never_contacts_server() -> None:

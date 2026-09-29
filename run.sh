@@ -20,6 +20,7 @@ Použití:
   ./run.sh check
   ./run.sh build cloudflare
   ./run.sh tail cloudflare staging|production [argumenty wrangler tail...]
+  ./run.sh admin-token cloudflare staging|production [--yes]
   ./run.sh deploy cloudflare staging|production [--dry-run] [--yes]
   ./run.sh deploy gcp --project=ID --zone=ZONE --vm=NAME \
       --image=REGION-docker.pkg.dev/...@sha256:... [--dry-run] [--yes]
@@ -27,6 +28,7 @@ Použití:
 Poznámky:
   - `check` nic nenasazuje; sestaví a otestuje oba runtime.
   - Backendové testy automaticky obnoví sessions.json a lobbies.json.
+  - `admin-token` načte tajnou hodnotu skrytě přímo přes Wrangler; nedávejte ji do argumentů.
   - Vzdálený deploy vyžaduje potvrzení; `--yes` je určený pro CI/automatizaci.
   - Produkční Cloudflare deploy navíc vyžaduje čistý pracovní strom.
 EOF
@@ -178,6 +180,27 @@ run_tests() {
     esac
 }
 
+set_cloudflare_admin_token() {
+    local environment="${1:-}"
+    shift || true
+    case "$environment" in staging|production) ;; *) fail "admin-token očekává staging nebo production." ;; esac
+    local assume_yes=0
+    while [ "$#" -gt 0 ]; do
+        case "$1" in
+            --yes) assume_yes=1 ;;
+            *) fail "neznámý parametr nastavení admin tokenu: $1" ;;
+        esac
+        shift
+    done
+    require_cloudflare_dependencies
+    if [ ! -t 0 ]; then
+        fail "nastavení ADMIN_TOKEN vyžaduje interaktivní terminál. Token nepředávejte jako argument příkazu."
+    fi
+    confirm_remote_action "nastavení Cloudflare ADMIN_TOKEN pro $environment" "$assume_yes"
+    cd "$CLOUDFLARE_DIR"
+    exec npm exec wrangler secret put ADMIN_TOKEN -- --env "$environment"
+}
+
 deploy_cloudflare() {
     local environment="${1:-}"
     shift || true
@@ -282,6 +305,11 @@ case "$command_name" in
         require_cloudflare_dependencies
         cd "$CLOUDFLARE_DIR"
         exec npm exec wrangler tail -- --env "$environment" "$@"
+        ;;
+    admin-token)
+        [ "${1:-}" = "cloudflare" ] || fail "admin-token aktuálně podporuje pouze cloudflare."
+        shift
+        set_cloudflare_admin_token "$@"
         ;;
     deploy)
         target="${1:-}"

@@ -49,6 +49,7 @@ Z kořene repozitáře lze stejné operace spouštět jednotným wrapperem:
 ./run.sh dev cloudflare
 ./run.sh debug cloudflare
 ./run.sh test cloudflare
+./run.sh admin-token cloudflare staging
 ./run.sh deploy cloudflare staging --dry-run
 ```
 
@@ -91,11 +92,12 @@ proměnné `GAME_DURATION_MINUTES` a `DEADLINE_PENALTY`.
 
 Správcovské API vyžaduje secret `ADMIN_TOKEN`; hodnota není součástí repozitáře.
 Lokální test používá pouze známý neprodukční token z výchozího Wrangler profilu.
-Pro staging a produkci se token nastaví zvlášť:
+Pro staging a produkci se token nastaví zvlášť. Wrapper nejprve potvrdí
+vzdálenou změnu a poté Wrangler hodnotu načte skrytě z interaktivního terminálu:
 
 ```bash
-npm exec wrangler secret put ADMIN_TOKEN -- --env staging
-npm exec wrangler secret put ADMIN_TOKEN -- --env production
+./run.sh admin-token cloudflare staging
+./run.sh admin-token cloudflare production
 ```
 
 CF-05 zpřístupňuje konfiguraci konkrétního eventu přes autorizované
