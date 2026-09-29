@@ -53,8 +53,11 @@ test("Static Assets build is minimal, fingerprinted and internally complete", as
   assert.match(index, /runCloudflareAdminAction\(sessionId,'score-adjustment',\{delta,reason\}\)/);
   assert.match(index, /runCloudflareAdminAction\(sessionId,'checkpoint',\{checkpoint_id:checkpointId,status,penalty_preset:presetId\}\)/);
   assert.match(index, /runCloudflareAdminAction\(sessionId,'game-reset',\{puzzle_id:puzzleId\}\)/);
+  assert.match(index, /fetch\('\/api\/admin\/scenario-play-modes'/);
+  assert.match(index, /operation_id:crypto\.randomUUID\?\.\(\).*game-player-/);
   assert.match(index, /adminCapabilityValues\('checkpoint_states'\)/);
   assert.match(index, /adminCapabilityValues\('game_reset_adapters'\)/);
+  assert.match(index, /adminCapabilityValues\('game_player_actions'\)/);
   assert.match(index, /!team\.game_completed && !team\.administratively_ended/);
   assert.match(index, /\/api\/admin\/sessions\/\$\{encodeURIComponent\(adminSpectatingSession\)\}\/spectate\?player_id=/);
   assert.match(index, /ZOBRAZIT HRÁČE/);

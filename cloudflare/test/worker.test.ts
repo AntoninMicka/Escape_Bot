@@ -348,6 +348,7 @@ describe("Cloudflare spike router", () => {
       puzzle_id: "timeline_lines",
       player_id: "offline-bob",
       action: "exclude",
+      operation_id: "exclude-offline-bob-001",
     };
     const unauthorized = await SELF.fetch("https://example.test/api/admin/game-player", {
       method: "POST",
@@ -384,13 +385,39 @@ describe("Cloudflare spike router", () => {
     });
     expect(duplicate.status).toBe(200);
     expect(await duplicate.json()).toMatchObject({ changed: false, revision: 4 });
+    const includePayload = { ...payload, action: "include", operation_id: "include-offline-bob-001" };
+    const included = await SELF.fetch("https://example.test/api/admin/game-player", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: "Bearer local-test-admin-token",
+      },
+      body: JSON.stringify(includePayload),
+    });
+    expect(included.status).toBe(200);
+    expect(await included.json()).toMatchObject({
+      success: true,
+      action: "include",
+      changed: true,
+      revision: 5,
+    });
+    const includeDuplicate = await SELF.fetch("https://example.test/api/admin/game-player", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: "Bearer local-test-admin-token",
+      },
+      body: JSON.stringify(includePayload),
+    });
+    expect(includeDuplicate.status).toBe(200);
+    expect(await includeDuplicate.json()).toMatchObject({ changed: false, revision: 5 });
     const exclusions = await runInDurableObject(stub, (instance) => {
       const target = instance as unknown as {
         snapshot: { gameState: { game_exclusions: Record<string, string[]> } };
       };
       return target.snapshot.gameState.game_exclusions.timeline_lines;
     });
-    expect(exclusions).toEqual(["offline-bob"]);
+    expect(exclusions).toEqual([]);
     await closeSocket(creator, "done");
   });
 
@@ -717,6 +744,87 @@ describe("Cloudflare spike router", () => {
     });
   });
 
+  it("stores and broadcasts one atomic scenario play-mode document", async () => {
+    const authorization = { Authorization: "Bearer local-test-admin-token" };
+    const overviewResponse = await SELF.fetch("https://example.test/api/admin/overview", { headers: authorization });
+    expect(overviewResponse.status).toBe(200);
+    const overview = await overviewResponse.json<Record<string, any>>();
+    expect(overview.puzzle_catalog.length).toBeGreaterThan(1);
+    expect(overview.puzzle_catalog).toEqual(expect.arrayContaining([
+      expect.objectContaining({ id: "timeline_lines", play_mode: "phones" }),
+      expect.objectContaining({ id: "time_machine_finale", play_mode: "exclusive" }),
+    ]));
+    const modes = Object.fromEntries(
+      overview.puzzle_catalog.map((puzzle: Record<string, string>) => [puzzle.id, puzzle.play_mode]),
+    );
+    modes.timeline_lines = "supplemental";
+    const payload = { operation_id: "scenario-modes-001", modes };
+
+    const unauthorized = await SELF.fetch("https://example.test/api/admin/scenario-play-modes", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: "Bearer wrong-token" },
+      body: JSON.stringify(payload),
+    });
+    expect(unauthorized.status).toBe(401);
+
+    const response = await SELF.fetch("https://example.test/api/admin/scenario-play-modes", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...authorization },
+      body: JSON.stringify(payload),
+    });
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({ success: true, changed: true, modes: { timeline_lines: "supplemental" } });
+
+    const duplicate = await SELF.fetch("https://example.test/api/admin/scenario-play-modes", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...authorization },
+      body: JSON.stringify(payload),
+    });
+    expect(duplicate.status).toBe(200);
+    expect(await duplicate.json()).toMatchObject({ changed: false, modes: { timeline_lines: "supplemental" } });
+
+    const incomplete = await SELF.fetch("https://example.test/api/admin/scenario-play-modes", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...authorization },
+      body: JSON.stringify({ operation_id: "scenario-modes-002", modes: { timeline_lines: "phones" } }),
+    });
+    expect(incomplete.status).toBe(400);
+    expect(await incomplete.json()).toMatchObject({ error: "invalid_scenario_play_modes" });
+
+    const updatedOverview = await SELF.fetch("https://example.test/api/admin/overview", { headers: authorization });
+    const updated = await updatedOverview.json<Record<string, any>>();
+    expect(updated.puzzle_catalog).toEqual(expect.arrayContaining([
+      expect.objectContaining({ id: "timeline_lines", play_mode: "supplemental" }),
+    ]));
+    expect(updated.admin_audit.at(-1)).toMatchObject({
+      type: "admin.scenario_play_modes",
+      after: { timeline_lines: "supplemental" },
+    });
+
+    const sessionId = "scenario-mode-session";
+    const session = env.GAME_SESSIONS.getByName(sessionId);
+    expect((await session.fetch("https://internal/internal/lobby/initialize", {
+      method: "POST",
+      body: JSON.stringify({
+        session_id: sessionId,
+        mode: "solo",
+        creator_id: "mode-alice",
+        team_name: "Mode Team",
+        join_code: null,
+        lobby_type: "online_doom",
+        scenario_id: "chronos_online",
+        player_name: "Alice",
+      }),
+    })).status).toBe(200);
+    const player = await openSocket(`https://example.test/ws?session_id=${sessionId}&client_id=mode-alice`);
+    const startedState = nextMessage(player, "game.state");
+    send(player, "lobby.start");
+    const state = await startedState;
+    expect((state.payload.puzzles as Array<Record<string, any>>).find((puzzle) => puzzle.id === "timeline_lines"))
+      .toMatchObject({ terminal: { mode: "mirror" } });
+    await closeSocket(player, "done");
+  });
+
   it("loads registered teams through the authenticated Cloudflare admin overview", async () => {
     const bootstrap = await openSocket("https://example.test/ws?client_id=overview-alice");
     const routePromise = nextMessage(bootstrap, "lobby.route");
@@ -740,9 +848,9 @@ describe("Cloudflare spike router", () => {
     expect(overview.admin_capabilities).toEqual({
       checkpoint_states: ["found", "solved"],
       game_reset_adapters: ["line_game", "mine_karel", "triad", "sokoban"],
-      game_player_actions: ["exclude"],
+      game_player_actions: ["exclude", "include"],
       terminal_reservation: true,
-      scenario_play_modes: false,
+      scenario_play_modes: true,
       terminal_catalog: false,
       terminal_assignment: false,
     });

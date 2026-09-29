@@ -365,17 +365,19 @@ export function applyScenarioCommand(
   return { ...result, state: presentGameState(scenario, result.state, actor, now) };
 }
 
-export function applyAdminGamePlayerExclusion(
+export function applyAdminGamePlayerAction(
   scenario: ScenarioDocument,
   currentState: GameStateDocument,
   puzzleIdValue: string,
   playerIdValue: string,
+  actionValue: "exclude" | "include",
   now: string,
   actorValue: RuntimeActor,
 ): AdminGamePlayerResult {
   const actor = normalizedActor(actorValue);
   const puzzleId = String(puzzleIdValue || "").trim();
   const playerId = String(playerIdValue || "").trim();
+  const action = String(actionValue || "");
   const puzzle = record(record(scenario.puzzles)[puzzleId]);
   const adapter = puzzleAdapter(scenario, puzzle);
   const checkpointId = String(puzzle.checkpoint_id || "");
@@ -386,16 +388,19 @@ export function applyAdminGamePlayerExclusion(
   if (!new Set(["line_game", "triad"]).has(adapter)) {
     throw new Error("Tato minihra nepodporuje individuální správu.");
   }
+  if (!new Set(["exclude", "include"]).has(action)) {
+    throw new Error("Neplatná administrační akce.");
+  }
   const state = clone(currentState);
   state.game_exclusions = record(state.game_exclusions);
   const excluded = Array.isArray(state.game_exclusions[puzzleId])
     ? state.game_exclusions[puzzleId].map(String)
     : [];
-  const changed = !excluded.includes(playerId);
+  const changed = action === "exclude" ? !excluded.includes(playerId) : excluded.includes(playerId);
   if (!changed) {
     const result = {
       success: true,
-      action: "exclude",
+      action,
       changed: false,
       puzzle_id: puzzleId,
       player_id: playerId,
@@ -413,13 +418,14 @@ export function applyAdminGamePlayerExclusion(
     throw new Error("Spravovat lze pouze aktivní minihru.");
   }
   state.last_activity_at = now;
-  if (changed) excluded.push(playerId);
+  if (action === "exclude") excluded.push(playerId);
+  else excluded.splice(excluded.indexOf(playerId), 1);
   state.game_exclusions[puzzleId] = excluded;
   const progress = adapter === "line_game"
     ? lineGameTeamProgress(state, puzzleId, record(puzzle.game), actor)
     : triadTeamProgress(state, puzzleId, actor);
   const messages: RuntimeMessage[] = [];
-  if (progress.team_complete) {
+  if (action === "exclude" && progress.team_complete) {
     const mutableCheckpoint = record(record(state.checkpoint_states)[checkpointId]);
     mutableCheckpoint.status = "solved";
     mutableCheckpoint.solved_at = now;
@@ -445,15 +451,29 @@ export function applyAdminGamePlayerExclusion(
     if (navigation) messages.push({ type: "bot.message", payload: messageTemplate(navigation) });
   }
   const history = Array.isArray(state.event_history) ? state.event_history : [];
-  history.push({ at: now, type: "admin.game_player", details: { action: "exclude", puzzle_id: puzzleId, player_id: playerId } });
+  const playerName = actor.participantNames[playerId] || "Hráč";
+  history.push({
+    at: now,
+    type: "admin_action",
+    label: action === "exclude"
+      ? `Game Master vyřadil hráče ${playerName} z minihry ${puzzleId}.`
+      : `Game Master vrátil hráče ${playerName} do minihry ${puzzleId}.`,
+    details: {
+      action,
+      puzzle_id: puzzleId,
+      player_id: playerId,
+      previous_state: action === "exclude" ? "included" : "excluded",
+      new_state: action === "exclude" ? "excluded" : "included",
+    },
+  });
   state.event_history = history.slice(-500);
   const result = {
     success: true,
-    action: "exclude",
+    action,
     changed,
     puzzle_id: puzzleId,
     player_id: playerId,
-    player_name: actor.participantNames[playerId] || "Hráč",
+    player_name: playerName,
     team_complete: Boolean(progress.team_complete),
     team_summary: progress.team_complete ? progress : null,
   };
@@ -462,6 +482,25 @@ export function applyAdminGamePlayerExclusion(
     messages: [{ type: "admin.game_player", payload: result }, ...messages],
     result,
   };
+}
+
+export function applyAdminGamePlayerExclusion(
+  scenario: ScenarioDocument,
+  currentState: GameStateDocument,
+  puzzleIdValue: string,
+  playerIdValue: string,
+  now: string,
+  actorValue: RuntimeActor,
+): AdminGamePlayerResult {
+  return applyAdminGamePlayerAction(
+    scenario,
+    currentState,
+    puzzleIdValue,
+    playerIdValue,
+    "exclude",
+    now,
+    actorValue,
+  );
 }
 
 export function applyAdminCheckpointTransition(

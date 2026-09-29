@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   applyAdminCheckpointTransition,
   applyAdminGameReset,
+  applyAdminGamePlayerAction,
   applyAdminGamePlayerExclusion,
   applyScenarioCommand,
   buildScenarioProgress,
@@ -874,6 +875,7 @@ describe("deterministic Cloudflare scenario runtime", () => {
     let state = startScenario(scenario, 0, "2026-09-28T12:00:00.000Z", actor).state;
     state.checkpoint_states.timeline_calibration = { status: "found" };
     state = presentGameState(scenario, state, actor, "2026-09-28T12:00:01.000Z");
+    const restorableState = structuredClone(state);
     state.interactive_games.timeline_lines.players.alice.status = "complete";
 
     const excluded = applyAdminGamePlayerExclusion(
@@ -916,6 +918,39 @@ describe("deterministic Cloudflare scenario runtime", () => {
     expect(repeated.result).toMatchObject({ changed: false, team_complete: true });
     expect(repeated.state.score).toBe(1040);
     expect(repeated.messages).toHaveLength(1);
+
+    const excludedWithoutCompletion = applyAdminGamePlayerAction(
+      scenario,
+      restorableState,
+      "timeline_lines",
+      "bob",
+      "exclude",
+      "2026-09-28T12:00:04.000Z",
+      actor,
+    );
+    expect(excludedWithoutCompletion.state.checkpoint_states.timeline_calibration.status).toBe("found");
+    const included = applyAdminGamePlayerAction(
+      scenario,
+      excludedWithoutCompletion.state,
+      "timeline_lines",
+      "bob",
+      "include",
+      "2026-09-28T12:00:05.000Z",
+      actor,
+    );
+    expect(included.result).toMatchObject({ action: "include", changed: true, team_complete: false });
+    expect(included.state.game_exclusions.timeline_lines).toEqual([]);
+    expect(included.state.event_history.at(-1)).toMatchObject({
+      type: "admin_action",
+      label: "Game Master vrátil hráče Bob do minihry timeline_lines.",
+      details: {
+        action: "include",
+        puzzle_id: "timeline_lines",
+        player_id: "bob",
+        previous_state: "excluded",
+        new_state: "included",
+      },
+    });
   });
 
   it("applies audited checkpoint overrides and a penalty exactly once per state transition", async () => {

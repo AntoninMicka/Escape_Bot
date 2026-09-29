@@ -321,7 +321,8 @@ záměrně nemá odpovídající akci pro vyřazení; tu smí provádět pouze s
 ### `POST /api/admin/game-player` (Cloudflare)
 
 Oddělený správcovský HTTP endpoint vyřadí registrovaného člena z aktivní
-`line_game` nebo `triad`, i když hráč právě nemá otevřený WebSocket. Požadavek
+`line_game` nebo `triad`, případně jej do minihry vrátí, i když hráč právě nemá
+otevřený WebSocket. Požadavek
 musí mít hlavičku `Authorization: Bearer <ADMIN_TOKEN>` a JSON tělo:
 
 ```json
@@ -329,14 +330,16 @@ musí mít hlavičku `Authorization: Bearer <ADMIN_TOKEN>` a JSON tělo:
   "session_id": "9c812e8581794fcbadcc02ad9d593618",
   "puzzle_id": "timeline_lines",
   "player_id": "phone-bob",
-  "action": "exclude"
+  "action": "include",
+  "operation_id": "include-phone-bob-001"
 }
 ```
 
-Jedinou podporovanou akcí tohoto endpointu je `exclude`. Opakované vyřazení je
-bezpečné a v odpovědi vrátí `changed: false`. Obnova zůstává hráčským příkazem
-`team_game.player.restore`; běžný herní WebSocket nemá správcovskou akci pro
-vyřazení. Kompletní cloudový admin overview je samostatná část CF-05.
+Podporované akce jsou `exclude` a `include`. Opakování stejného `operation_id`
+ani požadavek na již platný stav změnu neprovede a vrátí `changed: false`.
+Zásah se zapíše do časové osy a server rozešle autoritativní stav. Obnova
+spoluhráčem zůstává dostupná příkazem `team_game.player.restore`; běžný herní
+WebSocket nemá správcovskou akci pro vyřazení.
 
 ### `GET /api/admin/overview` (Cloudflare)
 
@@ -365,6 +368,18 @@ a nejvýše jednou odečte postih z presetů zveřejněných v `admin.overview`.
 vyřazení hráčů zachová. Oba endpointy vyžadují `Authorization: Bearer
 <ADMIN_TOKEN>`, ukládají audit a při opakování stejného `operation_id` vracejí
 `changed: false` bez další penalizace či resetu.
+
+### `POST /api/admin/scenario-play-modes` (Cloudflare)
+
+Autentizovaný endpoint přijímá jedinečné `operation_id` a atomický objekt
+`modes`, který musí obsahovat právě všechny hádanky cloudového katalogu. Každá
+hodnota je `phones`, `supplemental` nebo `exclusive`. Po částech uložený či
+neúplný dokument se odmítne, aby nevznikla směs staré a nové konfigurace.
+
+Worker nastavení trvale uloží v adresářovém Durable Objectu, zapíše audit,
+uvolní rezervace volných terminálů pro hádanky přepnuté na `phones` a rozešle
+nové `runtime.settings` i autoritativní `game.state` rozehraným relacím.
+Opakování stejného `operation_id` vrací `changed: false`.
 
 ### `POST /api/admin/player-recovery` a `lobby.recover` (Cloudflare)
 

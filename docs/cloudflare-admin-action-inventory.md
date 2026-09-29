@@ -19,10 +19,10 @@ novou podobu autentizace administrátora.
 | 2 | Dokončit/přeskočit checkpoint | `admin.checkpoint`, stav `solved`, `penalty_preset` | autorizovaný a idempotentní session endpoint včetně presetů | tlačítko podle `admin_capabilities` | **hotovo** |
 | 3 | Restart celé aktivní minihry | `admin.game_reset` pro Kalibraci, Karla, Tři v řadě a Sokoban | autorizovaný a idempotentní session endpoint | tlačítko podle adaptéru v `admin_capabilities` | **hotovo** |
 | 4 | Vyřadit hráče z týmové minihry | `admin.game_player: exclude` | autorizovaný `/api/admin/game-player`; jen Kalibrace a Tři v řadě | tlačítko je viditelné u podporovaných metrik | **hotovo**, ponechat jako regresní rozsah |
-| 5 | Vrátit vyřazeného hráče | `admin.game_player: include` | endpoint akci odmítne | text odkazuje na obnovu spoluhráčem, tlačítko chybí | **částečně** – rozšířit existující kontrakt |
+| 5 | Vrátit vyřazeného hráče | `admin.game_player: include` | autorizovaný a idempotentní `/api/admin/game-player` | tlačítko podle `admin_capabilities` | **hotovo** |
 | 6 | Restartovat desku jednoho hráče | `admin.game_player: reset` | endpoint akci odmítne | tlačítko chybí | **částečně** – rozšířit existující kontrakt |
 | 7 | Rezervovat hádanku volnému terminálu | `admin.terminal_reserve` | autorizovaný `/api/admin/terminal-reserve` | dostupné v záložce Terminály | **hotovo**, zachovat rezervaci zařízení oddělenou od týmu |
-| 8 | Nastavit způsob hraní hádanky | `admin.scenario_play_modes` | chybí | formulář existuje, ale cloudová cesta neexistuje | **chybí** – portovat celý atomický dokument režimů |
+| 8 | Nastavit způsob hraní hádanky | `admin.scenario_play_modes` | autorizovaný a idempotentní `/api/admin/scenario-play-modes` | dostupné v záložce Režimy hry | **hotovo** – atomický dokument všech hádanek |
 | 9 | Nastavit globální katalog terminálů | `admin.terminal_catalog` | chybí | legacy formulář existuje | **chybí** – lze sloučit s nastavením způsobů hraní |
 | 10 | Přidělit hádanku připojenému týmovému terminálu | `admin.terminal_assign` | přímý ekvivalent chybí; Worker používá rezervaci před převzetím | týmový panel je v Cloudflare režimu skrytý | **chybí / přehodnotit** – preferovat současný rezervační model |
 | 11 | Uživatel explicitně opustí hru | neexistuje | neexistuje | chybí | **nové** – navržený kontrakt `lobby.leave` níže |
@@ -108,10 +108,11 @@ nepoužívají.
 2. **Hotovo:** portovat checkpoint `found` a `solved` včetně penalizačních
    presetů.
 3. **Hotovo:** portovat restart celé minihry.
-4. Rozšířit hráčské akce o `include` a `reset`.
+4. **Částečně:** hráčské akce podporují `include`; zbývá individuální `reset`.
 5. Přepnout administrační UI z `cloudflare_limited` na schopnosti serveru.
-6. Doplnit režimy hraní a terminálový katalog; přímé přidělení řešit pouze
-   tehdy, pokud nestačí existující rezervace.
+6. **Částečně:** režimy hraní jsou hotové; zbývá samostatná správa globálního
+   terminálového katalogu. Přímé přidělení řešit pouze tehdy, pokud nestačí
+   existující rezervace.
 7. Implementovat `lobby.leave` shodně v legacy i Cloudflare runtime.
 8. Provést automatické testy, lokální vykreslený smoke test, staging a teprve
    potom produkční akceptaci.
