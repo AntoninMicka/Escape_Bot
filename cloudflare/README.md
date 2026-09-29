@@ -228,6 +228,17 @@ Produkční deploy má samostatný explicitní příkaz `npm run deploy:producti
 Obecný `npm run deploy` záměrně není definován, aby nebylo možné bez výběru
 prostředí změnit výchozí Worker.
 
+Produkční Worker používá tři Cloudflare Custom Domains nad stejnými Durable
+Objecty a stejným stavem hry:
+
+- `https://escape.antoninmicka.cz`
+- `https://escape.tonymicka.cz`
+- `https://escape.proofofidea.cz`
+
+Wrangler při produkčním deployi spravuje jejich DNS záznamy a TLS certifikáty.
+Všechny tři domény proto musí být ve stejném dostupném Cloudflare účtu a před
+prvním deployem nesmí mít konfliktní A, AAAA nebo CNAME záznam daného názvu.
+
 Po nasazení je nutné zopakovat WebSocket resume po uspání fyzického iPhonu.
 Teprve poté lze CF-01 označit za dokončený.
 

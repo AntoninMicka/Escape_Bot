@@ -85,6 +85,21 @@
     },
     "production": {
       "name": "escape-bot-cf-production",
+      "workers_dev": false,
+      "routes": [
+        {
+          "pattern": "escape.antoninmicka.cz",
+          "custom_domain": true
+        },
+        {
+          "pattern": "escape.tonymicka.cz",
+          "custom_domain": true
+        },
+        {
+          "pattern": "escape.proofofidea.cz",
+          "custom_domain": true
+        }
+      ],
       "durable_objects": {
         "bindings": [
           {
