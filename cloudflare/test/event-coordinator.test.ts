@@ -1,4 +1,4 @@
-import { env, evictDurableObject, SELF } from "cloudflare:test";
+import { env, evictDurableObject, runDurableObjectAlarm, SELF } from "cloudflare:test";
 import { describe, expect, it } from "vitest";
 import { eventStartAvailability, type EventSnapshot } from "../src/event-coordinator";
 
@@ -427,6 +427,79 @@ describe("EventCoordinator Durable Object", () => {
       closeSocket(second.bootstrap),
       closeSocket(second.session),
     ]);
+    const cleared = await SELF.fetch("https://example.test/api/admin/events/active", {
+      method: "DELETE",
+      headers: authorization,
+    });
+    await cleared.json();
+  });
+
+  it("persists a queued team and starts it from the directory alarm", async () => {
+    const now = new Date();
+    const offset = 12 - now.getUTCHours();
+    const timezone = offset === 0 ? "UTC" : `Etc/GMT${offset > 0 ? `-${offset}` : `+${Math.abs(offset)}`}`;
+    const date = dateInZone(now, timezone);
+    const created = await putEvent("queue-event", eventConfiguration({
+      starts_at: new Date(now.valueOf() - 60 * 60_000).toISOString(),
+      ends_at: new Date(now.valueOf() + 6 * 60 * 60_000).toISOString(),
+      status: "open",
+      timezone,
+      daily_windows: [{ date, enabled: true, opens_at: "00:00", closes_at: "23:59" }],
+      games: [{
+        game_id: "hotel_kraskov",
+        role: "primary",
+        queue_enabled: true,
+        leaderboard_enabled: true,
+        weight: 1,
+        start_interval_minutes: 0,
+        max_active_teams: 4,
+      }],
+      operation_id: "queue-event-create",
+    }));
+    expect(created.status).toBe(200);
+    await created.json();
+
+    const bootstrap = await openBootstrap("queued-captain");
+    const route = nextMessage(bootstrap, "lobby.route");
+    bootstrap.send(JSON.stringify({
+      type: "lobby.create",
+      payload: {
+        client_id: "queued-captain",
+        name: "Alice",
+        team_name: "Tým ve frontě",
+        lobby_type: "on_site_qr",
+        scenario_id: "hotel_kraskov",
+      },
+    }));
+    const sessionId = String((await route).payload.session_id);
+    const session = await openSession(sessionId, "queued-captain");
+    const queuedSettings = nextMessage(session, "runtime.settings");
+    session.send(JSON.stringify({ type: "lobby.queue", payload: {} }));
+    expect((await queuedSettings).payload.start_queue).toEqual([
+      expect.objectContaining({ session_id: sessionId, team_name: "Tým ve frontě", position: 1 }),
+    ]);
+    const dequeuedSettings = nextMessage(session, "runtime.settings");
+    session.send(JSON.stringify({ type: "lobby.dequeue", payload: {} }));
+    expect((await dequeuedSettings).payload.start_queue).toEqual([]);
+    const requeuedSettings = nextMessage(session, "runtime.settings");
+    session.send(JSON.stringify({ type: "lobby.queue", payload: {} }));
+    expect((await requeuedSettings).payload.start_queue).toEqual([
+      expect.objectContaining({ session_id: sessionId, position: 1 }),
+    ]);
+
+    await closeSocket(bootstrap);
+    await evictDurableObject(env.GAME_SESSIONS.getByName("__escape_bot_lobby_directory__"));
+    const started = nextMessage(session, "lobby.state");
+    expect(await runDurableObjectAlarm(env.GAME_SESSIONS.getByName("__escape_bot_lobby_directory__"))).toBe(true);
+    expect((await started).payload).toMatchObject({ session_id: sessionId, started: true });
+
+    const snapshot = await env.GAME_SESSIONS.getByName(sessionId).fetch(
+      "https://internal/internal/admin/snapshot",
+      { headers: { "X-EscapeBot-Internal-Admin": "1" } },
+    );
+    expect(await snapshot.json()).toMatchObject({ started: true, team_name: "Tým ve frontě" });
+
+    await closeSocket(session);
     const cleared = await SELF.fetch("https://example.test/api/admin/events/active", {
       method: "DELETE",
       headers: authorization,

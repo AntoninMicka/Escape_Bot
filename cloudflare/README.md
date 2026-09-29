@@ -87,8 +87,14 @@ konfigurace konkrétní hry vynutí `max_active_teams` a
 `start_interval_minutes`. Rezervace je pro stejnou relaci idempotentní a po
 nastavené délce hry automaticky vyprší, takže výpočet nemusí synchronně
 procházet všechny týmové Durable Objecty; při dřívějším dokončení ji týmová
-relace bezpečně uvolní. Automatické řazení a spuštění
-čekajících týmů z fronty zůstává navazujícím krokem CF-05.
+relace bezpečně uvolní.
+
+Čekající tým se může zařadit do perzistentní fronty nebo ji opustit. Veřejná
+projekce je řazená podle role hry, konkrétní hry a času zařazení a obsahuje
+pozici i plánovaný start. Alarm adresářového Durable Objectu přežije hibernaci,
+v rezervovaném čase znovu ověří eventové okno, kapacitu a rozestup a první
+způsobilý tým automaticky spustí. Aktualizace fronty se rozešle bootstrap i
+týmovým klientům; nedostupná týmová relace neblokuje broadcast ostatním.
 
 Lokální vývojový server:
 

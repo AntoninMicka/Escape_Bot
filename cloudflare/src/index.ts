@@ -115,8 +115,15 @@ interface StartClaimRecord {
   expiresAt: string;
 }
 
+interface StartQueueRecord {
+  sessionId: string;
+  gameId: string;
+  teamName: string;
+  queuedAt: string;
+}
+
 interface DirectorySnapshot {
-  schemaVersion: 5;
+  schemaVersion: 6;
   activeEventId: string;
   joinCodes: Record<string, string>;
   teamKeys: Record<string, string>;
@@ -127,6 +134,7 @@ interface DirectorySnapshot {
   terminalRoutes: Record<string, TerminalRouteRecord>;
   startClaims: Record<string, StartClaimRecord>;
   lastGameStarts: Record<string, string>;
+  startQueue: Record<string, StartQueueRecord>;
 }
 
 interface RuntimeGame {
@@ -219,7 +227,7 @@ function normalizeSnapshot(
 
 function defaultDirectory(): DirectorySnapshot {
   return {
-    schemaVersion: 5,
+    schemaVersion: 6,
     activeEventId: "",
     joinCodes: {},
     teamKeys: {},
@@ -230,12 +238,13 @@ function defaultDirectory(): DirectorySnapshot {
     terminalRoutes: {},
     startClaims: {},
     lastGameStarts: {},
+    startQueue: {},
   };
 }
 
 function normalizeDirectory(stored: Partial<DirectorySnapshot> | undefined): DirectorySnapshot {
   const fallback = defaultDirectory();
-  return stored ? { ...fallback, ...stored, schemaVersion: 5 } : fallback;
+  return stored ? { ...fallback, ...stored, schemaVersion: 6 } : fallback;
 }
 
 function cleanText(value: unknown, maximum: number): string {
@@ -388,6 +397,28 @@ export class GameSession extends DurableObject<Env> {
       }
       const payload = await request.json<Record<string, unknown>>();
       return this.serializeDirectory(() => this.releaseEventStart(payload));
+    }
+    if (url.pathname === "/internal/event/start-queue" && request.method === "POST") {
+      if (request.headers.get("X-EscapeBot-Internal-Session") !== "1") {
+        return json({ error: "not_found" }, 404);
+      }
+      const payload = await request.json<Record<string, unknown>>();
+      return this.serializeDirectory(() => this.updateEventStartQueue(payload));
+    }
+    if (url.pathname === "/internal/event/runtime-settings" && request.method === "POST") {
+      if (request.headers.get("X-EscapeBot-Internal-Directory") !== "1") {
+        return json({ error: "not_found" }, 404);
+      }
+      const payload = await request.json<Record<string, unknown>>();
+      this.broadcast("runtime.settings", payload);
+      return json({ success: true });
+    }
+    if (url.pathname === "/internal/lobby/auto-start" && request.method === "POST") {
+      if (request.headers.get("X-EscapeBot-Internal-Directory") !== "1") {
+        return json({ error: "not_found" }, 404);
+      }
+      const payload = await request.json<Record<string, unknown>>();
+      return this.serializeState(() => this.autoStartLobby(payload));
     }
     if (url.pathname === "/internal/admin/player-recovery" && request.method === "POST") {
       if (request.headers.get("X-EscapeBot-Internal-Admin") !== "1") {
@@ -597,6 +628,10 @@ export class GameSession extends DurableObject<Env> {
         return;
       case "lobby.start":
         await this.startLobby(socket, attachment);
+        return;
+      case "lobby.queue":
+      case "lobby.dequeue":
+        await this.updateOwnStartQueue(socket, attachment, message.type === "lobby.queue");
         return;
       case "player.message":
       case "phase.hint":
@@ -1624,7 +1659,7 @@ export class GameSession extends DurableObject<Env> {
     }
     const now = new Date().toISOString();
     const gameDurationMinutes = boundedInteger(this.runtimeEnv.GAME_DURATION_MINUTES, 165, 15, 720);
-    const scenario = await this.loadScenario(this.snapshot.lobby.scenarioId);
+    await this.loadScenario(this.snapshot.lobby.scenarioId);
     let startClaim: Record<string, unknown>;
     try {
       startClaim = await this.claimEventStartForSession(this.snapshot.lobby.scenarioId, gameDurationMinutes);
@@ -1636,11 +1671,28 @@ export class GameSession extends DurableObject<Env> {
       this.send(socket, "lobby.error", { message: String(startClaim.reason || "Start nyní není možný.") });
       return;
     }
+    await this.commitLobbyStart(
+      now,
+      startClaim.closing_at ? String(startClaim.closing_at) : "",
+      attachment.clientId,
+      false,
+    );
+  }
+
+  private async commitLobbyStart(
+    now: string,
+    closingAt: string,
+    actorId: string,
+    automatic: boolean,
+  ): Promise<void> {
+    if (this.snapshot.lobby.started) return;
+    const gameDurationMinutes = boundedInteger(this.runtimeEnv.GAME_DURATION_MINUTES, 165, 15, 720);
+    const scenario = await this.loadScenario(this.snapshot.lobby.scenarioId);
     const adjustment = teamSizeAdjustment(this.snapshot.lobby.mode, this.snapshot.lobby.maxPlayers);
-    const startedScenario = startScenario(scenario, adjustment, now, this.runtimeActor(attachment.clientId));
+    const startedScenario = startScenario(scenario, adjustment, now, this.runtimeActor(actorId));
     const nominalDeadlineAt = Date.parse(now) + gameDurationMinutes * 60_000;
-    const deadlineAt = startClaim.closing_at
-      ? Math.min(nominalDeadlineAt, Date.parse(String(startClaim.closing_at)))
+    const deadlineAt = closingAt
+      ? Math.min(nominalDeadlineAt, Date.parse(closingAt))
       : nominalDeadlineAt;
     startedScenario.state.flags.game_deadline_at = new Date(deadlineAt).toISOString();
     const initialMessages = startedScenario.messages
@@ -1660,7 +1712,54 @@ export class GameSession extends DurableObject<Env> {
     await this.ctx.storage.put(SNAPSHOT_KEY, this.snapshot);
     await this.ctx.storage.setAlarm(deadlineAt);
     this.broadcastLobbyState();
+    if (automatic) {
+      this.broadcast("queue.auto_started", { message: "Váš rezervovaný čas nastal. Hra byla automaticky spuštěna." });
+    }
     for (const candidate of this.ctx.getWebSockets()) await this.sendAuthoritativeSnapshot(candidate, false, scenario);
+  }
+
+  private async autoStartLobby(payload: Record<string, unknown>): Promise<Response> {
+    if (!this.snapshot.lobby.creatorId) return json({ error: "session_not_found" }, 404);
+    if (this.snapshot.lobby.started) return json({ changed: false, started: true });
+    const closingAt = cleanText(payload.closing_at, 64);
+    if (closingAt && !Number.isFinite(Date.parse(closingAt))) return json({ error: "invalid_closing_at" }, 400);
+    await this.commitLobbyStart(
+      new Date().toISOString(),
+      closingAt,
+      this.snapshot.lobby.creatorId,
+      true,
+    );
+    return json({ changed: true, started: true });
+  }
+
+  private async updateOwnStartQueue(
+    socket: WebSocket,
+    attachment: SocketAttachment,
+    enqueue: boolean,
+  ): Promise<void> {
+    if (!this.snapshot.lobby.players[attachment.clientId]) {
+      this.send(socket, "lobby.error", { message: "Nejprve se připojte k týmové lobby." });
+      return;
+    }
+    if (this.snapshot.lobby.mode !== "team" || this.snapshot.lobby.started) {
+      this.send(socket, "lobby.error", { message: "Do fronty lze zařadit pouze čekající tým." });
+      return;
+    }
+    const response = await this.runtimeEnv.GAME_SESSIONS.getByName(DIRECTORY_OBJECT_NAME).fetch(
+      "https://internal/internal/event/start-queue",
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-EscapeBot-Internal-Session": "1" },
+        body: JSON.stringify({
+          action: enqueue ? "enqueue" : "dequeue",
+          session_id: this.snapshot.sessionId,
+          game_id: this.snapshot.lobby.scenarioId,
+          team_name: this.snapshot.lobby.teamName,
+        }),
+      },
+    );
+    const result = await response.json<Record<string, unknown>>();
+    if (!response.ok) this.send(socket, "lobby.error", { message: String(result.message || result.error || "Frontu se nepodařilo změnit.") });
   }
 
   private async serializeDirectory<T>(operation: () => Promise<T>): Promise<T> {
@@ -2114,7 +2213,17 @@ export class GameSession extends DurableObject<Env> {
       directory.lastGameStarts[gameId] = claimedAt.toISOString();
       directoryChanged = true;
     }
+    const dequeued = availability.start_allowed && Boolean(directory.startQueue[sessionId]);
+    if (dequeued) {
+      delete directory.startQueue[sessionId];
+      directoryChanged = true;
+    }
     if (directoryChanged) await this.ctx.storage.put(DIRECTORY_KEY, directory);
+    if (dequeued) {
+      const settings = await this.runtimeSettingsPayload();
+      await this.broadcastRuntimeSettings(settings, directory);
+      await this.scheduleStartQueueAlarm(Array.isArray(settings.start_queue) ? settings.start_queue as Array<Record<string, unknown>> : []);
+    }
     return json({ ...availability, event: { id: event.id } }, availability.start_allowed ? 200 : 409);
   }
 
@@ -2126,8 +2235,177 @@ export class GameSession extends DurableObject<Env> {
     if (changed) {
       delete directory.startClaims[sessionId];
       await this.ctx.storage.put(DIRECTORY_KEY, directory);
+      const settings = await this.runtimeSettingsPayload();
+      await this.broadcastRuntimeSettings(settings, directory);
+      await this.scheduleStartQueueAlarm(Array.isArray(settings.start_queue) ? settings.start_queue as Array<Record<string, unknown>> : []);
     }
     return json({ changed });
+  }
+
+  private async publicStartQueue(
+    event: EventSnapshot | null,
+    directory: DirectorySnapshot,
+    gameDurationMinutes: number,
+  ): Promise<Array<Record<string, unknown>>> {
+    if (!event) return [];
+    const configurations = new Map(event.games.map((game) => [game.game_id, game]));
+    const entries = Object.values(directory.startQueue)
+      .filter((item) => configurations.get(item.gameId)?.queue_enabled)
+      .sort((left, right) => {
+        const priority = (gameId: string) => {
+          const role = configurations.get(gameId)?.role;
+          return role === "primary" ? 0 : role === "competitive" ? 1 : 2;
+        };
+        return priority(left.gameId) - priority(right.gameId) ||
+          left.gameId.localeCompare(right.gameId) ||
+          left.queuedAt.localeCompare(right.queuedAt);
+      });
+    const availabilityByGame = new Map<string, Record<string, unknown>>();
+    const positions = new Map<string, number>();
+    const now = Date.now();
+    const result: Array<Record<string, unknown>> = [];
+    for (const item of entries) {
+      let availability = availabilityByGame.get(item.gameId);
+      if (!availability) {
+        availability = await this.eventGameAvailability(event, directory, item.gameId, gameDurationMinutes);
+        availabilityByGame.set(item.gameId, availability);
+      }
+      const position = (positions.get(item.gameId) ?? 0) + 1;
+      positions.set(item.gameId, position);
+      const interval = Number(availability.start_interval_minutes || 0) * 60_000;
+      let base = Date.parse(String(availability.next_start_at || ""));
+      if (!Number.isFinite(base) && event.status === "open") {
+        base = Math.max(now + 60_000, Date.parse(event.starts_at));
+      }
+      const planned = Number.isFinite(base) ? new Date(base + interval * (position - 1)).toISOString() : "";
+      result.push({
+        session_id: item.sessionId,
+        team_name: item.teamName,
+        scenario_id: item.gameId,
+        event_role: configurations.get(item.gameId)?.role || "competitive",
+        position,
+        queued_at: item.queuedAt,
+        planned_start_at: planned,
+      });
+    }
+    return result;
+  }
+
+  private async broadcastRuntimeSettings(settings: Record<string, unknown>, directory: DirectorySnapshot): Promise<void> {
+    for (const socket of this.ctx.getWebSockets()) {
+      if (socket.readyState !== WebSocket.OPEN) continue;
+      const attachment = socket.deserializeAttachment() as SocketAttachment | null;
+      if (attachment?.role === "bootstrap" || attachment?.role === "terminal_waiting") {
+        this.send(socket, "runtime.settings", settings);
+      }
+    }
+    const sessionIds = [...new Set([
+      ...Object.values(directory.teamKeys),
+      ...Object.values(directory.creatorKeys),
+      ...Object.values(directory.joinCodes),
+    ])].filter((sessionId) => SESSION_ID_PATTERN.test(sessionId));
+    this.ctx.waitUntil(Promise.allSettled(sessionIds.map((sessionId) =>
+      this.runtimeEnv.GAME_SESSIONS.getByName(sessionId).fetch(
+        "https://internal/internal/event/runtime-settings",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "X-EscapeBot-Internal-Directory": "1" },
+          body: JSON.stringify(settings),
+        },
+      ).then((response) => response.text())
+    )).then(() => undefined));
+  }
+
+  private async scheduleStartQueueAlarm(startQueue: Array<Record<string, unknown>>): Promise<void> {
+    const candidates = startQueue
+      .map((item) => Date.parse(String(item.planned_start_at || "")))
+      .filter(Number.isFinite);
+    if (candidates.length) await this.ctx.storage.setAlarm(Math.max(Date.now() + 100, Math.min(...candidates)));
+    else await this.ctx.storage.deleteAlarm();
+  }
+
+  private async updateEventStartQueue(payload: Record<string, unknown>): Promise<Response> {
+    const action = payload.action === "dequeue" ? "dequeue" : "enqueue";
+    const sessionId = cleanText(payload.session_id, 128);
+    const gameId = cleanText(payload.game_id, 64);
+    const teamName = cleanText(payload.team_name, 32);
+    if (!SESSION_ID_PATTERN.test(sessionId)) return json({ error: "invalid_queue_session" }, 400);
+    const directory = normalizeDirectory(await this.ctx.storage.get<DirectorySnapshot>(DIRECTORY_KEY));
+    if (action === "enqueue") {
+      let event: EventSnapshot | null;
+      try {
+        event = await this.loadActiveEvent(true);
+      } catch {
+        return json({ error: "active_event_unavailable" }, 503);
+      }
+      const configuration = event?.games.find((game) => game.game_id === gameId);
+      if (!event || !configuration?.queue_enabled) {
+        return json({ error: "queue_disabled", message: "Fronta pro tuto hru není zapnutá." }, 409);
+      }
+      if (!directory.startQueue[sessionId]) {
+        directory.startQueue[sessionId] = {
+          sessionId,
+          gameId,
+          teamName: teamName || sessionId,
+          queuedAt: new Date().toISOString(),
+        };
+      }
+    } else {
+      delete directory.startQueue[sessionId];
+    }
+    await this.ctx.storage.put(DIRECTORY_KEY, directory);
+    const settings = await this.runtimeSettingsPayload();
+    await this.broadcastRuntimeSettings(settings, directory);
+    await this.scheduleStartQueueAlarm(Array.isArray(settings.start_queue) ? settings.start_queue as Array<Record<string, unknown>> : []);
+    return json({ changed: true, queued: action === "enqueue" });
+  }
+
+  private async processStartQueueAlarm(): Promise<void> {
+    const directory = normalizeDirectory(await this.ctx.storage.get<DirectorySnapshot>(DIRECTORY_KEY));
+    const event = await this.loadActiveEvent();
+    const duration = boundedInteger(this.runtimeEnv.GAME_DURATION_MINUTES, 165, 15, 720);
+    let queue = await this.publicStartQueue(event, directory, duration);
+    const due = queue
+      .filter((item) => Number.isFinite(Date.parse(String(item.planned_start_at || ""))) && Date.parse(String(item.planned_start_at)) <= Date.now())
+      .sort((left, right) => String(left.planned_start_at).localeCompare(String(right.planned_start_at)))[0];
+    if (event && due) {
+      const sessionId = String(due.session_id);
+      const gameId = String(due.scenario_id);
+      const availability = await this.eventGameAvailability(event, directory, gameId, duration, sessionId);
+      if (availability.start_allowed) {
+        const claimedAt = new Date();
+        directory.startClaims[sessionId] = {
+          gameId,
+          claimedAt: claimedAt.toISOString(),
+          expiresAt: new Date(Math.min(
+            claimedAt.valueOf() + duration * 60_000,
+            Date.parse(String(availability.closing_at)),
+          )).toISOString(),
+        };
+        directory.lastGameStarts[gameId] = claimedAt.toISOString();
+        const queued = directory.startQueue[sessionId];
+        delete directory.startQueue[sessionId];
+        await this.ctx.storage.put(DIRECTORY_KEY, directory);
+        const response = await this.runtimeEnv.GAME_SESSIONS.getByName(sessionId).fetch(
+          "https://internal/internal/lobby/auto-start",
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json", "X-EscapeBot-Internal-Directory": "1" },
+            body: JSON.stringify({ closing_at: availability.closing_at }),
+          },
+        );
+        await response.text();
+        if (!response.ok && queued) {
+          delete directory.startClaims[sessionId];
+          directory.startQueue[sessionId] = queued;
+          await this.ctx.storage.put(DIRECTORY_KEY, directory);
+        }
+      }
+    }
+    const settings = await this.runtimeSettingsPayload();
+    await this.broadcastRuntimeSettings(settings, directory);
+    queue = Array.isArray(settings.start_queue) ? settings.start_queue as Array<Record<string, unknown>> : [];
+    await this.scheduleStartQueueAlarm(queue);
   }
 
   private async runtimeSettingsPayload(): Promise<Record<string, unknown>> {
@@ -2160,6 +2438,7 @@ export class GameSession extends DurableObject<Env> {
     const availability = event
       ? await this.eventGameAvailability(event, directory, event.primary_game_id, gameDurationMinutes)
       : null;
+    const startQueue = await this.publicStartQueue(event, directory, gameDurationMinutes);
     return {
       online_mode: false,
       gameplay_enabled: true,
@@ -2179,7 +2458,7 @@ export class GameSession extends DurableObject<Env> {
       timezone: event?.timezone ?? "Europe/Prague",
       games,
       configurable_games: configurableGames,
-      start_queue: [],
+      start_queue: startQueue,
       checkpoints: [],
       availability,
       availability_by_lobby_type: availability
@@ -2219,16 +2498,19 @@ export class GameSession extends DurableObject<Env> {
     if (changed) {
       directory.startClaims = {};
       directory.lastGameStarts = {};
+      directory.startQueue = {};
+    } else if (event) {
+      const queueEnabledGames = new Set(event.games.filter((game) => game.queue_enabled).map((game) => game.game_id));
+      for (const [sessionId, item] of Object.entries(directory.startQueue)) {
+        if (!queueEnabledGames.has(item.gameId) || new Set(["ended", "archived"]).has(event.status)) {
+          delete directory.startQueue[sessionId];
+        }
+      }
     }
     await this.ctx.storage.put(DIRECTORY_KEY, directory);
     const settings = await this.runtimeSettingsPayload();
-    for (const socket of this.ctx.getWebSockets()) {
-      if (socket.readyState !== WebSocket.OPEN) continue;
-      const attachment = socket.deserializeAttachment() as SocketAttachment | null;
-      if (attachment?.role === "bootstrap" || attachment?.role === "terminal_waiting") {
-        this.send(socket, "runtime.settings", settings);
-      }
-    }
+    await this.broadcastRuntimeSettings(settings, directory);
+    await this.scheduleStartQueueAlarm(Array.isArray(settings.start_queue) ? settings.start_queue as Array<Record<string, unknown>> : []);
     return json({ changed, active_event_id: event?.id ?? "", event: event ?? {} });
   }
 
@@ -2275,6 +2557,15 @@ export class GameSession extends DurableObject<Env> {
   }
 
   async alarm(): Promise<void> {
+    if (!this.snapshot.sessionId) {
+      const directory = normalizeDirectory(await this.ctx.storage.get<DirectorySnapshot>(DIRECTORY_KEY));
+      if (Object.keys(directory.startQueue).length) {
+        await this.serializeDirectory(() => this.processStartQueueAlarm());
+      } else {
+        await this.ctx.storage.deleteAlarm();
+      }
+      return;
+    }
     if (
       this.snapshot.terminalReleaseAt !== null &&
       (this.snapshot.deadlineAt === null || this.snapshot.terminalReleaseAt <= this.snapshot.deadlineAt)

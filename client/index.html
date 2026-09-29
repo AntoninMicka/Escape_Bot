@@ -2215,7 +2215,7 @@
         }
         function renderStartQueue() {
             const list = document.getElementById('lobby-queue');
-            if (list) list.innerHTML = runtimeStartQueue.length ? runtimeStartQueue.map(item => `<li class="${item.session_id === sessionId ? 'current-team' : ''}">${item.position}. ${escapeHtml(item.team_name)} · ${new Date(item.planned_start_at).toLocaleTimeString('cs-CZ',{hour:'2-digit',minute:'2-digit'})}</li>`).join('') : '<li>Bez čekajících týmů.</li>';
+            if (list) list.innerHTML = runtimeStartQueue.length ? runtimeStartQueue.map(item => `<li class="${item.session_id === sessionId ? 'current-team' : ''}">${item.position}. ${escapeHtml(item.team_name)} · ${item.planned_start_at?new Date(item.planned_start_at).toLocaleTimeString('cs-CZ',{hour:'2-digit',minute:'2-digit'}):'čeká na otevření'}</li>`).join('') : '<li>Bez čekajících týmů.</li>';
             const own = runtimeStartQueue.find(item => item.session_id === sessionId);
             const target = own?.planned_start_at || runtimeAvailability?.next_start_at;
             const lights = document.getElementById('lobby-start-lights'); if (lights) lights.innerHTML = startLightsHtml(target);
@@ -2224,8 +2224,8 @@
             if (queueButton) { queueButton.style.display = launchMode === 'free' && currentLobby && !currentLobby.started ? 'block' : 'none'; queueButton.textContent = own ? 'OPUSTIT FRONTU' : 'ZAŘADIT TÝM DO FRONTY'; }
             if (own) {
                 const status = document.getElementById('lobby-status');
-                if (status && currentLobby && !currentLobby.started) status.textContent = `Jste ${own.position}. ve frontě. Hra se automaticky spustí v ${new Date(own.planned_start_at).toLocaleTimeString('cs-CZ',{hour:'2-digit',minute:'2-digit'})}.`;
-                scheduleTeamAlarm(own);
+                if (status && currentLobby && !currentLobby.started) status.textContent = own.planned_start_at ? `Jste ${own.position}. ve frontě. Hra se automaticky spustí v ${new Date(own.planned_start_at).toLocaleTimeString('cs-CZ',{hour:'2-digit',minute:'2-digit'})}.` : `Jste ${own.position}. ve frontě. Čekáme na otevření eventu.`;
+                if(own.planned_start_at)scheduleTeamAlarm(own);
             }
         }
         function toggleTeamQueue() {
@@ -3522,6 +3522,7 @@
                     activeEvent = msg.payload.event?.id ? msg.payload.event : null;
                     runtimeAvailability = msg.payload.availability || null;
                     runtimeAvailabilityByLobbyType = msg.payload.availability_by_lobby_type || {};
+                    runtimeStartQueue = msg.payload.start_queue || [];
                     runtimeCheckpoints = msg.payload.checkpoints || [];
                     runtimeGames = msg.payload.games || [];
                     renderEventGameConfig(msg.payload.configurable_games||[],activeEvent);
@@ -3551,6 +3552,9 @@
                     const scheduleStatus = document.getElementById('admin-schedule-status'); if (scheduleStatus && runtimeAvailability) { const occupancy=Number.isFinite(runtimeAvailability.active_teams)&&Number.isFinite(runtimeAvailability.max_active_teams)?`${runtimeAvailability.active_teams}/${runtimeAvailability.max_active_teams} aktivních týmů · `:'';scheduleStatus.textContent = `${occupancy}nejzazší start ${new Date(runtimeAvailability.latest_start_at).toLocaleTimeString('cs-CZ',{hour:'2-digit',minute:'2-digit'})}`; }
                     if (adminModeRequested && latestAdminPayload) renderAdminLeaderboard(latestAdminPayload.leaderboard || []);
                     renderLobbyAvailability();
+                    renderStartQueue();
+                    const currentQueueItem=runtimeStartQueue.find(item=>item.session_id===sessionId);
+                    if(previousQueueItem&&currentQueueItem&&previousQueueItem.position!==currentQueueItem.position)notifyQueueChange(`Posun ve frontě: nyní jste ${currentQueueItem.position}.`);
                     renderOnlineMapActions();
                     const scannerContainer = document.getElementById('scanner-container');
                     const scannerTab = document.querySelector('[onclick*="tab-scanner"]');
@@ -3567,6 +3571,9 @@
                         if (scannerTab) scannerTab.textContent = 'SKENER (Kamera)';
                     }
                     showNotification(onlineModeEnabled ? 'Online herní režim je aktivní.' : 'Fyzický QR režim je aktivní.', 'info');
+                }
+                else if (msg.type === 'queue.auto_started') {
+                    notifyQueueChange(msg.payload.message || 'Vaše hra byla automaticky spuštěna.');
                 }
                 else if (msg.type === 'operations.stopped') {
                     document.getElementById('lobby-overlay').classList.remove('hidden');
