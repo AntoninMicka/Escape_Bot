@@ -72,16 +72,29 @@ Navržené chování:
 - server ověří, že identita socketu patří do relace, a odpoví `lobby.left`;
 - klient odstraní `escapeBotLobby` až po přijetí potvrzení a vrátí se na výběr
   hry;
-- `max_players`, již přidělené bodové úpravy, audit a historické výsledky hráče
-  zůstanou zachované;
+- odchozí hráč se z aktivních účastníků vyřadí, ale jeho identita, jméno,
+  příspěvky a příslušnost k týmu zůstanou v evidenci pro výsledkový žebříček;
+- `max_players`, režim relace, již přidělené bodové úpravy, audit a historické
+  výsledky hráče zůstanou zachované;
+- týmová relace zůstane v režimu `team`, i kdyby po odchodu pokračoval jediný
+  aktivní hráč; nikdy se automaticky nepřepne na jednotlivce;
 - pokud zbývají další hráči, zakladatelství přejde na nejdříve připojeného
-  zbývajícího hráče;
-- poslední hráč před startem rozpustí lobby a uvolní připojovací kód i frontu;
-- odchod posledního hráče z rozehrané hry ji provozně ukončí jako opuštěnou;
+  aktivního hráče;
+- odchod jednotlivce ukončí jeho hru;
+- odchod posledního aktivního hráče z týmu ukončí danou hru stejným způsobem
+  jako odchod jednotlivce;
+- před startem poslední aktivní hráč zároveň uvolní připojovací kód a případnou
+  pozici ve frontě, přičemž záznam relace lze uchovat pro audit;
 - odchod během týmové Kalibrace nebo Tří v řadě nesmí sám dokončit checkpoint
   ani připsat týmový bonus; aktivní účast se přepočítá bez automatické odměny;
 - akce vyžaduje výrazné potvrzení, protože je trvalá; pouhé dočasné odpojení
   zůstává doporučenou cestou pro pozdější návrat.
+
+Datový model proto nesmí hráče fyzicky odstranit ze seznamu `players`. Potřebuje
+trvalý stav členství, například `left_at`, a samostatně odvozovaný seznam
+aktivních účastníků. Výsledkový žebříček čte historický seznam členů, zatímco
+autorizace herních příkazů, volba zakladatele a týmové minihry používají pouze
+aktivní účastníky.
 
 Terminál, administrátor a veřejná nástěnka nejsou hráči a `lobby.leave`
 nepoužívají.
@@ -98,4 +111,3 @@ nepoužívají.
 7. Implementovat `lobby.leave` shodně v legacy i Cloudflare runtime.
 8. Provést automatické testy, lokální vykreslený smoke test, staging a teprve
    potom produkční akceptaci.
-
