@@ -19,6 +19,9 @@ async function listFiles(directory) {
 }
 
 test("Static Assets build is minimal, fingerprinted and internally complete", async () => {
+  const wrangler = await readFile(join(cloudflareDir, "wrangler.jsonc"), "utf8");
+  assert.match(wrangler, /"run_worker_first"\s*:\s*true/);
+
   const files = await listFiles(outputDir);
   const relativeFiles = files.map((path) => relative(outputDir, path).split(sep).join("/"));
   assert.ok(relativeFiles.includes("index.html"));

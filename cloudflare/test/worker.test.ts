@@ -1335,9 +1335,23 @@ describe("Cloudflare spike router", () => {
       lobby_type: "online_doom",
       scenario_id: "chronos_online",
     });
-    expect((await runtime).payload.games).toEqual(
+    const runtimePayload = (await runtime).payload;
+    expect(runtimePayload.games).toEqual(
       expect.arrayContaining([expect.objectContaining({ id: "chronos_online" })]),
     );
+    expect(runtimePayload).toMatchObject({
+      event: {},
+      availability: {
+        start_allowed: true,
+        operating_hours_applied: false,
+        start_interval_minutes: 0,
+      },
+      availability_by_lobby_type: {
+        online_doom: { start_allowed: true },
+        on_site_qr: { start_allowed: true },
+        geo: { start_allowed: true },
+      },
+    });
     const routed = await route;
     expect(routed.type, JSON.stringify(routed.payload)).toBe("lobby.route");
     expect(routed.payload.session_id).toMatch(/^[a-f0-9]{32}$/);

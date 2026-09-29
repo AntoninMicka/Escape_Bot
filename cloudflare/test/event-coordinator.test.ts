@@ -1065,7 +1065,13 @@ describe("EventCoordinator Durable Object", () => {
     expect(reset.status).toBe(200);
     await reset.json();
     const observer = await openBootstrap("event-observer");
-    expect((await nextMessage(observer, "runtime.settings")).payload.event).toEqual({});
+    const initialSettings = (await nextMessage(observer, "runtime.settings")).payload;
+    expect(initialSettings.event).toEqual({});
+    expect(initialSettings.availability).toMatchObject({
+      start_allowed: true,
+      operating_hours_applied: false,
+      start_interval_minutes: 0,
+    });
 
     const update = nextMessage(observer, "runtime.settings");
     const created = await putEvent("live-event", eventConfiguration({
@@ -1113,6 +1119,11 @@ describe("EventCoordinator Durable Object", () => {
     const clearedPayload = (await clearedSettings).payload;
     expect(clearedPayload.event).toEqual({});
     expect(clearedPayload.games).toHaveLength(4);
+    expect(clearedPayload.availability).toMatchObject({
+      start_allowed: true,
+      operating_hours_applied: false,
+      start_interval_minutes: 0,
+    });
     await closeSocket(restoredObserver);
   });
 

@@ -3590,7 +3590,16 @@ export class GameSession extends DurableObject<Env> {
     const puzzlePlayModes = Object.fromEntries(puzzleCatalog.map((puzzle) => [puzzle.id, puzzle.play_mode]));
     const availability = event
       ? await this.eventGameAvailability(event, directory, event.primary_game_id, gameDurationMinutes)
-      : null;
+      : {
+        start_allowed: true,
+        reason: "Není aktivní event; start není omezen eventovým plánem.",
+        active_teams: 0,
+        max_active_teams: 4,
+        start_interval_minutes: 0,
+        next_start_at: new Date().toISOString(),
+        game_duration_minutes: gameDurationMinutes,
+        operating_hours_applied: false,
+      };
     const startQueue = await this.publicStartQueue(event, directory, gameDurationMinutes);
     return {
       online_mode: false,
@@ -3614,9 +3623,7 @@ export class GameSession extends DurableObject<Env> {
       start_queue: startQueue,
       checkpoints: [],
       availability,
-      availability_by_lobby_type: availability
-        ? { online_doom: availability, on_site_qr: availability, geo: availability }
-        : {},
+      availability_by_lobby_type: { online_doom: availability, on_site_qr: availability, geo: availability },
       display_announcements: event?.runtime.display_announcements ?? [],
       puzzle_play_modes: puzzlePlayModes,
       terminal_puzzle_ids: puzzleCatalog.filter((puzzle) => puzzle.play_mode !== "phones").map((puzzle) => puzzle.id),

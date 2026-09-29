@@ -2262,7 +2262,7 @@
             const countdown = seconds > 0 ? ` · další start za ${Math.floor(seconds/60)}:${String(seconds%60).padStart(2,'0')}` : '';
             const schedule = availability.operating_hours_applied
                 ? `Provoz ${new Date(availability.opening_at).toLocaleTimeString('cs-CZ',{hour:'2-digit',minute:'2-digit'})}–${new Date(availability.closing_at).toLocaleTimeString('cs-CZ',{hour:'2-digit',minute:'2-digit'})} · hra ${availability.game_duration_minutes} min · nejzazší start ${new Date(availability.latest_start_at).toLocaleTimeString('cs-CZ',{hour:'2-digit',minute:'2-digit'})}`
-                : `Online hra není omezená provozní dobou · hra ${availability.game_duration_minutes} min`;
+                : `Hra není omezená provozní dobou eventu · hra ${availability.game_duration_minutes} min`;
             box.innerHTML = `<strong>${availability.start_allowed ? 'START JE DOSTUPNÝ' : 'START NYNÍ NENÍ MOŽNÝ'}</strong><br>${escapeHtml(availability.reason || `Aktivní týmy: ${availability.active_teams}/${availability.max_active_teams}`)}${countdown}<br>${schedule}`;
             const solo = document.querySelector('#lobby-modes button');
             if (solo) {
