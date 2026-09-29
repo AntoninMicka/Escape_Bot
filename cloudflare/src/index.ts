@@ -1,6 +1,11 @@
 import { DurableObject } from "cloudflare:workers";
 export { EventCoordinator } from "./event-coordinator";
-import { EVENT_ID_PATTERN, type EventCoordinator, type EventSnapshot } from "./event-coordinator";
+import {
+  EVENT_ID_PATTERN,
+  eventStartAvailability,
+  type EventCoordinator,
+  type EventSnapshot,
+} from "./event-coordinator";
 import {
   applyAdminGamePlayerExclusion,
   applyScenarioCommand,
@@ -346,8 +351,12 @@ export class GameSession extends DurableObject<Env> {
         return json({ error: "not_found" }, 404);
       }
       if (request.method === "GET") {
-        const event = await this.loadActiveEvent();
-        return json({ active_event_id: event?.id ?? "", event: event ?? {} });
+        try {
+          const event = await this.loadActiveEvent(true);
+          return json({ active_event_id: event?.id ?? "", event: event ?? {} });
+        } catch {
+          return json({ error: "active_event_unavailable" }, 503);
+        }
       }
       const payload = request.method === "PUT"
         ? await request.json<Record<string, unknown>>()
@@ -680,6 +689,19 @@ export class GameSession extends DurableObject<Env> {
     const game = games.find((candidate) => candidate.id === scenarioId);
     if (!game || !game.lobby_types.includes(lobbyType)) {
       throw new Error("Vybraná hra není pro tento typ lobby dostupná.");
+    }
+
+    const activeEvent = await this.loadActiveEvent(true);
+    if (activeEvent && !activeEvent.games.some((configuration) => configuration.game_id === scenarioId)) {
+      throw new Error("Tato hra není součástí aktivního eventu.");
+    }
+    if (activeEvent && mode === "solo") {
+      const availability = eventStartAvailability(
+        activeEvent,
+        new Date(),
+        boundedInteger(this.runtimeEnv.GAME_DURATION_MINUTES, 165, 15, 720),
+      );
+      if (!availability.start_allowed) throw new Error(availability.reason);
     }
 
     const directory = normalizeDirectory(await this.ctx.storage.get<DirectorySnapshot>(DIRECTORY_KEY));
@@ -1568,11 +1590,33 @@ export class GameSession extends DurableObject<Env> {
       return;
     }
     const now = new Date().toISOString();
+    const gameDurationMinutes = boundedInteger(this.runtimeEnv.GAME_DURATION_MINUTES, 165, 15, 720);
+    let activeEvent: EventSnapshot | null;
+    try {
+      activeEvent = await this.loadActiveEventForSession();
+    } catch {
+      this.send(socket, "lobby.error", { message: "Časová pravidla eventu se nepodařilo ověřit. Start je dočasně zablokován." });
+      return;
+    }
+    let eventAvailability = null;
+    if (activeEvent) {
+      if (!activeEvent.games.some((game) => game.game_id === this.snapshot.lobby.scenarioId)) {
+        this.send(socket, "lobby.error", { message: "Tato hra není součástí aktivního eventu." });
+        return;
+      }
+      eventAvailability = eventStartAvailability(activeEvent, now, gameDurationMinutes);
+      if (!eventAvailability.start_allowed) {
+        this.send(socket, "lobby.error", { message: eventAvailability.reason });
+        return;
+      }
+    }
     const adjustment = teamSizeAdjustment(this.snapshot.lobby.mode, this.snapshot.lobby.maxPlayers);
     const scenario = await this.loadScenario(this.snapshot.lobby.scenarioId);
     const startedScenario = startScenario(scenario, adjustment, now, this.runtimeActor(attachment.clientId));
-    const deadlineAt = Date.parse(now) +
-      boundedInteger(this.runtimeEnv.GAME_DURATION_MINUTES, 165, 15, 720) * 60_000;
+    const nominalDeadlineAt = Date.parse(now) + gameDurationMinutes * 60_000;
+    const deadlineAt = eventAvailability
+      ? Math.min(nominalDeadlineAt, Date.parse(eventAvailability.closing_at))
+      : nominalDeadlineAt;
     startedScenario.state.flags.game_deadline_at = new Date(deadlineAt).toISOString();
     const initialMessages = startedScenario.messages
       .filter((message) => message.type === "bot.message")
@@ -1907,7 +1951,7 @@ export class GameSession extends DurableObject<Env> {
     return response.json<RuntimeGame[]>();
   }
 
-  private async loadActiveEvent(): Promise<EventSnapshot | null> {
+  private async loadActiveEvent(failClosed = false): Promise<EventSnapshot | null> {
     const directory = normalizeDirectory(await this.ctx.storage.get<DirectorySnapshot>(DIRECTORY_KEY));
     if (!directory.activeEventId) return null;
     try {
@@ -1916,10 +1960,23 @@ export class GameSession extends DurableObject<Env> {
         { headers: { "X-EscapeBot-Internal-Admin": "1" } },
       );
       const payload = await response.json<EventSnapshot | { error: string }>();
-      return response.ok ? payload as EventSnapshot : null;
+      if (response.ok) return payload as EventSnapshot;
+      if (failClosed) throw new Error("active_event_unavailable");
+      return null;
     } catch {
+      if (failClosed) throw new Error("active_event_unavailable");
       return null;
     }
+  }
+
+  private async loadActiveEventForSession(): Promise<EventSnapshot | null> {
+    const response = await this.runtimeEnv.GAME_SESSIONS.getByName(DIRECTORY_OBJECT_NAME).fetch(
+      "https://internal/internal/admin/active-event",
+      { headers: { "X-EscapeBot-Internal-Admin": "1" } },
+    );
+    if (!response.ok) throw new Error("active_event_unavailable");
+    const payload = await response.json<{ event?: EventSnapshot }>();
+    return payload.event?.id ? payload.event : null;
   }
 
   private async runtimeSettingsPayload(): Promise<Record<string, unknown>> {
@@ -1947,6 +2004,8 @@ export class GameSession extends DurableObject<Env> {
       return priority(objectRecord(left).event_role) - priority(objectRecord(right).event_role) ||
         left.title.localeCompare(right.title, "cs");
     });
+    const gameDurationMinutes = boundedInteger(this.runtimeEnv.GAME_DURATION_MINUTES, 165, 15, 720);
+    const availability = event ? eventStartAvailability(event, new Date(), gameDurationMinutes) : null;
     return {
       online_mode: false,
       gameplay_enabled: true,
@@ -1957,7 +2016,7 @@ export class GameSession extends DurableObject<Env> {
       start_interval_minutes: 15,
       soft_start_interval_minutes: 15,
       hard_start_interval_minutes: 5,
-      game_duration_minutes: boundedInteger(this.runtimeEnv.GAME_DURATION_MINUTES, 165, 15, 720),
+      game_duration_minutes: gameDurationMinutes,
       deadline_penalty: boundedInteger(this.runtimeEnv.DEADLINE_PENALTY, 100, 0, 1000),
       abandonment_penalty: 100,
       completion_bonus: 100,
@@ -1968,8 +2027,10 @@ export class GameSession extends DurableObject<Env> {
       configurable_games: configurableGames,
       start_queue: [],
       checkpoints: [],
-      availability: null,
-      availability_by_lobby_type: {},
+      availability,
+      availability_by_lobby_type: availability
+        ? { online_doom: availability, on_site_qr: availability, geo: availability }
+        : {},
       display_announcements: [],
       mapillary: { enabled: false, access_token: "" },
       event: event ?? {},

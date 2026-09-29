@@ -48,6 +48,16 @@ export interface EventSnapshot {
   updated_at: string;
 }
 
+export interface EventStartAvailability {
+  start_allowed: boolean;
+  reason: string;
+  operating_hours_applied: true;
+  opening_at: string;
+  closing_at: string;
+  latest_start_at: string;
+  game_duration_minutes: number;
+}
+
 interface StoredEventSnapshot extends EventSnapshot {
   applied_operations: string[];
 }
@@ -109,6 +119,101 @@ function dateInTimezone(timestamp: string, timezone: string): string {
   }).formatToParts(new Date(timestamp));
   const values = new Map(parts.map((part) => [part.type, part.value]));
   return `${values.get("year")}-${values.get("month")}-${values.get("day")}`;
+}
+
+function localParts(timestamp: string, timezone: string): Record<string, string> {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: timezone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(new Date(timestamp));
+  return Object.fromEntries(parts.map((part) => [part.type, part.value]));
+}
+
+function zonedLocalTimestamp(date: string, time: string, timezone: string): number {
+  const desired = Date.parse(`${date}T${time}:00Z`);
+  let candidate = desired;
+  for (let iteration = 0; iteration < 4; iteration += 1) {
+    const parts = localParts(new Date(candidate).toISOString(), timezone);
+    const represented = Date.UTC(
+      Number(parts.year),
+      Number(parts.month) - 1,
+      Number(parts.day),
+      Number(parts.hour),
+      Number(parts.minute),
+      Number(parts.second),
+    );
+    const adjustment = desired - represented;
+    candidate += adjustment;
+    if (adjustment === 0) break;
+  }
+  const verified = localParts(new Date(candidate).toISOString(), timezone);
+  if (`${verified.year}-${verified.month}-${verified.day}` !== date || `${verified.hour}:${verified.minute}` !== time) {
+    throw new Error(`Čas ${date} ${time} v zóně ${timezone} neexistuje.`);
+  }
+  return candidate;
+}
+
+export function eventStartAvailability(
+  event: EventSnapshot,
+  nowValue: string | number | Date,
+  gameDurationMinutes: number,
+): EventStartAvailability {
+  const now = new Date(nowValue).valueOf();
+  const duration = Math.max(0, Math.round(gameDurationMinutes));
+  const fallbackTime = Number.isFinite(now) ? new Date(now).toISOString() : event.starts_at;
+  const fallback: EventStartAvailability = {
+    start_allowed: false,
+    reason: "Čas eventu nelze vyhodnotit.",
+    operating_hours_applied: true,
+    opening_at: fallbackTime,
+    closing_at: fallbackTime,
+    latest_start_at: fallbackTime,
+    game_duration_minutes: duration,
+  };
+  if (!Number.isFinite(now)) return fallback;
+  const eventStart = Date.parse(event.starts_at);
+  const eventEnd = Date.parse(event.ends_at);
+  if (event.status !== "open") {
+    return { ...fallback, start_allowed: false, reason: `Event není otevřený (stav: ${event.status}).` };
+  }
+  if (now < eventStart) return { ...fallback, start_allowed: false, reason: "Event ještě nezačal." };
+  if (now >= eventEnd) return { ...fallback, start_allowed: false, reason: "Event už skončil." };
+  const localDate = dateInTimezone(new Date(now).toISOString(), event.timezone);
+  const window = event.daily_windows.find((item) => item.date === localDate);
+  if (!window) {
+    return { ...fallback, reason: "Pro dnešní den není nastavené provozní okno." };
+  }
+  let dailyOpen: number;
+  let dailyClose: number;
+  try {
+    dailyOpen = zonedLocalTimestamp(window.date, window.opens_at, event.timezone);
+    dailyClose = zonedLocalTimestamp(window.date, window.closes_at, event.timezone);
+  } catch (error) {
+    return { ...fallback, reason: error instanceof Error ? error.message : fallback.reason };
+  }
+  const opening = Math.max(eventStart, dailyOpen);
+  const closing = Math.min(eventEnd, dailyClose);
+  const latestStart = Math.max(opening, closing - duration * 60_000);
+  const base = {
+    operating_hours_applied: true as const,
+    opening_at: new Date(opening).toISOString(),
+    closing_at: new Date(closing).toISOString(),
+    latest_start_at: new Date(latestStart).toISOString(),
+    game_duration_minutes: duration,
+  };
+  if (!window.enabled) return { ...base, start_allowed: false, reason: "Hra je pro dnešní den vypnutá." };
+  if (now < opening) return { ...base, start_allowed: false, reason: "Dnešní provozní doba ještě nezačala." };
+  if (now >= closing) return { ...base, start_allowed: false, reason: "Dnešní provozní doba už skončila." };
+  if (now + duration * 60_000 > closing) {
+    return { ...base, start_allowed: false, reason: "Na dokončení hry před koncem provozu už nezbývá dost času." };
+  }
+  return { ...base, start_allowed: true, reason: "Start je v provozním okně eventu povolen." };
 }
 
 function eventDates(startsAt: string, endsAt: string, timezone: string): string[] {

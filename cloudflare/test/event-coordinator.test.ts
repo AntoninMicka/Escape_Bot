@@ -1,5 +1,6 @@
 import { env, evictDurableObject, SELF } from "cloudflare:test";
 import { describe, expect, it } from "vitest";
+import { eventStartAvailability, type EventSnapshot } from "../src/event-coordinator";
 
 const authorization = { Authorization: "Bearer local-test-admin-token" };
 type ProtocolMessage = { type: string; payload: Record<string, any> };
@@ -30,10 +31,27 @@ async function openBootstrap(clientId: string): Promise<WebSocket> {
   return socket;
 }
 
+async function openSession(sessionId: string, clientId: string): Promise<WebSocket> {
+  const response = await env.GAME_SESSIONS.getByName(sessionId).fetch(
+    `https://example.test/ws?session_id=${sessionId}&client_id=${clientId}`,
+    { headers: { Upgrade: "websocket", "X-EscapeBot-Session-Id": sessionId } },
+  );
+  expect(response.status).toBe(101);
+  const socket = response.webSocket;
+  if (!socket) throw new Error("WebSocket response is missing a socket");
+  socket.accept();
+  await nextMessage(socket, "session.connected");
+  return socket;
+}
+
 function closeSocket(socket: WebSocket): Promise<void> {
   if (socket.readyState === WebSocket.CLOSED) return Promise.resolve();
   return new Promise((resolve) => {
-    socket.addEventListener("close", () => resolve(), { once: true });
+    const timeout = setTimeout(resolve, 250);
+    socket.addEventListener("close", () => {
+      clearTimeout(timeout);
+      resolve();
+    }, { once: true });
     socket.close(1000, "done");
   });
 }
@@ -218,17 +236,38 @@ describe("EventCoordinator Durable Object", () => {
     const created = await putEvent("weekend-event", eventConfiguration({
       starts_at: "2026-10-09T15:00:00+02:00",
       ends_at: "2026-10-11T12:00:00+02:00",
+      status: "open",
       daily_windows: dailyWindows,
       operation_id: "weekend-create",
     }));
     expect(created.status).toBe(200);
-    expect(await created.json()).toMatchObject({
+    const createdPayload = await created.json<Record<string, any>>();
+    expect(createdPayload).toMatchObject({
       event: {
         schema_version: 2,
         starts_at: "2026-10-09T13:00:00.000Z",
         ends_at: "2026-10-11T10:00:00.000Z",
         daily_windows: dailyWindows,
       },
+    });
+    const event = createdPayload.event as EventSnapshot;
+    expect(eventStartAvailability(event, "2026-10-09T12:59:00Z", 165)).toMatchObject({
+      start_allowed: false,
+      reason: "Event ještě nezačal.",
+    });
+    expect(eventStartAvailability(event, "2026-10-10T15:15:00Z", 165)).toMatchObject({
+      start_allowed: true,
+      latest_start_at: "2026-10-10T15:15:00.000Z",
+      closing_at: "2026-10-10T18:00:00.000Z",
+    });
+    expect(eventStartAvailability(event, "2026-10-10T15:16:00Z", 165)).toMatchObject({
+      start_allowed: false,
+      reason: "Na dokončení hry před koncem provozu už nezbývá dost času.",
+    });
+    expect(eventStartAvailability(event, "2026-10-11T07:16:00Z", 165)).toMatchObject({
+      start_allowed: false,
+      latest_start_at: "2026-10-11T07:15:00.000Z",
+      closing_at: "2026-10-11T10:00:00.000Z",
     });
 
     const missingDay = await putEvent("missing-day-event", eventConfiguration({
@@ -252,6 +291,51 @@ describe("EventCoordinator Durable Object", () => {
       error: "invalid_event",
       message: "Denní limit pro 2026-10-10 musí končit po svém začátku.",
     });
+  });
+
+  it("rejects a direct team start outside the active event window", async () => {
+    const created = await putEvent("paused-event", eventConfiguration({
+      status: "paused",
+      operation_id: "paused-event-create",
+    }));
+    expect(created.status).toBe(200);
+    await created.json();
+
+    const sessionId = "event-window-team-session";
+    const initialized = await env.GAME_SESSIONS.getByName(sessionId).fetch(
+      "https://internal/internal/lobby/initialize",
+      {
+        method: "POST",
+        body: JSON.stringify({
+          session_id: sessionId,
+          mode: "team",
+          creator_id: "event-captain",
+          team_name: "Čekající tým",
+          join_code: "ABCD1234",
+          lobby_type: "on_site_qr",
+          scenario_id: "hotel_kraskov",
+          player_name: "Alice",
+        }),
+      },
+    );
+    expect(initialized.status).toBe(200);
+
+    const socket = await openSession(sessionId, "event-captain");
+    const rejected = nextMessage(socket, "lobby.error");
+    socket.send(JSON.stringify({ type: "lobby.start", payload: {} }));
+    expect((await rejected).payload).toEqual({ message: "Event není otevřený (stav: paused)." });
+
+    const snapshot = await env.GAME_SESSIONS.getByName(sessionId).fetch(
+      "https://internal/internal/admin/snapshot",
+      { headers: { "X-EscapeBot-Internal-Admin": "1" } },
+    );
+    expect(await snapshot.json()).toMatchObject({ started: false });
+    await closeSocket(socket);
+    const cleared = await SELF.fetch("https://example.test/api/admin/events/active", {
+      method: "DELETE",
+      headers: authorization,
+    });
+    await cleared.json();
   });
 
   it("activates an event for bootstrap clients and restores the selection after eviction", async () => {

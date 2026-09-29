@@ -3548,7 +3548,7 @@
                     else if (!document.getElementById('display-announcement-editor').children.length) renderDisplayAnnouncementEditor();
                     const legacyAnnouncements = document.getElementById('display-announcements');
                     if (legacyAnnouncements) { legacyAnnouncements.hidden=true;legacyAnnouncements.nextElementSibling.hidden=true;legacyAnnouncements.previousElementSibling.hidden=true;legacyAnnouncements.previousElementSibling.previousElementSibling.hidden=true; }
-                    const scheduleStatus = document.getElementById('admin-schedule-status'); if (scheduleStatus && runtimeAvailability) scheduleStatus.textContent = `${runtimeAvailability.active_teams}/${runtimeAvailability.max_active_teams} aktivních týmů · nejzazší start ${new Date(runtimeAvailability.latest_start_at).toLocaleTimeString('cs-CZ',{hour:'2-digit',minute:'2-digit'})}`;
+                    const scheduleStatus = document.getElementById('admin-schedule-status'); if (scheduleStatus && runtimeAvailability) { const occupancy=Number.isFinite(runtimeAvailability.active_teams)&&Number.isFinite(runtimeAvailability.max_active_teams)?`${runtimeAvailability.active_teams}/${runtimeAvailability.max_active_teams} aktivních týmů · `:'';scheduleStatus.textContent = `${occupancy}nejzazší start ${new Date(runtimeAvailability.latest_start_at).toLocaleTimeString('cs-CZ',{hour:'2-digit',minute:'2-digit'})}`; }
                     if (adminModeRequested && latestAdminPayload) renderAdminLeaderboard(latestAdminPayload.leaderboard || []);
                     renderLobbyAvailability();
                     renderOnlineMapActions();

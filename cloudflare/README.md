@@ -76,6 +76,11 @@ pořadí denních limitů, právě jednu hlavní hru a existenci všech her v ru
 katalogu. Uložení z administrace event zároveň aktivuje, filtruje veřejný
 katalog a rozešle nový `runtime.settings` připojeným bootstrap klientům. Aktivní výběr přežije evikci;
 `DELETE /api/admin/events/active` pouze odstraní omezení, nikoli uložený event.
+Cloudový runtime zveřejňuje vypočtenou dostupnost a nejzazší start a před
+zahájením týmové i sólo hry časová pravidla znovu autoritativně ověří. Start je
+povolen pouze eventu ve stavu `open` a jen tehdy, když se celá nastavená délka
+hry vejde do aktuálního denního okna i celkové obálky. Přímý WebSocket požadavek
+tuto kontrolu neobejde; již rozehrané relace změna rozvrhu násilně neukončuje.
 
 Lokální vývojový server:
 

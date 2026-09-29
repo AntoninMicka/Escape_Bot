@@ -222,6 +222,9 @@ přes HTTP API a umí omezení eventem bezpečně zrušit bez smazání snapshot
 Konfigurace času rozlišuje pevnou obálku celého eventu a úplnou sadu denních
 oken; výsledný povolený čas je jejich průnik, takže první a poslední den jsou
 automaticky zkráceny celkovým začátkem a koncem.
+Runtime z tohoto průniku počítá nejzazší start s ohledem na délku hry a
+autoritativně jej kontroluje při sólo startu i při povelu `lobby.start`;
+zobrazenou nedostupnost proto nelze obejít přímou WebSocket zprávou.
 Napojení rozehraných týmů, fronty, oznámení a dalších runtime přepínačů ještě
 zbývá.
 
