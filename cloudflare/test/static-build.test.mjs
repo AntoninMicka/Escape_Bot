@@ -72,6 +72,9 @@ test("Static Assets build is minimal, fingerprinted and internally complete", as
   assert.match(index, /if\(Array\.isArray\(msg\.payload\.start_queue\)\)runtimeStartQueue = msg\.payload\.start_queue/);
   assert.match(index, /msg\.type === 'queue\.auto_started'/);
   assert.match(index, /Authorization:`Bearer \$\{token\}`/);
+  assert.match(index, /type:'lobby\.leave'/);
+  assert.match(index, /msg\.type === 'lobby\.left'/);
+  assert.match(index, /TRVALE OPUSTIT HRU/);
   const display = await readFile(join(outputDir, "display.html"), "utf8");
   const extractFunction = (name) => {
     const match = display.match(new RegExp(`function ${name}\\(\\)\\{[^\\n]+\\}`));

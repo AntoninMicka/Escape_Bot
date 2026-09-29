@@ -108,6 +108,7 @@ interface LobbyPlayer {
   name: string;
   joinedAt: string;
   recoveredAt?: string;
+  leftAt?: string;
 }
 
 interface LobbySnapshot {
@@ -508,6 +509,13 @@ export class GameSession extends DurableObject<Env> {
       const payload = await request.json<Record<string, unknown>>();
       return this.serializeDirectory(() => this.updateEventStartQueue(payload));
     }
+    if (url.pathname === "/internal/lobby/member-left" && request.method === "POST") {
+      if (request.headers.get("X-EscapeBot-Internal-Session") !== "1") {
+        return json({ error: "not_found" }, 404);
+      }
+      const payload = await request.json<Record<string, unknown>>();
+      return this.serializeDirectory(() => this.recordDirectoryMemberLeft(payload));
+    }
     if (url.pathname === "/internal/event/runtime-settings" && request.method === "POST") {
       if (request.headers.get("X-EscapeBot-Internal-Directory") !== "1") {
         return json({ error: "not_found" }, 404);
@@ -796,6 +804,9 @@ export class GameSession extends DurableObject<Env> {
         return;
       case "lobby.resume":
         await this.resumeLobby(socket, attachment, message.payload ?? {});
+        return;
+      case "lobby.leave":
+        await this.leaveLobby(socket, attachment, message);
         return;
       case "lobby.start":
         await this.startLobby(socket, attachment);
@@ -1574,12 +1585,14 @@ export class GameSession extends DurableObject<Env> {
         name,
         joinedAt: new Date().toISOString(),
       };
+    } else if (this.snapshot.lobby.players[clientId].leftAt) {
+      return json({ error: "Tento hráč už hru trvale opustil." }, 409);
     } else {
       this.snapshot.lobby.players[clientId].name = name;
     }
     this.snapshot.lobby.maxPlayers = Math.max(
       this.snapshot.lobby.maxPlayers,
-      Object.keys(this.snapshot.lobby.players).length,
+      this.activeLobbyPlayerIds().length,
     );
     const desiredAdjustment = this.snapshot.lobby.started
       ? teamSizeAdjustment(this.snapshot.lobby.mode, this.snapshot.lobby.maxPlayers)
@@ -1722,6 +1735,7 @@ export class GameSession extends DurableObject<Env> {
     const playerId = cleanText(payload.player_id, 128);
     const player = this.snapshot.lobby.players[playerId];
     if (!player) return json({ error: "Hráč v této relaci neexistuje." }, 404);
+    if (player.leftAt) return json({ error: "Hráč už hru trvale opustil." }, 409);
     return json({ player_name: player.name, team_name: this.snapshot.lobby.teamName });
   }
 
@@ -1741,6 +1755,7 @@ export class GameSession extends DurableObject<Env> {
     }
     const player = this.snapshot.lobby.players[oldClientId];
     if (!player) return json({ error: "Původní hráč v týmu neexistuje." }, 404);
+    if (player.leftAt) return json({ error: "Hráč už hru trvale opustil." }, 409);
     if (newClientId !== oldClientId && this.snapshot.lobby.players[newClientId]) {
       return json({ error: "Nové zařízení už v tomto týmu patří jinému hráči." }, 409);
     }
@@ -1981,13 +1996,158 @@ export class GameSession extends DurableObject<Env> {
     const requestedSession = cleanText(payload.session_id || this.snapshot.sessionId, 128);
     if (
       requestedSession !== this.snapshot.sessionId ||
-      !this.snapshot.lobby.players[attachment.clientId]
+      !this.isActiveLobbyPlayer(attachment.clientId)
     ) {
       this.send(socket, "lobby.error", { message: "Uloženou týmovou relaci se nepodařilo obnovit." });
       return;
     }
     this.broadcastLobbyState();
     if (this.snapshot.lobby.started) await this.sendAuthoritativeSnapshot(socket, false);
+  }
+
+  private async leaveLobby(
+    socket: WebSocket,
+    attachment: SocketAttachment,
+    message: ProtocolMessage,
+  ): Promise<void> {
+    await this.serializeState(async () => {
+      const operationId = cleanText(message.operation_id, 128);
+      if (!/^[A-Za-z0-9._:-]{1,128}$/.test(operationId)) {
+        this.send(socket, "lobby.error", { message: "Odchodu ze hry chybí platné operation_id." }, message.request_id);
+        return;
+      }
+      const receiptKey = `lobby-leave:${attachment.clientId}:${operationId}`;
+      const previous = this.snapshot.operationReceipts[receiptKey]?.[0];
+      if (previous) {
+        this.send(socket, "lobby.left", { ...objectRecord(previous.payload), changed: false }, message.request_id, operationId);
+        return;
+      }
+      if (attachment.role !== "session" || !this.isActiveLobbyPlayer(attachment.clientId)) {
+        this.send(socket, "lobby.error", { message: "Odchod může potvrdit pouze aktivní hráč této relace." }, message.request_id, operationId);
+        return;
+      }
+
+      const now = new Date().toISOString();
+      const oldCreatorId = this.snapshot.lobby.creatorId;
+      const player = this.snapshot.lobby.players[attachment.clientId];
+      player.leftAt = now;
+      const activePlayers = this.activeLobbyPlayers().sort((left, right) => left.joinedAt.localeCompare(right.joinedAt));
+      const creatorTransferred = oldCreatorId === attachment.clientId && activePlayers.length > 0;
+      if (creatorTransferred) this.snapshot.lobby.creatorId = activePlayers[0].id;
+
+      const flags = { ...objectRecord(this.snapshot.gameState.flags) };
+      const history = Array.isArray(this.snapshot.gameState.event_history)
+        ? [...this.snapshot.gameState.event_history]
+        : [];
+      history.push({
+        at: now,
+        type: "lobby.leave",
+        details: { player_id: attachment.clientId, player_name: player.name, remaining_players: activePlayers.length },
+      });
+      let gameEnded = false;
+      let penalty = 0;
+      let score = Number(this.snapshot.gameState.score || 0);
+      if (
+        !activePlayers.length &&
+        this.snapshot.lobby.started &&
+        !flags.game_completed &&
+        !flags.administratively_ended
+      ) {
+        penalty = 100;
+        score -= penalty;
+        gameEnded = true;
+        flags.administratively_ended = true;
+        flags.administratively_ended_at = now;
+        flags.administratively_ended_reason = "abandoned";
+        flags.deadline_choice_pending = false;
+        const adjustment = {
+          delta: -penalty,
+          amount: penalty,
+          reason: "Poslední aktivní hráč opustil hru",
+          at: now,
+          score_before: score + penalty,
+          score_after: score,
+          automatic: true,
+        };
+        flags.admin_score_adjustments = [
+          ...(Array.isArray(flags.admin_score_adjustments) ? flags.admin_score_adjustments : []),
+          adjustment,
+        ];
+        flags.admin_penalties = [
+          ...(Array.isArray(flags.admin_penalties) ? flags.admin_penalties : []),
+          adjustment,
+        ];
+      }
+      if (!activePlayers.length) this.snapshot.lobby.joinCode = null;
+      const gameState = { ...this.snapshot.gameState, score, flags, event_history: history.slice(-500) };
+      const scenario = this.snapshot.lobby.started ? await this.loadScenario(this.snapshot.lobby.scenarioId) : null;
+      const result = {
+        success: true,
+        changed: true,
+        session_id: this.snapshot.sessionId,
+        player_id: attachment.clientId,
+        left_at: now,
+        remaining_players: activePlayers.length,
+        creator_id: activePlayers.length ? this.snapshot.lobby.creatorId : "",
+        creator_transferred: creatorTransferred,
+        game_ended: gameEnded,
+      };
+      this.snapshot = {
+        ...this.snapshot,
+        revision: this.snapshot.revision + 1,
+        gameState,
+        scenarioProgress: scenario ? buildScenarioProgress(scenario, gameState) : this.snapshot.scenarioProgress,
+        deadlineAt: gameEnded ? null : this.snapshot.deadlineAt,
+        deadlineKind: gameEnded ? null : this.snapshot.deadlineKind,
+        updatedAt: now,
+      };
+      this.snapshot.operationReceipts[receiptKey] = [{ type: "lobby.left", payload: result }];
+      while (Object.keys(this.snapshot.operationReceipts).length > 500) {
+        delete this.snapshot.operationReceipts[Object.keys(this.snapshot.operationReceipts)[0]];
+      }
+      await this.ctx.storage.put(SNAPSHOT_KEY, this.snapshot);
+      if (gameEnded) await this.scheduleNextAlarm();
+
+      try {
+        const directoryResponse = await this.runtimeEnv.GAME_SESSIONS.getByName(DIRECTORY_OBJECT_NAME).fetch(
+          "https://internal/internal/lobby/member-left",
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json", "X-EscapeBot-Internal-Session": "1" },
+            body: JSON.stringify({
+              session_id: this.snapshot.sessionId,
+              player_id: attachment.clientId,
+              old_creator_id: oldCreatorId,
+              new_creator_id: this.snapshot.lobby.creatorId,
+              last_player: activePlayers.length === 0,
+            }),
+          },
+        );
+        await directoryResponse.text();
+      } catch {
+        // The authoritative membership remains in this session snapshot.
+      }
+
+      this.broadcastLobbyState();
+      if (gameEnded) {
+        this.broadcast("score.update", { score, delta: -penalty, bonus: 0, penalty, reason: "abandonment_penalty" });
+        this.broadcast("operations.stopped", {
+          reason: "abandoned",
+          penalty,
+          message: "Poslední aktivní hráč opustil hru; relace byla ukončena jako opuštěná.",
+        });
+      }
+      if (scenario) {
+        await this.broadcastGameState(scenario);
+        this.broadcast("scenario.progress", this.snapshot.scenarioProgress);
+      }
+      for (const candidate of this.ctx.getWebSockets()) {
+        const candidateAttachment = candidate.deserializeAttachment() as SocketAttachment | null;
+        if (candidateAttachment?.role === "session" && candidateAttachment.clientId === attachment.clientId) {
+          this.send(candidate, "lobby.left", result, message.request_id, operationId);
+        }
+      }
+    });
   }
 
   private async startLobby(socket: WebSocket, attachment: SocketAttachment): Promise<void> {
@@ -2036,6 +2196,13 @@ export class GameSession extends DurableObject<Env> {
     const scenario = await this.loadScenario(this.snapshot.lobby.scenarioId);
     const adjustment = teamSizeAdjustment(this.snapshot.lobby.mode, this.snapshot.lobby.maxPlayers);
     const startedScenario = startScenario(scenario, adjustment, now, this.runtimeActor(actorId));
+    const preStartHistory = Array.isArray(this.snapshot.gameState.event_history)
+      ? this.snapshot.gameState.event_history
+      : [];
+    const startedHistory = Array.isArray(startedScenario.state.event_history)
+      ? startedScenario.state.event_history
+      : [];
+    startedScenario.state.event_history = [...preStartHistory, ...startedHistory].slice(-500);
     const nominalDeadlineAt = Date.parse(now) + gameDurationMinutes * 60_000;
     const deadlineAt = closingAt
       ? Math.min(nominalDeadlineAt, Date.parse(closingAt))
@@ -2083,7 +2250,7 @@ export class GameSession extends DurableObject<Env> {
     attachment: SocketAttachment,
     enqueue: boolean,
   ): Promise<void> {
-    if (!this.snapshot.lobby.players[attachment.clientId]) {
+    if (!this.isActiveLobbyPlayer(attachment.clientId)) {
       this.send(socket, "lobby.error", { message: "Nejprve se připojte k týmové lobby." });
       return;
     }
@@ -2142,7 +2309,7 @@ export class GameSession extends DurableObject<Env> {
     payload: Record<string, unknown>,
   ): Promise<void> {
     await this.serializeState(async () => {
-      if (!this.snapshot.lobby.started || !this.snapshot.lobby.players[attachment.clientId]) {
+      if (!this.snapshot.lobby.started || !this.isActiveLobbyPlayer(attachment.clientId)) {
         this.send(socket, "terminal.attach_result", { success: false, reason: "Nejprve se připojte k rozehrané týmové relaci." });
         return;
       }
@@ -2226,7 +2393,7 @@ export class GameSession extends DurableObject<Env> {
   }
 
   private async attachTerminal(socket: WebSocket, attachment: SocketAttachment, puzzleId: string): Promise<void> {
-    if (!this.snapshot.lobby.started || !this.snapshot.lobby.players[attachment.clientId]) {
+    if (!this.snapshot.lobby.started || !this.isActiveLobbyPlayer(attachment.clientId)) {
       socket.close(4003, "Terminal controller is no longer a team member");
       return;
     }
@@ -2313,7 +2480,7 @@ export class GameSession extends DurableObject<Env> {
     message: ProtocolMessage,
   ): Promise<void> {
     await this.serializeState(async () => {
-      if (!this.snapshot.lobby.started || !this.snapshot.lobby.players[attachment.clientId]) {
+      if (!this.snapshot.lobby.started || !this.isActiveLobbyPlayer(attachment.clientId)) {
         this.send(socket, "command.rejected", { reason: "Nejprve spusťte týmovou hru." }, message.request_id, message.operation_id);
         return;
       }
@@ -3090,6 +3257,58 @@ export class GameSession extends DurableObject<Env> {
     return json({ changed });
   }
 
+  private async recordDirectoryMemberLeft(payload: Record<string, unknown>): Promise<Response> {
+    const sessionId = cleanText(payload.session_id, 128);
+    const playerId = cleanText(payload.player_id, 128);
+    const oldCreatorId = cleanText(payload.old_creator_id, 128);
+    const newCreatorId = cleanText(payload.new_creator_id, 128);
+    const lastPlayer = payload.last_player === true;
+    if (!SESSION_ID_PATTERN.test(sessionId) || !CLIENT_ID_PATTERN.test(playerId)) {
+      return json({ error: "invalid_member_departure" }, 400);
+    }
+    const directory = normalizeDirectory(await this.ctx.storage.get<DirectorySnapshot>(DIRECTORY_KEY));
+    let changed = false;
+    for (const [digest, recovery] of Object.entries(directory.recoveryTokens)) {
+      if (recovery.sessionId === sessionId && recovery.playerId === playerId) {
+        delete directory.recoveryTokens[digest];
+        changed = true;
+      }
+    }
+    if (oldCreatorId === playerId) {
+      for (const [creatorKey, mappedSessionId] of Object.entries(directory.creatorKeys)) {
+        if (mappedSessionId !== sessionId || !creatorKey.startsWith(`${oldCreatorId}\u0000`)) continue;
+        delete directory.creatorKeys[creatorKey];
+        if (!lastPlayer && CLIENT_ID_PATTERN.test(newCreatorId)) {
+          directory.creatorKeys[`${newCreatorId}${creatorKey.slice(oldCreatorId.length)}`] = sessionId;
+        }
+        changed = true;
+      }
+    }
+    if (lastPlayer) {
+      for (const [joinCode, mappedSessionId] of Object.entries(directory.joinCodes)) {
+        if (mappedSessionId === sessionId) {
+          delete directory.joinCodes[joinCode];
+          changed = true;
+        }
+      }
+      if (directory.startQueue[sessionId]) {
+        delete directory.startQueue[sessionId];
+        changed = true;
+      }
+      if (directory.startClaims[sessionId]) {
+        delete directory.startClaims[sessionId];
+        changed = true;
+      }
+    }
+    if (changed) {
+      await this.ctx.storage.put(DIRECTORY_KEY, directory);
+      const settings = await this.runtimeSettingsPayload();
+      await this.broadcastRuntimeSettings(settings, directory);
+      await this.scheduleStartQueueAlarm(Array.isArray(settings.start_queue) ? settings.start_queue as Array<Record<string, unknown>> : []);
+    }
+    return json({ changed, session_id: sessionId });
+  }
+
   private async publicStartQueue(
     event: EventSnapshot | null,
     directory: DirectorySnapshot,
@@ -3701,18 +3920,33 @@ export class GameSession extends DurableObject<Env> {
   }
 
   private connectedClientIds(): Set<string> {
+    const activeIds = new Set(this.activeLobbyPlayerIds());
     return new Set(
       this.ctx
         .getWebSockets()
         .map((socket) => socket.deserializeAttachment() as SocketAttachment | null)
         .filter((attachment) => attachment?.role === "session")
-        .map((attachment) => attachment?.clientId ?? ""),
+        .map((attachment) => attachment?.clientId ?? "")
+        .filter((clientId) => activeIds.has(clientId)),
     );
+  }
+
+  private activeLobbyPlayers(): LobbyPlayer[] {
+    return Object.values(this.snapshot.lobby.players).filter((player) => !player.leftAt);
+  }
+
+  private activeLobbyPlayerIds(): string[] {
+    return this.activeLobbyPlayers().map((player) => player.id);
+  }
+
+  private isActiveLobbyPlayer(clientId: string): boolean {
+    return Boolean(this.snapshot.lobby.players[clientId] && !this.snapshot.lobby.players[clientId].leftAt);
   }
 
   private lobbyPayload(clientId: string): Record<string, unknown> {
     const connected = this.connectedClientIds();
     const players = Object.values(this.snapshot.lobby.players);
+    const activePlayers = players.filter((player) => !player.leftAt);
     return {
       session_id: this.snapshot.sessionId,
       revision: this.snapshot.revision,
@@ -3724,16 +3958,18 @@ export class GameSession extends DurableObject<Env> {
       join_code: this.snapshot.lobby.joinCode,
       started: this.snapshot.lobby.started,
       is_creator: clientId === this.snapshot.lobby.creatorId,
-      player_count: players.length,
-      registered_players: players.length,
-      online_count: players.filter((player) => connected.has(player.id)).length,
+      player_count: activePlayers.length,
+      registered_players: activePlayers.length,
+      online_count: activePlayers.filter((player) => connected.has(player.id)).length,
       max_players: this.snapshot.lobby.maxPlayers,
       score_adjustment: this.snapshot.lobby.appliedScoreAdjustment,
       players: players.map((player) => ({
         id: player.id,
         name: player.name,
         joined_at: player.joinedAt,
-        connected: connected.has(player.id),
+        left_at: player.leftAt || "",
+        active: !player.leftAt,
+        connected: !player.leftAt && connected.has(player.id),
       })),
     };
   }
@@ -3749,12 +3985,12 @@ export class GameSession extends DurableObject<Env> {
   }
 
   private runtimeActor(clientId: string): RuntimeActor {
-    const players = this.snapshot.lobby.players;
+    const players = this.activeLobbyPlayers();
     return {
       clientId,
-      participantIds: Object.keys(players),
+      participantIds: players.map((player) => player.id),
       participantNames: Object.fromEntries(
-        Object.values(players).map((player) => [player.id, player.name]),
+        players.map((player) => [player.id, player.name]),
       ),
       teamMode: this.snapshot.lobby.mode,
     };

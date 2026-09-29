@@ -25,7 +25,7 @@ novou podobu autentizace administrátora.
 | 8 | Nastavit způsob hraní hádanky | `admin.scenario_play_modes` | autorizovaný a idempotentní `/api/admin/scenario-play-modes` | dostupné v záložce Režimy hry | **hotovo** – atomický dokument všech hádanek |
 | 9 | Nastavit globální katalog terminálů | `admin.terminal_catalog` | podporováno nad společným dokumentem režimů | autorizovaný a idempotentní `/api/admin/terminal-catalog` | společný formulář v záložce Terminály | **hotovo** – katalog je odvozen ze způsobů hraní, nevzniká druhý zdroj pravdy |
 | 10 | Přidělit hádanku připojenému týmovému terminálu | `admin.terminal_assign` | přímý ekvivalent chybí; Worker používá rezervaci před převzetím | týmový panel je v Cloudflare režimu skrytý | **chybí / přehodnotit** – preferovat současný rezervační model |
-| 11 | Uživatel explicitně opustí hru | neexistuje | neexistuje | chybí | **nové** – navržený kontrakt `lobby.leave` níže |
+| 11 | Uživatel explicitně opustí hru | `lobby.leave` s historickým členstvím | shodný idempotentní kontrakt v session DO | výrazně potvrzené tlačítko v lobby i rozehrané hře | **hotovo** |
 
 QR endpoint, prodloužení a ukončení relace, bodové úpravy, podpora, náhled
 hráče, návratový QR, uzavření výsledku a řízený start nejsou blokátorem této
@@ -70,7 +70,7 @@ platformy.
 Explicitní odchod není totéž co zavření stránky nebo ztráta spojení. Běžné
 odpojení musí nadále zachovat identitu a umožnit `lobby.resume`.
 
-Navržené chování:
+Implementované chování:
 
 - hráč odešle `lobby.leave` s jedinečným `operation_id`;
 - server ověří, že identita socketu patří do relace, a odpoví `lobby.left`;
@@ -119,6 +119,8 @@ nepoužívají.
    katalogu používají jeden atomický dokument; odebrání hádanky ruší pouze
    nevyužité rezervace. Přímé přidělení není potřeba, existující rezervační
    model pokrývá provozní scénář bez vazby zařízení na konkrétní tým.
-7. Implementovat `lobby.leave` shodně v legacy i Cloudflare runtime.
+7. **Hotovo:** `lobby.leave` je shodně implementováno v legacy i Cloudflare
+   runtime včetně převodu zakladatele, zachování historických hráčů a ukončení
+   hry po odchodu posledního aktivního hráče.
 8. Provést automatické testy, lokální vykreslený smoke test, staging a teprve
    potom produkční akceptaci.

@@ -42,6 +42,20 @@ def test_operation_queue_is_part_of_current_offline_cache() -> None:
     assert "'./operation-queue.js'" in service_worker
 
 
+def test_lobby_leave_clears_saved_session_only_after_server_acknowledgement() -> None:
+    client = (ROOT / "client" / "index.html").read_text(encoding="utf-8")
+
+    request = client.split("function leaveCurrentGame()", 1)[1].split("function chooseLobbyType", 1)[0]
+    acknowledgement = client.split("else if (msg.type === 'lobby.left')", 1)[1].split(
+        "else if (msg.type === 'lobby.error')", 1
+    )[0]
+    assert "type:'lobby.leave'" in request
+    assert "operation_id:operationId" in request
+    assert "localStorage.removeItem('escapeBotLobby')" not in request
+    assert "localStorage.removeItem('escapeBotLobby')" in acknowledgement
+    assert "gameOperationQueue.discardSession(previousSessionId)" in acknowledgement
+
+
 def test_personalized_game_state_keeps_operation_correlation() -> None:
     server = (ROOT / "backend" / "escape_bot" / "server.py").read_text(encoding="utf-8")
     personalization = server.split('if message.type == "game.state"', 1)[1].split(

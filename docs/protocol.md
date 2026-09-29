@@ -42,6 +42,18 @@ Zakladatel týmové relace ji spustí zprávou `lobby.start`. Backend spuštěn�
 
 Každý `lobby.resume` rozehrané relace vrací úplný autoritativní snapshot: `lobby.state`, `chat.history`, `game.state` a `scenario.progress`; v demo režimu také `demo.catalog`. Klient obnovu aktivně vyžádá při událostech `visibilitychange`, `pageshow` a `online`. Pokud uspáním vznikne zdánlivě otevřený, ale nefunkční WebSocket, neúspěšná synchronizační sonda jej uzavře a vyvolá nové připojení.
 
+Trvalý odchod hráč potvrzuje zprávou `lobby.leave` s jedinečným
+`operation_id`. Server ověří identitu připojeného socketu a odpoví
+`lobby.left`; klient teprve po tomto potvrzení odstraní lokálně uloženou relaci.
+Hráč zůstává v historickém seznamu `players` s `left_at`, ale nepočítá se do
+`registered_players`, autorizace herních příkazů ani aktivních účastníků
+miniher. Režim `team` a dosažené `max_players` se nemění. Odchod zakladatele
+převede jeho roli na nejdříve připojeného aktivního hráče. Odchod posledního
+aktivního hráče ukončí rozehranou hru jako `abandoned`; před startem navíc
+uvolní připojovací kód a frontu. Samotný odchod nikdy nedokončuje týmovou
+minihru ani nepřiděluje její bonus. Opakování stejného `operation_id` pouze
+vrátí `lobby.left` s `changed: false`.
+
 Cloudflare adaptér zatím obsluhuje z herních příkazů `player.message`,
 `phase.hint`, `qr.detected`, `puzzle.submit` pro rébusy s textovou odpovědí a
 `puzzle.hint`; z interaktivních miniher podporuje `line_game.move`,

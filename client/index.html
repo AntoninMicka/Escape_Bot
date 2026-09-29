@@ -998,6 +998,7 @@
                     <canvas id="reverse-qr-canvas" style="display:none"></canvas>
                 </div>
                 <button id="lobby-start-button" onclick="startTeamGame()" style="width:100%">SPUSTIT SPOLEČNOU MISI</button>
+                <button class="admin-delete" onclick="leaveCurrentGame()" style="width:100%;margin-top:12px">TRVALE OPUSTIT HRU</button>
             </div>
             <div id="player-identity" class="player-identity">
                 <h2>[ ID HRÁČSKÉHO ZAŘÍZENÍ ]</h2>
@@ -1039,6 +1040,7 @@
         <button id="scanner-tab-button" class="tab-button" onclick="openTab('tab-scanner', this)">SKENER (Kamera)</button>
         <button class="tab-button" onclick="openTab('tab-leaderboard', this)">SÍŇ SLÁVY</button>
         <button id="cipher-toggle" class="utility-button" onclick="toggleCipherPanel()">ŠIFROVACÍ POMŮCKY</button>
+        <button id="lobby-leave-active" class="utility-button hidden" onclick="leaveCurrentGame()">OPUSTIT HRU</button>
         <span class="sound-controls"><button id="sound-toggle" onclick="toggleSound()" aria-label="Vypnout zvuk">🔊</button><label>FX<input id="sound-volume" type="range" min="0" max="100" value="55" oninput="setSoundVolume(this.value)" aria-label="Hlasitost efektů"></label><label>HLAS<input id="voice-volume" type="range" min="0" max="100" value="80" oninput="setVoiceVolume(this.value)" aria-label="Hlasitost hlasových zpráv"></label></span>
     </div>
 
@@ -1884,6 +1886,7 @@
         let pendingLobbyRequest = null;
         let pendingLobbyTimer = null;
         let reconnectTimer = null;
+        let lobbyLeaveReconnect = false;
         let selectedLobbyType = '';
         let replayedOperationsSocket = null;
         try { savedLobby = JSON.parse(localStorage.getItem('escapeBotLobby') || 'null'); } catch (_) { savedLobby = null; }
@@ -2929,7 +2932,7 @@
                 const complete = Number(team.completed_nodes || 0);
                 const total = Number(team.total_nodes || 0);
                 const percent = total ? Math.round(complete * 100 / total) : 0;
-                const players = (team.players || []).map(player => `<span>${player.connected ? '●' : '○'} ${escapeHtml(player.name)}${adminSupports('player_recovery') ? ` <button onclick="requestPlayerRecovery('${team.session_id}','${player.id}')">NÁVRATOVÝ QR</button>` : ''}${adminSupports('spectate') ? ` <button onclick="startAdminSpectate('${team.session_id}','${player.id}')">ZOBRAZIT HRÁČE</button>` : ''}</span>`).join('<br>');
+                const players = (team.players || []).map(player => `<span>${player.left_at ? '×' : (player.connected ? '●' : '○')} ${escapeHtml(player.name)}${player.left_at ? ' <small>HRU OPUSTIL</small>' : `${adminSupports('player_recovery') ? ` <button onclick="requestPlayerRecovery('${team.session_id}','${player.id}')">NÁVRATOVÝ QR</button>` : ''}${adminSupports('spectate') ? ` <button onclick="startAdminSpectate('${team.session_id}','${player.id}')">ZOBRAZIT HRÁČE</button>` : ''}`}</span>`).join('<br>');
                 const activeNodes = ((team.progress || {}).nodes || []).filter(node => node.status === 'active' || node.status === 'available').map(node => escapeHtml(node.label)).join(', ') || '—';
                 const adjustments = (team.admin_score_adjustments || []).map(item => `${Number(item.delta) >= 0 ? '+' : ''}${Number(item.delta)}: ${escapeHtml(item.reason)}`).join('<br>');
                 const penalties = adjustments || (team.admin_penalties || []).map(item => `−${Number(item.amount)}: ${escapeHtml(item.reason)}`).join('<br>') || 'žádné';
@@ -3132,6 +3135,20 @@
         function chooseSoloMode() { onboardingWasRequested = true; sendLobby('lobby.solo'); }
         function createTeamMode() { sendLobby('lobby.create'); }
         function startTeamGame() { sendLobby('lobby.start'); }
+        function leaveCurrentGame() {
+            if (!currentLobby || !sessionId || !ws || ws.readyState !== WebSocket.OPEN) {
+                showNotification('Aktivní herní relace není připojena.', 'error');
+                return;
+            }
+            const lastPlayer = Number(currentLobby.registered_players ?? currentLobby.player_count ?? 0) <= 1;
+            const consequence = lastPlayer
+                ? 'Jste poslední aktivní hráč. Odchod ukončí tuto hru.'
+                : 'Tým bude pokračovat bez vás a vaše jméno zůstane ve výsledkové historii.';
+            if (!window.confirm(`Opravdu chcete trvale opustit hru?\n\n${consequence}\n\nPro dočasné odpojení pouze zavřete stránku; později se můžete vrátit.`)) return;
+            const operationId=crypto.randomUUID?.()||`lobby-leave-${Date.now()}`;
+            ws.send(JSON.stringify({type:'lobby.leave',payload:{client_id:clientId},operation_id:operationId}));
+            showNotification('Potvrzuji odchod se serverem…', 'info');
+        }
         function chooseLobbyType(type) {
             selectedLobbyType = type;
             const games = runtimeGames.filter(game => (game.lobby_types || []).includes(type));
@@ -3342,6 +3359,7 @@
                 ? payload.team_name
                 : `${payload.team_name} · ${teamSize} hráči · ${onlineCount} online`;
             document.getElementById('device-role').classList.toggle('visible', payload.mode === 'team');
+            document.getElementById('lobby-leave-active').classList.toggle('hidden', spectatorView || adminModeRequested || terminalModeRequested);
             renderDeviceRole();
             updateTeamSokobanIntercomControls();
             if (payload.started) {
@@ -3869,6 +3887,25 @@
                     document.getElementById('player-identity').classList.remove('visible');
                     renderLobby(msg.payload);
                 }
+                else if (msg.type === 'lobby.left') {
+                    const previousSessionId=sessionId;
+                    gameOperationQueue.discardSession(previousSessionId);
+                    localStorage.removeItem('escapeBotLobby');
+                    savedLobby=null;routedSessionId='';sessionId='';currentLobby=null;
+                    lobbyLeaveReconnect=true;
+                    document.getElementById('lobby-leave-active').classList.add('hidden');
+                    document.getElementById('device-role').classList.remove('visible');
+                    document.getElementById('team-status').textContent='';
+                    document.getElementById('lobby-overlay').classList.remove('hidden');
+                    document.getElementById('lobby-team').classList.remove('visible');
+                    document.getElementById('lobby-hubs').style.display='grid';
+                    document.getElementById('lobby-game-label').classList.add('hidden');
+                    document.getElementById('lobby-game-select').classList.add('hidden');
+                    document.getElementById('lobby-modes').style.display='none';
+                    document.getElementById('lobby-status').textContent=msg.payload.game_ended?'Hru jste opustili jako poslední aktivní hráč; relace byla ukončena.':'Hru jste trvale opustili. Tým může pokračovat bez vás.';
+                    showNotification(document.getElementById('lobby-status').textContent,'success');
+                    if(ws?.readyState===WebSocket.OPEN)ws.close(1000,'Player left lobby');
+                }
                 else if (msg.type === 'lobby.error') {
                     clearPendingLobbyRequest();
                     onboardingWasRequested = false;
@@ -4211,6 +4248,13 @@
             };
 
             ws.onclose = (e) => {
+                if (lobbyLeaveReconnect) {
+                    lobbyLeaveReconnect=false;
+                    statusIndicator.classList.remove('online');
+                    clearTimeout(reconnectTimer);
+                    reconnectTimer=setTimeout(connect,0);
+                    return;
+                }
                 if (terminalModeRequested && terminalRoutingReconnect) {
                     terminalRoutingReconnect = false;
                 } else if (terminalModeRequested && terminalRoutedSessionId) {

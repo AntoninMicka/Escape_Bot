@@ -41,6 +41,14 @@ class Lobby:
     applied_score_adjustment: int = 0
     lobby_type: str = "on_site_qr"
     scenario_id: str = "hotel_kraskov"
+    leave_receipts: dict[str, dict[str, Any]] = field(default_factory=dict)
+
+    @property
+    def active_player_ids(self) -> list[str]:
+        return [player_id for player_id, player in self.players.items() if not player.get("left_at")]
+
+    def is_active_player(self, client_id: str) -> bool:
+        return client_id in self.players and not self.players[client_id].get("left_at")
 
     def add_player(self, client_id: str, name: str = "") -> None:
         clean_name = " ".join(name.strip().split())[:24]
@@ -52,9 +60,42 @@ class Lobby:
                 "name": clean_name,
                 "joined_at": datetime.now(UTC).isoformat(),
             }
+        elif self.players[client_id].get("left_at"):
+            raise ValueError("Tento hráč už hru trvale opustil.")
         elif clean_name:
             self.players[client_id]["name"] = clean_name
-        self.max_players = max(self.max_players, len(self.players))
+        self.max_players = max(self.max_players, len(self.active_player_ids))
+
+    def leave_player(self, client_id: str, operation_id: str, left_at: str) -> dict[str, Any]:
+        receipt_key = f"{client_id}:{operation_id}"
+        if receipt_key in self.leave_receipts:
+            return {**self.leave_receipts[receipt_key], "changed": False}
+        if client_id not in self.players:
+            raise ValueError("Hráč do této relace nepatří.")
+        if self.players[client_id].get("left_at"):
+            raise ValueError("Hráč už hru trvale opustil.")
+        self.players[client_id]["left_at"] = left_at
+        active_ids = self.active_player_ids
+        creator_transferred = self.creator_id == client_id and bool(active_ids)
+        if creator_transferred:
+            self.creator_id = min(
+                active_ids,
+                key=lambda player_id: str(self.players[player_id].get("joined_at", "")),
+            )
+        result = {
+            "success": True,
+            "changed": True,
+            "session_id": self.session_id,
+            "player_id": client_id,
+            "left_at": left_at,
+            "remaining_players": len(active_ids),
+            "creator_id": self.creator_id if active_ids else "",
+            "creator_transferred": creator_transferred,
+        }
+        self.leave_receipts[receipt_key] = result
+        while len(self.leave_receipts) > 100:
+            self.leave_receipts.pop(next(iter(self.leave_receipts)))
+        return result
 
     def score_delta(self) -> int:
         desired = team_size_adjustment(self.mode, self.max_players)
@@ -65,6 +106,8 @@ class Lobby:
     def transfer_player(self, old_client_id: str, new_client_id: str) -> dict[str, Any]:
         if old_client_id not in self.players:
             raise ValueError("Původní hráč v týmu neexistuje.")
+        if self.players[old_client_id].get("left_at"):
+            raise ValueError("Hráč už hru trvale opustil.")
         if not new_client_id:
             raise ValueError("Chybí identifikátor nového zařízení.")
         if new_client_id in self.players and new_client_id != old_client_id:
@@ -78,7 +121,8 @@ class Lobby:
         return player
 
     def public(self, client_id: str, connected_ids: set[str]) -> dict[str, Any]:
-        online_count = sum(player_id in connected_ids for player_id in self.players)
+        active_ids = self.active_player_ids
+        online_count = sum(player_id in connected_ids for player_id in active_ids)
         return {
             "session_id": self.session_id,
             "mode": self.mode,
@@ -89,14 +133,14 @@ class Lobby:
             "started": self.started,
             "is_creator": client_id == self.creator_id,
             # Velikost týmu je vlastnost relace. Uspání telefonu mění pouze
-            # dostupnost hráče, nikdy týmový režim ani bodové vyhodnocení.
-            "player_count": len(self.players),
+            "player_count": len(active_ids),
             "online_count": online_count,
-            "registered_players": len(self.players),
+            "registered_players": len(active_ids),
             "max_players": self.max_players,
             "score_adjustment": self.applied_score_adjustment,
             "players": [
-                {**player, "connected": player["id"] in connected_ids}
+                {**player, "active": not bool(player.get("left_at")),
+                 "connected": not player.get("left_at") and player["id"] in connected_ids}
                 for player in self.players.values()
             ],
         }
@@ -114,6 +158,7 @@ class Lobby:
             "applied_score_adjustment": self.applied_score_adjustment,
             "lobby_type": self.lobby_type,
             "scenario_id": self.scenario_id,
+            "leave_receipts": self.leave_receipts,
         }
 
 
@@ -184,7 +229,7 @@ class LobbyRegistry:
 
     def resume(self, session_id: str, client_id: str, name: str = "") -> Lobby:
         lobby = self.by_session.get(session_id)
-        if lobby is None or client_id not in lobby.players:
+        if lobby is None or not lobby.is_active_player(client_id):
             raise ValueError("Uloženou týmovou relaci se nepodařilo obnovit.")
         lobby.add_player(client_id, name)
         return lobby
@@ -214,6 +259,7 @@ class LobbyRegistry:
                 applied_score_adjustment=int(item.get("applied_score_adjustment", 0)),
                 lobby_type=str(item.get("lobby_type", "on_site_qr")),
                 scenario_id=str(item.get("scenario_id", "hotel_kraskov")),
+                leave_receipts=dict(item.get("leave_receipts", {})),
             )
             self.by_session[lobby.session_id] = lobby
             if lobby.join_code:

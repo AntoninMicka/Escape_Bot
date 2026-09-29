@@ -8,6 +8,7 @@ import socket
 import secrets
 import threading
 import hmac
+import re
 import uvicorn
 from io import BytesIO
 from contextlib import asynccontextmanager
@@ -320,10 +321,25 @@ def runtime_payload() -> dict[str, object]:
             "configurable_games": [entry.public() for entry in scenario_catalog.entries.values()],
             "scenario_available": scenario_available and bool(games)}
 
+def dequeue_team(session_id: str) -> bool:
+    """Remove a session from the persisted queue metadata, if present."""
+    queue = runtime_settings.get("start_queue", [])
+    if not isinstance(queue, list):
+        runtime_settings["start_queue"] = []
+        return True
+    filtered = [
+        item for item in queue
+        if str(item.get("session_id", "") if isinstance(item, dict) else item) != session_id
+    ]
+    changed = len(filtered) != len(queue)
+    runtime_settings["start_queue"] = filtered
+    return changed
+
 def public_start_queue() -> list[dict[str, object]]:
     """Project waiting on-site team lobbies into the public display queue."""
-    def queued(lobby: Lobby) -> str: return min((str(player.get("joined_at", "")) for player in lobby.players.values()), default=lobby.session_id)
+    def queued(lobby: Lobby) -> str: return min((str(lobby.players[player_id].get("joined_at", "")) for player_id in lobby.active_player_ids), default=lobby.session_id)
     waiting = [lobby for lobby in lobby_registry.by_session.values() if lobby.mode == "team" and not lobby.started
+               and bool(lobby.active_player_ids)
                and lobby.lobby_type in {"on_site_qr", "geo"}
                and (event_game_config(lobby.scenario_id) is None or bool(event_game_config(lobby.scenario_id).get("queue_enabled")))]
     event = configured_event(); primary = str(event.get("primary_game_id", "")) if event else ""
@@ -373,16 +389,16 @@ async def start_due_queue_team(current: datetime) -> bool:
     if not availability["hard_start_allowed"]: return False
     if availability["soft_limit_active"] and not bool(first.get("soft_override")): return False
     lobby = lobby_registry.by_session.get(str(first["session_id"]))
-    if lobby is None or lobby.started or not lobby.players: return False
+    if lobby is None or lobby.started or not lobby.active_player_ids: return False
     lobby.started = True
     machine = ensure_state_machine(lobby.session_id)
     machine.state.flags["operations_started_at"] = datetime.now(UTC).isoformat()
     machine.state.flags["queue_auto_start"] = True
     dequeue_team(lobby.session_id)
-    first_player = next(iter(lobby.players))
+    first_player = lobby.active_player_ids[0]
     hello = Message("client.hello", {"session_id": lobby.session_id, "demo_mode": False,
-        "_client_id": first_player, "_participant_ids": list(lobby.players), "_team_mode": lobby.mode,
-        "_participant_names": {key: str(value.get("name", "Hráč")) for key, value in lobby.players.items()}})
+        "_client_id": first_player, "_participant_ids": lobby.active_player_ids, "_team_mode": lobby.mode,
+        "_participant_names": {key: str(lobby.players[key].get("name", "Hráč")) for key in lobby.active_player_ids}})
     result = await apply_game_command(lobby.session_id, machine, hello, now=current)
     responses = [Message("queue.auto_started", {"message": "Váš rezervovaný čas nastal. Hra byla automaticky spuštěna."})]
     responses.extend(result.sender_messages)
@@ -764,10 +780,14 @@ async def security_headers(request, call_next):
 
 
 def connected_client_ids(session_id: str) -> set[str]:
+    lobby = lobby_registry.by_session.get(session_id)
+    active_ids = set(lobby.active_player_ids) if lobby else set()
     return {
         str(connection_info[websocket].get("client_id", ""))
         for websocket in session_connections.get(session_id, set())
         if websocket in connection_info
+        and connection_info[websocket].get("role") != "terminal"
+        and str(connection_info[websocket].get("client_id", "")) in active_ids
     }
 
 
@@ -1243,9 +1263,9 @@ async def sync_started_client(websocket: WebSocket, state_machine: EscapeBotStat
     lobby = lobby_registry.by_session.get(str(info.get("session_id", "")))
     if lobby:
         state_machine._current_player_id = player_id or state_machine._current_player_id
-        state_machine._participant_ids = list(lobby.players)
+        state_machine._participant_ids = lobby.active_player_ids
         state_machine._team_mode = lobby.mode
-        state_machine._participant_names = {player_id: str(player.get("name", "Hráč")) for player_id, player in lobby.players.items()}
+        state_machine._participant_names = {player_id: str(lobby.players[player_id].get("name", "Hráč")) for player_id in lobby.active_player_ids}
     if state_machine.state.flags.get("administratively_ended"):
         await send_message(websocket, state_message_for(websocket, str(info.get("session_id", "")), state_machine))
         await send_message(websocket, Message("operations.stopped", {"message": "Tato hra už byla ukončena a čeká na vyhodnocení."}))
@@ -1262,6 +1282,73 @@ async def sync_started_client(websocket: WebSocket, state_machine: EscapeBotStat
             "checkpoints": build_demo_checkpoint_catalog(state_machine.scenario),
         }))
     await send_message(websocket, Message("runtime.settings", runtime_payload()))
+
+
+async def leave_lobby_player(websocket: WebSocket, lobby: Lobby, client_id: str, operation_id: str) -> None:
+    """Persist an explicit player departure without deleting historical identity."""
+    if not re.fullmatch(r"[A-Za-z0-9._:-]{1,128}", operation_id):
+        raise ValueError("Odchodu ze hry chybí platné operation_id.")
+    now = datetime.now(UTC).isoformat()
+    result = lobby.leave_player(client_id, operation_id, now)
+    if not result["changed"]:
+        await send_message(websocket, Message("lobby.left", result, operation_id=operation_id))
+        return
+
+    active_ids = lobby.active_player_ids
+    machine = active_sessions.get(lobby.session_id)
+    updates: list[Message] = []
+    if machine:
+        machine._participant_ids = active_ids
+        machine._participant_names = {player_id: str(lobby.players[player_id].get("name", "Hráč")) for player_id in active_ids}
+        machine.state.event_history.append({
+            "at": now,
+            "type": "lobby.leave",
+            "details": {"player_id": client_id, "remaining_players": str(len(active_ids))},
+        })
+        machine.state.event_history = machine.state.event_history[-500:]
+
+    ended = False
+    if not active_ids:
+        if lobby.join_code:
+            lobby_registry.by_join_code.pop(lobby.join_code, None)
+            lobby.join_code = None
+        dequeue_team(lobby.session_id)
+        if lobby.started and machine and not machine.state.flags.get("game_completed") and not machine.state.flags.get("administratively_ended"):
+            penalty = max(0, min(1000, int(runtime_settings.get("abandonment_penalty", 100))))
+            updates = apply_operational_end(
+                machine,
+                now,
+                "abandoned",
+                penalty,
+                "Poslední aktivní hráč opustil hru; relace byla ukončena jako opuštěná.",
+            )
+            ended = True
+    result["game_ended"] = ended
+    lobby.leave_receipts[f"{client_id}:{operation_id}"] = dict(result)
+    save_lobbies()
+    if machine:
+        save_sessions()
+    if not active_ids:
+        save_runtime_settings()
+
+    await broadcast_lobby(lobby)
+    if updates:
+        await broadcast_session(lobby.session_id, updates)
+    for player_socket in list(session_connections.get(lobby.session_id, set())):
+        if str(connection_info.get(player_socket, {}).get("client_id", "")) != client_id:
+            continue
+        try:
+            await send_message(player_socket, Message("lobby.left", result, operation_id=operation_id))
+        except Exception:
+            pass
+    if not active_ids:
+        runtime_update = Message("runtime.settings", runtime_payload())
+        for active_socket in list(getattr(app.state, "active_websockets", set())):
+            try: await send_message(active_socket, runtime_update)
+            except Exception: pass
+    for admin_socket in list(authenticated_admin_sockets):
+        try: await send_admin_overview(admin_socket)
+        except Exception: pass
 
 
 @app.get("/api/qr")
@@ -1517,17 +1604,17 @@ async def websocket_endpoint(websocket: WebSocket):
                             lobby = lobby_registry.by_session.get(target_session)
                             if lobby is None: raise ValueError("Tým už neexistuje.")
                             if lobby.started: raise ValueError("Hra tohoto týmu už byla spuštěna.")
-                            if not lobby.players: raise ValueError("Před spuštěním se musí připojit alespoň jeden hráč.")
+                            if not lobby.active_player_ids: raise ValueError("Před spuštěním se musí připojit alespoň jeden hráč.")
                             require_admin_start_available(bool(msg.payload.get("override_soft")))
                             lobby.started = True
                             machine = ensure_state_machine(target_session)
                             machine.state.flags["operations_started_at"] = datetime.now(UTC).isoformat()
                             machine.state.flags["managed_start"] = True
                             dequeue_team(target_session)
-                            first_player = next(iter(lobby.players))
+                            first_player = lobby.active_player_ids[0]
                             hello = Message("client.hello", {"session_id": target_session, "demo_mode": False,
-                                "_client_id": first_player, "_participant_ids": list(lobby.players), "_team_mode": lobby.mode,
-                                "_participant_names": {key: str(value.get("name", "Hráč")) for key, value in lobby.players.items()}})
+                                "_client_id": first_player, "_participant_ids": lobby.active_player_ids, "_team_mode": lobby.mode,
+                                "_participant_names": {key: str(lobby.players[key].get("name", "Hráč")) for key in lobby.active_player_ids}})
                             result = await apply_game_command(target_session, machine, hello)
                             responses = [*result.sender_messages, *result.broadcast_messages]
                             responses.extend(apply_lobby_score(lobby, machine))
@@ -1837,8 +1924,8 @@ async def websocket_endpoint(websocket: WebSocket):
 
                         if msg.type == "admin.game_player":
                             machine = ensure_state_machine(target_session)
-                            machine._participant_ids = list(lobby.players)
-                            machine._participant_names = {key: str(value.get("name", "Hráč")) for key, value in lobby.players.items()}
+                            machine._participant_ids = lobby.active_player_ids
+                            machine._participant_names = {key: str(lobby.players[key].get("name", "Hráč")) for key in lobby.active_player_ids}
                             machine._team_mode = lobby.mode
                             result = machine.admin_set_game_player(str(msg.payload.get("puzzle_id", "")), str(msg.payload.get("player_id", "")), str(msg.payload.get("action", "")))
                             save_sessions()
@@ -1981,7 +2068,7 @@ async def websocket_endpoint(websocket: WebSocket):
                         await send_message(websocket, Message("admin.error", {"message": str(error)}))
                         continue
 
-                if msg.type in {"lobby.solo", "lobby.create", "lobby.join", "lobby.resume", "lobby.start", "lobby.queue", "lobby.dequeue", "lobby.identify", "lobby.add_player", "lobby.recover"}:
+                if msg.type in {"lobby.solo", "lobby.create", "lobby.join", "lobby.resume", "lobby.start", "lobby.queue", "lobby.dequeue", "lobby.identify", "lobby.add_player", "lobby.recover", "lobby.leave"}:
                     try:
                         requested_client_id = str(msg.payload.get("client_id", "")).strip()
                         if not requested_client_id:
@@ -1991,10 +2078,18 @@ async def websocket_endpoint(websocket: WebSocket):
                         lobby_type = str(msg.payload.get("lobby_type", "on_site_qr")).strip()
                         requested_scenario_id = str(msg.payload.get("scenario_id", selected_scenario_id)).strip()
                         requested_demo = DEMO_MODE_ENABLED and bool(msg.payload.get("demo_mode"))
+                        if msg.type == "lobby.leave":
+                            info = connection_info.get(websocket, {})
+                            attached_client_id = str(info.get("client_id", ""))
+                            lobby = lobby_registry.by_session.get(str(info.get("session_id", "")))
+                            if lobby is None or attached_client_id != requested_client_id or attached_client_id not in lobby.players:
+                                raise ValueError("Odchod může potvrdit pouze aktivní hráč této relace.")
+                            await leave_lobby_player(websocket, lobby, attached_client_id, str(msg.operation_id or ""))
+                            continue
                         if msg.type in {"lobby.queue", "lobby.dequeue"}:
                             info = connection_info.get(websocket, {})
                             lobby = lobby_registry.by_session.get(str(info.get("session_id", "")))
-                            if lobby is None or requested_client_id not in lobby.players:
+                            if lobby is None or not lobby.is_active_player(requested_client_id):
                                 raise ValueError("Nejprve se připojte k týmové lobby.")
                             if msg.type == "lobby.queue": queue_team(lobby.session_id)
                             else: dequeue_team(lobby.session_id)
@@ -2053,7 +2148,7 @@ async def websocket_endpoint(websocket: WebSocket):
                         if msg.type == "lobby.add_player":
                             info = connection_info.get(websocket, {})
                             lobby = lobby_registry.by_session.get(str(info.get("session_id", "")))
-                            if lobby is None or requested_client_id != lobby.creator_id:
+                            if lobby is None or requested_client_id != lobby.creator_id or not lobby.is_active_player(requested_client_id):
                                 raise ValueError("Hráče může tímto způsobem přidat pouze zakladatel týmu.")
                             player_code = str(msg.payload.get("player_code", "")).strip().upper().removeprefix("ESCAPEBOT://PLAYER/")
                             waiting = waiting_players.pop(player_code, None)
@@ -2100,9 +2195,9 @@ async def websocket_endpoint(websocket: WebSocket):
                         else:
                             info = connection_info.get(websocket, {})
                             lobby = lobby_registry.by_session.get(str(info.get("session_id", "")))
-                            if lobby is None or requested_client_id != lobby.creator_id:
+                            if lobby is None or requested_client_id != lobby.creator_id or not lobby.is_active_player(requested_client_id):
                                 raise ValueError("Hru může spustit pouze zakladatel týmu.")
-                            if not lobby.team_name or any(not str(player.get("name", "")).strip() for player in lobby.players.values()):
+                            if not lobby.team_name or any(not str(lobby.players[player_id].get("name", "")).strip() for player_id in lobby.active_player_ids):
                                 raise ValueError("Před spuštěním musí mít tým i všichni hráči vyplněné jméno.")
                             require_start_available(lobby.lobby_type, lobby.scenario_id)
                             lobby.started = True
@@ -2127,9 +2222,9 @@ async def websocket_endpoint(websocket: WebSocket):
                             score_messages = apply_lobby_score(lobby, state_machine)
                             if msg.type in {"lobby.solo", "lobby.start"}:
                                 hello = Message("client.hello", {"session_id": session_id, "demo_mode": demo_client,
-                                                                "_client_id": client_id, "_participant_ids": list(lobby.players),
+                                                                "_client_id": client_id, "_participant_ids": lobby.active_player_ids,
                                                                 "_team_mode": lobby.mode,
-                                                                "_participant_names": {key: str(value.get("name", "Hráč")) for key, value in lobby.players.items()}})
+                                                                "_participant_names": {key: str(lobby.players[key].get("name", "Hráč")) for key in lobby.active_player_ids}})
                                 result = await apply_game_command(str(session_id), state_machine, hello)
                                 responses = [*result.sender_messages, *result.broadcast_messages]
                                 responses.extend(score_messages)
@@ -2175,7 +2270,7 @@ async def websocket_endpoint(websocket: WebSocket):
                         }))
                         continue
                     lobby = lobby_registry.by_session.get(str(session_id))
-                    if lobby is None or str(client_id) not in lobby.players:
+                    if lobby is None or not lobby.is_active_player(str(client_id)):
                         await send_message(websocket, Message("terminal.attach_result", {
                             "success": False,
                             "reason": "Terminál může odemknout pouze člen týmu.",
@@ -2281,9 +2376,12 @@ async def websocket_endpoint(websocket: WebSocket):
                         msg.payload["_client_id"] = client_id
                     lobby_context = lobby_registry.by_session.get(str(session_id))
                     if lobby_context:
-                        msg.payload["_participant_ids"] = list(lobby_context.players)
+                        if not lobby_context.is_active_player(str(client_id)) and connection_info.get(websocket, {}).get("role") != "terminal":
+                            await send_message(websocket, Message("error", {"message": "Tento hráč hru trvale opustil."}))
+                            continue
+                        msg.payload["_participant_ids"] = lobby_context.active_player_ids
                         msg.payload["_team_mode"] = lobby_context.mode
-                        msg.payload["_participant_names"] = {key: str(value.get("name", "Hráč")) for key, value in lobby_context.players.items()}
+                        msg.payload["_participant_names"] = {key: str(lobby_context.players[key].get("name", "Hráč")) for key in lobby_context.active_player_ids}
                     if msg.type == "player.message" and str(msg.payload.get("channel", "")) == "support" and session_id:
                         text_value = " ".join(str(msg.payload.get("text", "")).strip().split())[:500]
                         if not text_value:

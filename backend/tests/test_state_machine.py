@@ -1044,6 +1044,84 @@ class StateMachineCheckpointTests(unittest.IsolatedAsyncioTestCase):
         restored.restore(registry.snapshot())
         self.assertEqual(restored.join(lobby.join_code, "fourth", "Dana").max_players, 4)
 
+    def test_explicit_leave_preserves_history_mode_and_maximum_team_size(self) -> None:
+        registry = LobbyRegistry()
+        lobby = registry.create("creator", "team", "Alice", "Chrononauti")
+        registry.join(lobby.join_code, "navigator", "Bob")
+        registry.join(lobby.join_code, "third", "Cyril")
+
+        result = lobby.leave_player("creator", "leave-creator", "2026-09-29T12:00:00+00:00")
+
+        self.assertTrue(result["changed"])
+        self.assertTrue(result["creator_transferred"])
+        self.assertEqual(lobby.creator_id, "navigator")
+        self.assertEqual(lobby.active_player_ids, ["navigator", "third"])
+        self.assertEqual(lobby.mode, "team")
+        self.assertEqual(lobby.max_players, 3)
+        public = lobby.public("navigator", {"creator", "navigator"})
+        self.assertEqual(public["registered_players"], 2)
+        self.assertEqual(public["online_count"], 1)
+        departed = next(player for player in public["players"] if player["id"] == "creator")
+        self.assertFalse(departed["active"])
+        self.assertFalse(departed["connected"])
+        self.assertEqual(lobby.leave_player("creator", "leave-creator", "later")["changed"], False)
+        with self.assertRaisesRegex(ValueError, "obnovit"):
+            registry.resume(lobby.session_id, "creator")
+
+        restored = LobbyRegistry()
+        restored.restore(registry.snapshot())
+        self.assertEqual(restored.by_session[lobby.session_id].active_player_ids, ["navigator", "third"])
+        self.assertIn("creator", restored.by_session[lobby.session_id].players)
+
+    async def test_last_active_player_leave_ends_game_without_completing_team_minigame(self) -> None:
+        from escape_bot import server
+        from escape_bot.team_lobby import Lobby
+        lobby = Lobby("leave-session", "team", "alice", "Chrononauti", started=True)
+        lobby.add_player("alice", "Alice")
+        lobby.add_player("bob", "Bob")
+        machine = EscapeBotStateMachine(self.scenario, clock=lambda: datetime.now(UTC))
+        machine._team_mode = "team"
+        machine._participant_ids = ["alice", "bob"]
+        machine.state.checkpoint_states["timeline_calibration"] = {"status": "found"}
+        socket = AsyncMock()
+        previous_lobby = server.lobby_registry.by_session.get(lobby.session_id)
+        previous_machine = server.active_sessions.get(lobby.session_id)
+        previous_connections = server.session_connections.get(lobby.session_id)
+        server.lobby_registry.by_session[lobby.session_id] = lobby
+        server.active_sessions[lobby.session_id] = machine
+        server.session_connections[lobby.session_id] = {socket}
+        server.connection_info[socket] = {"session_id": lobby.session_id, "client_id": "bob"}
+        try:
+            with patch.object(server, "save_lobbies"), patch.object(server, "save_sessions"), patch.object(
+                server, "save_runtime_settings"
+            ), patch.object(server, "broadcast_lobby", new=AsyncMock()), patch.object(
+                server, "broadcast_session", new=AsyncMock()
+            ), patch.object(server, "send_message", new=AsyncMock()), patch.object(
+                server, "send_admin_overview", new=AsyncMock()
+            ):
+                await server.leave_lobby_player(socket, lobby, "bob", "leave-bob")
+                self.assertEqual(lobby.mode, "team")
+                self.assertEqual(lobby.active_player_ids, ["alice"])
+                self.assertEqual(machine._participant_ids, ["alice"])
+                self.assertEqual(machine.state.checkpoint_states["timeline_calibration"]["status"], "found")
+                self.assertFalse(machine.state.flags.get("administratively_ended", False))
+
+                await server.leave_lobby_player(socket, lobby, "alice", "leave-alice")
+                self.assertEqual(lobby.active_player_ids, [])
+                self.assertTrue(machine.state.flags["administratively_ended"])
+                self.assertEqual(machine.state.flags["administratively_ended_reason"], "abandoned")
+                self.assertEqual(machine.state.checkpoint_states["timeline_calibration"]["status"], "found")
+                self.assertIn("alice", lobby.players)
+                self.assertIn("bob", lobby.players)
+        finally:
+            server.connection_info.pop(socket, None)
+            if previous_lobby is None: server.lobby_registry.by_session.pop(lobby.session_id, None)
+            else: server.lobby_registry.by_session[lobby.session_id] = previous_lobby
+            if previous_machine is None: server.active_sessions.pop(lobby.session_id, None)
+            else: server.active_sessions[lobby.session_id] = previous_machine
+            if previous_connections is None: server.session_connections.pop(lobby.session_id, None)
+            else: server.session_connections[lobby.session_id] = previous_connections
+
     def test_lobby_keeps_independent_game_type_and_scenario(self) -> None:
         registry = LobbyRegistry()
         lobby = registry.create("creator", "team", "Alice", "Geo tým", "geo", "city_trail")

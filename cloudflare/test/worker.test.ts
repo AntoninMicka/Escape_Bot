@@ -968,6 +968,149 @@ describe("Cloudflare spike router", () => {
     await closeSocket(bootstrap, "done");
   });
 
+  it("lets players leave permanently while preserving team history and ending the last player's game", async () => {
+    const creatorBootstrap = await openSocket("https://example.test/ws?client_id=leave-alice");
+    const creatorRoutePromise = nextMessage(creatorBootstrap, "lobby.route");
+    send(creatorBootstrap, "lobby.create", {
+      client_id: "leave-alice",
+      name: "Alice",
+      team_name: "Leave Flow Team",
+      lobby_type: "online_doom",
+      scenario_id: "chronos_online",
+    });
+    const creatorRoute = await creatorRoutePromise;
+    const sessionId = String(creatorRoute.payload.session_id);
+    const joinCode = String(creatorRoute.payload.join_code);
+
+    const creator = await openSocket(
+      `https://example.test/ws?session_id=${sessionId}&client_id=leave-alice`,
+    );
+    const creatorLobby = nextMessage(creator, "lobby.state");
+    send(creator, "lobby.resume", { session_id: sessionId });
+    await creatorLobby;
+
+    const playerBootstrap = await openSocket("https://example.test/ws?client_id=leave-bob");
+    const playerRoutePromise = nextMessage(playerBootstrap, "lobby.route");
+    send(playerBootstrap, "lobby.join", {
+      client_id: "leave-bob",
+      name: "Bob",
+      join_code: joinCode,
+    });
+    await playerRoutePromise;
+    const player = await openSocket(
+      `https://example.test/ws?session_id=${sessionId}&client_id=leave-bob`,
+    );
+    const bothPlayers = nextMessage(player, "lobby.state");
+    send(player, "lobby.resume", { session_id: sessionId });
+    expect((await bothPlayers).payload).toMatchObject({ mode: "team", registered_players: 2, max_players: 2 });
+
+    const creatorLeft = nextMessage(creator, "lobby.left");
+    const transferredLobby = nextMessage(player, "lobby.state");
+    creator.send(JSON.stringify({
+      type: "lobby.leave",
+      operation_id: "leave-alice-001",
+      payload: { client_id: "leave-alice" },
+    }));
+    expect((await creatorLeft).payload).toMatchObject({
+      changed: true,
+      remaining_players: 1,
+      creator_id: "leave-bob",
+      creator_transferred: true,
+      game_ended: false,
+    });
+    const transferred = await transferredLobby;
+    expect(transferred.payload).toMatchObject({
+      mode: "team",
+      registered_players: 1,
+      max_players: 2,
+      is_creator: true,
+    });
+    expect(transferred.payload.players).toEqual(expect.arrayContaining([
+      expect.objectContaining({ id: "leave-alice", active: false, connected: false }),
+      expect.objectContaining({ id: "leave-bob", active: true }),
+    ]));
+
+    const duplicateLeave = nextMessage(creator, "lobby.left");
+    creator.send(JSON.stringify({
+      type: "lobby.leave",
+      operation_id: "leave-alice-001",
+      payload: { client_id: "leave-alice" },
+    }));
+    expect((await duplicateLeave).payload).toMatchObject({ changed: false, remaining_players: 1 });
+
+    const startedState = nextMessage(player, "game.state");
+    send(player, "lobby.start");
+    const initialScore = Number((await startedState).payload.score);
+    const stub = env.GAME_SESSIONS.getByName(sessionId);
+    await runInDurableObject(stub, async (instance, state) => {
+      const target = instance as unknown as {
+        snapshot: { gameState: Record<string, any> };
+      };
+      target.snapshot.gameState.checkpoint_states = {
+        timeline_calibration: { status: "found" },
+      };
+      await state.storage.put("session-snapshot", target.snapshot);
+    });
+
+    const lastPlayerLeft = nextMessage(player, "lobby.left");
+    player.send(JSON.stringify({
+      type: "lobby.leave",
+      operation_id: "leave-bob-001",
+      payload: { client_id: "leave-bob" },
+    }));
+    expect((await lastPlayerLeft).payload).toMatchObject({
+      changed: true,
+      remaining_players: 0,
+      creator_id: "",
+      game_ended: true,
+    });
+
+    const persisted = await runInDurableObject(stub, (instance) => {
+      const target = instance as unknown as {
+        snapshot: {
+          lobby: { mode: string; maxPlayers: number; players: Record<string, { leftAt?: string }> };
+          gameState: Record<string, any>;
+        };
+      };
+      return {
+        mode: target.snapshot.lobby.mode,
+        maxPlayers: target.snapshot.lobby.maxPlayers,
+        players: target.snapshot.lobby.players,
+        score: target.snapshot.gameState.score,
+        flags: target.snapshot.gameState.flags,
+        checkpoint: target.snapshot.gameState.checkpoint_states.timeline_calibration,
+        history: target.snapshot.gameState.event_history,
+      };
+    });
+    expect(persisted.mode).toBe("team");
+    expect(persisted.maxPlayers).toBe(2);
+    expect(persisted.players["leave-alice"].leftAt).toBeTruthy();
+    expect(persisted.players["leave-bob"].leftAt).toBeTruthy();
+    expect(persisted.score).toBe(initialScore - 100);
+    expect(persisted.flags).toMatchObject({
+      administratively_ended: true,
+      administratively_ended_reason: "abandoned",
+    });
+    expect(persisted.checkpoint).toEqual({ status: "found" });
+    expect(persisted.history).toEqual(expect.arrayContaining([
+      expect.objectContaining({ type: "lobby.leave", details: expect.objectContaining({ player_id: "leave-alice" }) }),
+      expect.objectContaining({ type: "lobby.leave", details: expect.objectContaining({ player_id: "leave-bob" }) }),
+    ]));
+
+    const lateJoin = await openSocket("https://example.test/ws?client_id=leave-charlie");
+    const rejectedJoin = nextMessage(lateJoin, "lobby.error");
+    send(lateJoin, "lobby.join", { client_id: "leave-charlie", name: "Cyril", join_code: joinCode });
+    expect((await rejectedJoin).payload.message).toContain("není platný");
+
+    await Promise.all([
+      closeSocket(creatorBootstrap, "routed"),
+      closeSocket(playerBootstrap, "routed"),
+      closeSocket(creator, "done"),
+      closeSocket(player, "done"),
+      closeSocket(lateJoin, "done"),
+    ]);
+  });
+
   it("recovers a player onto a new device and transfers persisted game identity once", async () => {
     const creatorBootstrap = await openSocket("https://example.test/ws?client_id=recover-alice");
     const creatorRoutePromise = nextMessage(creatorBootstrap, "lobby.route");
