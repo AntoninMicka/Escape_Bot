@@ -17,8 +17,15 @@ interface EventGameConfiguration {
   max_active_teams: number;
 }
 
+export interface EventDailyWindow {
+  date: string;
+  enabled: boolean;
+  opens_at: string;
+  closes_at: string;
+}
+
 export interface EventSnapshot {
-  schema_version: 1;
+  schema_version: 2;
   id: string;
   revision: number;
   name: string;
@@ -26,6 +33,7 @@ export interface EventSnapshot {
   ends_at: string;
   status: EventStatus;
   timezone: string;
+  daily_windows: EventDailyWindow[];
   primary_game_id: string;
   games: EventGameConfiguration[];
   scenario_ids: string[];
@@ -49,6 +57,9 @@ export const EVENT_ID_PATTERN = /^[A-Za-z0-9_-]{1,64}$/;
 const OPERATION_ID_PATTERN = /^[A-Za-z0-9._:-]{1,128}$/;
 const EVENT_STATUSES = new Set<EventStatus>(["draft", "ready", "open", "paused", "ended", "archived"]);
 const EVENT_GAME_ROLES = new Set<EventGameRole>(["primary", "competitive", "side"]);
+const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
+const TIME_PATTERN = /^(?:[01]\d|2[0-3]):[0-5]\d$/;
+const MAX_EVENT_DAYS = 370;
 
 function json(data: unknown, status = 200): Response {
   const response = Response.json(data, { status });
@@ -89,6 +100,78 @@ function validTimezone(value: unknown): string {
   return timezone;
 }
 
+function dateInTimezone(timestamp: string, timezone: string): string {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: timezone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(new Date(timestamp));
+  const values = new Map(parts.map((part) => [part.type, part.value]));
+  return `${values.get("year")}-${values.get("month")}-${values.get("day")}`;
+}
+
+function eventDates(startsAt: string, endsAt: string, timezone: string): string[] {
+  const firstDate = dateInTimezone(startsAt, timezone);
+  const lastDate = dateInTimezone(new Date(Date.parse(endsAt) - 1).toISOString(), timezone);
+  const current = new Date(`${firstDate}T00:00:00Z`);
+  const last = new Date(`${lastDate}T00:00:00Z`);
+  if (!DATE_PATTERN.test(firstDate) || !DATE_PATTERN.test(lastDate) || current > last) {
+    throw new Error("Kalendářní rozsah eventu není platný.");
+  }
+  const dates: string[] = [];
+  while (current <= last) {
+    if (dates.length >= MAX_EVENT_DAYS) {
+      throw new Error(`Event může pokrývat nejvýše ${MAX_EVENT_DAYS} kalendářních dnů.`);
+    }
+    dates.push(current.toISOString().slice(0, 10));
+    current.setUTCDate(current.getUTCDate() + 1);
+  }
+  return dates;
+}
+
+function defaultDailyWindows(startsAt: string, endsAt: string, timezone: string): EventDailyWindow[] {
+  return eventDates(startsAt, endsAt, timezone).map((date) => ({
+    date,
+    enabled: true,
+    opens_at: "08:00",
+    closes_at: "20:00",
+  }));
+}
+
+function normalizeDailyWindows(
+  value: unknown,
+  startsAt: string,
+  endsAt: string,
+  timezone: string,
+): EventDailyWindow[] {
+  const dates = eventDates(startsAt, endsAt, timezone);
+  if (value === undefined) return defaultDailyWindows(startsAt, endsAt, timezone);
+  if (!Array.isArray(value)) throw new Error("Denní limity eventu musí být seznam.");
+  const expectedDates = new Set(dates);
+  const supplied = new Map<string, EventDailyWindow>();
+  for (const rawValue of value) {
+    const raw = rawValue && typeof rawValue === "object" && !Array.isArray(rawValue)
+      ? rawValue as Record<string, unknown>
+      : {};
+    const date = cleanText(raw.date, 10);
+    const opensAt = cleanText(raw.opens_at, 5);
+    const closesAt = cleanText(raw.closes_at, 5);
+    if (!DATE_PATTERN.test(date) || !expectedDates.has(date)) {
+      throw new Error(`Denní limit ${date || "bez data"} neleží v obálce eventu.`);
+    }
+    if (supplied.has(date)) throw new Error(`Denní limit pro ${date} je uveden vícekrát.`);
+    if (!TIME_PATTERN.test(opensAt) || !TIME_PATTERN.test(closesAt)) {
+      throw new Error(`Denní limit pro ${date} musí obsahovat platné časy HH:MM.`);
+    }
+    if (opensAt >= closesAt) throw new Error(`Denní limit pro ${date} musí končit po svém začátku.`);
+    supplied.set(date, { date, enabled: raw.enabled !== false, opens_at: opensAt, closes_at: closesAt });
+  }
+  const missingDate = dates.find((date) => !supplied.has(date));
+  if (missingDate) throw new Error(`Chybí denní limit pro ${missingDate}.`);
+  return dates.map((date) => supplied.get(date)!);
+}
+
 function publicSnapshot(snapshot: StoredEventSnapshot): EventSnapshot {
   const { applied_operations: _operations, ...event } = snapshot;
   return event;
@@ -101,7 +184,20 @@ export class EventCoordinator extends DurableObject<EventCoordinatorEnv> {
   constructor(ctx: DurableObjectState, env: EventCoordinatorEnv) {
     super(ctx, env);
     ctx.blockConcurrencyWhile(async () => {
-      this.snapshot = await ctx.storage.get<StoredEventSnapshot>(EVENT_SNAPSHOT_KEY) ?? null;
+      const stored = await ctx.storage.get<StoredEventSnapshot>(EVENT_SNAPSHOT_KEY);
+      if (!stored) {
+        this.snapshot = null;
+        return;
+      }
+      let dailyWindows = stored.daily_windows;
+      if (!Array.isArray(dailyWindows)) {
+        try {
+          dailyWindows = defaultDailyWindows(stored.starts_at, stored.ends_at, validTimezone(stored.timezone));
+        } catch {
+          dailyWindows = [];
+        }
+      }
+      this.snapshot = { ...stored, schema_version: 2, daily_windows: dailyWindows };
     });
   }
 
@@ -172,7 +268,7 @@ export class EventCoordinator extends DurableObject<EventCoordinatorEnv> {
     }
     const now = new Date().toISOString();
     this.snapshot = {
-      schema_version: 1,
+      schema_version: 2,
       revision: (this.snapshot?.revision ?? 0) + 1,
       created_at: this.snapshot?.created_at ?? now,
       updated_at: now,
@@ -192,6 +288,8 @@ export class EventCoordinator extends DurableObject<EventCoordinatorEnv> {
     if (Date.parse(startsAt) >= Date.parse(endsAt)) {
       throw new Error("Konec eventu musí následovat po jeho začátku.");
     }
+    const timezone = validTimezone(payload.timezone);
+    const dailyWindows = normalizeDailyWindows(payload.daily_windows, startsAt, endsAt, timezone);
     const status = cleanText(payload.status || "draft", 16) as EventStatus;
     if (!EVENT_STATUSES.has(status)) throw new Error("Neznámý stav eventu.");
     const rawGames = payload.games;
@@ -239,7 +337,8 @@ export class EventCoordinator extends DurableObject<EventCoordinatorEnv> {
       starts_at: startsAt,
       ends_at: endsAt,
       status,
-      timezone: validTimezone(payload.timezone),
+      timezone,
+      daily_windows: dailyWindows,
       primary_game_id: primaryGames[0].game_id,
       games,
       scenario_ids: games.map((game) => game.game_id),

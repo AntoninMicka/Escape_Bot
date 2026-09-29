@@ -99,12 +99,13 @@ describe("EventCoordinator Durable Object", () => {
     expect(createdPayload).toMatchObject({
       changed: true,
       event: {
-        schema_version: 1,
+        schema_version: 2,
         id: "autumn-2026",
         revision: 1,
         name: "Podzimní setkání",
         status: "ready",
         timezone: "Europe/Prague",
+        daily_windows: [{ date: "2026-10-10", enabled: true, opens_at: "08:00", closes_at: "20:00" }],
         primary_game_id: "hotel_kraskov",
         scenario_ids: ["hotel_kraskov", "chronos_online"],
         branding: { title: "Chronos 2026", accent_color: "#65f7ff" },
@@ -206,6 +207,51 @@ describe("EventCoordinator Durable Object", () => {
       headers: authorization,
     });
     expect(missing.status).toBe(404);
+  });
+
+  it("stores a daily schedule inside a multi-day event envelope", async () => {
+    const dailyWindows = [
+      { date: "2026-10-09", enabled: true, opens_at: "08:00", closes_at: "20:00" },
+      { date: "2026-10-10", enabled: true, opens_at: "08:00", closes_at: "20:00" },
+      { date: "2026-10-11", enabled: true, opens_at: "08:00", closes_at: "20:00" },
+    ];
+    const created = await putEvent("weekend-event", eventConfiguration({
+      starts_at: "2026-10-09T15:00:00+02:00",
+      ends_at: "2026-10-11T12:00:00+02:00",
+      daily_windows: dailyWindows,
+      operation_id: "weekend-create",
+    }));
+    expect(created.status).toBe(200);
+    expect(await created.json()).toMatchObject({
+      event: {
+        schema_version: 2,
+        starts_at: "2026-10-09T13:00:00.000Z",
+        ends_at: "2026-10-11T10:00:00.000Z",
+        daily_windows: dailyWindows,
+      },
+    });
+
+    const missingDay = await putEvent("missing-day-event", eventConfiguration({
+      starts_at: "2026-10-09T15:00:00+02:00",
+      ends_at: "2026-10-11T12:00:00+02:00",
+      daily_windows: dailyWindows.slice(0, 2),
+      operation_id: "missing-day-create",
+    }));
+    expect(missingDay.status).toBe(400);
+    expect(await missingDay.json()).toMatchObject({
+      error: "invalid_event",
+      message: "Chybí denní limit pro 2026-10-11.",
+    });
+
+    const invalidHours = await putEvent("invalid-hours-event", eventConfiguration({
+      daily_windows: [{ date: "2026-10-10", enabled: true, opens_at: "20:00", closes_at: "08:00" }],
+      operation_id: "invalid-hours-create",
+    }));
+    expect(invalidHours.status).toBe(400);
+    expect(await invalidHours.json()).toMatchObject({
+      error: "invalid_event",
+      message: "Denní limit pro 2026-10-10 musí končit po svém začátku.",
+    });
   });
 
   it("activates an event for bootstrap clients and restores the selection after eviction", async () => {

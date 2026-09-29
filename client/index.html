@@ -916,11 +916,12 @@
                     <div class="admin-settings-fields">
                         <label>ID eventu<input id="event-id" placeholder="kraskov-2026"></label>
                         <label>Název eventu<input id="event-name" placeholder="Podzimní celostátní setkání 2026"></label>
-                        <label>Začátek<input id="event-start" type="datetime-local"></label>
-                        <label>Konec<input id="event-end" type="datetime-local"></label>
+                        <label>Celkový začátek<input id="event-start" type="datetime-local" onchange="renderEventDailyWindows()"></label>
+                        <label>Celkový konec<input id="event-end" type="datetime-local" onchange="renderEventDailyWindows()"></label>
                         <label>Stav<select id="event-status"><option value="draft">KONCEPT</option><option value="ready">PŘIPRAVEN</option><option value="open">OTEVŘEN</option><option value="paused">POZASTAVEN</option><option value="ended">UKONČEN</option><option value="archived">ARCHIVOVÁN</option></select></label>
-                        <label>Časová zóna<input id="event-timezone" value="Europe/Prague"></label>
+                        <label>Časová zóna<input id="event-timezone" value="Europe/Prague" onchange="renderEventDailyWindows()"></label>
                         <label>Nadpis nástěnky<input id="event-branding-title"></label><label>Logo URL<input id="event-branding-logo"></label><label>Barva eventu<input id="event-branding-color" type="color" value="#65f7ff"></label>
+                        <div id="event-daily-windows" class="wide"></div>
                         <div id="event-games-config" class="wide"></div>
                     </div>
                     <div class="admin-settings-buttons"><button onclick="saveEventSettings()">ULOŽIT EVENT</button><button class="admin-delete" onclick="clearEventSettings()">ZRUŠIT EVENT</button></div>
@@ -1229,6 +1230,7 @@
         let operationsEnabled = true;
         let leaderboardFinalized = false;
         let activeEvent = null;
+        let eventDailyWindowDraft = [];
         let runtimeAvailability = null;
         let runtimeAvailabilityByLobbyType = {};
         let runtimeGames = [];
@@ -2122,6 +2124,22 @@
             const offset = date.getTimezoneOffset() * 60000;
             return new Date(date - offset).toISOString().slice(0,16);
         }
+        function eventCalendarDates() {
+            const starts=document.getElementById('event-start')?.value||'',ends=document.getElementById('event-end')?.value||'';
+            const first=starts.slice(0,10),last=ends.slice(0,10);
+            if(!/^\d{4}-\d{2}-\d{2}$/.test(first)||!/^\d{4}-\d{2}-\d{2}$/.test(last)||first>last)return [];
+            const current=new Date(`${first}T00:00:00Z`),limit=new Date(`${last}T00:00:00Z`),dates=[];
+            while(current<=limit&&dates.length<370){dates.push(current.toISOString().slice(0,10));current.setUTCDate(current.getUTCDate()+1);}
+            return dates;
+        }
+        function renderEventDailyWindows() {
+            const target=document.getElementById('event-daily-windows');if(!target)return;
+            const dates=eventCalendarDates(),existing=new Map(eventDailyWindowDraft.map(item=>[item.date,item]));
+            eventDailyWindowDraft=dates.map(date=>existing.get(date)||{date,enabled:true,opens_at:'08:00',closes_at:'20:00'});
+            if(!dates.length){target.innerHTML='<strong>DENNÍ LIMITY</strong><p>Nejprve zadejte celkový začátek a konec eventu.</p>';return;}
+            target.innerHTML='<strong>DENNÍ LIMITY</strong><p>Hra poběží jen v průniku celkové obálky a povoleného času daného dne.</p>'+eventDailyWindowDraft.map((item,index)=>{const label=new Date(`${item.date}T12:00:00Z`).toLocaleDateString('cs-CZ',{weekday:'long',day:'numeric',month:'numeric',year:'numeric',timeZone:'UTC'});return `<article class="admin-team"><strong>${escapeHtml(label)}</strong><label><input type="checkbox" ${item.enabled?'checked':''} onchange="updateEventDailyWindow(${index},'enabled',this.checked)"> POVOLIT HRU</label><label>OD <input type="time" value="${escapeHtml(item.opens_at)}" onchange="updateEventDailyWindow(${index},'opens_at',this.value)"></label><label>DO <input type="time" value="${escapeHtml(item.closes_at)}" onchange="updateEventDailyWindow(${index},'closes_at',this.value)"></label></article>`}).join('');
+        }
+        function updateEventDailyWindow(index,key,value){if(eventDailyWindowDraft[index])eventDailyWindowDraft[index][key]=value;}
         async function saveEventSettings() {
             const games=[...document.querySelectorAll('#event-games-config [data-game-id]')].filter(row=>row.querySelector('.event-game-enabled').checked).map(row=>({game_id:row.dataset.gameId,role:row.querySelector('.event-game-role').value,queue_enabled:row.querySelector('.event-game-queue').checked,leaderboard_enabled:row.querySelector('.event-game-leaderboard').checked,weight:Number(row.querySelector('.event-game-weight').value),start_interval_minutes:Number(row.querySelector('.event-game-interval').value),max_active_teams:Number(row.querySelector('.event-game-capacity').value)}));
             const starts=document.getElementById('event-start').value,ends=document.getElementById('event-end').value;
@@ -2129,7 +2147,9 @@
             const primaryGames=games.filter(game=>game.role==='primary');if(primaryGames.length!==1){showNotification('Vyberte právě jednu hlavní hru.','error');return;}const primary=primaryGames[0];
             const eventId=document.getElementById('event-id').value.trim();
             if(!eventId){showNotification('Vyplňte ID eventu.','error');return;}
-            const payload={id:eventId,name:document.getElementById('event-name').value.trim(),starts_at:new Date(starts).toISOString(),ends_at:new Date(ends).toISOString(),status:document.getElementById('event-status').value,timezone:document.getElementById('event-timezone').value.trim(),primary_game_id:primary.game_id,games,branding_title:document.getElementById('event-branding-title').value.trim(),branding_logo_url:document.getElementById('event-branding-logo').value.trim(),branding_accent_color:document.getElementById('event-branding-color').value};
+            renderEventDailyWindows();
+            if(!eventDailyWindowDraft.length){showNotification('Rozsah eventu nevytváří žádné denní limity.','error');return;}
+            const payload={id:eventId,name:document.getElementById('event-name').value.trim(),starts_at:new Date(starts).toISOString(),ends_at:new Date(ends).toISOString(),status:document.getElementById('event-status').value,timezone:document.getElementById('event-timezone').value.trim(),daily_windows:eventDailyWindowDraft.map(item=>({...item})),primary_game_id:primary.game_id,games,branding_title:document.getElementById('event-branding-title').value.trim(),branding_logo_url:document.getElementById('event-branding-logo').value.trim(),branding_accent_color:document.getElementById('event-branding-color').value};
             if(!latestAdminPayload?.cloudflare_limited){sendAdmin('admin.event_settings',payload);return;}
             try {
                 const operationId=crypto.randomUUID?.()||`event-${Date.now()}-${Math.random().toString(16).slice(2)}`;
@@ -3507,6 +3527,8 @@
                     renderEventGameConfig(msg.payload.configurable_games||[],activeEvent);
                     const eventFields={'event-id':activeEvent?.id||'','event-name':activeEvent?.name||'','event-start':localEventValue(activeEvent?.starts_at),'event-end':localEventValue(activeEvent?.ends_at),'event-status':activeEvent?.status||'draft','event-timezone':activeEvent?.timezone||msg.payload.timezone||'Europe/Prague','event-branding-title':activeEvent?.branding?.title||'','event-branding-logo':activeEvent?.branding?.logo_url||'','event-branding-color':activeEvent?.branding?.accent_color||'#65f7ff'};
                     Object.entries(eventFields).forEach(([id,value])=>{const field=document.getElementById(id);if(field&&document.activeElement!==field)field.value=value;});
+                    eventDailyWindowDraft=(activeEvent?.daily_windows||[]).map(item=>({...item}));
+                    renderEventDailyWindows();
                     const toggle = document.getElementById('admin-online-toggle');
                     if (toggle) toggle.textContent = `ONLINE REŽIM: ${onlineModeEnabled ? 'ZAPNUT' : 'VYPNUT'}`;
                     const operations = document.getElementById('admin-operations-toggle');

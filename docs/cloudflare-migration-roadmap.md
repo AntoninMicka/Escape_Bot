@@ -210,7 +210,7 @@ Akceptace:
 
 **Odhad: 6–9 pracovních dnů**
 
-**Stav: druhá vertikální část lokálně implementována.** Každé `event_id` se
+**Stav: třetí vertikální část lokálně implementována.** Každé `event_id` se
 směruje do samostatného SQLite-backed `EventCoordinator` Durable Objectu.
 Autorizované HTTP API načte nebo uloží validovanou konfiguraci eventu,
 `operation_id` brání opakovanému zápisu a `expected_revision` chrání novější
@@ -219,6 +219,9 @@ eventů. Aktivní event se nyní perzistentně vybírá v lobby adresáři, filt
 runtime katalog a změnu okamžitě rozešle připojeným bootstrap klientům včetně
 administrace a veřejné nástěnky. Cloudový admin formulář ukládá konfiguraci
 přes HTTP API a umí omezení eventem bezpečně zrušit bez smazání snapshotu.
+Konfigurace času rozlišuje pevnou obálku celého eventu a úplnou sadu denních
+oken; výsledný povolený čas je jejich průnik, takže první a poslední den jsou
+automaticky zkráceny celkovým začátkem a koncem.
 Napojení rozehraných týmů, fronty, oznámení a dalších runtime přepínačů ještě
 zbývá.
 

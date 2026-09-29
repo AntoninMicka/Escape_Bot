@@ -68,10 +68,13 @@ npm exec wrangler secret put ADMIN_TOKEN -- --env production
 CF-05 zpřístupňuje konfiguraci konkrétního eventu přes autorizované
 `GET` a `PUT /api/admin/events/:event_id`. Zápis vyžaduje stabilní
 `operation_id`; volitelné `expected_revision` odmítne změnu, pokud správce
-vychází ze staršího snapshotu. Konfigurace kontroluje časové pásmo, pořadí
-časů, právě jednu hlavní hru a existenci všech her v runtime katalogu. Uložení
-z administrace event zároveň aktivuje, filtruje veřejný katalog a rozešle nový
-`runtime.settings` připojeným bootstrap klientům. Aktivní výběr přežije evikci;
+vychází ze staršího snapshotu. Celkový začátek a konec tvoří pevnou obálku;
+pro každý její kalendářní den se ukládá samostatné povolené provozní okno
+(výchozí `08:00–20:00`) nebo lze celý den vypnout. Platný provoz je vždy
+průnikem obálky a denního okna. Konfigurace kontroluje časové pásmo, úplnost a
+pořadí denních limitů, právě jednu hlavní hru a existenci všech her v runtime
+katalogu. Uložení z administrace event zároveň aktivuje, filtruje veřejný
+katalog a rozešle nový `runtime.settings` připojeným bootstrap klientům. Aktivní výběr přežije evikci;
 `DELETE /api/admin/events/active` pouze odstraní omezení, nikoli uložený event.
 
 Lokální vývojový server:
