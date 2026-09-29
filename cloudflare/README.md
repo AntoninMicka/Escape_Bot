@@ -99,6 +99,9 @@ zmrazené při deadline, takže následující bonusy a postihy zůstávají pou
 herním průchodu. Ručně ukončenou relaci správce vyhodnotí přes
 `POST /api/admin/sessions/:session_id/finalize` a celé pořadí uzavře přes
 `POST /api/admin/events/active/leaderboard/finalize`.
+Fanout do týmových relací používá samostatné časové omezení každého cíle;
+chyba nebo neodpovídající Durable Object proto nezadrží zdravé týmy ani
+eventový kanál.
 
 Čekající tým se může zařadit do perzistentní fronty nebo ji opustit. Veřejná
 projekce je řazená podle role hry, konkrétní hry a času zařazení a obsahuje

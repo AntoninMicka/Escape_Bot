@@ -57,6 +57,48 @@ test("Static Assets build is minimal, fingerprinted and internally complete", as
   assert.match(index, /if\(Array\.isArray\(msg\.payload\.start_queue\)\)runtimeStartQueue = msg\.payload\.start_queue/);
   assert.match(index, /msg\.type === 'queue\.auto_started'/);
   assert.match(index, /Authorization:`Bearer \$\{token\}`/);
+  const display = await readFile(join(outputDir, "display.html"), "utf8");
+  const extractFunction = (name) => {
+    const match = display.match(new RegExp(`function ${name}\\(\\)\\{[^\\n]+\\}`));
+    assert.ok(match, `Veřejná nástěnka neobsahuje funkci ${name}.`);
+    return match[0];
+  };
+  const filterLeaderboard = new Function(
+    "leaderboard",
+    "event",
+    "selectedGameId",
+    `${extractFunction("visibleLeaderboard")};return visibleLeaderboard();`,
+  );
+  const leaderboardFixture = [
+    { id: "matching", event_id: "event-a", scenario_id: "game-a", leaderboard_enabled: true, competition_role: "primary" },
+    { id: "other-game", event_id: "event-a", scenario_id: "game-b", leaderboard_enabled: true, competition_role: "competitive" },
+    { id: "other-event", event_id: "event-b", scenario_id: "game-a", leaderboard_enabled: true, competition_role: "primary" },
+    { id: "disabled", event_id: "event-a", scenario_id: "game-a", leaderboard_enabled: false, competition_role: "primary" },
+    { id: "side", event_id: "event-a", scenario_id: "game-a", leaderboard_enabled: true, competition_role: "side" },
+  ];
+  assert.deepEqual(
+    filterLeaderboard(leaderboardFixture, { id: "event-a" }, "game-a").map((entry) => entry.id),
+    ["matching"],
+  );
+  assert.deepEqual(
+    filterLeaderboard(leaderboardFixture, { id: "event-a" }, "game-b").map((entry) => entry.id),
+    ["other-game"],
+  );
+
+  const filterAnnouncements = new Function(
+    "announcements",
+    "event",
+    "selectedGameId",
+    `${extractFunction("activeAnnouncements")};return activeAnnouncements();`,
+  );
+  const announcements = filterAnnouncements([
+    { text: "Pro všechny", published: true },
+    { text: "Správný event a hra", published: true, event_id: "event-a", game_id: "game-a" },
+    { text: "Jiný event", published: true, event_id: "event-b", game_id: "game-a" },
+    { text: "Jiná hra", published: true, event_id: "event-a", game_id: "game-b" },
+    { text: "Koncept", published: false, event_id: "event-a", game_id: "game-a" },
+  ], { id: "event-a" }, "game-a");
+  assert.deepEqual(announcements.map((item) => item.text), ["Pro všechny", "Správný event a hra"]);
   const serviceWorker = await readFile(join(outputDir, "sw.js"), "utf8");
   assert.match(serviceWorker, /const CACHE_NAME = 'escape-bot-[a-f0-9]{12}';/);
   for (const match of serviceWorker.matchAll(/"\.\/([^"?]+)"/g)) {

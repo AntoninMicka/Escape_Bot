@@ -249,7 +249,10 @@ Eventové změny a pořadí mají vlastní hibernovatelný WebSocket příslušn
 `EventCoordinatoru`; týmové herní broadcasty zůstávají uvnitř konkrétní
 `GameSession`. Výpadek jedné týmové relace tak neblokuje eventovou nástěnku ani
 ostatní týmy. Z implementačních bodů CF-05 zbývá krátkodobá autentizovaná admin
-relace a nouzový break-glass token.
+relace a nouzový break-glass token; tento bod je po dohodě vědomě odložen.
+Automatizovaná akceptace navíc přímo ověřuje, že chybující nebo neodpovídající
+tým nezablokuje doručení zdravým cílům, a že veřejná nástěnka filtruje výsledky
+i oznámení podle aktivního eventu a vybrané hry.
 
 1. Vytvořit jeden `EventCoordinator` Durable Object pro každý event.
 2. Přesunout runtime nastavení, startovní frontu, oznámení, globální stop,

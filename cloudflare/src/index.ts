@@ -1,4 +1,5 @@
 import { DurableObject } from "cloudflare:workers";
+import { isolatedFanout } from "./isolated-fanout";
 export { EventCoordinator } from "./event-coordinator";
 import {
   EVENT_ID_PATTERN,
@@ -2632,7 +2633,7 @@ export class GameSession extends DurableObject<Env> {
       ...Object.values(directory.creatorKeys),
       ...Object.values(directory.joinCodes),
     ])].filter((sessionId) => SESSION_ID_PATTERN.test(sessionId));
-    this.ctx.waitUntil(Promise.allSettled(sessionIds.map((sessionId) =>
+    this.ctx.waitUntil(isolatedFanout(sessionIds, (sessionId) =>
       this.runtimeEnv.GAME_SESSIONS.getByName(sessionId).fetch(
         "https://internal/internal/event/runtime-settings",
         {
@@ -2640,8 +2641,8 @@ export class GameSession extends DurableObject<Env> {
           headers: { "Content-Type": "application/json", "X-EscapeBot-Internal-Directory": "1" },
           body: JSON.stringify(settings),
         },
-      ).then((response) => response.text())
-    )).then(() => undefined));
+      ).then((response) => response.text()),
+    ).then(() => undefined));
   }
 
   private async scheduleStartQueueAlarm(startQueue: Array<Record<string, unknown>>): Promise<void> {
@@ -2870,7 +2871,7 @@ export class GameSession extends DurableObject<Env> {
         ...Object.values(directory.creatorKeys),
         ...Object.values(directory.joinCodes),
       ])].filter((sessionId) => SESSION_ID_PATTERN.test(sessionId));
-      await Promise.allSettled(sessionIds.map(async (sessionId) => {
+      await isolatedFanout(sessionIds, async (sessionId) => {
         const stopped = await this.runtimeEnv.GAME_SESSIONS.getByName(sessionId).fetch(
           "https://internal/internal/admin/operations",
           {
@@ -2880,7 +2881,7 @@ export class GameSession extends DurableObject<Env> {
           },
         );
         await stopped.text();
-      }));
+      });
     }
     const settings = await this.runtimeSettingsPayload();
     await this.broadcastRuntimeSettings(settings, directory);
