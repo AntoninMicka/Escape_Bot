@@ -381,6 +381,135 @@ describe("Cloudflare spike router", () => {
     await closeSocket(creator, "done");
   });
 
+  it("sends persistent support messages and spectates any registered team player", async () => {
+    const sessionId = "admin-support-spectator-session";
+    const stub = env.GAME_SESSIONS.getByName(sessionId);
+    expect((await stub.fetch("https://internal/internal/lobby/initialize", {
+      method: "POST",
+      body: JSON.stringify({
+        session_id: sessionId,
+        mode: "team",
+        creator_id: "spectator-alice",
+        team_name: "Support Team",
+        join_code: "B0B1C2D3",
+        lobby_type: "on_site_qr",
+        scenario_id: "hotel_kraskov",
+        player_name: "Alice",
+      }),
+    })).status).toBe(200);
+    expect((await stub.fetch("https://internal/internal/lobby/join", {
+      method: "POST",
+      body: JSON.stringify({ client_id: "spectator-bob", player_name: "Bob" }),
+    })).status).toBe(200);
+
+    const creator = await openSocket(
+      `https://example.test/ws?session_id=${sessionId}&client_id=spectator-alice`,
+    );
+    const started = nextMessage(creator, "game.state");
+    send(creator, "lobby.start");
+    await started;
+    await runInDurableObject(stub, async (instance, state) => {
+      const target = instance as unknown as { snapshot: { revision: number; gameState: Record<string, any> } };
+      const game = (marker: string) => ({
+        board: Array.from({ length: 7 }, () => Array.from({ length: 7 }, () => marker)),
+        deadline_at: "2026-10-10T12:10:00.000Z",
+        progress: { "3": 0, "4": 0, "5": 0 },
+        status: "active",
+      });
+      target.snapshot.gameState.checkpoint_states.timeline_calibration = { status: "found" };
+      target.snapshot.gameState.interactive_games.timeline_lines = {
+        players: {
+          "spectator-alice": game("alice-only"),
+          "spectator-bob": game("bob-only"),
+        },
+      };
+      target.snapshot.revision += 1;
+      await state.storage.put("session-snapshot", target.snapshot);
+    });
+
+    const unauthorized = await SELF.fetch(
+      `https://example.test/api/admin/sessions/${sessionId}/spectate?player_id=spectator-bob`,
+    );
+    expect(unauthorized.status).toBe(401);
+
+    const bobView = await SELF.fetch(
+      `https://example.test/api/admin/sessions/${sessionId}/spectate?player_id=spectator-bob`,
+      { headers: { Authorization: "Bearer local-test-admin-token" } },
+    );
+    expect(bobView.status).toBe(200);
+    const bobPayload = await bobView.json<Record<string, any>>();
+    expect(bobPayload).toMatchObject({
+      session_id: sessionId,
+      team_name: "Support Team",
+      player_id: "spectator-bob",
+      player_name: "Bob",
+    });
+    expect(bobPayload.messages.find((message: ProtocolMessage) => message.type === "lobby.state")?.payload)
+      .toMatchObject({ is_creator: false, online_count: 1 });
+    const bobGameState = bobPayload.messages.find((message: ProtocolMessage) => message.type === "game.state")?.payload;
+    expect(bobGameState.puzzles.find((puzzle: Record<string, any>) => puzzle.id === "timeline_lines").game.board[0][0])
+      .toBe("bob-only");
+
+    const aliceView = await SELF.fetch(
+      `https://example.test/api/admin/sessions/${sessionId}/spectate?player_id=spectator-alice`,
+      { headers: { Authorization: "Bearer local-test-admin-token" } },
+    );
+    const alicePayload = await aliceView.json<Record<string, any>>();
+    expect(alicePayload.messages.find((message: ProtocolMessage) => message.type === "lobby.state")?.payload)
+      .toMatchObject({ is_creator: true });
+    const aliceGameState = alicePayload.messages.find((message: ProtocolMessage) => message.type === "game.state")?.payload;
+    expect(aliceGameState.puzzles.find((puzzle: Record<string, any>) => puzzle.id === "timeline_lines").game.board[0][0])
+      .toBe("alice-only");
+
+    const delivered = nextMessage(creator, "bot.message");
+    const supportRequest = {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: "Bearer local-test-admin-token",
+      },
+      body: JSON.stringify({ text: "Jsme připojeni, jak vám můžeme pomoci?", operation_id: "support-message-001" }),
+    };
+    const support = await SELF.fetch(
+      `https://example.test/api/admin/sessions/${sessionId}/support`,
+      supportRequest,
+    );
+    expect(support.status).toBe(200);
+    expect(await support.json()).toMatchObject({
+      changed: true,
+      session_id: sessionId,
+      support_chat: [expect.objectContaining({
+        role: "bot",
+        channel: "support",
+        sender: "Game Master",
+        text: "Jsme připojeni, jak vám můžeme pomoci?",
+      })],
+    });
+    expect((await delivered).payload).toMatchObject({
+      channel: "support",
+      sender: "Game Master",
+    });
+
+    const duplicate = await SELF.fetch(
+      `https://example.test/api/admin/sessions/${sessionId}/support`,
+      supportRequest,
+    );
+    expect(await duplicate.json()).toMatchObject({ changed: false });
+    const supportMessages = await runInDurableObject(stub, (instance) => {
+      const target = instance as unknown as { snapshot: { chatHistory: Array<Record<string, unknown>> } };
+      return target.snapshot.chatHistory.filter((message) => message.channel === "support");
+    });
+    expect(supportMessages).toHaveLength(1);
+
+    const missingPlayer = await SELF.fetch(
+      `https://example.test/api/admin/sessions/${sessionId}/spectate?player_id=missing-player`,
+      { headers: { Authorization: "Bearer local-test-admin-token" } },
+    );
+    expect(missingPlayer.status).toBe(404);
+    expect(await missingPlayer.json()).toEqual({ error: "player_not_found" });
+    await closeSocket(creator, "done");
+  });
+
   it("loads registered teams through the authenticated Cloudflare admin overview", async () => {
     const bootstrap = await openSocket("https://example.test/ws?client_id=overview-alice");
     const routePromise = nextMessage(bootstrap, "lobby.route");

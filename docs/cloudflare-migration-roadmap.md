@@ -210,7 +210,7 @@ Akceptace:
 
 **Odhad: 6–9 pracovních dnů**
 
-**Stav: pátá vertikální část lokálně implementována.** Každé `event_id` se
+**Stav: šestá vertikální část lokálně implementována.** Každé `event_id` se
 směruje do samostatného SQLite-backed `EventCoordinator` Durable Objectu.
 Autorizované HTTP API načte nebo uloží validovanou konfiguraci eventu,
 `operation_id` brání opakovanému zápisu a `expected_revision` chrání novější
@@ -229,13 +229,19 @@ Startovní brána nyní atomicky započítává rozehrané týmy i souběžné r
 pro každou hru vynucuje její kapacitu a minimální rozestup startů. Perzistentní
 fronta přežije hibernaci, promítá plánované časy všem klientům a alarmem
 automaticky spustí první způsobilý tým. Oznámení a další runtime přepínače ještě
-zbývají.
+zbývají. Cloudový admin nyní směruje idempotentní zprávy podpory přímo do
+zvolené `GameSession`, která je uloží před doručením týmu. Read-only spectator
+náhled lze otevřít pro libovolného registrovaného hráče týmu, včetně offline
+hráče; privátní stav se prezentuje jeho perspektivou bez přihlášení nebo
+převzetí jeho identity.
 
 1. Vytvořit jeden `EventCoordinator` Durable Object pro každý event.
 2. Přesunout runtime nastavení, startovní frontu, oznámení, globální stop,
    finalizaci výsledků a nastavení nástěnky.
 3. Skládat admin overview z indexu relací; neprocházet globální paměť procesu.
-4. Připojit admin support a spectator režim k cílové relaci.
+4. Připojit admin support a spectator režim k cílové relaci; v náhledu umožnit
+   správci zvolit libovolného registrovaného hráče týmu, včetně offline hráče,
+   a zobrazit přesně jeho privátní stav bez převzetí jeho identity.
 5. Oddělit eventové broadcasty od týmových broadcastů.
 6. Nahradit sdílený admin token krátkou autentizovanou relací; nouzový token
    ponechat pouze jako explicitní break-glass mechanismus.

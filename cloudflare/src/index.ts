@@ -506,6 +506,19 @@ export class GameSession extends DurableObject<Env> {
       const payload = await request.json<Record<string, unknown>>();
       return this.serializeState(() => this.excludeGamePlayer(payload));
     }
+    if (url.pathname === "/internal/admin/support" && request.method === "POST") {
+      if (request.headers.get("X-EscapeBot-Internal-Admin") !== "1") {
+        return json({ error: "not_found" }, 404);
+      }
+      const payload = await request.json<Record<string, unknown>>();
+      return this.serializeState(() => this.sendAdminSupportMessage(payload));
+    }
+    if (url.pathname === "/internal/admin/spectate" && request.method === "GET") {
+      if (request.headers.get("X-EscapeBot-Internal-Admin") !== "1") {
+        return json({ error: "not_found" }, 404);
+      }
+      return this.adminSpectatorSnapshot(cleanText(url.searchParams.get("player_id"), 128));
+    }
     if (url.pathname === "/internal/lobby/initialize" && request.method === "POST") {
       const payload = await request.json<Record<string, unknown>>();
       return this.serializeState(() => this.initializeLobby(payload));
@@ -2007,6 +2020,7 @@ export class GameSession extends DurableObject<Env> {
             channel,
             text,
             sender: senderName,
+            at: now,
           });
           teamMessage = {
             type: "team.player_message",
@@ -2061,6 +2075,91 @@ export class GameSession extends DurableObject<Env> {
         }
       }
       await this.broadcastGameState(scenario, socket, now);
+    });
+  }
+
+  private async sendAdminSupportMessage(payload: Record<string, unknown>): Promise<Response> {
+    if (!this.snapshot.lobby.creatorId) return json({ error: "session_not_found" }, 404);
+    const operationId = cleanText(payload.operation_id, 128);
+    if (!/^[A-Za-z0-9._:-]{1,128}$/.test(operationId)) {
+      return json({ error: "invalid_operation_id" }, 400);
+    }
+    const receiptKey = `admin-support:${operationId}`;
+    const previous = this.snapshot.operationReceipts[receiptKey]?.[0];
+    if (previous) {
+      return json({
+        changed: false,
+        session_id: this.snapshot.sessionId,
+        team_name: this.snapshot.lobby.teamName,
+        revision: this.snapshot.revision,
+        support_chat: this.snapshot.chatHistory.filter((item) => item.channel === "support"),
+      });
+    }
+    const text = cleanText(payload.text, 500);
+    if (!text) return json({ error: "empty_support_message" }, 400);
+    const now = new Date().toISOString();
+    const message = {
+      role: "bot",
+      channel: "support",
+      text,
+      sender: "Game Master",
+      at: now,
+    };
+    this.snapshot.chatHistory.push(message);
+    this.snapshot.revision += 1;
+    this.snapshot.updatedAt = now;
+    this.snapshot.operationReceipts[receiptKey] = [{ type: "bot.message", payload: message }];
+    while (Object.keys(this.snapshot.operationReceipts).length > 500) {
+      delete this.snapshot.operationReceipts[Object.keys(this.snapshot.operationReceipts)[0]];
+    }
+    await this.ctx.storage.put(SNAPSHOT_KEY, this.snapshot);
+    this.broadcast("bot.message", message);
+    return json({
+      changed: true,
+      session_id: this.snapshot.sessionId,
+      team_name: this.snapshot.lobby.teamName,
+      revision: this.snapshot.revision,
+      support_chat: this.snapshot.chatHistory.filter((item) => item.channel === "support"),
+    });
+  }
+
+  private async adminSpectatorSnapshot(playerId: string): Promise<Response> {
+    if (!this.snapshot.lobby.creatorId) return json({ error: "session_not_found" }, 404);
+    const player = this.snapshot.lobby.players[playerId];
+    if (!player) return json({ error: "player_not_found" }, 404);
+    const attachment: SocketAttachment = {
+      clientId: playerId,
+      connectedAt: new Date().toISOString(),
+      role: "session",
+    };
+    const scenario = this.snapshot.lobby.started
+      ? await this.loadScenario(this.snapshot.lobby.scenarioId)
+      : null;
+    const gameState = scenario
+      ? this.presentState(scenario, attachment, new Date().toISOString())
+      : this.snapshot.gameState;
+    return json({
+      session_id: this.snapshot.sessionId,
+      team_name: this.snapshot.lobby.teamName,
+      player_id: player.id,
+      player_name: player.name,
+      revision: this.snapshot.revision,
+      messages: [
+        { type: "lobby.state", payload: this.lobbyPayload(playerId) },
+        { type: "chat.history", payload: { messages: this.snapshot.chatHistory } },
+        { type: "game.state", payload: this.gameStatePayload(gameState) },
+        {
+          type: "scenario.progress",
+          payload: {
+            scenario_id: this.snapshot.lobby.scenarioId,
+            phase: this.snapshot.gameState.phase,
+            score: this.snapshot.gameState.score,
+            inventory: [],
+            nodes: [],
+            ...this.snapshot.scenarioProgress,
+          },
+        },
+      ],
     });
   }
 
@@ -3043,6 +3142,43 @@ export default {
         body: JSON.stringify(payload),
       });
       return env.GAME_SESSIONS.getByName(sessionId).fetch(forwarded);
+    }
+    const adminSessionRoute = url.pathname.match(/^\/api\/admin\/sessions\/([^/]+)\/(support|spectate)$/);
+    if (adminSessionRoute) {
+      const unauthorized = await authorizeAdmin(request, env);
+      if (unauthorized) return unauthorized;
+      let sessionId: string;
+      try {
+        sessionId = decodeURIComponent(adminSessionRoute[1]);
+      } catch {
+        return json({ error: "invalid_session_id" }, 400);
+      }
+      if (!SESSION_ID_PATTERN.test(sessionId)) return json({ error: "invalid_session_id" }, 400);
+      const action = adminSessionRoute[2];
+      if (action === "support" && request.method === "POST") {
+        let payload: Record<string, unknown>;
+        try {
+          payload = await request.json<Record<string, unknown>>();
+        } catch {
+          return json({ error: "invalid_json" }, 400);
+        }
+        return env.GAME_SESSIONS.getByName(sessionId).fetch(
+          "https://internal/internal/admin/support",
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json", "X-EscapeBot-Internal-Admin": "1" },
+            body: JSON.stringify(payload),
+          },
+        );
+      }
+      if (action === "spectate" && request.method === "GET") {
+        const playerId = cleanText(url.searchParams.get("player_id"), 128);
+        return env.GAME_SESSIONS.getByName(sessionId).fetch(
+          `https://internal/internal/admin/spectate?player_id=${encodeURIComponent(playerId)}`,
+          { headers: { "X-EscapeBot-Internal-Admin": "1" } },
+        );
+      }
+      return json({ error: "method_not_allowed" }, 405);
     }
     if (url.pathname.startsWith("/api/")) return json({ error: "not_found" }, 404);
     if (url.pathname !== "/ws") return env.ASSETS.fetch(request);

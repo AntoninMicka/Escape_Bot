@@ -2396,6 +2396,9 @@
 
         const adminChatDrafts = {};
         let adminSpectatingSession = '';
+        let adminSpectatingPlayer = '';
+        let adminSpectatorPollTimer = null;
+        let adminSpectatorRevision = -1;
         let activeAdminTab = 'teams';
         const adminKnownPlayerMessages = {};
         let adminChatSeen = {};
@@ -2417,13 +2420,59 @@
             if (name === 'terminals') renderTerminalAssignments();
         }
 
-        function startAdminSpectate(sessionId) { sendAdmin('admin.spectate_start', {session_id:sessionId}); }
-        function stopAdminSpectate() { if (adminSpectatingSession) sendAdmin('admin.spectate_stop', {session_id:adminSpectatingSession}); }
+        async function loadCloudflareSpectatorSnapshot(initial = false) {
+            if (!adminSpectatingSession || !adminSpectatingPlayer) return;
+            const response = await fetch(`/api/admin/sessions/${encodeURIComponent(adminSpectatingSession)}/spectate?player_id=${encodeURIComponent(adminSpectatingPlayer)}`, {headers:{Authorization:`Bearer ${adminToken()}`},cache:'no-store'});
+            const result = await response.json().catch(()=>({}));
+            if (!response.ok) throw new Error(result.message||result.error||'Náhled hráče se nepodařilo načíst.');
+            if (!initial && Number(result.revision) === adminSpectatorRevision) return;
+            adminSpectatorRevision = Number(result.revision);
+            if (initial) {
+                document.getElementById('admin-overlay').classList.add('hidden');
+                document.getElementById('lobby-overlay').classList.add('hidden');
+                document.getElementById('admin-spectator-label').textContent = `NÁHLED: ${result.team_name} · ${result.player_name}`;
+                document.getElementById('admin-spectator-bar').classList.remove('hidden');
+                openTab('tab-intercom', document.getElementById('intercom-tab-button'));
+            }
+            for (const message of result.messages||[]) ws?.onmessage?.({data:JSON.stringify(message)});
+        }
+        async function startAdminSpectate(sessionId, playerId = '') {
+            if (!latestAdminPayload?.cloudflare_limited) { sendAdmin('admin.spectate_start', {session_id:sessionId,player_id:playerId}); return; }
+            adminSpectatingSession=sessionId;adminSpectatingPlayer=playerId;adminSpectatorRevision=-1;
+            clearInterval(adminSpectatorPollTimer);
+            try {
+                await loadCloudflareSpectatorSnapshot(true);
+                adminSpectatorPollTimer=setInterval(()=>loadCloudflareSpectatorSnapshot().catch(error=>showNotification(error.message,'error')),1000);
+            } catch(error) {
+                adminSpectatingSession='';adminSpectatingPlayer='';
+                showNotification(error.message||'Náhled hráče se nepodařilo otevřít.','error');
+            }
+        }
+        function stopAdminSpectate() {
+            if (!adminSpectatingSession) return;
+            if (!latestAdminPayload?.cloudflare_limited) { sendAdmin('admin.spectate_stop', {session_id:adminSpectatingSession}); return; }
+            clearInterval(adminSpectatorPollTimer);adminSpectatorPollTimer=null;adminSpectatingSession='';adminSpectatingPlayer='';adminSpectatorRevision=-1;
+            document.getElementById('admin-spectator-bar').classList.add('hidden');
+            document.getElementById('admin-overlay').classList.remove('hidden');
+            loadAdminOverview();
+        }
 
+        async function sendCloudflareSupport(sessionId,text,input) {
+            const operationId=crypto.randomUUID?.()||`support-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+            const response=await fetch(`/api/admin/sessions/${encodeURIComponent(sessionId)}/support`,{method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${adminToken()}`},body:JSON.stringify({text,operation_id:operationId})});
+            const result=await response.json().catch(()=>({}));
+            if(!response.ok)throw new Error(result.message||result.error||'Zprávu podpory se nepodařilo odeslat.');
+            const team=(latestAdminPayload?.teams||[]).find(item=>item.session_id===sessionId);
+            if(team)team.support_chat=result.support_chat||team.support_chat||[];
+            adminChatDrafts[sessionId]='';if(input)input.value='';
+            updateAdminChatNotifications(latestAdminPayload?.teams||[],false);renderAdminChats(latestAdminPayload?.teams||[]);
+            showNotification('Zpráva byla doručena týmu.','success');
+        }
         function sendAdminSupport(sessionId) {
             const input = document.getElementById(`admin-support-input-${sessionId}`);
             const text = input.value.trim();
             if (!text) return;
+            if (latestAdminPayload?.cloudflare_limited) { sendCloudflareSupport(sessionId,text,input).catch(error=>showNotification(error.message,'error')); return; }
             sendAdmin('admin.support_message', {session_id:sessionId, text});
             adminChatDrafts[sessionId] = '';
             input.value = '';
@@ -2702,7 +2751,7 @@
                 const complete = Number(team.completed_nodes || 0);
                 const total = Number(team.total_nodes || 0);
                 const percent = total ? Math.round(complete * 100 / total) : 0;
-                const players = (team.players || []).map(player => `<span>${player.connected ? '●' : '○'} ${escapeHtml(player.name)} <button onclick="requestPlayerRecovery('${team.session_id}','${player.id}')">NÁVRATOVÝ QR</button></span>`).join('<br>');
+                const players = (team.players || []).map(player => `<span>${player.connected ? '●' : '○'} ${escapeHtml(player.name)} <button onclick="requestPlayerRecovery('${team.session_id}','${player.id}')">NÁVRATOVÝ QR</button>${cloudflareLimited ? ` <button onclick="startAdminSpectate('${team.session_id}','${player.id}')">ZOBRAZIT HRÁČE</button>` : ''}</span>`).join('<br>');
                 const activeNodes = ((team.progress || {}).nodes || []).filter(node => node.status === 'active' || node.status === 'available').map(node => escapeHtml(node.label)).join(', ') || '—';
                 const adjustments = (team.admin_score_adjustments || []).map(item => `${Number(item.delta) >= 0 ? '+' : ''}${Number(item.delta)}: ${escapeHtml(item.reason)}`).join('<br>');
                 const penalties = adjustments || (team.admin_penalties || []).map(item => `−${Number(item.amount)}: ${escapeHtml(item.reason)}`).join('<br>') || 'žádné';
@@ -3096,14 +3145,17 @@
             clearPendingLobbyRequest();
             clearTimeout(lobbySyncTimer);
             const gameJustStarted = payload.started && ((currentLobby && !currentLobby.started) || onboardingWasRequested);
+            const spectatorView = adminModeRequested && Boolean(adminSpectatingSession);
             currentLobby = payload;
             stopJoinTeamScanner();
-            sessionId = payload.session_id;
             document.getElementById('lobby-team-name').value = payload.team_name || lobbyTeamName();
-            localStorage.setItem('escapeBotPlayerName', lobbyPlayerName());
-            localStorage.setItem('escapeBotTeamName', payload.team_name || lobbyTeamName());
-            savedLobby = {session_id:sessionId, mode:payload.mode};
-            localStorage.setItem('escapeBotLobby', JSON.stringify(savedLobby));
+            if (!spectatorView) {
+                sessionId = payload.session_id;
+                localStorage.setItem('escapeBotPlayerName', lobbyPlayerName());
+                localStorage.setItem('escapeBotTeamName', payload.team_name || lobbyTeamName());
+                savedLobby = {session_id:sessionId, mode:payload.mode};
+                localStorage.setItem('escapeBotLobby', JSON.stringify(savedLobby));
+            }
             const teamSize = Number(payload.registered_players ?? payload.player_count ?? 0);
             const onlineCount = Number(payload.online_count ?? payload.player_count ?? 0);
             document.getElementById('team-status').textContent = payload.mode === 'solo'
@@ -3115,7 +3167,7 @@
             if (payload.started) {
                 stopReversePlayerScanner();
                 document.getElementById('lobby-overlay').classList.add('hidden');
-                replayPendingGameOperations();
+                if (!spectatorView) replayPendingGameOperations();
                 if (gameJustStarted && !adminModeRequested) {
                     onboardingWasRequested = false;
                     setTimeout(beginOnboarding, 120);
