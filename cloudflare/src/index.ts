@@ -1,4 +1,5 @@
 import { DurableObject } from "cloudflare:workers";
+import QRCode from "qrcode";
 import { isolatedFanout } from "./isolated-fanout";
 export { EventCoordinator } from "./event-coordinator";
 import {
@@ -538,6 +539,21 @@ export class GameSession extends DurableObject<Env> {
       }
       const payload = await request.json<Record<string, unknown>>();
       return this.serializeState(() => this.sendAdminSupportMessage(payload));
+    }
+    if (url.pathname === "/internal/admin/extend" && request.method === "POST") {
+      if (request.headers.get("X-EscapeBot-Internal-Admin") !== "1") return json({ error: "not_found" }, 404);
+      const payload = await request.json<Record<string, unknown>>();
+      return this.serializeState(() => this.extendAdminSession(payload));
+    }
+    if (url.pathname === "/internal/admin/end" && request.method === "POST") {
+      if (request.headers.get("X-EscapeBot-Internal-Admin") !== "1") return json({ error: "not_found" }, 404);
+      const payload = await request.json<Record<string, unknown>>();
+      return this.serializeState(() => this.endAdminSession(payload));
+    }
+    if (url.pathname === "/internal/admin/score-adjustment" && request.method === "POST") {
+      if (request.headers.get("X-EscapeBot-Internal-Admin") !== "1") return json({ error: "not_found" }, 404);
+      const payload = await request.json<Record<string, unknown>>();
+      return this.serializeState(() => this.adjustAdminScore(payload));
     }
     if (url.pathname === "/internal/admin/spectate" && request.method === "GET") {
       if (request.headers.get("X-EscapeBot-Internal-Admin") !== "1") {
@@ -2198,6 +2214,136 @@ export class GameSession extends DurableObject<Env> {
     });
   }
 
+  private adminOperation(payload: Record<string, unknown>, action: string): { receiptKey: string } | null {
+    const operationId = cleanText(payload.operation_id, 128);
+    return /^[A-Za-z0-9._:-]{1,128}$/.test(operationId)
+      ? { receiptKey: `admin-${action}:${operationId}` }
+      : null;
+  }
+
+  private async extendAdminSession(payload: Record<string, unknown>): Promise<Response> {
+    const operation = this.adminOperation(payload, "extend");
+    if (!operation) return json({ error: "invalid_operation_id" }, 400);
+    if (this.snapshot.operationReceipts[operation.receiptKey]) {
+      return json({ changed: false, session_id: this.snapshot.sessionId, revision: this.snapshot.revision });
+    }
+    const flags = objectRecord(this.snapshot.gameState.flags);
+    if (!this.snapshot.lobby.started || flags.game_completed || flags.administratively_ended || this.snapshot.deadlineKind !== "game") {
+      return json({ error: "session_not_active", message: "Ukončenou nebo neaktivní hru už nelze prodloužit." }, 409);
+    }
+    const minutes = Number(payload.minutes);
+    if (!new Set([5, 10, 15, 30, 45, 60]).has(minutes)) {
+      return json({ error: "invalid_extension", message: "Nepovolená délka prodloužení." }, 400);
+    }
+    const now = new Date().toISOString();
+    this.snapshot.deadlineAt = Math.max(Date.now(), Number(this.snapshot.deadlineAt || 0)) + minutes * 60_000;
+    flags.game_deadline_at = new Date(this.snapshot.deadlineAt).toISOString();
+    flags.deadline_extension_minutes = Number(flags.deadline_extension_minutes || 0) + minutes;
+    const actions = Array.isArray(flags.admin_actions) ? flags.admin_actions : [];
+    actions.push({ action: "session_extend", label: `Prodloužení hry o ${minutes} minut`, minutes, at: now });
+    flags.admin_actions = actions;
+    this.snapshot.gameState.flags = flags;
+    this.snapshot.revision += 1;
+    this.snapshot.updatedAt = now;
+    this.snapshot.operationReceipts[operation.receiptKey] = [{ type: "admin.session_extend", payload: { minutes } }];
+    await this.ctx.storage.put(SNAPSHOT_KEY, this.snapshot);
+    await this.scheduleNextAlarm();
+    this.broadcast("bot.message", { text: `Game Master prodloužil čas hry o ${minutes} minut.`, mood: "positive", channel: "general" });
+    await this.broadcastGameState();
+    return json({ changed: true, session_id: this.snapshot.sessionId, revision: this.snapshot.revision, deadline_at: flags.game_deadline_at });
+  }
+
+  private async endAdminSession(payload: Record<string, unknown>): Promise<Response> {
+    const operation = this.adminOperation(payload, "end");
+    if (!operation) return json({ error: "invalid_operation_id" }, 400);
+    if (this.snapshot.operationReceipts[operation.receiptKey]) {
+      return json({ changed: false, session_id: this.snapshot.sessionId, revision: this.snapshot.revision });
+    }
+    const flags = objectRecord(this.snapshot.gameState.flags);
+    if (!this.snapshot.lobby.started || flags.game_completed || flags.administratively_ended) {
+      return json({ error: "session_not_active", message: "Hra už je ukončena." }, 409);
+    }
+    const reason = cleanText(payload.reason || "manual", 32);
+    const labels: Record<string, string> = {
+      abandoned: "Opuštěná hra",
+      technical: "Ukončeno kvůli technické závadě",
+      manual: "Ručně ukončeno Game Masterem",
+    };
+    if (!labels[reason]) return json({ error: "invalid_end_reason", message: "Neplatný důvod ukončení." }, 400);
+    const now = new Date().toISOString();
+    const penalty = reason === "abandoned" ? 100 : 0;
+    if (penalty) {
+      this.snapshot.gameState.score = Number(this.snapshot.gameState.score || 0) - penalty;
+      const adjustment = { delta: -penalty, amount: penalty, reason: labels[reason], at: now };
+      const penalties = Array.isArray(flags.admin_penalties) ? flags.admin_penalties : [];
+      const adjustments = Array.isArray(flags.admin_score_adjustments) ? flags.admin_score_adjustments : [];
+      penalties.push(adjustment);
+      adjustments.push(adjustment);
+      flags.admin_penalties = penalties;
+      flags.admin_score_adjustments = adjustments;
+    }
+    flags.administratively_ended = true;
+    flags.administratively_ended_at = now;
+    flags.administratively_ended_reason = reason;
+    flags.deadline_choice_pending = false;
+    const actions = Array.isArray(flags.admin_actions) ? flags.admin_actions : [];
+    actions.push({ action: "session_end", label: labels[reason], penalty, at: now });
+    flags.admin_actions = actions;
+    this.snapshot.gameState.flags = flags;
+    this.snapshot.deadlineAt = null;
+    this.snapshot.deadlineKind = null;
+    this.snapshot.revision += 1;
+    this.snapshot.updatedAt = now;
+    this.snapshot.operationReceipts[operation.receiptKey] = [{ type: "admin.session_end", payload: { reason, penalty } }];
+    await this.ctx.storage.put(SNAPSHOT_KEY, this.snapshot);
+    await this.releaseEventStartForSession();
+    await this.scheduleNextAlarm();
+    if (penalty) this.broadcast("score.update", { score: this.snapshot.gameState.score, delta: -penalty, penalty, reason: "admin_session_end", description: labels[reason] });
+    this.broadcast("operations.stopped", { message: `${labels[reason]}. Výsledek týmu je připraven k vyhodnocení.` });
+    await this.broadcastGameState();
+    return json({ changed: true, session_id: this.snapshot.sessionId, revision: this.snapshot.revision, reason, penalty });
+  }
+
+  private async adjustAdminScore(payload: Record<string, unknown>): Promise<Response> {
+    const operation = this.adminOperation(payload, "score-adjustment");
+    if (!operation) return json({ error: "invalid_operation_id" }, 400);
+    if (this.snapshot.operationReceipts[operation.receiptKey]) {
+      return json({ changed: false, session_id: this.snapshot.sessionId, revision: this.snapshot.revision, score: this.snapshot.gameState.score });
+    }
+    const flags = objectRecord(this.snapshot.gameState.flags);
+    if (!this.snapshot.lobby.creatorId) return json({ error: "session_not_found" }, 404);
+    if (flags.result_score_finalized_at || flags.event_result_published_at) {
+      return json({ error: "result_finalized", message: "Uzavřený soutěžní výsledek už nelze měnit." }, 409);
+    }
+    const delta = Number(payload.delta);
+    const reason = cleanText(payload.reason, 160);
+    if (!Number.isInteger(delta) || delta === 0 || Math.abs(delta) > 1000) {
+      return json({ error: "invalid_score_adjustment", message: "Bodová úprava musí být celé číslo od −1000 do +1000." }, 400);
+    }
+    if (!reason) return json({ error: "score_reason_required", message: "U bodové úpravy je povinný důvod." }, 400);
+    const now = new Date().toISOString();
+    const scoreBefore = Number(this.snapshot.gameState.score || 0);
+    this.snapshot.gameState.score = scoreBefore + delta;
+    const adjustment = { delta, amount: Math.abs(delta), reason, at: now, score_before: scoreBefore, score_after: this.snapshot.gameState.score };
+    const adjustments = Array.isArray(flags.admin_score_adjustments) ? flags.admin_score_adjustments : [];
+    adjustments.push(adjustment);
+    flags.admin_score_adjustments = adjustments;
+    if (delta < 0) {
+      const penalties = Array.isArray(flags.admin_penalties) ? flags.admin_penalties : [];
+      penalties.push(adjustment);
+      flags.admin_penalties = penalties;
+    }
+    this.snapshot.gameState.flags = flags;
+    this.snapshot.revision += 1;
+    this.snapshot.updatedAt = now;
+    this.snapshot.operationReceipts[operation.receiptKey] = [{ type: "admin.score_adjustment", payload: { delta, reason } }];
+    await this.ctx.storage.put(SNAPSHOT_KEY, this.snapshot);
+    this.broadcast("score.update", { score: this.snapshot.gameState.score, delta, bonus: Math.max(0, delta), penalty: Math.max(0, -delta), reason: "admin_score_adjustment", description: reason });
+    this.broadcast("bot.message", { text: `Administrátorská úprava ${delta > 0 ? "+" : ""}${delta} bodů: ${reason}`, mood: delta > 0 ? "positive" : "tense", channel: "general" });
+    await this.broadcastGameState();
+    return json({ changed: true, session_id: this.snapshot.sessionId, revision: this.snapshot.revision, score: this.snapshot.gameState.score });
+  }
+
   private async stopSessionOperations(payload: Record<string, unknown>): Promise<Response> {
     const operationId = cleanText(payload.operation_id, 128);
     if (!/^[A-Za-z0-9._:-]{1,128}$/.test(operationId)) {
@@ -3375,6 +3521,27 @@ export default {
     if (url.pathname === "/api/health") {
       return json({ status: "ok", runtime: "cloudflare", environment: env.APP_ENV });
     }
+    if (url.pathname === "/api/qr" && request.method === "GET") {
+      const value = url.searchParams.get("data") ?? "";
+      if (!value || value.length > 2048) return json({ error: "invalid_qr_data" }, 400);
+      try {
+        const svg = await QRCode.toString(value, {
+          type: "svg",
+          errorCorrectionLevel: "M",
+          margin: 2,
+          width: 512,
+        });
+        return new Response(svg, {
+          headers: {
+            "Content-Type": "image/svg+xml; charset=utf-8",
+            "Cache-Control": "no-store",
+            "X-Content-Type-Options": "nosniff",
+          },
+        });
+      } catch {
+        return json({ error: "qr_generation_failed" }, 400);
+      }
+    }
     if (url.pathname === "/api/admin/overview" && request.method === "GET") {
       const unauthorized = await authorizeAdmin(request, env);
       if (unauthorized) return unauthorized;
@@ -3558,7 +3725,7 @@ export default {
       });
       return env.GAME_SESSIONS.getByName(sessionId).fetch(forwarded);
     }
-    const adminSessionRoute = url.pathname.match(/^\/api\/admin\/sessions\/([^/]+)\/(support|spectate|finalize)$/);
+    const adminSessionRoute = url.pathname.match(/^\/api\/admin\/sessions\/([^/]+)\/(support|spectate|finalize|extend|end|score-adjustment)$/);
     if (adminSessionRoute) {
       const unauthorized = await authorizeAdmin(request, env);
       if (unauthorized) return unauthorized;
@@ -3602,6 +3769,22 @@ export default {
         }
         return env.GAME_SESSIONS.getByName(sessionId).fetch(
           "https://internal/internal/admin/finalize",
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json", "X-EscapeBot-Internal-Admin": "1" },
+            body: JSON.stringify(payload),
+          },
+        );
+      }
+      if (new Set(["extend", "end", "score-adjustment"]).has(action) && request.method === "POST") {
+        let payload: Record<string, unknown>;
+        try {
+          payload = await request.json<Record<string, unknown>>();
+        } catch {
+          return json({ error: "invalid_json" }, 400);
+        }
+        return env.GAME_SESSIONS.getByName(sessionId).fetch(
+          `https://internal/internal/admin/${action}`,
           {
             method: "POST",
             headers: { "Content-Type": "application/json", "X-EscapeBot-Internal-Admin": "1" },

@@ -48,6 +48,10 @@ test("Static Assets build is minimal, fingerprinted and internally complete", as
   assert.match(index, /launchMode = msg\.payload\.launch_mode === 'managed'/);
   assert.match(index, /onclick="toggleDisplayLeaderboard\(\)"/);
   assert.match(index, /\/api\/admin\/sessions\/\$\{encodeURIComponent\(sessionId\)\}\/support/);
+  assert.match(index, /runCloudflareAdminAction\(sessionId,'extend',\{minutes\}\)/);
+  assert.match(index, /runCloudflareAdminAction\(sessionId,'end',\{reason\}\)/);
+  assert.match(index, /runCloudflareAdminAction\(sessionId,'score-adjustment',\{delta,reason\}\)/);
+  assert.match(index, /!team\.game_completed && !team\.administratively_ended/);
   assert.match(index, /\/api\/admin\/sessions\/\$\{encodeURIComponent\(adminSpectatingSession\)\}\/spectate\?player_id=/);
   assert.match(index, /ZOBRAZIT HRÁČE/);
   assert.match(index, /const spectatorView = adminModeRequested && Boolean\(adminSpectatingSession\)/);

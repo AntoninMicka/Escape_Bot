@@ -2309,6 +2309,19 @@
             Promise.all(images.map(img => img.complete ? Promise.resolve() : new Promise(resolve => { img.onload = resolve; img.onerror = resolve; }))).then(() => window.print());
         }
 
+        async function runCloudflareAdminAction(sessionId, action, payload = {}) {
+            const operationId=crypto.randomUUID?.()||`admin-${action}-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+            const response=await fetch(`/api/admin/sessions/${encodeURIComponent(sessionId)}/${action}`,{
+                method:'POST',
+                headers:{'Content-Type':'application/json',Authorization:`Bearer ${adminToken()}`},
+                body:JSON.stringify({...payload,operation_id:operationId}),
+            });
+            const result=await response.json().catch(()=>({}));
+            if(!response.ok)throw new Error(result.message||result.error||'Administrátorskou akci se nepodařilo provést.');
+            await loadAdminOverview();
+            return result;
+        }
+
         function applyAdminScoreAdjustment(sessionId, direction) {
             const amount = Number(document.getElementById(`admin-amount-${sessionId}`).value);
             const reason = document.getElementById(`admin-reason-${sessionId}`).value.trim();
@@ -2319,6 +2332,12 @@
             if (!reason) { showNotification('Doplňte důvod bodové úpravy.', 'error'); return; }
             const delta = direction * amount;
             if (!window.confirm(`${delta > 0 ? 'Přičíst' : 'Odečíst'} týmu ${amount} bodů?\nDůvod: ${reason}`)) return;
+            if (latestAdminPayload?.cloudflare_limited) {
+                runCloudflareAdminAction(sessionId,'score-adjustment',{delta,reason})
+                    .then(()=>showNotification('Bodová úprava byla uložena.','success'))
+                    .catch(error=>showNotification(error.message,'error'));
+                return;
+            }
             sendAdmin('admin.score_adjustment', {session_id:sessionId, delta, reason});
         }
 
@@ -2329,12 +2348,24 @@
 
         function extendAdminSession(sessionId, minutes = 15) {
             if (!window.confirm(`Prodloužit čas tohoto týmu o ${minutes} minut?`)) return;
+            if (latestAdminPayload?.cloudflare_limited) {
+                runCloudflareAdminAction(sessionId,'extend',{minutes})
+                    .then(()=>showNotification(`Hra byla prodloužena o ${minutes} minut.`,'success'))
+                    .catch(error=>showNotification(error.message,'error'));
+                return;
+            }
             sendAdmin('admin.session_extend', {session_id:sessionId, minutes});
         }
 
         function endAdminSession(sessionId, reason) {
             const labels = {abandoned:'označit jako opuštěnou a ukončit s postihem', technical:'ukončit bez postihu kvůli technické závadě', manual:'ručně ukončit bez postihu'};
             if (!window.confirm(`Opravdu ${labels[reason] || 'ukončit'} tuto hru?`)) return;
+            if (latestAdminPayload?.cloudflare_limited) {
+                runCloudflareAdminAction(sessionId,'end',{reason})
+                    .then(()=>showNotification('Hra byla provozně ukončena.','success'))
+                    .catch(error=>showNotification(error.message,'error'));
+                return;
+            }
             sendAdmin('admin.session_end', {session_id:sessionId, reason});
         }
 
@@ -2342,7 +2373,11 @@
             const input = document.getElementById(`admin-quick-message-${sessionId}`);
             const text = input.value.trim();
             if (!text) return;
-            sendAdmin('admin.support_message', {session_id:sessionId, text});
+            if (latestAdminPayload?.cloudflare_limited) {
+                runCloudflareAdminAction(sessionId,'support',{text})
+                    .then(()=>showNotification('Zpráva byla odeslána.','success'))
+                    .catch(error=>showNotification(error.message,'error'));
+            } else sendAdmin('admin.support_message', {session_id:sessionId, text});
             input.value = '';
         }
 
@@ -2864,10 +2899,15 @@
                     <details class="admin-detail" data-detail="${team.session_id}:progress"><summary>Detail postupu a her</summary><ul class="admin-detail-list">${progressNodes}</ul><p><strong>Inventář:</strong> ${inventory}</p><p><strong>Pomůcky:</strong> ${tools}</p><p><strong>Nápovědy:</strong> ${hints}</p><p><strong>Pokusy:</strong> ${attempts}</p><p>${lineGame}</p><p>${karel}</p><p>${triad}</p><p>${sokoban}</p><p>${archive}</p></details>
                     <details class="admin-detail" data-detail="${team.session_id}:timeline"><summary>Časová osa</summary><ul class="admin-detail-list">${timeline}</ul></details>
                     <details class="admin-detail" data-detail="${team.session_id}:messages"><summary>Poslední zprávy</summary><ul class="admin-detail-list">${recentMessages}</ul></details>
-                    ${!cloudflareLimited && !team.game_completed && !team.administratively_ended ? `<div class="admin-actions"><button onclick="extendAdminSession('${team.session_id}',15)">+15 MINUT</button><button onclick="endAdminSession('${team.session_id}','abandoned')">UKONČIT JAKO OPUŠTĚNOU</button><button onclick="endAdminSession('${team.session_id}','technical')">TECHNICKY UKONČIT</button></div><div class="admin-actions"><input id="admin-quick-message-${team.session_id}" maxlength="500" placeholder="Rychlá zpráva týmu…" onkeypress="if(event.key === 'Enter') sendAdminQuickMessage('${team.session_id}')"><button onclick="sendAdminQuickMessage('${team.session_id}')">ODESLAT ZPRÁVU</button></div>` : ''}
+                    ${!team.game_completed && !team.administratively_ended ? `<div class="admin-actions"><button onclick="extendAdminSession('${team.session_id}',15)">+15 MINUT</button><button onclick="endAdminSession('${team.session_id}','abandoned')">UKONČIT JAKO OPUŠTĚNOU</button><button onclick="endAdminSession('${team.session_id}','technical')">TECHNICKY UKONČIT</button></div><div class="admin-actions"><input id="admin-quick-message-${team.session_id}" maxlength="500" placeholder="Rychlá zpráva týmu…" onkeypress="if(event.key === 'Enter') sendAdminQuickMessage('${team.session_id}')"><button onclick="sendAdminQuickMessage('${team.session_id}')">ODESLAT ZPRÁVU</button></div>` : ''}
                     ${team.administratively_ended && !team.administratively_evaluated ? `<button onclick="evaluateAdminTeam('${team.session_id}')" style="width:100%;margin-top:10px">VYHODNOTIT A ZAPSAT VÝSLEDEK</button>` : ''}
                     ${!team.started && (!cloudflareLimited || launchMode==='managed') ? `<div class="admin-actions"><button onclick="startManagedTeam('${team.session_id}',false)" ${size < 1 ? 'disabled title="Nejprve se musí připojit hráč"' : ''}>SPUSTIT HRU</button>${cloudflareLimited?'':`<button class="danger" onclick="startManagedTeam('${team.session_id}',true)" ${size < 1 ? 'disabled title="Nejprve se musí připojit hráč"' : ''}>SPUSTIT PŘES SOFT LIMIT</button>`}</div>` : ''}
-                    ${cloudflareLimited ? '' : `<button onclick="startAdminSpectate('${team.session_id}')" style="width:100%;margin-top:10px">ZOBRAZIT HRU JAKO HRÁČ</button>
+                    ${cloudflareLimited ? `<div class="admin-actions">
+                        <input id="admin-amount-${team.session_id}" type="number" min="1" max="1000" value="30" aria-label="Výše bodové úpravy">
+                        <input id="admin-reason-${team.session_id}" maxlength="160" placeholder="Důvod úpravy skóre…">
+                        <button onclick="applyAdminScoreAdjustment('${team.session_id}',-1)">− BODY</button>
+                        <button onclick="applyAdminScoreAdjustment('${team.session_id}',1)">+ BODY</button>
+                    </div>` : `<button onclick="startAdminSpectate('${team.session_id}')" style="width:100%;margin-top:10px">ZOBRAZIT HRU JAKO HRÁČ</button>
                     <div class="admin-actions">
                         <input id="admin-amount-${team.session_id}" type="number" min="1" max="1000" value="30" aria-label="Výše bodové úpravy">
                         <input id="admin-reason-${team.session_id}" maxlength="160" placeholder="Důvod úpravy skóre…">

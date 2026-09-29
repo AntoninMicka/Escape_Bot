@@ -126,6 +126,19 @@ describe("Cloudflare spike router", () => {
     expect(response.headers.get("X-Content-Type-Options")).toBe("nosniff");
   });
 
+  it("generates same-origin QR images with bounded input", async () => {
+    const response = await SELF.fetch("https://example.test/api/qr?data=https%3A%2F%2Fexample.test%2F%3Fteam%3D1");
+    expect(response.status).toBe(200);
+    expect(response.headers.get("Content-Type")).toBe("image/svg+xml; charset=utf-8");
+    expect(response.headers.get("Cache-Control")).toBe("no-store");
+    expect(await response.text()).toMatch(/^<svg[^>]+xmlns="http:\/\/www\.w3\.org\/2000\/svg"/);
+
+    expect((await SELF.fetch("https://example.test/api/qr")).status).toBe(400);
+    const oversized = new URL("https://example.test/api/qr");
+    oversized.searchParams.set("data", "x".repeat(2049));
+    expect((await SELF.fetch(oversized)).status).toBe(400);
+  });
+
   it("keeps unknown API routes in the Worker instead of the SPA fallback", async () => {
     const response = await SELF.fetch("https://example.test/api/unknown");
     expect(response.status).toBe(404);
@@ -508,6 +521,74 @@ describe("Cloudflare spike router", () => {
     expect(missingPlayer.status).toBe(404);
     expect(await missingPlayer.json()).toEqual({ error: "player_not_found" });
     await closeSocket(creator, "done");
+  });
+
+  it("exposes idempotent session actions to the Cloudflare admin", async () => {
+    const sessionId = "admin-session-actions";
+    const stub = env.GAME_SESSIONS.getByName(sessionId);
+    expect((await stub.fetch("https://internal/internal/lobby/initialize", {
+      method: "POST",
+      body: JSON.stringify({
+        session_id: sessionId,
+        mode: "solo",
+        creator_id: "admin-actions-alice",
+        team_name: "Admin Actions Team",
+        lobby_type: "on_site_qr",
+        scenario_id: "hotel_kraskov",
+        player_name: "Alice",
+      }),
+    })).status).toBe(200);
+
+    const action = (name: string, body: Record<string, unknown>) => SELF.fetch(
+      `https://example.test/api/admin/sessions/${sessionId}/${name}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: "Bearer local-test-admin-token" },
+        body: JSON.stringify(body),
+      },
+    );
+    const before = await runInDurableObject(stub, (instance) => {
+      const target = instance as unknown as { snapshot: { deadlineAt: number; gameState: { score: number } } };
+      return { deadlineAt: target.snapshot.deadlineAt, score: target.snapshot.gameState.score };
+    });
+
+    const adjusted = await action("score-adjustment", {
+      operation_id: "score-adjustment-001",
+      delta: 25,
+      reason: "Kompenzace technického výpadku",
+    });
+    expect(adjusted.status).toBe(200);
+    expect(await adjusted.json()).toMatchObject({ changed: true, score: before.score + 25 });
+    expect(await (await action("score-adjustment", {
+      operation_id: "score-adjustment-001",
+      delta: 25,
+      reason: "Kompenzace technického výpadku",
+    })).json()).toMatchObject({ changed: false, score: before.score + 25 });
+
+    const extended = await action("extend", { operation_id: "extend-001", minutes: 15 });
+    expect(extended.status).toBe(200);
+    const afterExtension = await runInDurableObject(stub, (instance) => {
+      const target = instance as unknown as { snapshot: { deadlineAt: number } };
+      return target.snapshot.deadlineAt;
+    });
+    expect(afterExtension).toBe(before.deadlineAt + 15 * 60_000);
+
+    const ended = await action("end", { operation_id: "end-001", reason: "abandoned" });
+    expect(ended.status).toBe(200);
+    expect(await ended.json()).toMatchObject({ changed: true, reason: "abandoned", penalty: 100 });
+    const finalState = await runInDurableObject(stub, (instance) => {
+      const target = instance as unknown as {
+        snapshot: { deadlineAt: number | null; gameState: { score: number; flags: Record<string, unknown> } };
+      };
+      return target.snapshot;
+    });
+    expect(finalState.deadlineAt).toBeNull();
+    expect(finalState.gameState.score).toBe(before.score - 75);
+    expect(finalState.gameState.flags).toMatchObject({
+      administratively_ended: true,
+      administratively_ended_reason: "abandoned",
+      deadline_extension_minutes: 15,
+    });
   });
 
   it("loads registered teams through the authenticated Cloudflare admin overview", async () => {
