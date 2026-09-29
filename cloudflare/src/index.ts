@@ -10,6 +10,7 @@ import {
   applyAdminGamePlayerExclusion,
   applyScenarioCommand,
   buildScenarioProgress,
+  finalizeCompletedScore,
   presentGameState,
   startScenario,
   transferPlayerIdentity,
@@ -58,6 +59,7 @@ interface LobbySnapshot {
   started: boolean;
   lobbyType: string;
   scenarioId: string;
+  eventId: string;
   players: Record<string, LobbyPlayer>;
   maxPlayers: number;
   appliedScoreAdjustment: number;
@@ -191,6 +193,7 @@ function defaultSnapshot(sessionId = ""): SessionSnapshot {
       started: false,
       lobbyType: "on_site_qr",
       scenarioId: "hotel_kraskov",
+      eventId: "",
       players: {},
       maxPlayers: 0,
       appliedScoreAdjustment: 0,
@@ -424,6 +427,14 @@ export class GameSession extends DurableObject<Env> {
         return json({ error: "not_found" }, 404);
       }
       const payload = await request.json<Record<string, unknown>>();
+      const incomingEvent = objectRecord(payload.event);
+      const incomingEventId = cleanText(incomingEvent.id, 64);
+      const flags = objectRecord(this.snapshot.gameState.flags);
+      if (!this.snapshot.lobby.eventId && EVENT_ID_PATTERN.test(incomingEventId) && !flags.result_score_finalized_at) {
+        this.snapshot.lobby.eventId = incomingEventId;
+        this.snapshot.updatedAt = new Date().toISOString();
+        await this.ctx.storage.put(SNAPSHOT_KEY, this.snapshot);
+      }
       this.broadcast("runtime.settings", payload);
       return json({ success: true });
     }
@@ -540,6 +551,13 @@ export class GameSession extends DurableObject<Env> {
       const payload = await request.json<Record<string, unknown>>();
       return this.serializeState(() => this.stopSessionOperations(payload));
     }
+    if (url.pathname === "/internal/admin/finalize" && request.method === "POST") {
+      if (request.headers.get("X-EscapeBot-Internal-Admin") !== "1") {
+        return json({ error: "not_found" }, 404);
+      }
+      const payload = await request.json<Record<string, unknown>>();
+      return this.serializeState(() => this.finalizeSessionResult(payload));
+    }
     if (url.pathname === "/internal/lobby/initialize" && request.method === "POST") {
       const payload = await request.json<Record<string, unknown>>();
       return this.serializeState(() => this.initializeLobby(payload));
@@ -655,7 +673,7 @@ export class GameSession extends DurableObject<Env> {
 
     switch (message.type) {
       case "leaderboard.get":
-        this.send(socket, "leaderboard.update", { entries: [] });
+        await this.sendLeaderboard(socket, this.snapshot.lobby.eventId);
         return;
       case "lobby.resume":
         await this.resumeLobby(socket, attachment, message.payload ?? {});
@@ -725,7 +743,8 @@ export class GameSession extends DurableObject<Env> {
       return;
     }
     if (message.type === "leaderboard.get") {
-      this.send(socket, "leaderboard.update", { entries: [] });
+      const directory = normalizeDirectory(await this.ctx.storage.get<DirectorySnapshot>(DIRECTORY_KEY));
+      await this.sendLeaderboard(socket, directory.activeEventId);
       return;
     }
     if (!new Set(["lobby.solo", "lobby.create", "lobby.join", "lobby.recover"]).has(message.type)) {
@@ -805,7 +824,7 @@ export class GameSession extends DurableObject<Env> {
       throw new Error("Tato hra není součástí aktivního eventu.");
     }
     const directory = normalizeDirectory(await this.ctx.storage.get<DirectorySnapshot>(DIRECTORY_KEY));
-    const teamKey = normalizedTeamKey(lobbyType, scenarioId, teamName);
+    const teamKey = `${activeEvent?.id || "no-event"}\u0000${normalizedTeamKey(lobbyType, scenarioId, teamName)}`;
     const creatorKey = `${clientId}\u0000${mode}\u0000${teamKey}`;
     const existingForCreator = directory.creatorKeys[creatorKey];
     if (existingForCreator) {
@@ -859,6 +878,7 @@ export class GameSession extends DurableObject<Env> {
           join_code: joinCode,
           lobby_type: lobbyType,
           scenario_id: scenarioId,
+          event_id: activeEvent?.id || "",
           player_name: name,
         }),
       },
@@ -1271,6 +1291,7 @@ export class GameSession extends DurableObject<Env> {
         started,
         lobbyType: cleanText(payload.lobby_type || "on_site_qr", 32),
         scenarioId: cleanText(payload.scenario_id, 64),
+        eventId: cleanText(payload.event_id, 64),
         players: { [clientId]: { id: clientId, name, joinedAt: now } },
         maxPlayers: 1,
         appliedScoreAdjustment: adjustment,
@@ -1556,10 +1577,23 @@ export class GameSession extends DurableObject<Env> {
         puzzle_id: device.puzzleId,
       }))
       .sort((left, right) => left.label.localeCompare(right.label, "cs"));
+    let leaderboard: unknown[] = [];
+    if (directory.activeEventId) {
+      try {
+        const response = await this.runtimeEnv.EVENTS.getByName(directory.activeEventId).fetch(
+          "https://internal/internal/event/leaderboard",
+          { headers: { "X-EscapeBot-Internal-Admin": "1" } },
+        );
+        const payload = response.ok ? await response.json<Record<string, unknown>>() : {};
+        leaderboard = Array.isArray(payload.entries) ? payload.entries : [];
+      } catch {
+        leaderboard = [];
+      }
+    }
     return json({
       cloudflare_limited: true,
       teams,
-      leaderboard: [],
+      leaderboard,
       resolution_presets: {},
       scenario_catalog: [],
       scenario_errors: [],
@@ -2046,6 +2080,8 @@ export class GameSession extends DurableObject<Env> {
         now,
         this.runtimeActor(attachment.clientId),
       );
+      const completedNow = !wasCompleted && Boolean(objectRecord(result.state.flags).game_completed);
+      if (completedNow) finalizeCompletedScore(result.state, result.messages, now);
       const senderName = this.snapshot.lobby.players[attachment.clientId]?.name || "Hráč";
       let teamMessage: ProtocolMessage | null = null;
       if (message.type === "player.message") {
@@ -2099,8 +2135,9 @@ export class GameSession extends DurableObject<Env> {
         delete this.snapshot.operationReceipts[Object.keys(this.snapshot.operationReceipts)[0]];
       }
       await this.ctx.storage.put(SNAPSHOT_KEY, this.snapshot);
-      if (!wasCompleted && objectRecord(this.snapshot.gameState.flags).game_completed) {
+      if (completedNow) {
         await this.releaseEventStartForSession();
+        await this.publishFinalResult(false);
       }
       await this.scheduleTerminalRelease(scenario);
 
@@ -2204,6 +2241,88 @@ export class GameSession extends DurableObject<Env> {
     return json({ changed, session_id: this.snapshot.sessionId, revision: this.snapshot.revision });
   }
 
+  private async publishFinalResult(administrative: boolean): Promise<Response> {
+    const flags = objectRecord(this.snapshot.gameState.flags);
+    const eventId = this.snapshot.lobby.eventId;
+    if (!eventId) return json({ error: "session_has_no_event" }, 409);
+    if (!flags.result_score_finalized_at) {
+      flags.result_score = flags.competition_score === undefined
+        ? Math.round(Number(this.snapshot.gameState.score || 0))
+        : Math.round(Number(flags.competition_score));
+      flags.result_score_finalized_at = new Date().toISOString();
+      this.snapshot.gameState.flags = flags;
+      await this.ctx.storage.put(SNAPSHOT_KEY, this.snapshot);
+    }
+    let response: Response;
+    let result: Record<string, unknown>;
+    try {
+      response = await this.runtimeEnv.EVENTS.getByName(eventId).fetch(
+        "https://internal/internal/event/result",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "X-EscapeBot-Internal-Admin": "1" },
+          body: JSON.stringify({
+            operation_id: `session-result:${this.snapshot.sessionId}`,
+            session_id: this.snapshot.sessionId,
+            scenario_id: this.snapshot.lobby.scenarioId,
+            name: this.snapshot.lobby.teamName,
+            players: Object.values(this.snapshot.lobby.players).map((player) => player.name),
+            mode: this.snapshot.lobby.mode,
+            score: Number(flags.result_score),
+            started_at: String(flags.operations_started_at || ""),
+            completed_at: String(flags.completed_at || flags.administratively_ended_at || flags.result_score_finalized_at),
+            administrative,
+            out_of_competition: Boolean(flags.out_of_competition),
+            diploma_eligible: Boolean(flags.game_completed),
+          }),
+        },
+      );
+      result = await response.json<Record<string, unknown>>();
+    } catch {
+      return json({ error: "event_result_unavailable" }, 503);
+    }
+    if (response.ok) {
+      flags.event_result_published_at = new Date().toISOString();
+      flags.administratively_evaluated = administrative || Boolean(flags.administratively_evaluated);
+      this.snapshot.gameState.flags = flags;
+      await this.ctx.storage.put(SNAPSHOT_KEY, this.snapshot);
+    }
+    return json(result, response.status);
+  }
+
+  private async finalizeSessionResult(payload: Record<string, unknown>): Promise<Response> {
+    const operationId = cleanText(payload.operation_id, 128);
+    if (!/^[A-Za-z0-9._:-]{1,128}$/.test(operationId)) return json({ error: "invalid_operation_id" }, 400);
+    if (!this.snapshot.lobby.creatorId) return json({ error: "session_not_found" }, 404);
+    const flags = objectRecord(this.snapshot.gameState.flags);
+    if (!flags.game_completed && !flags.administratively_ended) {
+      return json({ error: "session_not_ended", message: "Vyhodnotit lze pouze ukončenou hru." }, 409);
+    }
+    const receiptKey = `admin-finalize:${operationId}`;
+    if (this.snapshot.operationReceipts[receiptKey]) {
+      return json({ changed: false, session_id: this.snapshot.sessionId, score: flags.result_score });
+    }
+    if (flags.event_result_published_at && flags.administratively_evaluated) {
+      return json({ changed: false, session_id: this.snapshot.sessionId, score: flags.result_score });
+    }
+    if (!flags.result_score_finalized_at) {
+      flags.result_score = flags.competition_score === undefined
+        ? Math.round(Number(this.snapshot.gameState.score || 0))
+        : Math.round(Number(flags.competition_score));
+      flags.result_score_finalized_at = new Date().toISOString();
+      this.snapshot.gameState.flags = flags;
+    }
+    const published = await this.publishFinalResult(true);
+    const result = await published.json<Record<string, unknown>>();
+    if (!published.ok) return json(result, published.status);
+    this.snapshot.operationReceipts[receiptKey] = [{ type: "leaderboard.update", payload: result }];
+    this.snapshot.revision += 1;
+    this.snapshot.updatedAt = new Date().toISOString();
+    await this.ctx.storage.put(SNAPSHOT_KEY, this.snapshot);
+    await this.broadcastGameState();
+    return json({ changed: true, session_id: this.snapshot.sessionId, score: flags.result_score, ...result });
+  }
+
   private async adminSpectatorSnapshot(playerId: string): Promise<Response> {
     if (!this.snapshot.lobby.creatorId) return json({ error: "session_not_found" }, 404);
     const player = this.snapshot.lobby.players[playerId];
@@ -2274,6 +2393,26 @@ export class GameSession extends DurableObject<Env> {
     } catch {
       if (failClosed) throw new Error("active_event_unavailable");
       return null;
+    }
+  }
+
+  private async sendLeaderboard(socket: WebSocket, eventId: string): Promise<void> {
+    if (!eventId || !EVENT_ID_PATTERN.test(eventId)) {
+      this.send(socket, "leaderboard.update", { entries: [] });
+      return;
+    }
+    try {
+      const response = await this.runtimeEnv.EVENTS.getByName(eventId).fetch(
+        "https://internal/internal/event/leaderboard",
+        { headers: { "X-EscapeBot-Internal-Admin": "1" } },
+      );
+      const payload = response.ok ? await response.json<Record<string, unknown>>() : { entries: [] };
+      this.send(socket, "leaderboard.update", {
+        entries: Array.isArray(payload.entries) ? payload.entries : [],
+        finalized: payload.finalized === true,
+      });
+    } catch {
+      this.send(socket, "leaderboard.update", { entries: [] });
     }
   }
 
@@ -2779,6 +2918,9 @@ export class GameSession extends DurableObject<Env> {
     if (!snapshotResponse.ok) return json(snapshot, snapshotResponse.status);
     if (snapshot.started) return json({ changed: false, started: true, session_id: sessionId });
     if (Number(snapshot.registered_players || 0) < 1) return json({ error: "team_empty" }, 409);
+    if (cleanText(snapshot.event_id, 64) !== event.id) {
+      return json({ error: "session_event_mismatch", message: "Tým nepatří do aktivního eventu." }, 409);
+    }
     const gameId = cleanText(snapshot.scenario_id, 64);
     const duration = boundedInteger(this.runtimeEnv.GAME_DURATION_MINUTES, 165, 15, 720);
     for (const [claimedSessionId, claim] of Object.entries(directory.startClaims)) {
@@ -3049,6 +3191,7 @@ export class GameSession extends DurableObject<Env> {
       mode: this.snapshot.lobby.mode,
       lobby_type: this.snapshot.lobby.lobbyType,
       scenario_id: this.snapshot.lobby.scenarioId,
+      event_id: this.snapshot.lobby.eventId,
       team_name: this.snapshot.lobby.teamName,
       join_code: this.snapshot.lobby.joinCode,
       started: this.snapshot.lobby.started,
@@ -3275,6 +3418,31 @@ export default {
         },
       );
     }
+    if (url.pathname === "/api/admin/events/active/leaderboard/finalize" && request.method === "POST") {
+      const unauthorized = await authorizeAdmin(request, env);
+      if (unauthorized) return unauthorized;
+      let payload: Record<string, unknown>;
+      try {
+        payload = await request.json<Record<string, unknown>>();
+      } catch {
+        return json({ error: "invalid_json" }, 400);
+      }
+      const activeResponse = await env.GAME_SESSIONS.getByName(DIRECTORY_OBJECT_NAME).fetch(
+        "https://internal/internal/admin/active-event",
+        { headers: { "X-EscapeBot-Internal-Admin": "1" } },
+      );
+      const active = await activeResponse.json<Record<string, unknown>>();
+      const eventId = cleanText(active.active_event_id, 64);
+      if (!activeResponse.ok || !EVENT_ID_PATTERN.test(eventId)) return json({ error: "active_event_required" }, 409);
+      return env.EVENTS.getByName(eventId).fetch(
+        "https://internal/internal/event/leaderboard-finalize",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "X-EscapeBot-Internal-Admin": "1" },
+          body: JSON.stringify(payload),
+        },
+      );
+    }
     if (url.pathname === "/api/admin/events/active" && new Set(["GET", "DELETE"]).has(request.method)) {
       const unauthorized = await authorizeAdmin(request, env);
       if (unauthorized) return unauthorized;
@@ -3389,7 +3557,7 @@ export default {
       });
       return env.GAME_SESSIONS.getByName(sessionId).fetch(forwarded);
     }
-    const adminSessionRoute = url.pathname.match(/^\/api\/admin\/sessions\/([^/]+)\/(support|spectate)$/);
+    const adminSessionRoute = url.pathname.match(/^\/api\/admin\/sessions\/([^/]+)\/(support|spectate|finalize)$/);
     if (adminSessionRoute) {
       const unauthorized = await authorizeAdmin(request, env);
       if (unauthorized) return unauthorized;
@@ -3424,12 +3592,39 @@ export default {
           { headers: { "X-EscapeBot-Internal-Admin": "1" } },
         );
       }
+      if (action === "finalize" && request.method === "POST") {
+        let payload: Record<string, unknown>;
+        try {
+          payload = await request.json<Record<string, unknown>>();
+        } catch {
+          return json({ error: "invalid_json" }, 400);
+        }
+        return env.GAME_SESSIONS.getByName(sessionId).fetch(
+          "https://internal/internal/admin/finalize",
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json", "X-EscapeBot-Internal-Admin": "1" },
+            body: JSON.stringify(payload),
+          },
+        );
+      }
       return json({ error: "method_not_allowed" }, 405);
     }
     if (url.pathname.startsWith("/api/")) return json({ error: "not_found" }, 404);
     if (url.pathname !== "/ws") return env.ASSETS.fetch(request);
     if (request.headers.get("Upgrade")?.toLowerCase() !== "websocket") {
       return json({ error: "websocket_upgrade_required" }, 426);
+    }
+
+    if (url.searchParams.get("channel") === "event") {
+      const eventId = cleanText(url.searchParams.get("event_id"), 64);
+      if (!EVENT_ID_PATTERN.test(eventId)) return json({ error: "invalid_event_id" }, 400);
+      const forwarded = new Request("https://internal/internal/event/connect", {
+        method: request.method,
+        headers: request.headers,
+      });
+      forwarded.headers.set("X-EscapeBot-Internal-Admin", "1");
+      return env.EVENTS.getByName(eventId).fetch(forwarded);
     }
 
     const sessionId = url.searchParams.get("session_id") ?? "";

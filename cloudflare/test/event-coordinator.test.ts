@@ -44,6 +44,17 @@ async function openSession(sessionId: string, clientId: string): Promise<WebSock
   return socket;
 }
 
+async function openEventChannel(eventId: string): Promise<WebSocket> {
+  const response = await SELF.fetch(`https://example.test/ws?channel=event&event_id=${encodeURIComponent(eventId)}`, {
+    headers: { Upgrade: "websocket" },
+  });
+  expect(response.status).toBe(101);
+  const socket = response.webSocket;
+  if (!socket) throw new Error("Event WebSocket response is missing a socket");
+  socket.accept();
+  return socket;
+}
+
 function closeSocket(socket: WebSocket): Promise<void> {
   if (socket.readyState === WebSocket.CLOSED) return Promise.resolve();
   return new Promise((resolve) => {
@@ -136,7 +147,7 @@ describe("EventCoordinator Durable Object", () => {
     expect(createdPayload).toMatchObject({
       changed: true,
       event: {
-        schema_version: 3,
+        schema_version: 4,
         id: "autumn-2026",
         revision: 1,
         name: "Podzimní setkání",
@@ -244,14 +255,14 @@ describe("EventCoordinator Durable Object", () => {
       const stored = await state.storage.get<Record<string, any>>("event-snapshot");
       expect(stored).toBeDefined();
       delete stored!.runtime;
-      stored!.schema_version = 2;
+      stored!.schema_version = 3;
       await state.storage.put("event-snapshot", stored);
     });
     await evictDurableObject(stub);
     const restored = await SELF.fetch(`https://example.test/api/admin/events/${eventId}`, { headers: authorization });
     expect(restored.status).toBe(200);
     expect(await restored.json()).toMatchObject({
-      schema_version: 3,
+      schema_version: 4,
       runtime: {
         gameplay_enabled: true,
         launch_mode: "free",
@@ -356,6 +367,171 @@ describe("EventCoordinator Durable Object", () => {
     })).json();
   });
 
+  it("finalizes each session result once and broadcasts it on the event channel", async () => {
+    const created = await putEvent("result-event", eventConfiguration({
+      operation_id: "result-event-create",
+    }));
+    expect(created.status).toBe(200);
+    await created.json();
+    const channel = await openEventChannel("result-event");
+    expect((await nextMessage(channel, "runtime.settings")).payload.event.id).toBe("result-event");
+    expect((await nextMessage(channel, "leaderboard.update")).payload.entries).toEqual([]);
+
+    const update = nextMessage(channel, "leaderboard.update");
+    const resultStub = env.EVENTS.getByName("result-event");
+    const payload = {
+      operation_id: "session-result:resultsession01",
+      session_id: "resultsession01",
+      scenario_id: "hotel_kraskov",
+      name: "Výsledkový tým",
+      players: ["Alice", "Bob"],
+      mode: "team",
+      score: 1234,
+      started_at: "2026-10-10T10:00:00.000Z",
+      completed_at: "2026-10-10T10:42:00.000Z",
+      out_of_competition: true,
+    };
+    const finalized = await resultStub.fetch("https://internal/internal/event/result", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-EscapeBot-Internal-Admin": "1" },
+      body: JSON.stringify(payload),
+    });
+    expect(finalized.status).toBe(200);
+    expect(await finalized.json()).toMatchObject({
+      changed: true,
+      result: { score: 1234, duration_seconds: 2520, out_of_competition: true },
+    });
+    expect((await update).payload.entries).toEqual([
+      expect.objectContaining({ session_id: "resultsession01", score: 1234, event_id: "result-event" }),
+    ]);
+
+    const duplicate = await resultStub.fetch("https://internal/internal/event/result", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-EscapeBot-Internal-Admin": "1" },
+      body: JSON.stringify({ ...payload, score: 9999 }),
+    });
+    expect(await duplicate.json()).toMatchObject({ changed: false, result: { score: 1234 } });
+    const conflicting = await resultStub.fetch("https://internal/internal/event/result", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-EscapeBot-Internal-Admin": "1" },
+      body: JSON.stringify({ ...payload, operation_id: "different-result-operation" }),
+    });
+    expect(conflicting.status).toBe(409);
+    expect(await conflicting.json()).toMatchObject({ error: "result_already_finalized" });
+
+    await closeSocket(channel);
+    await evictDurableObject(resultStub);
+    const restoredLeaderboard = await resultStub.fetch("https://internal/internal/event/leaderboard", {
+      headers: { "X-EscapeBot-Internal-Admin": "1" },
+    });
+    expect(await restoredLeaderboard.json()).toMatchObject({
+      entries: [expect.objectContaining({ session_id: "resultsession01", score: 1234 })],
+    });
+
+    const closed = await SELF.fetch("https://example.test/api/admin/events/active/leaderboard/finalize", {
+      method: "POST",
+      headers: { ...authorization, "Content-Type": "application/json" },
+      body: JSON.stringify({ operation_id: "result-event-close" }),
+    });
+    expect(closed.status).toBe(200);
+    expect(await closed.json()).toMatchObject({ changed: true, event: { leaderboard_finalized: true } });
+    const lateResult = await resultStub.fetch("https://internal/internal/event/result", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-EscapeBot-Internal-Admin": "1" },
+      body: JSON.stringify({ ...payload, operation_id: "late-result", session_id: "resultsession02" }),
+    });
+    expect(lateResult.status).toBe(409);
+    expect(await lateResult.json()).toMatchObject({ error: "leaderboard_finalized" });
+    await (await SELF.fetch("https://example.test/api/admin/events/active", {
+      method: "DELETE",
+      headers: authorization,
+    })).json();
+  });
+
+  it("automatically publishes a completed game with the one-time completion bonus", async () => {
+    const now = new Date();
+    const offset = 12 - now.getUTCHours();
+    const timezone = offset === 0 ? "UTC" : `Etc/GMT${offset > 0 ? `-${offset}` : `+${Math.abs(offset)}`}`;
+    const date = dateInZone(now, timezone);
+    const created = await putEvent("automatic-result-event", eventConfiguration({
+      starts_at: new Date(now.valueOf() - 60 * 60_000).toISOString(),
+      ends_at: new Date(now.valueOf() + 6 * 60 * 60_000).toISOString(),
+      status: "open",
+      timezone,
+      daily_windows: [{ date, enabled: true, opens_at: "00:00", closes_at: "23:59" }],
+      operation_id: "automatic-result-create",
+    }));
+    expect(created.status).toBe(200);
+    await created.json();
+
+    const bootstrap = await openBootstrap("automatic-result-player");
+    const route = nextMessage(bootstrap, "lobby.route");
+    bootstrap.send(JSON.stringify({
+      type: "lobby.create",
+      payload: {
+        client_id: "automatic-result-player",
+        name: "Alice",
+        team_name: "Automatický výsledek",
+        lobby_type: "on_site_qr",
+        scenario_id: "hotel_kraskov",
+      },
+    }));
+    const sessionId = String((await route).payload.session_id);
+    const session = await openSession(sessionId, "automatic-result-player");
+    const started = nextMessage(session, "lobby.state");
+    session.send(JSON.stringify({ type: "lobby.start", payload: {} }));
+    expect((await started).payload.started).toBe(true);
+
+    const scenarioResponse = await env.ASSETS.fetch("https://assets.local/scenarios/hotel_kraskov.json");
+    const scenario = await scenarioResponse.json<Record<string, any>>();
+    await runInDurableObject(env.GAME_SESSIONS.getByName(sessionId), async (instance, state) => {
+      const target = instance as unknown as { snapshot: { gameState: Record<string, any> } };
+      const finale = scenario.puzzles.time_machine_finale;
+      for (const checkpointId of finale.requires_checkpoints) {
+        target.snapshot.gameState.checkpoint_states[checkpointId] = {
+          ...target.snapshot.gameState.checkpoint_states[checkpointId],
+          status: "solved",
+        };
+      }
+      target.snapshot.gameState.checkpoint_states.time_machine_console = { status: "found" };
+      target.snapshot.gameState.inventory = [...finale.requires_inventory];
+      target.snapshot.gameState.flags.room_108_unlocked = true;
+      await state.storage.put("session-snapshot", target.snapshot);
+    });
+
+    const eventChannel = await openEventChannel("automatic-result-event");
+    await nextMessage(eventChannel, "runtime.settings");
+    await nextMessage(eventChannel, "leaderboard.update");
+    const leaderboardUpdate = nextMessage(eventChannel, "leaderboard.update");
+    const completion = nextMessage(session, "game.complete");
+    session.send(JSON.stringify({
+      type: "finale.activate",
+      operation_id: "automatic-result-finale",
+      payload: {
+        puzzle_id: "time_machine_finale",
+        year: "2037",
+        time: "21:40",
+        modules: ["TEMPORÁLNÍ MOTOR", "FÁZOVÝ STABILIZÁTOR", "KRYSTAL ČASOVÉ KOTVY"],
+      },
+    }));
+    const completed = await completion;
+    expect(completed.payload).toMatchObject({ score_frozen: false });
+    expect(Number(completed.payload.leaderboard_score)).toBe(Number(completed.payload.score));
+    expect((await leaderboardUpdate).payload.entries).toEqual([
+      expect.objectContaining({
+        session_id: sessionId,
+        score: completed.payload.leaderboard_score,
+        administrative: false,
+      }),
+    ]);
+
+    await Promise.all([closeSocket(bootstrap), closeSocket(session), closeSocket(eventChannel)]);
+    await (await SELF.fetch("https://example.test/api/admin/events/active", {
+      method: "DELETE",
+      headers: authorization,
+    })).json();
+  });
+
   it("blocks player starts in managed mode, allows an admin start, and globally stops active games", async () => {
     const now = new Date();
     const offset = 12 - now.getUTCHours();
@@ -435,10 +611,38 @@ describe("EventCoordinator Durable Object", () => {
       "https://internal/internal/admin/snapshot",
       { headers: { "X-EscapeBot-Internal-Admin": "1" } },
     );
-    expect(await snapshot.json()).toMatchObject({ administratively_ended: true, end_reason: "manual" });
+    const stoppedSnapshot = await snapshot.json<Record<string, any>>();
+    expect(stoppedSnapshot).toMatchObject({ administratively_ended: true, end_reason: "manual" });
     await runInDurableObject(env.GAME_SESSIONS.getByName(sessionId), async (_instance, state) => {
       expect(await state.storage.getAlarm()).toBeNull();
     });
+
+    const evaluated = await SELF.fetch(
+      `https://example.test/api/admin/sessions/${sessionId}/finalize`,
+      {
+        method: "POST",
+        headers: { ...authorization, "Content-Type": "application/json" },
+        body: JSON.stringify({ operation_id: "managed-runtime-evaluate" }),
+      },
+    );
+    expect(evaluated.status).toBe(200);
+    expect(await evaluated.json()).toMatchObject({ changed: true, session_id: sessionId, score: stoppedSnapshot.score });
+    const leaderboard = await env.EVENTS.getByName("managed-runtime-event").fetch(
+      "https://internal/internal/event/leaderboard",
+      { headers: { "X-EscapeBot-Internal-Admin": "1" } },
+    );
+    expect(await leaderboard.json()).toMatchObject({
+      entries: [expect.objectContaining({ session_id: sessionId, score: stoppedSnapshot.score, administrative: true })],
+    });
+    const evaluatedAgain = await SELF.fetch(
+      `https://example.test/api/admin/sessions/${sessionId}/finalize`,
+      {
+        method: "POST",
+        headers: { ...authorization, "Content-Type": "application/json" },
+        body: JSON.stringify({ operation_id: "managed-runtime-evaluate-again" }),
+      },
+    );
+    expect(await evaluatedAgain.json()).toMatchObject({ changed: false, score: stoppedSnapshot.score });
 
     const blockedBootstrap = await openBootstrap("managed-runtime-new-player");
     const blocked = nextMessage(blockedBootstrap, "lobby.error");
@@ -496,7 +700,7 @@ describe("EventCoordinator Durable Object", () => {
     const createdPayload = await created.json<Record<string, any>>();
     expect(createdPayload).toMatchObject({
       event: {
-        schema_version: 3,
+        schema_version: 4,
         starts_at: "2026-10-09T13:00:00.000Z",
         ends_at: "2026-10-11T10:00:00.000Z",
         daily_windows: dailyWindows,

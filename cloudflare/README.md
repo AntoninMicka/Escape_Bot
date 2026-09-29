@@ -89,6 +89,17 @@ nastavené délce hry automaticky vyprší, takže výpočet nemusí synchronně
 procházet všechny týmové Durable Objecty; při dřívějším dokončení ji týmová
 relace bezpečně uvolní.
 
+Každý event poskytuje samostatný hibernovatelný kanál
+`/ws?channel=event&event_id=…` pro runtime změny a `leaderboard.update`.
+Týmové zprávy zůstávají v příslušném `GameSession`. Dokončení hry jednorázově
+uzamkne výsledek a publikuje jej do `EventCoordinatoru`; opakovaný přenos se
+stejným identifikátorem nic nepřičte ani nepřepíše. Řádné dokončení přidá bonus
+100 bodů právě jednou. Dohrání mimo soutěž naopak publikuje soutěžní skóre
+zmrazené při deadline, takže následující bonusy a postihy zůstávají pouze v
+herním průchodu. Ručně ukončenou relaci správce vyhodnotí přes
+`POST /api/admin/sessions/:session_id/finalize` a celé pořadí uzavře přes
+`POST /api/admin/events/active/leaderboard/finalize`.
+
 Čekající tým se může zařadit do perzistentní fronty nebo ji opustit. Veřejná
 projekce je řazená podle role hry, konkrétní hry a času zařazení a obsahuje
 pozici i plánovaný start. Alarm adresářového Durable Objectu přežije hibernaci,

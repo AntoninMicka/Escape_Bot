@@ -1206,6 +1206,8 @@
     <script>
         const APP_BUILD_VERSION = 'v118';
         let ws;
+        let eventWs;
+        let eventWsId = '';
         const input = document.getElementById('msgInput');
         let currentChannel = 'general';
         const unreadMessages = {general: 0, captain: 0, lost: 0};
@@ -2133,8 +2135,18 @@
             if (latestAdminPayload?.cloudflare_limited) { updateCloudflareEventRuntime({display_leaderboard:!displayLeaderboardEnabled},displayLeaderboardEnabled?'Pořadí bylo na nástěnce skryto.':'Pořadí bylo na nástěnce zobrazeno.').catch(error=>showNotification(error.message,'error')); return; }
             sendAdmin('admin.display_leaderboard', {enabled:!displayLeaderboardEnabled});
         }
-        function finalizeLeaderboard() {
+        async function finalizeLeaderboard() {
             if (!window.confirm('Definitivně uzavřít celkové pořadí? Tisk diplomů za 1.–3. místo se zpřístupní až po tomto kroku.')) return;
+            if (latestAdminPayload?.cloudflare_limited) {
+                try {
+                    const operationId=crypto.randomUUID?.()||`leaderboard-finalize-${Date.now()}`;
+                    const response=await fetch('/api/admin/events/active/leaderboard/finalize',{method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${adminToken()}`},body:JSON.stringify({operation_id:operationId})});
+                    const result=await response.json().catch(()=>({}));
+                    if(!response.ok)throw new Error(result.message||result.error||'Pořadí se nepodařilo uzavřít.');
+                    leaderboardFinalized=true;showNotification('Pořadí eventu bylo uzavřeno.','success');await loadAdminOverview();
+                } catch(error) { showNotification(error.message||'Pořadí se nepodařilo uzavřít.','error'); }
+                return;
+            }
             sendAdmin('admin.leaderboard_finalize');
         }
         function saveScheduleSettings() {
@@ -2581,8 +2593,18 @@
             }
             sendAdmin('admin.game_player', {session_id:sessionId, puzzle_id:puzzleId, player_id:playerId, action});
         }
-        function evaluateAdminTeam(sessionId) {
+        async function evaluateAdminTeam(sessionId) {
             if (!window.confirm('Uzavřít aktuální skóre týmu a zapsat jej do Síně slávy?')) return;
+            if (latestAdminPayload?.cloudflare_limited) {
+                try {
+                    const operationId=crypto.randomUUID?.()||`team-finalize-${Date.now()}`;
+                    const response=await fetch(`/api/admin/sessions/${encodeURIComponent(sessionId)}/finalize`,{method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${adminToken()}`},body:JSON.stringify({operation_id:operationId})});
+                    const result=await response.json().catch(()=>({}));
+                    if(!response.ok)throw new Error(result.message||result.error||'Výsledek se nepodařilo zapsat.');
+                    showNotification(result.changed===false?'Výsledek už byl zapsán.':'Výsledek byl uzamčen a zapsán.','success');await loadAdminOverview();
+                } catch(error) { showNotification(error.message||'Výsledek se nepodařilo zapsat.','error'); }
+                return;
+            }
             sendAdmin('admin.evaluate_team', {session_id:sessionId});
         }
 
@@ -2843,7 +2865,7 @@
                     <details class="admin-detail" data-detail="${team.session_id}:timeline"><summary>Časová osa</summary><ul class="admin-detail-list">${timeline}</ul></details>
                     <details class="admin-detail" data-detail="${team.session_id}:messages"><summary>Poslední zprávy</summary><ul class="admin-detail-list">${recentMessages}</ul></details>
                     ${!cloudflareLimited && !team.game_completed && !team.administratively_ended ? `<div class="admin-actions"><button onclick="extendAdminSession('${team.session_id}',15)">+15 MINUT</button><button onclick="endAdminSession('${team.session_id}','abandoned')">UKONČIT JAKO OPUŠTĚNOU</button><button onclick="endAdminSession('${team.session_id}','technical')">TECHNICKY UKONČIT</button></div><div class="admin-actions"><input id="admin-quick-message-${team.session_id}" maxlength="500" placeholder="Rychlá zpráva týmu…" onkeypress="if(event.key === 'Enter') sendAdminQuickMessage('${team.session_id}')"><button onclick="sendAdminQuickMessage('${team.session_id}')">ODESLAT ZPRÁVU</button></div>` : ''}
-                    ${!cloudflareLimited && team.administratively_ended && !team.administratively_evaluated ? `<button onclick="evaluateAdminTeam('${team.session_id}')" style="width:100%;margin-top:10px">VYHODNOTIT A ZAPSAT VÝSLEDEK</button>` : ''}
+                    ${team.administratively_ended && !team.administratively_evaluated ? `<button onclick="evaluateAdminTeam('${team.session_id}')" style="width:100%;margin-top:10px">VYHODNOTIT A ZAPSAT VÝSLEDEK</button>` : ''}
                     ${!team.started && (!cloudflareLimited || launchMode==='managed') ? `<div class="admin-actions"><button onclick="startManagedTeam('${team.session_id}',false)" ${size < 1 ? 'disabled title="Nejprve se musí připojit hráč"' : ''}>SPUSTIT HRU</button>${cloudflareLimited?'':`<button class="danger" onclick="startManagedTeam('${team.session_id}',true)" ${size < 1 ? 'disabled title="Nejprve se musí připojit hráč"' : ''}>SPUSTIT PŘES SOFT LIMIT</button>`}</div>` : ''}
                     ${cloudflareLimited ? '' : `<button onclick="startAdminSpectate('${team.session_id}')" style="width:100%;margin-top:10px">ZOBRAZIT HRU JAKO HRÁČ</button>
                     <div class="admin-actions">
@@ -3457,6 +3479,18 @@
         }
 
         // 2. Správa připojení a znovupřipojení
+        function connectEventChannel(eventId) {
+            if (!eventId) { eventWsId='';if(eventWs)eventWs.close(1000,'event cleared');eventWs=null;return; }
+            if (eventWsId === eventId && eventWs && eventWs.readyState < WebSocket.CLOSING) return;
+            if (eventWs) eventWs.close(1000, 'event changed');
+            eventWsId = eventId;
+            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            eventWs = new WebSocket(`${protocol}//${window.location.host}/ws?channel=event&event_id=${encodeURIComponent(eventId)}`);
+            eventWs.onmessage = event => ws?.onmessage?.(event);
+            eventWs.onclose = () => { if (eventWsId === eventId) setTimeout(() => connectEventChannel(eventId), 2000); };
+            eventWs.onerror = () => eventWs.close();
+        }
+
         function connect() {
             if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) return;
             const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
@@ -3607,19 +3641,20 @@
                 }
                 else if (msg.type === 'runtime.settings') {
                     const previousQueueItem = runtimeStartQueue.find(item => item.session_id === sessionId);
-                    onlineModeEnabled = Boolean(msg.payload.online_mode);
-                    displayLeaderboardEnabled = msg.payload.display_leaderboard !== false;
-                    operationsEnabled = Boolean(msg.payload.gameplay_enabled);
-                    launchMode = msg.payload.launch_mode === 'managed' ? 'managed' : 'free';
-                    mapillaryConfig = msg.payload.mapillary || {enabled:false,access_token:''};
-                    leaderboardFinalized = Boolean(msg.payload.leaderboard_finalized);
+                    if(Object.hasOwn(msg.payload,'online_mode'))onlineModeEnabled = Boolean(msg.payload.online_mode);
+                    if(Object.hasOwn(msg.payload,'display_leaderboard'))displayLeaderboardEnabled = msg.payload.display_leaderboard !== false;
+                    if(Object.hasOwn(msg.payload,'gameplay_enabled'))operationsEnabled = Boolean(msg.payload.gameplay_enabled);
+                    if(Object.hasOwn(msg.payload,'launch_mode'))launchMode = msg.payload.launch_mode === 'managed' ? 'managed' : 'free';
+                    if(Object.hasOwn(msg.payload,'mapillary'))mapillaryConfig = msg.payload.mapillary || {enabled:false,access_token:''};
+                    if(Object.hasOwn(msg.payload,'leaderboard_finalized'))leaderboardFinalized = Boolean(msg.payload.leaderboard_finalized);
                     activeEvent = msg.payload.event?.id ? msg.payload.event : null;
-                    runtimeAvailability = msg.payload.availability || null;
-                    runtimeAvailabilityByLobbyType = msg.payload.availability_by_lobby_type || {};
-                    runtimeStartQueue = msg.payload.start_queue || [];
-                    runtimeCheckpoints = msg.payload.checkpoints || [];
-                    runtimeGames = msg.payload.games || [];
-                    renderEventGameConfig(msg.payload.configurable_games||[],activeEvent);
+                    connectEventChannel(activeEvent?.id || '');
+                    if(Object.hasOwn(msg.payload,'availability'))runtimeAvailability = msg.payload.availability || null;
+                    if(Object.hasOwn(msg.payload,'availability_by_lobby_type'))runtimeAvailabilityByLobbyType = msg.payload.availability_by_lobby_type || {};
+                    if(Array.isArray(msg.payload.start_queue))runtimeStartQueue = msg.payload.start_queue;
+                    if(Array.isArray(msg.payload.checkpoints))runtimeCheckpoints = msg.payload.checkpoints;
+                    if(Array.isArray(msg.payload.games))runtimeGames = msg.payload.games;
+                    if(Array.isArray(msg.payload.configurable_games))renderEventGameConfig(msg.payload.configurable_games,activeEvent);
                     const eventFields={'event-id':activeEvent?.id||'','event-name':activeEvent?.name||'','event-start':localEventValue(activeEvent?.starts_at),'event-end':localEventValue(activeEvent?.ends_at),'event-status':activeEvent?.status||'draft','event-timezone':activeEvent?.timezone||msg.payload.timezone||'Europe/Prague','event-branding-title':activeEvent?.branding?.title||'','event-branding-logo':activeEvent?.branding?.logo_url||'','event-branding-color':activeEvent?.branding?.accent_color||'#65f7ff'};
                     Object.entries(eventFields).forEach(([id,value])=>{const field=document.getElementById(id);if(field&&document.activeElement!==field)field.value=value;});
                     eventDailyWindowDraft=(activeEvent?.daily_windows||[]).map(item=>({...item}));

@@ -264,12 +264,25 @@ describe("Cloudflare complete scenario journey", () => {
     });
     expect(messageOf(completed, "finale.result").payload.success).toBe(true);
     expect(completed.map((message) => message.type)).toContain("game.complete");
+    expect(messageOf(completed, "score.update").payload).toMatchObject({
+      bonus: 100,
+      reason: "completion_bonus",
+    });
+    expect(messageOf(completed, "game.complete").payload).toMatchObject({
+      score: gameStateOf(completed).score,
+      leaderboard_score: gameStateOf(completed).score,
+      score_frozen: false,
+    });
     expect(gameStateOf(completed)).toMatchObject({
       phase: "portal_open",
       flags: { game_completed: true, elara_rescued: true, room_108_unlocked: true },
       inventory: ["TEMPORÁLNÍ MOTOR", "FÁZOVÝ STABILIZÁTOR", "KRYSTAL ČASOVÉ KOTVY"],
     });
     expect(gameStateOf(completed).score).toBeGreaterThan(0);
+    const lockedScore = gameStateOf(completed).score;
+    const rejectedAfterCompletion = await command("puzzle.hint", { puzzle_id: "future_archive_cipher" });
+    expect(messageOf(rejectedAfterCompletion, "command.rejected").payload.reason).toContain("výsledek je uzamčen");
+    expect(gameStateOf(rejectedAfterCompletion).score).toBe(lockedScore);
     expect(operationIndex).toBeGreaterThanOrEqual(40);
 
     await evictDurableObject(stub);

@@ -51,8 +51,25 @@ export interface EventRuntimeSettings {
   display_announcements: EventAnnouncement[];
 }
 
+export interface EventResult {
+  entry_id: string;
+  operation_id: string;
+  session_id: string;
+  scenario_id: string;
+  name: string;
+  players: string[];
+  mode: "solo" | "team";
+  score: number;
+  duration_seconds: number | null;
+  completed_at: string;
+  finalized_at: string;
+  administrative: boolean;
+  out_of_competition: boolean;
+  diploma_eligible: boolean;
+}
+
 export interface EventSnapshot {
-  schema_version: 3;
+  schema_version: 4;
   id: string;
   revision: number;
   name: string;
@@ -72,6 +89,7 @@ export interface EventSnapshot {
   runtime: EventRuntimeSettings;
   leaderboard_finalized: boolean;
   leaderboard_finalized_at: string;
+  results: Record<string, EventResult>;
   created_at: string;
   updated_at: string;
 }
@@ -390,6 +408,25 @@ function publicSnapshot(snapshot: StoredEventSnapshot): EventSnapshot {
   return event;
 }
 
+function leaderboardEntries(snapshot: StoredEventSnapshot): Array<Record<string, unknown>> {
+  const configurations = new Map(snapshot.games.map((game) => [game.game_id, game]));
+  return Object.values(snapshot.results)
+    .map((result) => {
+      const configuration = configurations.get(result.scenario_id);
+      const { operation_id: _operationId, ...publicResult } = result;
+      return {
+        ...publicResult,
+        event_id: snapshot.id,
+        event_name: snapshot.name,
+        game_title: result.scenario_id,
+        competition_role: configuration?.role ?? "competitive",
+        leaderboard_enabled: configuration?.leaderboard_enabled ?? true,
+        competition_weight: configuration?.weight ?? 1,
+      };
+    })
+    .sort((left, right) => Number(right.score) - Number(left.score) || String(left.completed_at).localeCompare(String(right.completed_at)));
+}
+
 export class EventCoordinator extends DurableObject<EventCoordinatorEnv> {
   private snapshot: StoredEventSnapshot | null = null;
   private updateQueue: Promise<void> = Promise.resolve();
@@ -412,9 +449,10 @@ export class EventCoordinator extends DurableObject<EventCoordinatorEnv> {
       }
       this.snapshot = {
         ...stored,
-        schema_version: 3,
+        schema_version: 4,
         daily_windows: dailyWindows,
         runtime: { ...defaultRuntimeSettings(), ...(stored.runtime ?? {}) },
+        results: stored.results && typeof stored.results === "object" ? stored.results : {},
       };
     });
   }
@@ -424,9 +462,22 @@ export class EventCoordinator extends DurableObject<EventCoordinatorEnv> {
       return json({ error: "not_found" }, 404);
     }
     const url = new URL(request.url);
+    if (url.pathname === "/internal/event/connect" && request.headers.get("Upgrade")?.toLowerCase() === "websocket") {
+      if (!this.snapshot) return json({ error: "event_not_found" }, 404);
+      const pair = new WebSocketPair();
+      pair[1].serializeAttachment({ role: "event" });
+      this.ctx.acceptWebSocket(pair[1]);
+      this.sendEventSnapshot(pair[1]);
+      return new Response(null, { status: 101, webSocket: pair[0] });
+    }
     if (url.pathname === "/internal/event" && request.method === "GET") {
       return this.snapshot
         ? json(publicSnapshot(this.snapshot))
+        : json({ error: "event_not_found" }, 404);
+    }
+    if (url.pathname === "/internal/event/leaderboard" && request.method === "GET") {
+      return this.snapshot
+        ? json({ entries: leaderboardEntries(this.snapshot), finalized: this.snapshot.leaderboard_finalized })
         : json({ error: "event_not_found" }, 404);
     }
     if (url.pathname === "/internal/event" && request.method === "PUT") {
@@ -446,6 +497,24 @@ export class EventCoordinator extends DurableObject<EventCoordinatorEnv> {
         return json({ error: "invalid_json" }, 400);
       }
       return this.serializeUpdate(() => this.updateRuntime(payload));
+    }
+    if (url.pathname === "/internal/event/result" && request.method === "POST") {
+      let payload: Record<string, unknown>;
+      try {
+        payload = await request.json<Record<string, unknown>>();
+      } catch {
+        return json({ error: "invalid_json" }, 400);
+      }
+      return this.serializeUpdate(() => this.finalizeResult(payload));
+    }
+    if (url.pathname === "/internal/event/leaderboard-finalize" && request.method === "POST") {
+      let payload: Record<string, unknown>;
+      try {
+        payload = await request.json<Record<string, unknown>>();
+      } catch {
+        return json({ error: "invalid_json" }, 400);
+      }
+      return this.serializeUpdate(() => this.finalizeLeaderboard(payload));
     }
     return json({ error: "not_found" }, 404);
   }
@@ -495,7 +564,7 @@ export class EventCoordinator extends DurableObject<EventCoordinatorEnv> {
     }
     const now = new Date().toISOString();
     this.snapshot = {
-      schema_version: 3,
+      schema_version: 4,
       revision: (this.snapshot?.revision ?? 0) + 1,
       created_at: this.snapshot?.created_at ?? now,
       updated_at: now,
@@ -503,6 +572,7 @@ export class EventCoordinator extends DurableObject<EventCoordinatorEnv> {
       applied_operations: [...(this.snapshot?.applied_operations ?? []), operationId].slice(-500),
     };
     await this.ctx.storage.put(EVENT_SNAPSHOT_KEY, this.snapshot);
+    this.broadcastEvent("runtime.settings", this.eventRuntimePayload());
     return json({ changed: true, event: publicSnapshot(this.snapshot) });
   }
 
@@ -559,7 +629,126 @@ export class EventCoordinator extends DurableObject<EventCoordinatorEnv> {
       applied_operations: [...this.snapshot.applied_operations, operationId].slice(-500),
     };
     await this.ctx.storage.put(EVENT_SNAPSHOT_KEY, this.snapshot);
+    this.broadcastEvent("runtime.settings", this.eventRuntimePayload());
     return json({ changed, event: publicSnapshot(this.snapshot) });
+  }
+
+  private eventRuntimePayload(): Record<string, unknown> {
+    if (!this.snapshot) return {};
+    const { results: _results, ...event } = publicSnapshot(this.snapshot);
+    return {
+      ...this.snapshot.runtime,
+      event,
+      leaderboard_finalized: this.snapshot.leaderboard_finalized,
+    };
+  }
+
+  private sendEventSnapshot(socket: WebSocket): void {
+    if (!this.snapshot) return;
+    socket.send(JSON.stringify({ type: "runtime.settings", payload: this.eventRuntimePayload() }));
+    socket.send(JSON.stringify({ type: "leaderboard.update", payload: { entries: leaderboardEntries(this.snapshot) } }));
+  }
+
+  private broadcastEvent(type: string, payload: Record<string, unknown>): void {
+    const encoded = JSON.stringify({ type, payload });
+    for (const socket of this.ctx.getWebSockets()) {
+      if (socket.readyState !== WebSocket.OPEN) continue;
+      try {
+        socket.send(encoded);
+      } catch {
+        socket.close(1011, "Event broadcast failed");
+      }
+    }
+  }
+
+  private async finalizeResult(payload: Record<string, unknown>): Promise<Response> {
+    if (!this.snapshot) return json({ error: "event_not_found" }, 404);
+    const operationId = cleanText(payload.operation_id, 128);
+    const sessionId = cleanText(payload.session_id, 128);
+    const scenarioId = cleanText(payload.scenario_id, 64);
+    if (!OPERATION_ID_PATTERN.test(operationId)) return json({ error: "invalid_operation_id" }, 400);
+    if (!/^[A-Za-z0-9_-]{8,128}$/.test(sessionId)) return json({ error: "invalid_session_id" }, 400);
+    const operationResult = Object.values(this.snapshot.results).find((result) => result.operation_id === operationId);
+    if (operationResult) {
+      return operationResult.session_id === sessionId
+        ? json({ changed: false, result: operationResult, leaderboard: leaderboardEntries(this.snapshot) })
+        : json({ error: "operation_id_conflict" }, 409);
+    }
+    if (!this.snapshot.games.some((game) => game.game_id === scenarioId)) {
+      return json({ error: "game_not_in_event" }, 409);
+    }
+    const existing = this.snapshot.results[sessionId];
+    if (existing) {
+      return existing.operation_id === operationId
+        ? json({ changed: false, result: existing, leaderboard: leaderboardEntries(this.snapshot) })
+        : json({ error: "result_already_finalized", result: existing }, 409);
+    }
+    if (this.snapshot.leaderboard_finalized) return json({ error: "leaderboard_finalized" }, 409);
+    const score = Number(payload.score);
+    if (!Number.isFinite(score)) return json({ error: "invalid_score" }, 400);
+    let completedAt: string;
+    try {
+      completedAt = optionalTimestamp(payload.completed_at, "Čas dokončení", this.snapshot.timezone)
+        || new Date().toISOString();
+    } catch (error) {
+      return json({ error: "invalid_result", message: error instanceof Error ? error.message : "Výsledek není platný." }, 400);
+    }
+    const finalizedAt = new Date().toISOString();
+    const startedAtValue = String(payload.started_at || "").trim();
+    const startedAt = startedAtValue ? Date.parse(startedAtValue) : Number.NaN;
+    const completedAtMs = Date.parse(completedAt);
+    const result: EventResult = {
+      entry_id: `result-${sessionId}`,
+      operation_id: operationId,
+      session_id: sessionId,
+      scenario_id: scenarioId,
+      name: cleanText(payload.name, 64) || sessionId,
+      players: Array.isArray(payload.players)
+        ? payload.players.map((name) => cleanText(name, 64)).filter(Boolean).slice(0, 32)
+        : [],
+      mode: payload.mode === "solo" ? "solo" : "team",
+      score: Math.round(score),
+      duration_seconds: Number.isFinite(startedAt) && completedAtMs >= startedAt
+        ? Math.round((completedAtMs - startedAt) / 1000)
+        : null,
+      completed_at: completedAt,
+      finalized_at: finalizedAt,
+      administrative: payload.administrative === true,
+      out_of_competition: payload.out_of_competition === true,
+      diploma_eligible: payload.diploma_eligible !== false,
+    };
+    this.snapshot = {
+      ...this.snapshot,
+      revision: this.snapshot.revision + 1,
+      updated_at: finalizedAt,
+      results: { ...this.snapshot.results, [sessionId]: result },
+      applied_operations: [...this.snapshot.applied_operations, operationId].slice(-500),
+    };
+    await this.ctx.storage.put(EVENT_SNAPSHOT_KEY, this.snapshot);
+    const leaderboard = leaderboardEntries(this.snapshot);
+    this.broadcastEvent("leaderboard.update", { entries: leaderboard });
+    return json({ changed: true, result, leaderboard });
+  }
+
+  private async finalizeLeaderboard(payload: Record<string, unknown>): Promise<Response> {
+    if (!this.snapshot) return json({ error: "event_not_found" }, 404);
+    const operationId = cleanText(payload.operation_id, 128);
+    if (!OPERATION_ID_PATTERN.test(operationId)) return json({ error: "invalid_operation_id" }, 400);
+    if (this.snapshot.applied_operations.includes(operationId) || this.snapshot.leaderboard_finalized) {
+      return json({ changed: false, event: publicSnapshot(this.snapshot), leaderboard: leaderboardEntries(this.snapshot) });
+    }
+    const now = new Date().toISOString();
+    this.snapshot = {
+      ...this.snapshot,
+      revision: this.snapshot.revision + 1,
+      updated_at: now,
+      leaderboard_finalized: true,
+      leaderboard_finalized_at: now,
+      applied_operations: [...this.snapshot.applied_operations, operationId].slice(-500),
+    };
+    await this.ctx.storage.put(EVENT_SNAPSHOT_KEY, this.snapshot);
+    this.broadcastEvent("runtime.settings", this.eventRuntimePayload());
+    return json({ changed: true, event: publicSnapshot(this.snapshot), leaderboard: leaderboardEntries(this.snapshot) });
   }
 
   private async normalizeEvent(
@@ -633,6 +822,7 @@ export class EventCoordinator extends DurableObject<EventCoordinatorEnv> {
       runtime: sameEvent ? this.snapshot!.runtime : defaultRuntimeSettings(),
       leaderboard_finalized: sameEvent ? Boolean(this.snapshot?.leaderboard_finalized) : false,
       leaderboard_finalized_at: sameEvent ? String(this.snapshot?.leaderboard_finalized_at || "") : "",
+      results: sameEvent ? { ...(this.snapshot?.results ?? {}) } : {},
     };
   }
 }

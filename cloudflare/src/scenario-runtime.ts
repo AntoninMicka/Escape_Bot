@@ -60,6 +60,61 @@ export interface AdminGamePlayerResult extends ScenarioCommandResult {
   result: Record<string, unknown>;
 }
 
+export function finalizeCompletedScore(
+  state: GameStateDocument,
+  messages: RuntimeMessage[],
+  now: string,
+  completionBonus = 100,
+): void {
+  const flags = record(state.flags);
+  if (flags.result_score_finalized_at) return;
+  const outOfCompetition = Boolean(flags.out_of_competition);
+  if (!outOfCompetition && !flags.outcome_score_applied_completed && completionBonus > 0) {
+    const scoreBefore = Number(state.score || 0);
+    state.score = scoreBefore + completionBonus;
+    flags.outcome_score_applied_completed = true;
+    const adjustment = {
+      delta: completionBonus,
+      amount: completionBonus,
+      reason: "Bonus za úspěšné dokončení hry",
+      at: now,
+      score_before: scoreBefore,
+      score_after: state.score,
+      automatic: true,
+    };
+    flags.admin_score_adjustments = [
+      ...(Array.isArray(flags.admin_score_adjustments) ? flags.admin_score_adjustments : []),
+      adjustment,
+    ];
+    messages.unshift({
+      type: "score.update",
+      payload: {
+        score: state.score,
+        delta: completionBonus,
+        bonus: completionBonus,
+        penalty: 0,
+        reason: "completion_bonus",
+        description: adjustment.reason,
+      },
+    });
+  }
+  const competitionScore = flags.competition_score === undefined
+    ? Number(state.score || 0)
+    : Number(flags.competition_score);
+  flags.result_score = Number.isFinite(competitionScore) ? Math.round(competitionScore) : Math.round(Number(state.score || 0));
+  flags.result_score_finalized_at = now;
+  state.flags = flags;
+  const completion = messages.find((message) => message.type === "game.complete");
+  if (completion) {
+    completion.payload = {
+      ...completion.payload,
+      score: Number(state.score || 0),
+      leaderboard_score: flags.result_score,
+      score_frozen: flags.competition_score !== undefined,
+    };
+  }
+}
+
 export function transferPlayerIdentity(
   currentState: GameStateDocument,
   oldPlayerId: string,
@@ -259,6 +314,12 @@ export function applyScenarioCommand(
     return {
       state: presentGameState(scenario, currentState, actor, now),
       messages: [{ type: "command.rejected", payload: { reason: `Příkaz ${type} ještě není v cloudovém enginu podporován.` } }],
+    };
+  }
+  if (record(currentState.flags).game_completed && type !== "player.message") {
+    return {
+      state: clone(currentState),
+      messages: [{ type: "command.rejected", payload: { reason: "Hra je dokončena a její výsledek je uzamčen." } }],
     };
   }
   const state = clone(currentState);

@@ -42,6 +42,9 @@ test("Static Assets build is minimal, fingerprinted and internally complete", as
   assert.match(index, /fetch\('\/api\/admin\/events\/active'/);
   assert.match(index, /fetch\('\/api\/admin\/events\/active\/runtime'/);
   assert.match(index, /fetch\('\/api\/admin\/events\/active\/start'/);
+  assert.match(index, /\/api\/admin\/events\/active\/leaderboard\/finalize/);
+  assert.match(index, /\/api\/admin\/sessions\/\$\{encodeURIComponent\(sessionId\)\}\/finalize/);
+  assert.match(index, /channel=event&event_id=/);
   assert.match(index, /launchMode = msg\.payload\.launch_mode === 'managed'/);
   assert.match(index, /onclick="toggleDisplayLeaderboard\(\)"/);
   assert.match(index, /\/api\/admin\/sessions\/\$\{encodeURIComponent\(sessionId\)\}\/support/);
@@ -51,7 +54,7 @@ test("Static Assets build is minimal, fingerprinted and internally complete", as
   assert.match(index, /if \(!spectatorView\) \{\s*sessionId = payload\.session_id;/);
   assert.match(index, /id="event-daily-windows"/);
   assert.match(index, /daily_windows:eventDailyWindowDraft/);
-  assert.match(index, /runtimeStartQueue = msg\.payload\.start_queue \|\| \[\]/);
+  assert.match(index, /if\(Array\.isArray\(msg\.payload\.start_queue\)\)runtimeStartQueue = msg\.payload\.start_queue/);
   assert.match(index, /msg\.type === 'queue\.auto_started'/);
   assert.match(index, /Authorization:`Bearer \$\{token\}`/);
   const serviceWorker = await readFile(join(outputDir, "sw.js"), "utf8");

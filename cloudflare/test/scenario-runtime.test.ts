@@ -4,6 +4,7 @@ import {
   applyAdminGamePlayerExclusion,
   applyScenarioCommand,
   buildScenarioProgress,
+  finalizeCompletedScore,
   presentGameState,
   startScenario,
   transferPlayerIdentity,
@@ -725,8 +726,8 @@ describe("deterministic Cloudflare scenario runtime", () => {
       "2026-09-28T12:02:00.000Z",
     );
     expect(replay.messages).toEqual([{
-      type: "finale.result",
-      payload: { success: true, already_complete: true, score: 1250 },
+      type: "command.rejected",
+      payload: { reason: "Hra je dokončena a její výsledek je uzamčen." },
     }]);
     expect(replay.state.flags.completed_at).toBe(completedAt);
     expect(replay.state.puzzle_attempts.time_machine_finale).toBe(2);
@@ -776,6 +777,22 @@ describe("deterministic Cloudflare scenario runtime", () => {
     );
     expect(laterPenalty.state.score).toBe(895);
     expect(laterPenalty.state.flags.competition_score).toBe(900);
+    laterPenalty.state.flags.game_completed = true;
+    laterPenalty.state.flags.completed_at = "2026-09-28T12:20:00.000Z";
+    const completionMessages = [{
+      type: "game.complete",
+      payload: { score: laterPenalty.state.score, completed_at: laterPenalty.state.flags.completed_at },
+    }];
+    finalizeCompletedScore(laterPenalty.state, completionMessages, laterPenalty.state.flags.completed_at, 100);
+    expect(laterPenalty.state.score).toBe(895);
+    expect(laterPenalty.state.flags).toMatchObject({
+      result_score: 900,
+      result_score_finalized_at: "2026-09-28T12:20:00.000Z",
+    });
+    expect(completionMessages).toEqual([{
+      type: "game.complete",
+      payload: expect.objectContaining({ score: 895, leaderboard_score: 900, score_frozen: true }),
+    }]);
     const duplicate = applyScenarioCommand(
       scenario,
       laterPenalty.state,
@@ -783,7 +800,10 @@ describe("deterministic Cloudflare scenario runtime", () => {
       { choice: "end" },
       "2026-09-28T12:10:04.000Z",
     );
-    expect(duplicate.messages[0]).toMatchObject({ type: "error", payload: { message: expect.stringContaining("už není dostupná") } });
+    expect(duplicate.messages[0]).toMatchObject({
+      type: "command.rejected",
+      payload: { reason: expect.stringContaining("výsledek je uzamčen") },
+    });
   });
 
   it("lets a player restore, but never exclude, an administratively excluded teammate", async () => {

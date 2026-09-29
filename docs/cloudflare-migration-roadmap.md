@@ -210,7 +210,7 @@ Akceptace:
 
 **Odhad: 6–9 pracovních dnů**
 
-**Stav: sedmá vertikální část lokálně implementována.** Každé `event_id` se
+**Stav: osmá vertikální část lokálně implementována.** Každé `event_id` se
 směruje do samostatného SQLite-backed `EventCoordinator` Durable Objectu.
 Autorizované HTTP API načte nebo uloží validovanou konfiguraci eventu,
 `operation_id` brání opakovanému zápisu a `expected_revision` chrání novější
@@ -239,7 +239,17 @@ Runtime eventu nyní perzistentně ukládá povolení herního provozu, volný n
 jsou revizně chráněné a okamžitě se vysílají klientům. Řízený režim nelze obejít
 hráčským WebSocket příkazem; správce může spustit připravené lobby. Globální stop
 zruší aktivní startovní rezervace a idempotentně ukončí rozehrané relace.
-Z runtime části tohoto bodu tak zbývá finalizace výsledků.
+Dokončená hra nyní jednorázově uzamkne soutěžní skóre, přidá bonus za dokončení
+pouze při řádném soutěžním dokončení a idempotentně zapíše výsledek do
+`EventCoordinatoru`. Při dohrání mimo soutěž zůstává výsledkem skóre zmrazené
+v okamžiku vypršení limitu; pozdější bonusy a postihy už pořadí nezmění. Ručně
+ukončený tým zapisuje správce explicitním vyhodnocením. Organizační uzavření
+pořadí zabrání přijetí dalších výsledků.
+Eventové změny a pořadí mají vlastní hibernovatelný WebSocket příslušného
+`EventCoordinatoru`; týmové herní broadcasty zůstávají uvnitř konkrétní
+`GameSession`. Výpadek jedné týmové relace tak neblokuje eventovou nástěnku ani
+ostatní týmy. Z implementačních bodů CF-05 zbývá krátkodobá autentizovaná admin
+relace a nouzový break-glass token.
 
 1. Vytvořit jeden `EventCoordinator` Durable Object pro každý event.
 2. Přesunout runtime nastavení, startovní frontu, oznámení, globální stop,
