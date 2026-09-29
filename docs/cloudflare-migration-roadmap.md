@@ -210,12 +210,17 @@ Akceptace:
 
 **Odhad: 6–9 pracovních dnů**
 
-**Stav: první vertikální část lokálně implementována.** Každé `event_id` se
+**Stav: druhá vertikální část lokálně implementována.** Každé `event_id` se
 směruje do samostatného SQLite-backed `EventCoordinator` Durable Objectu.
 Autorizované HTTP API načte nebo uloží validovanou konfiguraci eventu,
 `operation_id` brání opakovanému zápisu a `expected_revision` chrání novější
 změny před přepsáním. Snapshot přežije evikci a testy ověřují izolaci dvou
-eventů. Napojení aktivního eventu na klienty, týmy a nástěnku ještě zbývá.
+eventů. Aktivní event se nyní perzistentně vybírá v lobby adresáři, filtruje
+runtime katalog a změnu okamžitě rozešle připojeným bootstrap klientům včetně
+administrace a veřejné nástěnky. Cloudový admin formulář ukládá konfiguraci
+přes HTTP API a umí omezení eventem bezpečně zrušit bez smazání snapshotu.
+Napojení rozehraných týmů, fronty, oznámení a dalších runtime přepínačů ještě
+zbývá.
 
 1. Vytvořit jeden `EventCoordinator` Durable Object pro každý event.
 2. Přesunout runtime nastavení, startovní frontu, oznámení, globální stop,

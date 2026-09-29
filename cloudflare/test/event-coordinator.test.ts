@@ -2,6 +2,41 @@ import { env, evictDurableObject, SELF } from "cloudflare:test";
 import { describe, expect, it } from "vitest";
 
 const authorization = { Authorization: "Bearer local-test-admin-token" };
+type ProtocolMessage = { type: string; payload: Record<string, any> };
+
+function nextMessage(socket: WebSocket, expectedType: string): Promise<ProtocolMessage> {
+  return new Promise((resolve, reject) => {
+    const timeout = setTimeout(() => reject(new Error(`Timed out waiting for ${expectedType}`)), 3000);
+    const listener = (event: MessageEvent) => {
+      const message = JSON.parse(String(event.data)) as ProtocolMessage;
+      if (message.type !== expectedType) return;
+      clearTimeout(timeout);
+      socket.removeEventListener("message", listener);
+      resolve(message);
+    };
+    socket.addEventListener("message", listener);
+  });
+}
+
+async function openBootstrap(clientId: string): Promise<WebSocket> {
+  const response = await SELF.fetch(`https://example.test/ws?client_id=${clientId}`, {
+    headers: { Upgrade: "websocket" },
+  });
+  expect(response.status).toBe(101);
+  const socket = response.webSocket;
+  if (!socket) throw new Error("WebSocket response is missing a socket");
+  socket.accept();
+  await nextMessage(socket, "session.connected");
+  return socket;
+}
+
+function closeSocket(socket: WebSocket): Promise<void> {
+  if (socket.readyState === WebSocket.CLOSED) return Promise.resolve();
+  return new Promise((resolve) => {
+    socket.addEventListener("close", () => resolve(), { once: true });
+    socket.close(1000, "done");
+  });
+}
 
 function eventConfiguration(overrides: Record<string, unknown> = {}): Record<string, unknown> {
   return {
@@ -171,5 +206,64 @@ describe("EventCoordinator Durable Object", () => {
       headers: authorization,
     });
     expect(missing.status).toBe(404);
+  });
+
+  it("activates an event for bootstrap clients and restores the selection after eviction", async () => {
+    const reset = await SELF.fetch("https://example.test/api/admin/events/active", {
+      method: "DELETE",
+      headers: authorization,
+    });
+    expect(reset.status).toBe(200);
+    await reset.json();
+    const observer = await openBootstrap("event-observer");
+    expect((await nextMessage(observer, "runtime.settings")).payload.event).toEqual({});
+
+    const update = nextMessage(observer, "runtime.settings");
+    const created = await putEvent("live-event", eventConfiguration({
+      name: "Živý event",
+      operation_id: "live-event-create",
+    }));
+    expect(created.status).toBe(200);
+    await created.json();
+    const settings = (await update).payload;
+    expect(settings.event).toMatchObject({ id: "live-event", name: "Živý event", revision: 1 });
+    expect(settings.games.map((game: Record<string, unknown>) => game.id)).toEqual([
+      "hotel_kraskov",
+      "chronos_online",
+    ]);
+    expect(settings.games[0]).toMatchObject({
+      id: "hotel_kraskov",
+      event_role: "primary",
+      queue_enabled: true,
+      leaderboard_enabled: true,
+    });
+
+    const active = await SELF.fetch("https://example.test/api/admin/events/active", {
+      headers: authorization,
+    });
+    expect(await active.json()).toMatchObject({
+      active_event_id: "live-event",
+      event: { id: "live-event", revision: 1 },
+    });
+
+    await closeSocket(observer);
+    await evictDurableObject(env.GAME_SESSIONS.getByName("__escape_bot_lobby_directory__"));
+    const restoredObserver = await openBootstrap("restored-event-observer");
+    expect((await nextMessage(restoredObserver, "runtime.settings")).payload.event).toMatchObject({
+      id: "live-event",
+      revision: 1,
+    });
+
+    const clearedSettings = nextMessage(restoredObserver, "runtime.settings");
+    const cleared = await SELF.fetch("https://example.test/api/admin/events/active", {
+      method: "DELETE",
+      headers: authorization,
+    });
+    expect(cleared.status).toBe(200);
+    expect(await cleared.json()).toMatchObject({ changed: true, active_event_id: "", event: {} });
+    const clearedPayload = (await clearedSettings).payload;
+    expect(clearedPayload.event).toEqual({});
+    expect(clearedPayload.games).toHaveLength(4);
+    await closeSocket(restoredObserver);
   });
 });

@@ -38,6 +38,8 @@ test("Static Assets build is minimal, fingerprinted and internally complete", as
   assert.match(index, /fetch\('\/api\/admin\/overview'/);
   assert.match(index, /fetch\('\/api\/admin\/player-recovery'/);
   assert.match(index, /fetch\('\/api\/admin\/terminal-reserve'/);
+  assert.match(index, /fetch\(`\/api\/admin\/events\/\$\{encodeURIComponent\(eventId\)\}`/);
+  assert.match(index, /fetch\('\/api\/admin\/events\/active'/);
   assert.match(index, /Authorization:`Bearer \$\{token\}`/);
   const serviceWorker = await readFile(join(outputDir, "sw.js"), "utf8");
   assert.match(serviceWorker, /const CACHE_NAME = 'escape-bot-[a-f0-9]{12}';/);

@@ -1,6 +1,6 @@
 import { DurableObject } from "cloudflare:workers";
 export { EventCoordinator } from "./event-coordinator";
-import { EVENT_ID_PATTERN, type EventCoordinator } from "./event-coordinator";
+import { EVENT_ID_PATTERN, type EventCoordinator, type EventSnapshot } from "./event-coordinator";
 import {
   applyAdminGamePlayerExclusion,
   applyScenarioCommand,
@@ -105,7 +105,8 @@ interface TerminalRouteRecord {
 }
 
 interface DirectorySnapshot {
-  schemaVersion: 3;
+  schemaVersion: 4;
+  activeEventId: string;
   joinCodes: Record<string, string>;
   teamKeys: Record<string, string>;
   creatorKeys: Record<string, string>;
@@ -205,7 +206,8 @@ function normalizeSnapshot(
 
 function defaultDirectory(): DirectorySnapshot {
   return {
-    schemaVersion: 3,
+    schemaVersion: 4,
+    activeEventId: "",
     joinCodes: {},
     teamKeys: {},
     creatorKeys: {},
@@ -218,7 +220,7 @@ function defaultDirectory(): DirectorySnapshot {
 
 function normalizeDirectory(stored: Partial<DirectorySnapshot> | undefined): DirectorySnapshot {
   const fallback = defaultDirectory();
-  return stored ? { ...fallback, ...stored, schemaVersion: 3 } : fallback;
+  return stored ? { ...fallback, ...stored, schemaVersion: 4 } : fallback;
 }
 
 function cleanText(value: unknown, maximum: number): string {
@@ -338,6 +340,21 @@ export class GameSession extends DurableObject<Env> {
         return json({ error: "not_found" }, 404);
       }
       return this.adminSessionSnapshot();
+    }
+    if (url.pathname === "/internal/admin/active-event" && new Set(["GET", "PUT", "DELETE"]).has(request.method)) {
+      if (request.headers.get("X-EscapeBot-Internal-Admin") !== "1") {
+        return json({ error: "not_found" }, 404);
+      }
+      if (request.method === "GET") {
+        const event = await this.loadActiveEvent();
+        return json({ active_event_id: event?.id ?? "", event: event ?? {} });
+      }
+      const payload = request.method === "PUT"
+        ? await request.json<Record<string, unknown>>()
+        : {};
+      return this.serializeDirectory(() => this.setActiveEvent(
+        request.method === "DELETE" ? "" : cleanText(payload.event_id, 64),
+      ));
     }
     if (url.pathname === "/internal/admin/player-recovery" && request.method === "POST") {
       if (request.headers.get("X-EscapeBot-Internal-Admin") !== "1") {
@@ -1890,28 +1907,110 @@ export class GameSession extends DurableObject<Env> {
     return response.json<RuntimeGame[]>();
   }
 
+  private async loadActiveEvent(): Promise<EventSnapshot | null> {
+    const directory = normalizeDirectory(await this.ctx.storage.get<DirectorySnapshot>(DIRECTORY_KEY));
+    if (!directory.activeEventId) return null;
+    try {
+      const response = await this.runtimeEnv.EVENTS.getByName(directory.activeEventId).fetch(
+        "https://internal/internal/event",
+        { headers: { "X-EscapeBot-Internal-Admin": "1" } },
+      );
+      const payload = await response.json<EventSnapshot | { error: string }>();
+      return response.ok ? payload as EventSnapshot : null;
+    } catch {
+      return null;
+    }
+  }
+
+  private async runtimeSettingsPayload(): Promise<Record<string, unknown>> {
+    const configurableGames = await this.loadRuntimeGames();
+    const event = await this.loadActiveEvent();
+    const eventGames = new Map((event?.games ?? []).map((game) => [game.game_id, game]));
+    const games = event
+      ? configurableGames
+        .filter((game) => eventGames.has(game.id))
+        .map((game) => {
+          const configuration = eventGames.get(game.id)!;
+          return {
+            ...game,
+            event_role: configuration.role,
+            queue_enabled: configuration.queue_enabled,
+            leaderboard_enabled: configuration.leaderboard_enabled,
+            weight: configuration.weight,
+            start_interval_minutes: configuration.start_interval_minutes,
+            max_active_teams: configuration.max_active_teams,
+          };
+        })
+      : configurableGames;
+    games.sort((left, right) => {
+      const priority = (role: unknown) => role === "primary" ? 0 : role === "competitive" ? 1 : 2;
+      return priority(objectRecord(left).event_role) - priority(objectRecord(right).event_role) ||
+        left.title.localeCompare(right.title, "cs");
+    });
+    return {
+      online_mode: false,
+      gameplay_enabled: true,
+      display_leaderboard: true,
+      leaderboard_finalized: Boolean(event?.leaderboard_finalized),
+      max_active_teams: 4,
+      launch_mode: "free",
+      start_interval_minutes: 15,
+      soft_start_interval_minutes: 15,
+      hard_start_interval_minutes: 5,
+      game_duration_minutes: boundedInteger(this.runtimeEnv.GAME_DURATION_MINUTES, 165, 15, 720),
+      deadline_penalty: boundedInteger(this.runtimeEnv.DEADLINE_PENALTY, 100, 0, 1000),
+      abandonment_penalty: 100,
+      completion_bonus: 100,
+      opening_time: "08:00",
+      closing_time: "20:00",
+      timezone: event?.timezone ?? "Europe/Prague",
+      games,
+      configurable_games: configurableGames,
+      start_queue: [],
+      checkpoints: [],
+      availability: null,
+      availability_by_lobby_type: {},
+      display_announcements: [],
+      mapillary: { enabled: false, access_token: "" },
+      event: event ?? {},
+    };
+  }
+
   private async sendRuntimeSettings(socket: WebSocket): Promise<void> {
     try {
-      const games = await this.loadRuntimeGames();
-      this.send(socket, "runtime.settings", {
-        online_mode: false,
-        gameplay_enabled: true,
-        display_leaderboard: true,
-        leaderboard_finalized: false,
-        games,
-        configurable_games: games,
-        start_queue: [],
-        checkpoints: [],
-        availability: null,
-        availability_by_lobby_type: {},
-        mapillary: { enabled: false, access_token: "" },
-        event: {},
-      });
+      this.send(socket, "runtime.settings", await this.runtimeSettingsPayload());
     } catch (error) {
       this.send(socket, "lobby.error", {
         message: error instanceof Error ? error.message : "Cloudový katalog her není dostupný.",
       });
     }
+  }
+
+  private async setActiveEvent(eventId: string): Promise<Response> {
+    if (eventId && !EVENT_ID_PATTERN.test(eventId)) return json({ error: "invalid_event_id" }, 400);
+    let event: EventSnapshot | null = null;
+    if (eventId) {
+      const response = await this.runtimeEnv.EVENTS.getByName(eventId).fetch(
+        "https://internal/internal/event",
+        { headers: { "X-EscapeBot-Internal-Admin": "1" } },
+      );
+      const payload = await response.json<EventSnapshot | { error: string }>();
+      if (!response.ok) return json({ error: "event_not_found" }, 404);
+      event = payload as EventSnapshot;
+    }
+    const directory = normalizeDirectory(await this.ctx.storage.get<DirectorySnapshot>(DIRECTORY_KEY));
+    const changed = directory.activeEventId !== eventId;
+    directory.activeEventId = eventId;
+    await this.ctx.storage.put(DIRECTORY_KEY, directory);
+    const settings = await this.runtimeSettingsPayload();
+    for (const socket of this.ctx.getWebSockets()) {
+      if (socket.readyState !== WebSocket.OPEN) continue;
+      const attachment = socket.deserializeAttachment() as SocketAttachment | null;
+      if (attachment?.role === "bootstrap" || attachment?.role === "terminal_waiting") {
+        this.send(socket, "runtime.settings", settings);
+      }
+    }
+    return json({ changed, active_event_id: event?.id ?? "", event: event ?? {} });
   }
 
   webSocketClose(socket: WebSocket, code: number, reason: string): void {
@@ -2321,6 +2420,17 @@ export default {
         { headers: { "X-EscapeBot-Internal-Admin": "1" } },
       );
     }
+    if (url.pathname === "/api/admin/events/active" && new Set(["GET", "DELETE"]).has(request.method)) {
+      const unauthorized = await authorizeAdmin(request, env);
+      if (unauthorized) return unauthorized;
+      return env.GAME_SESSIONS.getByName(DIRECTORY_OBJECT_NAME).fetch(
+        "https://internal/internal/admin/active-event",
+        {
+          method: request.method,
+          headers: { "X-EscapeBot-Internal-Admin": "1" },
+        },
+      );
+    }
     const eventRoute = url.pathname.match(/^\/api\/admin\/events\/([^/]+)$/);
     if (eventRoute && new Set(["GET", "PUT"]).has(request.method)) {
       const unauthorized = await authorizeAdmin(request, env);
@@ -2343,11 +2453,26 @@ export default {
       } catch {
         return json({ error: "invalid_json" }, 400);
       }
-      return env.EVENTS.getByName(eventId).fetch("https://internal/internal/event", {
+      const eventResponse = await env.EVENTS.getByName(eventId).fetch("https://internal/internal/event", {
         method: "PUT",
         headers: { "Content-Type": "application/json", "X-EscapeBot-Internal-Admin": "1" },
         body: JSON.stringify({ ...payload, id: eventId }),
       });
+      const result = await eventResponse.json<Record<string, unknown>>();
+      if (!eventResponse.ok || payload.activate === false) return json(result, eventResponse.status);
+      const activationResponse = await env.GAME_SESSIONS.getByName(DIRECTORY_OBJECT_NAME).fetch(
+        "https://internal/internal/admin/active-event",
+        {
+          method: "PUT",
+          headers: { "Content-Type": "application/json", "X-EscapeBot-Internal-Admin": "1" },
+          body: JSON.stringify({ event_id: eventId }),
+        },
+      );
+      const activation = await activationResponse.json<Record<string, unknown>>();
+      if (!activationResponse.ok) {
+        return json({ error: "event_saved_but_not_activated", event: result.event, activation }, 502);
+      }
+      return json(result, eventResponse.status);
     }
     if (url.pathname === "/api/admin/player-recovery" && request.method === "POST") {
       const unauthorized = await authorizeAdmin(request, env);

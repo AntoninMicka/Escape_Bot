@@ -65,11 +65,14 @@ npm exec wrangler secret put ADMIN_TOKEN -- --env staging
 npm exec wrangler secret put ADMIN_TOKEN -- --env production
 ```
 
-První část CF-05 zpřístupňuje konfiguraci konkrétního eventu přes autorizované
+CF-05 zpřístupňuje konfiguraci konkrétního eventu přes autorizované
 `GET` a `PUT /api/admin/events/:event_id`. Zápis vyžaduje stabilní
 `operation_id`; volitelné `expected_revision` odmítne změnu, pokud správce
 vychází ze staršího snapshotu. Konfigurace kontroluje časové pásmo, pořadí
-časů, právě jednu hlavní hru a existenci všech her v runtime katalogu.
+časů, právě jednu hlavní hru a existenci všech her v runtime katalogu. Uložení
+z administrace event zároveň aktivuje, filtruje veřejný katalog a rozešle nový
+`runtime.settings` připojeným bootstrap klientům. Aktivní výběr přežije evikci;
+`DELETE /api/admin/events/active` pouze odstraní omezení, nikoli uložený event.
 
 Lokální vývojový server:
 
@@ -136,8 +139,9 @@ registrovaných hráčů se nezmění.
 Cloudový přehled je záměrně označený jako omezená správa a kromě vyřazení a
 vystavení návratového QR nezobrazuje tlačítka pro dosud nepřenesené zásahy.
 Úplný víceeventový přehled bude používat nový `EventCoordinator`; jeho
-perzistentní konfigurace a HTTP API už jsou součástí první části CF-05,
-zatímco současné načtení týmů z adresáře lobby zůstává mezikrokem CF-04.
+perzistentní konfigurace, aktivní výběr, HTTP API a napojení admin formuláře už
+jsou součástí CF-05, zatímco současné načtení týmů z adresáře lobby zůstává
+mezikrokem CF-04.
 
 Produkční deploy má samostatný explicitní příkaz `npm run deploy:production`.
 Obecný `npm run deploy` záměrně není definován, aby nebylo možné bez výběru

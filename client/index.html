@@ -2122,16 +2122,33 @@
             const offset = date.getTimezoneOffset() * 60000;
             return new Date(date - offset).toISOString().slice(0,16);
         }
-        function saveEventSettings() {
+        async function saveEventSettings() {
             const games=[...document.querySelectorAll('#event-games-config [data-game-id]')].filter(row=>row.querySelector('.event-game-enabled').checked).map(row=>({game_id:row.dataset.gameId,role:row.querySelector('.event-game-role').value,queue_enabled:row.querySelector('.event-game-queue').checked,leaderboard_enabled:row.querySelector('.event-game-leaderboard').checked,weight:Number(row.querySelector('.event-game-weight').value),start_interval_minutes:Number(row.querySelector('.event-game-interval').value),max_active_teams:Number(row.querySelector('.event-game-capacity').value)}));
             const starts=document.getElementById('event-start').value,ends=document.getElementById('event-end').value;
             if(!starts||!ends){showNotification('Vyplňte začátek i konec eventu.','error');return;}
             const primaryGames=games.filter(game=>game.role==='primary');if(primaryGames.length!==1){showNotification('Vyberte právě jednu hlavní hru.','error');return;}const primary=primaryGames[0];
-            sendAdmin('admin.event_settings', {id:document.getElementById('event-id').value.trim(),name:document.getElementById('event-name').value.trim(),starts_at:new Date(starts).toISOString(),ends_at:new Date(ends).toISOString(),status:document.getElementById('event-status').value,timezone:document.getElementById('event-timezone').value.trim(),primary_game_id:primary.game_id,games,branding_title:document.getElementById('event-branding-title').value.trim(),branding_logo_url:document.getElementById('event-branding-logo').value.trim(),branding_accent_color:document.getElementById('event-branding-color').value});
+            const eventId=document.getElementById('event-id').value.trim();
+            if(!eventId){showNotification('Vyplňte ID eventu.','error');return;}
+            const payload={id:eventId,name:document.getElementById('event-name').value.trim(),starts_at:new Date(starts).toISOString(),ends_at:new Date(ends).toISOString(),status:document.getElementById('event-status').value,timezone:document.getElementById('event-timezone').value.trim(),primary_game_id:primary.game_id,games,branding_title:document.getElementById('event-branding-title').value.trim(),branding_logo_url:document.getElementById('event-branding-logo').value.trim(),branding_accent_color:document.getElementById('event-branding-color').value};
+            if(!latestAdminPayload?.cloudflare_limited){sendAdmin('admin.event_settings',payload);return;}
+            try {
+                const operationId=crypto.randomUUID?.()||`event-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+                const response=await fetch(`/api/admin/events/${encodeURIComponent(eventId)}`,{method:'PUT',headers:{'Content-Type':'application/json',Authorization:`Bearer ${adminToken()}`},body:JSON.stringify({...payload,operation_id:operationId,expected_revision:activeEvent?.id===eventId?Number(activeEvent.revision||0):0})});
+                const result=await response.json().catch(()=>({}));
+                if(!response.ok)throw new Error(result.message||result.error||'Event se nepodařilo uložit.');
+                showNotification(result.changed===false?'Event už byl uložen.':'Event byl uložen a aktivován.','success');
+            } catch(error) { showNotification(error.message||'Event se nepodařilo uložit.','error'); }
         }
         function renderEventGameConfig(catalog,event){const target=document.getElementById('event-games-config');if(!target)return;const configs=new Map((event?.games||[]).map(item=>[item.game_id,item]));target.innerHTML='<strong>HRY EVENTU</strong>'+catalog.map(game=>{const config=configs.get(game.id),role=config?.role||'side';return `<article class="admin-team" data-game-id="${escapeHtml(game.id)}"><label><input class="event-game-enabled" type="checkbox" ${config?'checked':''}> ${escapeHtml(game.title)}</label><select class="event-game-role"><option value="primary" ${role==='primary'?'selected':''}>HLAVNÍ</option><option value="competitive" ${role==='competitive'?'selected':''}>SOUTĚŽNÍ</option><option value="side" ${role==='side'?'selected':''}>DOPLŇKOVÁ</option></select><label><input class="event-game-queue" type="checkbox" ${config?.queue_enabled!==false&&role!=='side'?'checked':''}> fronta</label><label><input class="event-game-leaderboard" type="checkbox" ${config?.leaderboard_enabled!==false&&role!=='side'?'checked':''}> žebříček</label><label>váha <input class="event-game-weight" type="number" min="0" step="0.1" value="${Number(config?.weight??1)}"></label><label>rozestup <input class="event-game-interval" type="number" min="0" value="${Number(config?.start_interval_minutes||0)}"></label><label>kapacita <input class="event-game-capacity" type="number" min="0" value="${Number(config?.max_active_teams||0)}"></label></article>`}).join('');}
-        function clearEventSettings() {
-            if (window.confirm('Zrušit omezení eventem? Výsledky v Síni slávy zůstanou zachované.')) sendAdmin('admin.event_settings',{id:''});
+        async function clearEventSettings() {
+            if (!window.confirm('Zrušit omezení eventem? Výsledky v Síni slávy zůstanou zachované.')) return;
+            if(!latestAdminPayload?.cloudflare_limited){sendAdmin('admin.event_settings',{id:''});return;}
+            try {
+                const response=await fetch('/api/admin/events/active',{method:'DELETE',headers:{Authorization:`Bearer ${adminToken()}`}});
+                const result=await response.json().catch(()=>({}));
+                if(!response.ok)throw new Error(result.message||result.error||'Omezení eventem se nepodařilo zrušit.');
+                showNotification('Omezení eventem bylo zrušeno.','success');
+            } catch(error) { showNotification(error.message||'Omezení eventem se nepodařilo zrušit.','error'); }
         }
         let displayAnnouncementDraft = [], displayAnnouncementsDirty = false, displayAnnouncementsSaving = false;
         try { const cached=JSON.parse(localStorage.getItem('escapeBotDisplayAnnouncementDraft')||'null');if(Array.isArray(cached)){displayAnnouncementDraft=cached;displayAnnouncementsDirty=true} } catch {}
