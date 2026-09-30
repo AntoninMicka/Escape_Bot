@@ -32,9 +32,28 @@ Převést jediný aktivní event na katalog. Umožnit klonování konfigurace, a
 
 Nejdřív každá hra musí deklarovat maximální dosažitelné skóre nebo jinou normalizační funkci. Potom lze počítat vážený součet soutěžních her bez zvýhodnění hry s větší bodovou škálou. Chybějící výsledek a nedokončení musejí mít předem definované chování.
 
-### 3. Více nástěnek
+### 3. Eventové a profilované nástěnky
 
 Každá fyzická obrazovka dostane profil s výchozí hrou, rozsahem obsahu a rotačním plánem. Jedna může zobrazovat hlavní frontu, jiná doplňkové hry nebo pouze organizační feed.
+
+Každý event zároveň dostane vlastní kanonickou nástěnku se stabilním veřejným
+odkazem a odpovídajícím QR. Nástěnka použije branding eventu a zobrazí pouze
+jeho frontu, výsledky a oznámení; nesmí tiše přepadnout na aktivní globální
+event ani smíchat data jiného eventu. Musí jít otevřít přímo podle veřejného
+identifikátoru eventu, i když tento event není právě globálně vybraný.
+
+Event bez výsledků, fronty nebo publikovaných oznámení zobrazí vlastní jasný
+prázdný stav. Globální nástěnka zůstane samostatným pohledem a její adresa se
+nebude zaměňovat s adresou konkrétního eventu. Administrace umožní eventový
+odkaz zkopírovat, zobrazit jeho QR a otevřít náhled bez změny aktivního eventu.
+
+Akceptace:
+
+- odkaz i QR otevřou nástěnku správného eventu;
+- nástěnka neaktivního eventu nezobrazí data aktivního eventu;
+- prázdný event má vlastní označený prázdný stav;
+- náhled nástěnky v administraci nezmění globálně aktivní event;
+- globální a eventová nástěnka mají jednoznačné kanonické adresy.
 
 ### 4. Provozní jistota
 
