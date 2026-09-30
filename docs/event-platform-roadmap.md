@@ -18,7 +18,7 @@ Oznámení mají tři úrovně dosahu:
 - role hlavní / soutěžní / doplňková,
 - individuální pravidla fronty a žebříčku,
 - stavy koncept, připraven, otevřen, pozastaven, ukončen a archivován,
-- branding, časová zóna a herně zaměřený odkaz i QR vstupní lobby,
+- branding, časová zóna a základní herně zaměřený odkaz i QR aktivního eventu,
 - filtrování fronty, výsledků a oznámení na veřejné nástěnce,
 - správa rozsahu oznámení v administraci.
 
@@ -39,3 +39,31 @@ Každá fyzická obrazovka dostane profil s výchozí hrou, rozsahem obsahu a ro
 ### 4. Provozní jistota
 
 Před otevřením eventu proběhne preflight kontrola scénářů, časů, kapacit a QR odkazů. Změny se budou auditovat. Správcovské účty, role a více současných správců zůstávají plánovanou samostatnou etapou, nikoli součástí současné implementace.
+
+### 5. Vlastní lobby a přímé odkazy na hry
+
+Každý event dostane stabilní vstupní odkaz a odpovídající QR do vlastní lobby.
+Pokud event nemá vlastní konfiguraci vstupní stránky, systém doplní výchozí
+eventovou lobby z jeho brandingu a katalogu her. Pokud v eventu není právě
+dostupná žádná hra, odkaz nesmí přepadnout do globální nabídky; zobrazí
+eventovou čekací nebo informační stránku.
+
+Vedle odkazu na celé eventové lobby půjde vytvořit odkaz a QR na konkrétní hru
+v daném eventu. Stejný typ přímého odkazu na konkrétní hru bude dostupný také
+globálně, bez vazby na event. Přímý odkaz pouze předvybere event, hru a
+odpovídající typ lobby; nesmí obejít zákaz scénáře, stav eventu, provozní čas,
+kapacitu ani ostatní autoritativní kontroly startu. Při nedostupnosti zobrazí
+jasný důvod a zachová cílový kontext místo tichého přesměrování na jinou hru.
+
+Administrace umožní odkazy zkopírovat, zobrazit nebo stáhnout jako QR a před
+publikací otevřít jejich náhled. Odkazy budou používat stabilní veřejné
+identifikátory a nebudou obsahovat přihlašovací údaje ani identitu hráče.
+
+Akceptace:
+
+- event bez vlastní konfigurace má funkční výchozí lobby a QR;
+- event bez dostupné hry zobrazí vlastní čekací stav, nikoli globální hry;
+- eventový odkaz na hru zachová event i vybranou hru;
+- globální odkaz na hru funguje bez aktivního eventu;
+- zakázaná nebo nedostupná hra se přes přímý odkaz nespustí;
+- QR a textový odkaz vedou do stejného kanonického cíle.
