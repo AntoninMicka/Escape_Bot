@@ -890,7 +890,7 @@
         <section id="admin-tab-chats" class="admin-section hidden"><h2>[ PODPORA TÝMŮ ]</h2><div id="admin-chat-grid" class="admin-grid"></div></section>
         <section id="admin-tab-display" class="admin-section hidden"><h2>[ OZNÁMENÍ NA VEŘEJNÉ OBRAZOVCE ]</h2><div id="display-health" class="cipher-note">Stav obrazovky se načítá…</div><p>Na jedné obrazovce se zobrazí hlavní oznámení a až dvě vedlejší. Oznámení lze ponechat jako koncept nebo naplánovat.</p><div id="display-announcement-editor"></div><div class="admin-toolbar"><button onclick="addDisplayAnnouncement()">+ PŘIDAT OZNÁMENÍ</button><button onclick="saveDisplayAnnouncements()">ULOŽIT ZMĚNY</button><button id="admin-display-leaderboard-toggle" onclick="toggleDisplayLeaderboard()">POŘADÍ NA NÁSTĚNCE</button><button onclick="window.open('/display','_blank','noopener')">OTEVŘÍT NÁSTĚNKU</button></div><h2>[ ŽIVÝ NÁHLED ]</h2><div id="display-announcement-preview" class="admin-grid"></div></section>
         <section id="admin-tab-leaderboard" class="admin-section admin-leaderboard hidden"><h2>[ SPRÁVA SÍNĚ SLÁVY ]</h2><div id="admin-leaderboard"></div></section>
-        <section id="admin-tab-scenarios" class="admin-section hidden"><h2>[ EDITOR HER — NÁHLED A VALIDACE ]</h2><div class="admin-toolbar"><select id="scenario-editor-select"></select><button onclick="loadScenarioEditor()">NAČÍST</button><button onclick="validateScenarioEditor()">OVĚŘIT</button></div><p id="scenario-editor-status">Editor zatím provádí bezpečnou validaci bez zápisu na disk.</p><section id="scenario-form-editor" class="scenario-variable-form hidden"></section><details><summary>POKROČILÝ JSON EDITOR</summary><div class="scenario-editor-grid"><label>ŠABLONA<textarea id="scenario-template-editor" spellcheck="false"></textarea></label><label>REALIZACE<textarea id="scenario-realization-editor" spellcheck="false"></textarea></label></div></details><h3>NEPLATNÉ / VYŘAZENÉ SCÉNÁŘE</h3><div id="scenario-editor-errors"></div></section>
+        <section id="admin-tab-scenarios" class="admin-section hidden"><h2>[ DOSTUPNOST HER ]</h2><p>Zakázaný scénář se nenabídne pro nové lobby ani nový start. Rozehrané hry zůstanou beze změny.</p><div id="scenario-availability-grid" class="admin-grid"></div><button id="scenario-availability-save" onclick="saveScenarioAvailability()" style="width:100%;margin:14px 0">ULOŽIT DOSTUPNOST</button><h2>[ EDITOR HER — NÁHLED A VALIDACE ]</h2><div class="admin-toolbar"><select id="scenario-editor-select"></select><button onclick="loadScenarioEditor()">NAČÍST</button><button onclick="validateScenarioEditor()">OVĚŘIT</button></div><p id="scenario-editor-status">Editor zatím provádí bezpečnou validaci bez zápisu na disk.</p><section id="scenario-form-editor" class="scenario-variable-form hidden"></section><details><summary>POKROČILÝ JSON EDITOR</summary><div class="scenario-editor-grid"><label>ŠABLONA<textarea id="scenario-template-editor" spellcheck="false"></textarea></label><label>REALIZACE<textarea id="scenario-realization-editor" spellcheck="false"></textarea></label></div></details><h3>NEPLATNÉ / VYŘAZENÉ SCÉNÁŘE</h3><div id="scenario-editor-errors"></div></section>
         <section id="admin-tab-tools" class="admin-section hidden">
             <div class="admin-settings-layout">
                 <section class="admin-settings-card">
@@ -2442,8 +2442,9 @@
             }
             if (saveButton) saveButton.hidden = false;
             const catalog = latestAdminPayload?.puzzle_catalog || runtimePuzzleCatalog;
-            const enabled = new Set(catalog.filter(puzzle => puzzle.play_mode !== 'phones').map(puzzle => puzzle.id));
-            target.innerHTML = catalog.map(puzzle => `<label><input type="checkbox" value="${escapeHtml(puzzle.id)}" ${enabled.has(puzzle.id) ? 'checked' : ''}> ${escapeHtml(puzzle.title)} <small>(${escapeHtml(puzzle.play_mode || 'phones')})</small></label>`).join('') || '<p>Scénář neobsahuje žádné hádanky.</p>';
+            const enabled = new Set(catalog.filter(puzzle => puzzle.play_mode !== 'phones').map(puzzle => puzzle.key));
+            const groups=Object.values(catalog.reduce((result,puzzle)=>{const key=puzzle.scenario_id||'';result[key]??={title:puzzle.scenario_title||key,puzzles:[]};result[key].puzzles.push(puzzle);return result;},{}));
+            target.innerHTML = groups.map(group=>`<fieldset><legend>${escapeHtml(group.title)}</legend>${group.puzzles.map(puzzle => `<label><input type="checkbox" value="${escapeHtml(puzzle.key)}" ${enabled.has(puzzle.key) ? 'checked' : ''}> ${escapeHtml(puzzle.title)} <small>(${escapeHtml(puzzle.play_mode || 'phones')})</small></label>`).join('')}</fieldset>`).join('') || '<p>Žádný fyzický scénář neobsahuje hádanky pro terminál.</p>';
         }
 
         async function saveTerminalCatalog() {
@@ -2470,19 +2471,21 @@
             if (!target || !latestAdminPayload) return;
             if (!adminSupports('scenario_play_modes')) { target.innerHTML='<p>Tento runtime nepodporuje změnu způsobu hraní.</p>'; return; }
             const labels = {phones:'Telefony', supplemental:'Terminál doplňkově', exclusive:'Pouze terminál'};
-            target.innerHTML = (latestAdminPayload.puzzle_catalog || []).map(puzzle => `<article class="admin-team">
+            const catalog=latestAdminPayload.puzzle_catalog||[];
+            const groups=Object.values(catalog.reduce((result,puzzle)=>{const key=puzzle.scenario_id||'';result[key]??={title:puzzle.scenario_title||key,puzzles:[]};result[key].puzzles.push(puzzle);return result;},{}));
+            target.innerHTML = groups.map(group=>`<section class="wide"><h2>${escapeHtml(group.title)}</h2><div class="admin-grid">${group.puzzles.map(puzzle => `<article class="admin-team">
                 <h2>${escapeHtml(puzzle.title)}</h2>
                 <p><strong>${escapeHtml(puzzle.type || 'unknown')}</strong> · checkpoint ${escapeHtml(puzzle.checkpoint_id || '—')}</p>
                 <details><summary>NÁHLED ZADÁNÍ</summary><p>${escapeHtml(puzzle.instructions || 'Tato interaktivní hádanka nemá samostatný text zadání.')}</p></details>
-                <label>ZPŮSOB HRANÍ <select id="scenario-mode-${escapeHtml(puzzle.id)}">${Object.entries(labels).map(([value,label]) => `<option value="${value}" ${puzzle.play_mode === value ? 'selected' : ''}>${label}</option>`).join('')}</select></label>
-            </article>`).join('') || '<p>Scénář neobsahuje žádné hádanky.</p>';
+                <label>ZPŮSOB HRANÍ <select id="scenario-mode-${escapeHtml(puzzle.key)}">${Object.entries(labels).map(([value,label]) => `<option value="${value}" ${puzzle.play_mode === value ? 'selected' : ''}>${label}</option>`).join('')}</select></label>
+            </article>`).join('')}</div></section>`).join('') || '<p>Žádný fyzický scénář neobsahuje hádanky.</p>';
         }
 
         async function saveScenarioPlayModes() {
             if (!adminSupports('scenario_play_modes')) { showNotification('Tento runtime nepodporuje změnu způsobu hraní.', 'error'); return; }
             const modes = {};
             (latestAdminPayload?.puzzle_catalog || []).forEach(puzzle => {
-                modes[puzzle.id] = document.getElementById(`scenario-mode-${puzzle.id}`)?.value || 'phones';
+                modes[puzzle.key] = document.getElementById(`scenario-mode-${puzzle.key}`)?.value || 'phones';
             });
             if (!Object.keys(modes).length) { showNotification('Katalog hádanek je prázdný.', 'error'); return; }
             if (!window.confirm('Uložit způsob hraní všech hádanek? Změna se ihned projeví i v rozehraných relacích.')) return;
@@ -2505,27 +2508,28 @@
             if (!target || !latestAdminPayload) return;
             if (!adminSupports('terminal_reservation')) { target.innerHTML='<p>Tento runtime nepodporuje rezervace terminálů.</p>'; return; }
             const choices = (latestAdminPayload.puzzle_catalog || []).filter(puzzle => puzzle.play_mode !== 'phones').map(puzzle => ({
-                value: puzzle.id,
-                label: puzzle.title,
+                value: puzzle.key,
+                label: `${puzzle.scenario_title} — ${puzzle.title}`,
             }));
             target.innerHTML = (latestAdminPayload.terminals || []).map(terminal => {
-                const selected = terminal.puzzle_id || '';
+                const selected = terminal.scenario_id && terminal.puzzle_id ? `${terminal.scenario_id}::${terminal.puzzle_id}` : '';
                 const options = choices.map(choice => `<option value="${escapeHtml(choice.value)}" ${choice.value === selected ? 'selected' : ''}>${escapeHtml(choice.label)}</option>`).join('');
                 const attached = terminal.status === 'attached';
                 return `<article class="admin-team ${attached ? '' : 'offline'}"><h2>${escapeHtml(terminal.label)}</h2>
                     <p><strong>${attached ? '● PŘIPOJENÝ' : '○ VOLNÝ'}</strong>${terminal.team_name ? ` · ${escapeHtml(terminal.team_name)}` : ''}</p>
-                    ${attached ? `<p>Terminál již převzal tým načtením QR.</p>` : `<label>VYHRAZENÁ HÁDANKA <select id="terminal-reservation-${escapeHtml(terminal.id)}"><option value="">— BEZ REZERVACE —</option>${options}</select></label><div class="admin-actions"><button onclick="reserveAdminTerminal('${escapeHtml(terminal.id)}')" ${options ? '' : 'disabled'}>ULOŽIT REZERVACI</button><button onclick="clearAdminTerminalReservation('${escapeHtml(terminal.id)}')">UVOLNIT</button></div>${options ? '' : '<p>Ve scénáři zatím není žádná hádanka povolená pro terminál.</p>'}`}
+                    ${attached ? `<p>Terminál již převzal tým načtením QR.</p><button class="danger" onclick="releaseAdminTerminal('${escapeHtml(terminal.id)}')">ODPOJIT OD HRY</button>` : `<label>VYHRAZENÁ HÁDANKA <select id="terminal-reservation-${escapeHtml(terminal.id)}"><option value="">— BEZ REZERVACE —</option>${options}</select></label><div class="admin-actions"><button onclick="reserveAdminTerminal('${escapeHtml(terminal.id)}')" ${options ? '' : 'disabled'}>ULOŽIT REZERVACI</button><button onclick="clearAdminTerminalReservation('${escapeHtml(terminal.id)}')">UVOLNIT</button></div>${options ? '' : '<p>Ve scénáři zatím není žádná hádanka povolená pro terminál.</p>'}`}
                 </article>`;
             }).join('') || '<p>Žádný terminál není online. Na tabletu otevřete <strong>/terminal</strong>.</p>';
         }
 
-        async function updateCloudflareTerminalReservation(terminalId, puzzleId) {
+        async function updateCloudflareTerminalReservation(terminalId, puzzleKey) {
             const token = adminToken();
             if (!token) { showNotification('Zadejte administrátorské heslo.', 'error'); return; }
+            const puzzle=(latestAdminPayload?.puzzle_catalog||[]).find(item=>item.key===puzzleKey);
             const response = await fetch('/api/admin/terminal-reserve', {
                 method:'POST',
                 headers:{'Content-Type':'application/json', Authorization:`Bearer ${token}`},
-                body:JSON.stringify({terminal_id:terminalId, puzzle_id:puzzleId}),
+                body:JSON.stringify({terminal_id:terminalId, scenario_id:puzzle?.scenario_id||'', puzzle_id:puzzle?.id||''}),
             });
             const payload = await response.json().catch(() => ({}));
             if (!response.ok) throw new Error(payload.error === 'terminal_attached' ? 'Připojený terminál nelze přerezervovat.' : (payload.error || 'Rezervaci se nepodařilo uložit.'));
@@ -2537,13 +2541,25 @@
             if (!value) { showNotification('Vyberte hádanku.', 'error'); return; }
             if (adminUsesHttp('terminal_reservation')) {
                 updateCloudflareTerminalReservation(terminalId, value).catch(error => showNotification(error.message, 'error'));
-            } else sendAdmin('admin.terminal_reserve', {terminal_id:terminalId, puzzle_id:value});
+            } else {
+                const puzzle=(latestAdminPayload?.puzzle_catalog||[]).find(item=>item.key===value);
+                sendAdmin('admin.terminal_reserve', {terminal_id:terminalId, scenario_id:puzzle?.scenario_id||'', puzzle_id:puzzle?.id||''});
+            }
         }
 
         function clearAdminTerminalReservation(terminalId) {
             if (adminUsesHttp('terminal_reservation')) {
                 updateCloudflareTerminalReservation(terminalId, '').catch(error => showNotification(error.message, 'error'));
-            } else sendAdmin('admin.terminal_reserve', {terminal_id:terminalId, puzzle_id:''});
+            } else sendAdmin('admin.terminal_reserve', {terminal_id:terminalId, scenario_id:'', puzzle_id:''});
+        }
+
+        async function releaseAdminTerminal(terminalId) {
+            if(!window.confirm('Odpojit tento terminál od právě hrané hry? Terminál se vrátí do čekacího režimu.'))return;
+            if(adminUsesHttp('terminal_release')){
+                try{const response=await fetch('/api/admin/terminal-release',{method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${adminToken()}`},body:JSON.stringify({terminal_id:terminalId})});const result=await response.json().catch(()=>({}));if(!response.ok)throw new Error(result.error||'Terminál se nepodařilo odpojit.');showNotification('Terminál byl odpojen od hry.','success');await loadAdminOverview();}catch(error){showNotification(error.message,'error');}
+                return;
+            }
+            sendAdmin('admin.terminal_release',{terminal_id:terminalId});
         }
 
         function resolveAdminCheckpoint(sessionId, checkpointId) {
@@ -2940,6 +2956,7 @@
             renderScenarioSettings();
             renderTerminalCatalogSettings();
             renderScenarioEditorCatalog();
+            renderScenarioAvailability();
             renderTerminalAssignments();
             if (!teams.length) {
                 grid.innerHTML = `<p>${allTeams.length ? 'Filtrům neodpovídá žádný tým.' : 'Nejsou evidované žádné týmy.'}</p>`;
@@ -3047,6 +3064,31 @@
             document.getElementById('scenario-editor-errors').innerHTML = errors.length
                 ? `<ul>${errors.map(item => `<li><strong>${escapeHtml(item.path)}</strong>: ${escapeHtml(item.message)}</li>`).join('')}</ul>`
                 : '<p>Všechny nalezené scénáře jsou platné.</p>';
+        }
+
+        function renderScenarioAvailability() {
+            const target=document.getElementById('scenario-availability-grid'),button=document.getElementById('scenario-availability-save');
+            if(!target||!button)return;
+            if(!adminSupports('scenario_availability')){target.innerHTML='<p>Tento runtime nepodporuje zákaz scénářů.</p>';button.hidden=true;return;}
+            button.hidden=false;
+            const catalog=latestAdminPayload?.scenario_catalog||[];
+            target.innerHTML=catalog.map(item=>`<label class="admin-team"><input type="checkbox" value="${escapeHtml(item.id)}" ${item.enabled!==false?'checked':''}> <strong>${escapeHtml(item.title)}</strong><br><small>${escapeHtml(item.id)}</small></label>`).join('')||'<p>Nejsou dostupné žádné platné scénáře.</p>';
+        }
+
+        async function saveScenarioAvailability() {
+            const enabledScenarioIds=[...document.querySelectorAll('#scenario-availability-grid input:checked')].map(input=>input.value);
+            if(!enabledScenarioIds.length){showNotification('Alespoň jeden scénář musí zůstat povolený.','error');return;}
+            if(!window.confirm('Uložit dostupnost scénářů? Zakázané scénáře nepůjde použít pro nové lobby ani starty.'))return;
+            if(adminUsesHttp('scenario_availability')){
+                try{
+                    const operationId=crypto.randomUUID?.()||`scenario-availability-${Date.now()}`;
+                    const response=await fetch('/api/admin/scenario-availability',{method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${adminToken()}`},body:JSON.stringify({operation_id:operationId,enabled_scenario_ids:enabledScenarioIds})});
+                    const result=await response.json().catch(()=>({}));if(!response.ok)throw new Error(result.message||result.error||'Dostupnost scénářů se nepodařilo uložit.');
+                    showNotification(result.changed===false?'Dostupnost už byla nastavena.':'Dostupnost scénářů byla uložena.','success');await loadAdminOverview();
+                }catch(error){showNotification(error.message||'Dostupnost scénářů se nepodařilo uložit.','error');}
+                return;
+            }
+            sendAdmin('admin.scenario_availability',{enabled_scenario_ids:enabledScenarioIds});
         }
 
         function loadScenarioEditor() {
@@ -3291,11 +3333,13 @@
             terminalEligibleTeamAvailable = available;
             document.body.classList.toggle('terminal-team-eligible', available);
             const title = payload?.puzzle_title || '';
+            const scenarioTitle = payload?.scenario_title || payload?.scenario_id || '';
+            const reservationLabel = scenarioTitle ? `${scenarioTitle} — ${title}` : title;
             document.getElementById('terminal-pair-status').textContent = !payload?.reserved
                 ? 'Terminál zatím není v administraci vyhrazen žádné hádance.'
                 : (available
-                    ? `Vyhrazeno: ${title}. Tým v odpovídající fázi může QR načíst.`
-                    : `Vyhrazeno: ${title}. Čekám na tým v odpovídající fázi hry.`);
+                    ? `Vyhrazeno: ${reservationLabel}. Tým v odpovídající fázi může QR načíst.`
+                    : `Vyhrazeno: ${reservationLabel}. Čekám na tým v odpovídající fázi hry.`);
         }
 
         function requestTerminalStatus() {

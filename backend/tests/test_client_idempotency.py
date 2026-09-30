@@ -38,7 +38,7 @@ def test_gameplay_commands_use_persistent_operation_queue() -> None:
 def test_operation_queue_is_part_of_current_offline_cache() -> None:
     service_worker = (ROOT / "client" / "sw.js").read_text(encoding="utf-8")
 
-    assert "const CACHE_NAME = 'escape-bot-v127';" in service_worker
+    assert "const CACHE_NAME = 'escape-bot-v129';" in service_worker
     assert "'./operation-queue.js'" in service_worker
 
 

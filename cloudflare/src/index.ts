@@ -47,8 +47,10 @@ const ADMIN_CAPABILITIES = {
     "support_message",
     "checkpoint",
     "scenario_play_modes",
+    "scenario_availability",
     "terminal_catalog",
     "terminal_reservation",
+    "terminal_release",
     "spectate",
     "game_reset",
     "game_player",
@@ -69,8 +71,10 @@ const ADMIN_CAPABILITIES = {
     "support_message",
     "checkpoint",
     "scenario_play_modes",
+    "scenario_availability",
     "terminal_catalog",
     "terminal_reservation",
+    "terminal_release",
     "spectate",
     "game_reset",
     "game_player",
@@ -83,8 +87,10 @@ const ADMIN_CAPABILITIES = {
   game_player_actions: ["exclude", "include", "reset"],
   terminal_reservation: true,
   scenario_play_modes: true,
+  scenario_availability: true,
   terminal_catalog: true,
   terminal_assignment: false,
+  terminal_release: true,
 } as const;
 
 const ADMIN_RESOLUTION_PRESETS = {
@@ -158,6 +164,7 @@ interface TerminalDeviceRecord {
   label: string;
   status: "free" | "routing" | "attached";
   puzzleId: string;
+  scenarioId: string;
   sessionId: string;
   controllerId: string;
   online: boolean;
@@ -174,6 +181,7 @@ interface TerminalRouteRecord {
   sessionId: string;
   controllerId: string;
   puzzleId: string;
+  scenarioId: string;
   expiresAt: number;
 }
 
@@ -191,7 +199,7 @@ interface StartQueueRecord {
 }
 
 interface DirectorySnapshot {
-  schemaVersion: 7;
+  schemaVersion: 8;
   activeEventId: string;
   joinCodes: Record<string, string>;
   teamKeys: Record<string, string>;
@@ -204,6 +212,7 @@ interface DirectorySnapshot {
   lastGameStarts: Record<string, string>;
   startQueue: Record<string, StartQueueRecord>;
   puzzlePlayModes: Record<string, "phones" | "supplemental" | "exclusive">;
+  disabledGameIds: string[];
   adminOperationReceipts: Record<string, Record<string, unknown>>;
   adminAudit: Array<Record<string, unknown>>;
 }
@@ -299,7 +308,7 @@ function normalizeSnapshot(
 
 function defaultDirectory(): DirectorySnapshot {
   return {
-    schemaVersion: 7,
+    schemaVersion: 8,
     activeEventId: "",
     joinCodes: {},
     teamKeys: {},
@@ -312,6 +321,7 @@ function defaultDirectory(): DirectorySnapshot {
     lastGameStarts: {},
     startQueue: {},
     puzzlePlayModes: {},
+    disabledGameIds: [],
     adminOperationReceipts: {},
     adminAudit: [],
   };
@@ -319,7 +329,13 @@ function defaultDirectory(): DirectorySnapshot {
 
 function normalizeDirectory(stored: Partial<DirectorySnapshot> | undefined): DirectorySnapshot {
   const fallback = defaultDirectory();
-  return stored ? { ...fallback, ...stored, schemaVersion: 7 } : fallback;
+  if (!stored) return fallback;
+  const merged = { ...fallback, ...stored, schemaVersion: 8 } as DirectorySnapshot;
+  merged.terminalDevices = Object.fromEntries(Object.entries(merged.terminalDevices).map(([id, device]) => [id, {
+    ...device,
+    scenarioId: String(device.scenarioId || ""),
+  }]));
+  return merged;
 }
 
 function cleanText(value: unknown, maximum: number): string {
@@ -330,6 +346,10 @@ function objectRecord(value: unknown): Record<string, any> {
   return value && typeof value === "object" && !Array.isArray(value)
     ? value as Record<string, any>
     : {};
+}
+
+function scenarioPuzzleKey(scenarioId: string, puzzleId: string): string {
+  return `${scenarioId}::${puzzleId}`;
 }
 
 function normalizedTeamKey(lobbyType: string, scenarioId: string, teamName: string): string {
@@ -596,6 +616,24 @@ export class GameSession extends DurableObject<Env> {
       const payload = await request.json<Record<string, unknown>>();
       return this.serializeDirectory(() => this.reserveTerminal(payload));
     }
+    if (url.pathname === "/internal/admin/terminal-release" && request.method === "POST") {
+      const payload = await request.json<Record<string, unknown>>();
+      if (request.headers.get("X-EscapeBot-Internal-Terminal") === "1") {
+        await this.serializeState(() => this.releaseTerminalById(
+          cleanText(payload.terminal_id, 128),
+          "Terminál odpojil Game Master.",
+          false,
+        ));
+        return json({ success: true });
+      }
+      if (request.headers.get("X-EscapeBot-Internal-Admin") !== "1") return json({ error: "not_found" }, 404);
+      return this.serializeDirectory(() => this.releaseAdminTerminal(payload));
+    }
+    if (url.pathname === "/internal/admin/scenario-availability" && request.method === "POST") {
+      if (request.headers.get("X-EscapeBot-Internal-Admin") !== "1") return json({ error: "not_found" }, 404);
+      const payload = await request.json<Record<string, unknown>>();
+      return this.serializeDirectory(() => this.updateScenarioAvailability(payload));
+    }
     if (url.pathname === "/internal/terminal/claim" && request.method === "POST") {
       if (request.headers.get("X-EscapeBot-Internal-Terminal") !== "1") {
         return json({ error: "not_found" }, 404);
@@ -644,6 +682,7 @@ export class GameSession extends DurableObject<Env> {
       if (!this.snapshot.lobby.started || objectRecord(this.snapshot.gameState.flags).game_completed) {
         return json({ available: false });
       }
+      if (cleanText(payload.scenario_id, 64) !== this.snapshot.lobby.scenarioId) return json({ available: false });
       const scenario = await this.loadScenario(this.snapshot.lobby.scenarioId);
       return json({ available: terminalPuzzleAvailable(scenario, this.snapshot.gameState, cleanText(payload.puzzle_id, 128)) });
     }
@@ -987,11 +1026,14 @@ export class GameSession extends DurableObject<Env> {
       throw new Error("Vybraná hra není pro tento typ lobby dostupná.");
     }
 
+    const directory = normalizeDirectory(await this.ctx.storage.get<DirectorySnapshot>(DIRECTORY_KEY));
+    if (directory.disabledGameIds.includes(scenarioId)) {
+      throw new Error("Tento scénář je správcem zakázaný.");
+    }
     const activeEvent = await this.loadActiveEvent(true);
     if (activeEvent && !activeEvent.games.some((configuration) => configuration.game_id === scenarioId)) {
       throw new Error("Tato hra není součástí aktivního eventu.");
     }
-    const directory = normalizeDirectory(await this.ctx.storage.get<DirectorySnapshot>(DIRECTORY_KEY));
     const teamKey = `${activeEvent?.id || "no-event"}\u0000${normalizedTeamKey(lobbyType, scenarioId, teamName)}`;
     const creatorKey = `${clientId}\u0000${mode}\u0000${teamKey}`;
     const existingForCreator = directory.creatorKeys[creatorKey];
@@ -1203,6 +1245,7 @@ export class GameSession extends DurableObject<Env> {
       label: terminalLabel,
       status: "free",
       puzzleId: previous?.puzzleId || "",
+      scenarioId: previous?.scenarioId || "",
       sessionId: "",
       controllerId: "",
       online: true,
@@ -1233,11 +1276,14 @@ export class GameSession extends DurableObject<Env> {
   private async terminalStatus(directory: DirectorySnapshot, terminalId: string): Promise<Record<string, unknown>> {
     const device = directory.terminalDevices[terminalId];
     const puzzleId = device?.puzzleId || "";
+    const scenarioId = device?.scenarioId || "";
     let puzzleTitle = puzzleId;
+    let scenarioTitle = scenarioId;
     let eligibleTeamCount = 0;
     if (puzzleId) {
-      const games = await this.loadRuntimeGames();
-      for (const game of games) {
+      const game = (await this.loadRuntimeGames()).find((candidate) => candidate.id === scenarioId);
+      if (game) {
+        scenarioTitle = game.title;
         const scenario = await this.loadScenario(game.id);
         const puzzle = objectRecord(objectRecord(scenario.puzzles)[puzzleId]);
         if (puzzle.title) puzzleTitle = String(puzzle.title);
@@ -1250,7 +1296,7 @@ export class GameSession extends DurableObject<Env> {
             {
               method: "POST",
               headers: { "Content-Type": "application/json", "X-EscapeBot-Internal-Terminal": "1" },
-              body: JSON.stringify({ puzzle_id: puzzleId }),
+              body: JSON.stringify({ scenario_id: scenarioId, puzzle_id: puzzleId }),
             },
           );
           return response.ok && Boolean((await response.json<Record<string, unknown>>()).available);
@@ -1260,19 +1306,24 @@ export class GameSession extends DurableObject<Env> {
       }));
       eligibleTeamCount = availability.filter(Boolean).length;
     }
-    return { reserved: Boolean(puzzleId), puzzle_id: puzzleId, puzzle_title: puzzleTitle, eligible_team_count: eligibleTeamCount };
+    return { reserved: Boolean(puzzleId && scenarioId), scenario_id: scenarioId, scenario_title: scenarioTitle,
+      puzzle_id: puzzleId, puzzle_title: puzzleTitle, eligible_team_count: eligibleTeamCount };
   }
 
   private async reserveTerminal(payload: Record<string, unknown>): Promise<Response> {
     const terminalId = cleanText(payload.terminal_id, 128);
+    const scenarioId = cleanText(payload.scenario_id, 64);
     const puzzleId = cleanText(payload.puzzle_id, 128);
     const directory = normalizeDirectory(await this.ctx.storage.get<DirectorySnapshot>(DIRECTORY_KEY));
     const device = directory.terminalDevices[terminalId];
     if (!device) return json({ error: "terminal_not_found" }, 404);
     if (device.status !== "free") return json({ error: "terminal_attached" }, 409);
     const catalog = await this.terminalCatalog();
-    if (puzzleId && !catalog.some((puzzle) => puzzle.id === puzzleId)) return json({ error: "invalid_puzzle_id" }, 400);
+    if (puzzleId && !catalog.some((puzzle) => puzzle.id === puzzleId && puzzle.scenario_id === scenarioId)) {
+      return json({ error: "invalid_puzzle_id" }, 400);
+    }
     device.puzzleId = puzzleId;
+    device.scenarioId = puzzleId ? scenarioId : "";
     device.updatedAt = new Date().toISOString();
     await this.ctx.storage.put(DIRECTORY_KEY, directory);
     for (const socket of this.ctx.getWebSockets()) {
@@ -1281,22 +1332,79 @@ export class GameSession extends DurableObject<Env> {
         this.send(socket, "terminal.status", await this.terminalStatus(directory, terminalId));
       }
     }
-    return json({ success: true, terminal_id: terminalId, puzzle_id: puzzleId });
+    return json({ success: true, terminal_id: terminalId, scenario_id: device.scenarioId, puzzle_id: puzzleId });
+  }
+
+  private async releaseAdminTerminal(payload: Record<string, unknown>): Promise<Response> {
+    const terminalId = cleanText(payload.terminal_id, 128);
+    const directory = normalizeDirectory(await this.ctx.storage.get<DirectorySnapshot>(DIRECTORY_KEY));
+    const device = directory.terminalDevices[terminalId];
+    if (!device) return json({ error: "terminal_not_found" }, 404);
+    if (device.status === "free" || !device.sessionId) return json({ error: "terminal_not_attached" }, 409);
+    const response = await this.runtimeEnv.GAME_SESSIONS.getByName(device.sessionId).fetch(
+      "https://internal/internal/admin/terminal-release",
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-EscapeBot-Internal-Terminal": "1" },
+        body: JSON.stringify({ terminal_id: terminalId }),
+      },
+    );
+    await response.text();
+    if (!response.ok) return json({ error: "terminal_release_failed" }, 502);
+    device.status = "free";
+    device.sessionId = "";
+    device.controllerId = "";
+    device.updatedAt = new Date().toISOString();
+    await this.ctx.storage.put(DIRECTORY_KEY, directory);
+    return json({ success: true, terminal_id: terminalId });
+  }
+
+  private async updateScenarioAvailability(payload: Record<string, unknown>): Promise<Response> {
+    const operationId = cleanText(payload.operation_id, 128);
+    if (!/^[A-Za-z0-9._:-]{1,128}$/.test(operationId)) return json({ error: "invalid_operation_id" }, 400);
+    if (!Array.isArray(payload.enabled_scenario_ids)) {
+      return json({ error: "invalid_enabled_scenarios", message: "Seznam povolených scénářů nemá platný formát." }, 400);
+    }
+    const directory = normalizeDirectory(await this.ctx.storage.get<DirectorySnapshot>(DIRECTORY_KEY));
+    const receiptKey = `scenario-availability:${operationId}`;
+    const previousReceipt = directory.adminOperationReceipts[receiptKey];
+    if (previousReceipt) return json({ ...previousReceipt, changed: false });
+    const games = await this.loadRuntimeGames();
+    const known = new Set(games.map((game) => game.id));
+    const enabled = new Set(payload.enabled_scenario_ids.map((value) => cleanText(value, 64)));
+    if (!enabled.size || [...enabled].some((gameId) => !known.has(gameId))) {
+      return json({ error: "invalid_enabled_scenarios", message: "Musí zůstat povolený alespoň jeden platný scénář." }, 400);
+    }
+    const disabled = [...known].filter((gameId) => !enabled.has(gameId)).sort();
+    const changed = JSON.stringify([...directory.disabledGameIds].sort()) !== JSON.stringify(disabled);
+    directory.disabledGameIds = disabled;
+    const result = { success: true, changed, enabled_scenario_ids: [...enabled].sort(), disabled_scenario_ids: disabled };
+    directory.adminOperationReceipts[receiptKey] = result;
+    directory.adminAudit = [...directory.adminAudit, {
+      at: new Date().toISOString(), type: "admin.scenario_availability",
+      label: "Game Master změnil dostupnost scénářů.", disabled_scenario_ids: disabled,
+    }].slice(-500);
+    await this.ctx.storage.put(DIRECTORY_KEY, directory);
+    if (changed) await this.broadcastRuntimeSettings(await this.runtimeSettingsPayload(), directory);
+    return json(result);
   }
 
   private async puzzleCatalog(): Promise<Array<Record<string, string>>> {
     const catalog = new Map<string, Record<string, string>>();
     for (const game of await this.loadRuntimeGames()) {
+      if (!game.lobby_types.some((type) => type === "on_site_qr" || type === "geo")) continue;
       const scenario = await this.loadScenario(game.id);
       for (const [id, value] of Object.entries(objectRecord(scenario.puzzles))) {
         const puzzle = objectRecord(value);
         const terminal = objectRecord(puzzle.terminal);
         const mode = String(terminal.mode || "phones");
         const playMode = mode === "mirror" ? "supplemental" : mode === "exclusive" ? "exclusive" : "phones";
-        const previous = catalog.get(id);
-        if (previous && previous.play_mode !== "phones" && playMode === "phones") continue;
-        catalog.set(id, {
+        const key = scenarioPuzzleKey(game.id, id);
+        catalog.set(key, {
+          key,
           id,
+          scenario_id: game.id,
+          scenario_title: game.title,
           title: String(puzzle.title || id),
           type: String(puzzle.type || "unknown"),
           checkpoint_id: String(puzzle.checkpoint_id || ""),
@@ -1305,13 +1413,15 @@ export class GameSession extends DurableObject<Env> {
         });
       }
     }
-    return [...catalog.values()].sort((left, right) => left.title.localeCompare(right.title, "cs"));
+    return [...catalog.values()].sort((left, right) =>
+      left.scenario_title.localeCompare(right.scenario_title, "cs") || left.title.localeCompare(right.title, "cs"));
   }
 
-  private async terminalCatalog(): Promise<Array<{ id: string; title: string; play_mode: string }>> {
+  private async terminalCatalog(): Promise<Array<Record<string, string>>> {
     return (await this.puzzleCatalog())
       .filter((puzzle) => puzzle.play_mode !== "phones")
-      .map((puzzle) => ({ id: puzzle.id, title: puzzle.title, play_mode: puzzle.play_mode }));
+      .map((puzzle) => ({ key: puzzle.key, id: puzzle.id, title: puzzle.title, scenario_id: puzzle.scenario_id,
+        scenario_title: puzzle.scenario_title, play_mode: puzzle.play_mode }));
   }
 
   private async updateScenarioPlayModes(payload: Record<string, unknown>): Promise<Response> {
@@ -1326,7 +1436,7 @@ export class GameSession extends DurableObject<Env> {
 
     const requested = objectRecord(payload.modes);
     const catalog = await this.puzzleCatalog();
-    const knownIds = catalog.map((puzzle) => puzzle.id).sort();
+    const knownIds = catalog.map((puzzle) => puzzle.key).sort();
     const requestedIds = Object.keys(requested).sort();
     if (!knownIds.length || JSON.stringify(requestedIds) !== JSON.stringify(knownIds)) {
       return json({
@@ -1342,14 +1452,15 @@ export class GameSession extends DurableObject<Env> {
       return json({ error: "invalid_scenario_play_mode", message: "Neplatný způsob hraní hádanky." }, 400);
     }
 
-    const before = Object.fromEntries(catalog.map((puzzle) => [puzzle.id, puzzle.play_mode]));
+    const before = Object.fromEntries(catalog.map((puzzle) => [puzzle.key, puzzle.play_mode]));
     const changed = knownIds.some((puzzleId) => before[puzzleId] !== modes[puzzleId]);
     const now = new Date().toISOString();
     if (changed) {
       directory.puzzlePlayModes = modes;
       for (const device of Object.values(directory.terminalDevices)) {
-        if (device.status === "free" && device.puzzleId && modes[device.puzzleId] === "phones") {
+        if (device.status === "free" && device.puzzleId && modes[scenarioPuzzleKey(device.scenarioId || "", device.puzzleId)] === "phones") {
           device.puzzleId = "";
+          device.scenarioId = "";
           device.updatedAt = now;
         }
       }
@@ -1385,14 +1496,14 @@ export class GameSession extends DurableObject<Env> {
       return json({ error: "invalid_terminal_catalog", message: "Katalog terminálu musí být seznam hádanek." }, 400);
     }
     const catalog = await this.puzzleCatalog();
-    const knownIds = catalog.map((puzzle) => puzzle.id).sort();
+    const knownIds = catalog.map((puzzle) => puzzle.key).sort();
     const puzzleIds = [...new Set(payload.puzzle_ids.map((value) => cleanText(value, 128)))].sort();
     if (!puzzleIds.length || puzzleIds.some((puzzleId) => !knownIds.includes(puzzleId))) {
       return json({ error: "invalid_terminal_catalog", message: "Vyberte alespoň jednu platnou hádanku pro terminál." }, 400);
     }
 
     const selected = new Set(puzzleIds);
-    const beforeModes = Object.fromEntries(catalog.map((puzzle) => [puzzle.id, puzzle.play_mode])) as Record<string, "phones" | "supplemental" | "exclusive">;
+    const beforeModes = Object.fromEntries(catalog.map((puzzle) => [puzzle.key, puzzle.play_mode])) as Record<string, "phones" | "supplemental" | "exclusive">;
     const before = knownIds.filter((puzzleId) => beforeModes[puzzleId] !== "phones");
     const modes = Object.fromEntries(knownIds.map((puzzleId) => [
       puzzleId,
@@ -1405,8 +1516,9 @@ export class GameSession extends DurableObject<Env> {
     if (changed) {
       directory.puzzlePlayModes = modes;
       for (const device of Object.values(directory.terminalDevices)) {
-        if (device.status === "free" && device.puzzleId && !selected.has(device.puzzleId)) {
+        if (device.status === "free" && device.puzzleId && !selected.has(scenarioPuzzleKey(device.scenarioId || "", device.puzzleId))) {
           device.puzzleId = "";
+          device.scenarioId = "";
           device.updatedAt = now;
         }
       }
@@ -1432,6 +1544,7 @@ export class GameSession extends DurableObject<Env> {
     const code = cleanText(payload.code, 64).toUpperCase();
     const sessionId = cleanText(payload.session_id, 128);
     const controllerId = cleanText(payload.controller_id, 128);
+    const scenarioId = cleanText(payload.scenario_id, 64);
     const eligible = new Set(Array.isArray(payload.eligible_puzzle_ids) ? payload.eligible_puzzle_ids.map(String) : []);
     if (!TERMINAL_CODE_PATTERN.test(code) || !SESSION_ID_PATTERN.test(sessionId) || !CLIENT_ID_PATTERN.test(controllerId)) {
       return json({ error: "invalid_terminal_pairing" }, 400);
@@ -1448,7 +1561,7 @@ export class GameSession extends DurableObject<Env> {
       await this.ctx.storage.put(DIRECTORY_KEY, directory);
       return json({ error: "expired", reason: "Párovací QR terminálu už není platný. Na tabletu vytvořte nový." }, 410);
     }
-    if (!device.puzzleId || !eligible.has(device.puzzleId)) {
+    if (!device.puzzleId || device.scenarioId !== scenarioId || !eligible.has(device.puzzleId)) {
       return json({ error: "puzzle_unavailable", reason: "Tento terminál je vyhrazen jiné hádance, než má váš tým právě dostupnou." }, 409);
     }
     const token = randomRecoveryToken();
@@ -1457,6 +1570,7 @@ export class GameSession extends DurableObject<Env> {
       sessionId,
       controllerId,
       puzzleId: device.puzzleId,
+      scenarioId: device.scenarioId,
       expiresAt: now + 60_000,
     };
     delete directory.terminalPairings[digest];
@@ -1470,6 +1584,7 @@ export class GameSession extends DurableObject<Env> {
       success: true,
       terminal_id: device.id,
       puzzle_id: device.puzzleId,
+      scenario_id: device.scenarioId,
       terminal_label: device.label,
       attach_token: token,
     });
@@ -1915,6 +2030,7 @@ export class GameSession extends DurableObject<Env> {
         status: device.status === "free" ? "free" : "attached",
         session_id: device.sessionId,
         team_name: teams.find((team) => team.session_id === device.sessionId)?.team_name || "",
+        scenario_id: device.scenarioId || "",
         puzzle_id: device.puzzleId,
       }))
       .sort((left, right) => left.label.localeCompare(right.label, "cs"));
@@ -1937,7 +2053,10 @@ export class GameSession extends DurableObject<Env> {
       leaderboard,
       admin_capabilities: ADMIN_CAPABILITIES,
       resolution_presets: ADMIN_RESOLUTION_PRESETS,
-      scenario_catalog: [],
+      scenario_catalog: (await this.loadRuntimeGames()).map((game) => ({
+        ...game,
+        enabled: !directory.disabledGameIds.includes(game.id),
+      })),
       scenario_errors: [],
       puzzle_catalog: puzzleCatalog,
       terminals,
@@ -2398,6 +2517,7 @@ export class GameSession extends DurableObject<Env> {
             code,
             session_id: this.snapshot.sessionId,
             controller_id: attachment.clientId,
+            scenario_id: this.snapshot.lobby.scenarioId,
             eligible_puzzle_ids: eligiblePuzzleIds,
           }),
         },
@@ -2483,7 +2603,6 @@ export class GameSession extends DurableObject<Env> {
       const attachment = candidate.deserializeAttachment() as SocketAttachment | null;
       return attachment?.role === "terminal" && (!terminalId || attachment.terminalId === terminalId);
     });
-    if (!notifyDirectory) return;
     for (const terminal of terminals) {
       if (terminal.readyState === WebSocket.OPEN) this.send(terminal, "terminal.released", { reason });
       terminal.close(4003, "Terminal released");
@@ -2504,9 +2623,11 @@ export class GameSession extends DurableObject<Env> {
       await this.scheduleNextAlarm();
       await this.broadcastGameState();
     }
-    for (const terminal of terminals) {
-      const attachment = terminal.deserializeAttachment() as SocketAttachment | null;
-      if (attachment?.terminalId) await this.notifyTerminalReleased(attachment.terminalId);
+    if (notifyDirectory) {
+      for (const terminal of terminals) {
+        const attachment = terminal.deserializeAttachment() as SocketAttachment | null;
+        if (attachment?.terminalId) await this.notifyTerminalReleased(attachment.terminalId);
+      }
     }
   }
 
@@ -2883,6 +3004,7 @@ export class GameSession extends DurableObject<Env> {
     if (penalty) this.broadcast("score.update", { score: this.snapshot.gameState.score, delta: -penalty, penalty, reason: "admin_session_end", description: labels[reason] });
     this.broadcast("operations.stopped", { message: `${labels[reason]}. Výsledek týmu je připraven k vyhodnocení.` });
     await this.broadcastGameState();
+    await this.releaseTerminalById("", "Hra byla ukončena. Terminál je znovu volný.");
     return json({ changed: true, session_id: this.snapshot.sessionId, revision: this.snapshot.revision, reason, penalty });
   }
 
@@ -2966,6 +3088,7 @@ export class GameSession extends DurableObject<Env> {
         message: "Herní provoz byl ukončen Game Masterem. Výsledek týmu je připraven k vyhodnocení.",
       });
       await this.broadcastGameState();
+      await this.releaseTerminalById("", "Herní provoz byl ukončen. Terminál je znovu volný.");
     }
     return json({ changed, session_id: this.snapshot.sessionId, revision: this.snapshot.revision });
   }
@@ -3115,7 +3238,7 @@ export class GameSession extends DurableObject<Env> {
       modes = directory.puzzlePlayModes;
     }
     for (const [puzzleId, puzzleValue] of Object.entries(objectRecord(scenario.puzzles))) {
-      const mode = cleanText(modes[puzzleId], 16);
+      const mode = cleanText(modes[scenarioPuzzleKey(scenarioId, puzzleId)] ?? modes[puzzleId], 16);
       if (!new Set(["phones", "supplemental", "exclusive"]).has(mode)) continue;
       const puzzle = objectRecord(puzzleValue);
       const terminal = objectRecord(puzzle.terminal);
@@ -3217,6 +3340,9 @@ export class GameSession extends DurableObject<Env> {
     softIntervalOverride = false,
   ): Promise<Record<string, unknown>> {
     const schedule = eventStartAvailability(event, new Date(), gameDurationMinutes);
+    if (directory.disabledGameIds.includes(gameId)) {
+      return { ...schedule, start_allowed: false, reason: "Tento scénář je správcem zakázaný." };
+    }
     const configuration = event.games.find((game) => game.game_id === gameId);
     if (!configuration) return { ...schedule, start_allowed: false, reason: "Tato hra není součástí aktivního eventu." };
 
@@ -3275,6 +3401,9 @@ export class GameSession extends DurableObject<Env> {
     const gameId = cleanText(payload.game_id, 64);
     if (!SESSION_ID_PATTERN.test(sessionId) || !gameId) return json({ error: "invalid_start_claim" }, 400);
     const directory = normalizeDirectory(await this.ctx.storage.get<DirectorySnapshot>(DIRECTORY_KEY));
+    if (directory.disabledGameIds.includes(gameId)) {
+      return json({ start_allowed: false, reason: "Tento scénář je správcem zakázaný." }, 409);
+    }
     let event: EventSnapshot | null;
     try {
       event = await this.loadActiveEvent(true);
@@ -3561,10 +3690,12 @@ export class GameSession extends DurableObject<Env> {
 
   private async runtimeSettingsPayload(): Promise<Record<string, unknown>> {
     const configurableGames = await this.loadRuntimeGames();
+    const directory = normalizeDirectory(await this.ctx.storage.get<DirectorySnapshot>(DIRECTORY_KEY));
+    const enabledGames = configurableGames.filter((game) => !directory.disabledGameIds.includes(game.id));
     const event = await this.loadActiveEvent();
     const eventGames = new Map((event?.games ?? []).map((game) => [game.game_id, game]));
     const games = event
-      ? configurableGames
+      ? enabledGames
         .filter((game) => eventGames.has(game.id))
         .map((game) => {
           const configuration = eventGames.get(game.id)!;
@@ -3578,16 +3709,15 @@ export class GameSession extends DurableObject<Env> {
             max_active_teams: configuration.max_active_teams,
           };
         })
-      : configurableGames;
+      : enabledGames;
     games.sort((left, right) => {
       const priority = (role: unknown) => role === "primary" ? 0 : role === "competitive" ? 1 : 2;
       return priority(objectRecord(left).event_role) - priority(objectRecord(right).event_role) ||
         left.title.localeCompare(right.title, "cs");
     });
     const gameDurationMinutes = boundedInteger(this.runtimeEnv.GAME_DURATION_MINUTES, 165, 15, 720);
-    const directory = normalizeDirectory(await this.ctx.storage.get<DirectorySnapshot>(DIRECTORY_KEY));
     const puzzleCatalog = await this.puzzleCatalog();
-    const puzzlePlayModes = Object.fromEntries(puzzleCatalog.map((puzzle) => [puzzle.id, puzzle.play_mode]));
+    const puzzlePlayModes = Object.fromEntries(puzzleCatalog.map((puzzle) => [puzzle.key, puzzle.play_mode]));
     const availability = event
       ? await this.eventGameAvailability(event, directory, event.primary_game_id, gameDurationMinutes)
       : {
@@ -3619,14 +3749,14 @@ export class GameSession extends DurableObject<Env> {
       closing_time: "20:00",
       timezone: event?.timezone ?? "Europe/Prague",
       games,
-      configurable_games: configurableGames,
+      configurable_games: configurableGames.map((game) => ({ ...game, enabled: !directory.disabledGameIds.includes(game.id) })),
       start_queue: startQueue,
       checkpoints: [],
       availability,
       availability_by_lobby_type: { online_doom: availability, on_site_qr: availability, geo: availability },
       display_announcements: event?.runtime.display_announcements ?? [],
       puzzle_play_modes: puzzlePlayModes,
-      terminal_puzzle_ids: puzzleCatalog.filter((puzzle) => puzzle.play_mode !== "phones").map((puzzle) => puzzle.id),
+      terminal_puzzle_ids: puzzleCatalog.filter((puzzle) => puzzle.play_mode !== "phones").map((puzzle) => puzzle.key),
       mapillary: { enabled: false, access_token: "" },
       event: event ?? {},
     };
@@ -3748,7 +3878,7 @@ export class GameSession extends DurableObject<Env> {
     const scenarioId = cleanText(payload.scenario_id || event.primary_game_id, 64);
     const games = await this.loadRuntimeGames();
     const game = games.find((candidate) => candidate.id === scenarioId);
-    if (!event.games.some((configuration) => configuration.game_id === scenarioId) || !game?.lobby_types.includes(lobbyType)) {
+    if (directory.disabledGameIds.includes(scenarioId) || !event.games.some((configuration) => configuration.game_id === scenarioId) || !game?.lobby_types.includes(lobbyType)) {
       return json({ error: "invalid_managed_game", message: "Vybraná hra není pro řízené lobby dostupná." }, 400);
     }
     const teamKey = `${event.id}\u0000${normalizedTeamKey(lobbyType, scenarioId, teamName)}`;
@@ -4097,6 +4227,7 @@ export class GameSession extends DurableObject<Env> {
       });
       await this.broadcastGameState(scenario);
       this.broadcast("scenario.progress", this.snapshot.scenarioProgress);
+      await this.releaseTerminalById("", "Čas hry vypršel. Terminál je znovu volný.");
       await this.scheduleNextAlarm();
       return;
     }
@@ -4614,6 +4745,28 @@ export default {
           headers: { "Content-Type": "application/json", "X-EscapeBot-Internal-Admin": "1" },
           body: JSON.stringify(payload),
         },
+      );
+    }
+    if (url.pathname === "/api/admin/terminal-release" && request.method === "POST") {
+      const unauthorized = await authorizeAdmin(request, env);
+      if (unauthorized) return unauthorized;
+      let payload: Record<string, unknown>;
+      try { payload = await request.json<Record<string, unknown>>(); }
+      catch { return json({ error: "invalid_json" }, 400); }
+      return env.GAME_SESSIONS.getByName(DIRECTORY_OBJECT_NAME).fetch(
+        "https://internal/internal/admin/terminal-release",
+        { method: "POST", headers: { "Content-Type": "application/json", "X-EscapeBot-Internal-Admin": "1" }, body: JSON.stringify(payload) },
+      );
+    }
+    if (url.pathname === "/api/admin/scenario-availability" && request.method === "POST") {
+      const unauthorized = await authorizeAdmin(request, env);
+      if (unauthorized) return unauthorized;
+      let payload: Record<string, unknown>;
+      try { payload = await request.json<Record<string, unknown>>(); }
+      catch { return json({ error: "invalid_json" }, 400); }
+      return env.GAME_SESSIONS.getByName(DIRECTORY_OBJECT_NAME).fetch(
+        "https://internal/internal/admin/scenario-availability",
+        { method: "POST", headers: { "Content-Type": "application/json", "X-EscapeBot-Internal-Admin": "1" }, body: JSON.stringify(payload) },
       );
     }
     if (url.pathname === "/api/admin/scenario-play-modes" && request.method === "POST") {

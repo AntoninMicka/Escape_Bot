@@ -163,6 +163,45 @@ describe("Cloudflare spike router", () => {
     expect(await response.json()).toEqual({ error: "not_found" });
   });
 
+  it("disables selected scenarios for new lobbies while keeping them in admin catalog", async () => {
+    const response = await SELF.fetch("https://example.test/api/admin/scenario-availability", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: "Bearer local-test-admin-token" },
+      body: JSON.stringify({ operation_id: "scenario-availability-001", enabled_scenario_ids: ["hotel_kraskov"] }),
+    });
+    expect(response.status).toBe(200);
+
+    const overview = await SELF.fetch("https://example.test/api/admin/overview", {
+      headers: { Authorization: "Bearer local-test-admin-token" },
+    });
+    const payload = await overview.json<Record<string, any>>();
+    expect(payload.scenario_catalog).toEqual(expect.arrayContaining([
+      expect.objectContaining({ id: "hotel_kraskov", enabled: true }),
+      expect.objectContaining({ id: "chronos_online", enabled: false }),
+    ]));
+
+    const bootstrap = await openSocket("https://example.test/ws?client_id=disabled-scenario-player");
+    const errorPromise = nextMessage(bootstrap, "lobby.error");
+    send(bootstrap, "lobby.solo", {
+      client_id: "disabled-scenario-player",
+      name: "Alice",
+      team_name: "Disabled Scenario Team",
+      lobby_type: "online_doom",
+      scenario_id: "chronos_online",
+    });
+    expect((await errorPromise).payload.message).toContain("zakázaný");
+    const restored = await SELF.fetch("https://example.test/api/admin/scenario-availability", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: "Bearer local-test-admin-token" },
+      body: JSON.stringify({
+        operation_id: "scenario-availability-002",
+        enabled_scenario_ids: ["hotel_kraskov", "chronos_online"],
+      }),
+    });
+    expect(restored.status).toBe(200);
+    await closeSocket(bootstrap, "done");
+  });
+
   it("reserves a terminal for a puzzle, attaches it without adding a player, and releases it safely", async () => {
     const bootstrap = await openSocket("https://example.test/ws?client_id=terminal-player");
     const routePromise = nextMessage(bootstrap, "lobby.route");
@@ -208,7 +247,7 @@ describe("Cloudflare spike router", () => {
         "Content-Type": "application/json",
         Authorization: "Bearer local-test-admin-token",
       },
-      body: JSON.stringify({ terminal_id: "terminal-device-1", puzzle_id: "time_machine_finale" }),
+      body: JSON.stringify({ terminal_id: "terminal-device-1", scenario_id: "hotel_kraskov", puzzle_id: "time_machine_finale" }),
     });
     expect(reserved.status).toBe(200);
 
@@ -243,6 +282,15 @@ describe("Cloudflare spike router", () => {
       status: "attached",
       puzzle_id: "time_machine_finale",
     }));
+
+    const adminReleasedPromise = nextMessage(routedTerminal, "terminal.released");
+    const adminRelease = await SELF.fetch("https://example.test/api/admin/terminal-release", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: "Bearer local-test-admin-token" },
+      body: JSON.stringify({ terminal_id: "terminal-device-1" }),
+    });
+    expect(adminRelease.status).toBe(200);
+    expect((await adminReleasedPromise).payload.reason).toContain("Game Master");
 
     await Promise.all([
       closeSocket(waitingTerminal, "routed"),
@@ -812,10 +860,12 @@ describe("Cloudflare spike router", () => {
       expect.objectContaining({ id: "timeline_lines", play_mode: "phones" }),
       expect.objectContaining({ id: "time_machine_finale", play_mode: "exclusive" }),
     ]));
+    expect(overview.puzzle_catalog.some((puzzle: Record<string, string>) => puzzle.scenario_id === "chronos_online")).toBe(false);
     const modes = Object.fromEntries(
-      overview.puzzle_catalog.map((puzzle: Record<string, string>) => [puzzle.id, puzzle.play_mode]),
+      overview.puzzle_catalog.map((puzzle: Record<string, string>) => [puzzle.key, puzzle.play_mode]),
     );
-    modes.timeline_lines = "supplemental";
+    const timelineKey = "hotel_kraskov::timeline_lines";
+    modes[timelineKey] = "supplemental";
     const payload = { operation_id: "scenario-modes-001", modes };
 
     const unauthorized = await SELF.fetch("https://example.test/api/admin/scenario-play-modes", {
@@ -831,7 +881,7 @@ describe("Cloudflare spike router", () => {
       body: JSON.stringify(payload),
     });
     expect(response.status).toBe(200);
-    expect(await response.json()).toMatchObject({ success: true, changed: true, modes: { timeline_lines: "supplemental" } });
+    expect(await response.json()).toMatchObject({ success: true, changed: true, modes: { [timelineKey]: "supplemental" } });
 
     const duplicate = await SELF.fetch("https://example.test/api/admin/scenario-play-modes", {
       method: "POST",
@@ -839,12 +889,12 @@ describe("Cloudflare spike router", () => {
       body: JSON.stringify(payload),
     });
     expect(duplicate.status).toBe(200);
-    expect(await duplicate.json()).toMatchObject({ changed: false, modes: { timeline_lines: "supplemental" } });
+    expect(await duplicate.json()).toMatchObject({ changed: false, modes: { [timelineKey]: "supplemental" } });
 
     const incomplete = await SELF.fetch("https://example.test/api/admin/scenario-play-modes", {
       method: "POST",
       headers: { "Content-Type": "application/json", ...authorization },
-      body: JSON.stringify({ operation_id: "scenario-modes-002", modes: { timeline_lines: "phones" } }),
+      body: JSON.stringify({ operation_id: "scenario-modes-002", modes: { [timelineKey]: "phones" } }),
     });
     expect(incomplete.status).toBe(400);
     expect(await incomplete.json()).toMatchObject({ error: "invalid_scenario_play_modes" });
@@ -856,10 +906,10 @@ describe("Cloudflare spike router", () => {
     ]));
     expect(updated.admin_audit.at(-1)).toMatchObject({
       type: "admin.scenario_play_modes",
-      after: { timeline_lines: "supplemental" },
+      after: { [timelineKey]: "supplemental" },
     });
 
-    const terminalCatalogPayload = { operation_id: "terminal-catalog-001", puzzle_ids: ["timeline_lines", "bowling_binary"] };
+    const terminalCatalogPayload = { operation_id: "terminal-catalog-001", puzzle_ids: [timelineKey, "hotel_kraskov::bowling_binary"] };
     expect((await SELF.fetch("https://example.test/api/admin/terminal-catalog", {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: "Bearer wrong-token" },
@@ -874,15 +924,15 @@ describe("Cloudflare spike router", () => {
     expect(await terminalCatalogResponse.json()).toMatchObject({
       success: true,
       changed: true,
-      puzzle_ids: ["bowling_binary", "timeline_lines"],
-      modes: { bowling_binary: "supplemental", timeline_lines: "supplemental", time_machine_finale: "phones" },
+      puzzle_ids: ["hotel_kraskov::bowling_binary", timelineKey],
+      modes: { "hotel_kraskov::bowling_binary": "supplemental", [timelineKey]: "supplemental", "hotel_kraskov::time_machine_finale": "phones" },
     });
     const terminalCatalogDuplicate = await SELF.fetch("https://example.test/api/admin/terminal-catalog", {
       method: "POST",
       headers: { "Content-Type": "application/json", ...authorization },
       body: JSON.stringify(terminalCatalogPayload),
     });
-    expect(await terminalCatalogDuplicate.json()).toMatchObject({ changed: false, puzzle_ids: ["bowling_binary", "timeline_lines"] });
+    expect(await terminalCatalogDuplicate.json()).toMatchObject({ changed: false, puzzle_ids: ["hotel_kraskov::bowling_binary", timelineKey] });
     const invalidTerminalCatalog = await SELF.fetch("https://example.test/api/admin/terminal-catalog", {
       method: "POST",
       headers: { "Content-Type": "application/json", ...authorization },
@@ -899,8 +949,8 @@ describe("Cloudflare spike router", () => {
     ]));
     expect(catalogOverview.admin_audit.at(-1)).toMatchObject({
       type: "admin.terminal_catalog",
-      before: expect.arrayContaining(["timeline_lines", "time_machine_finale"]),
-      after: ["bowling_binary", "timeline_lines"],
+      before: expect.arrayContaining([timelineKey, "hotel_kraskov::time_machine_finale"]),
+      after: ["hotel_kraskov::bowling_binary", timelineKey],
     });
 
     const sessionId = "scenario-mode-session";
@@ -913,8 +963,8 @@ describe("Cloudflare spike router", () => {
         creator_id: "mode-alice",
         team_name: "Mode Team",
         join_code: null,
-        lobby_type: "online_doom",
-        scenario_id: "chronos_online",
+        lobby_type: "on_site_qr",
+        scenario_id: "hotel_kraskov",
         player_name: "Alice",
       }),
     })).status).toBe(200);
@@ -951,13 +1001,13 @@ describe("Cloudflare spike router", () => {
       actions: [
         "managed_team_create", "managed_start", "managed_start_override", "event_runtime", "leaderboard_finalize", "event_settings",
         "score_adjustment", "session_extend", "session_end", "support_message",
-        "checkpoint", "scenario_play_modes", "terminal_catalog", "terminal_reservation", "spectate",
+        "checkpoint", "scenario_play_modes", "scenario_availability", "terminal_catalog", "terminal_reservation", "terminal_release", "spectate",
         "game_reset", "game_player", "team_finalize", "player_recovery", "team_delete",
       ],
       http_actions: [
         "managed_team_create", "managed_start", "managed_start_override", "event_runtime", "leaderboard_finalize", "event_settings",
         "score_adjustment", "session_extend", "session_end", "support_message",
-        "checkpoint", "scenario_play_modes", "terminal_catalog", "terminal_reservation", "spectate",
+        "checkpoint", "scenario_play_modes", "scenario_availability", "terminal_catalog", "terminal_reservation", "terminal_release", "spectate",
         "game_reset", "game_player", "team_finalize", "player_recovery", "team_delete",
       ],
       checkpoint_states: ["found", "solved"],
@@ -965,8 +1015,10 @@ describe("Cloudflare spike router", () => {
       game_player_actions: ["exclude", "include", "reset"],
       terminal_reservation: true,
       scenario_play_modes: true,
+      scenario_availability: true,
       terminal_catalog: true,
       terminal_assignment: false,
+      terminal_release: true,
     });
     expect(overview.resolution_presets).toMatchObject({
       technical: { penalty: 0 },

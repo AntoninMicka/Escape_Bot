@@ -57,7 +57,7 @@ class StateMachineCheckpointTests(unittest.IsolatedAsyncioTestCase):
         from escape_bot.team_lobby import Lobby
         terminal_socket = object()
         player_socket = object()
-        lobby = Lobby("terminal-session", "team", "alice", "Chrononauti", started=True)
+        lobby = Lobby("terminal-session", "team", "alice", "Chrononauti", started=True, scenario_id="hotel_kraskov")
         lobby.add_player("alice", "Alice")
         lobby_registry.by_session[lobby.session_id] = lobby
         previous_machine = active_sessions.get(lobby.session_id)
@@ -66,11 +66,11 @@ class StateMachineCheckpointTests(unittest.IsolatedAsyncioTestCase):
         original_modes = dict(runtime_settings.get("puzzle_play_modes", {}))
         original_reservations = dict(runtime_settings.get("terminal_reservations", {}))
         try:
-            runtime_settings["terminal_puzzle_ids"] = ["time_machine_finale"]
-            runtime_settings["puzzle_play_modes"] = {"time_machine_finale": "exclusive"}
+            runtime_settings["terminal_puzzle_ids"] = ["hotel_kraskov::time_machine_finale"]
+            runtime_settings["puzzle_play_modes"] = {"hotel_kraskov::time_machine_finale": "exclusive"}
             runtime_settings["terminal_reservations"] = {
-                "terminal-test": {"puzzle_id": "time_machine_finale"},
-                "terminal-test-2": {"puzzle_id": "time_machine_finale"},
+                "terminal-test": {"scenario_id": "hotel_kraskov", "puzzle_id": "time_machine_finale"},
+                "terminal-test-2": {"scenario_id": "hotel_kraskov", "puzzle_id": "time_machine_finale"},
             }
             self.machine.state.flags["terminal_assignment"] = "time_machine_finale"
             self.machine.state.checkpoint_states["future_archive"] = {"status": "solved"}
@@ -78,7 +78,7 @@ class StateMachineCheckpointTests(unittest.IsolatedAsyncioTestCase):
             connection_info[terminal_socket] = {"role": "terminal_waiting", "terminal_id": "terminal-test", "terminal_label": "Testovací terminál"}
             session_connections[lobby.session_id] = {player_socket}
 
-            self.assertEqual(available_terminal_puzzles(self.machine), [{"id": "time_machine_finale", "title": "Finální konzole stroje času"}])
+            self.assertEqual(available_terminal_puzzles(self.machine, "hotel_kraskov"), [{"id": "time_machine_finale", "scenario_id": "hotel_kraskov", "title": "Finální konzole stroje času"}])
             self.assertEqual(terminal_eligible_team_count("terminal-test"), 1)
             self.assertEqual(terminal_eligible_team_count("terminal-test-2"), 1)
             terminal_checkpoint = self.scenario.data["checkpoints"]["time_machine_console"]
@@ -97,7 +97,7 @@ class StateMachineCheckpointTests(unittest.IsolatedAsyncioTestCase):
             self.assertTrue(finale["terminal"]["assigned"])
             self.assertTrue(finale["terminal"]["device"])
             team = next(item for item in admin_overview() if item["session_id"] == lobby.session_id)
-            self.assertEqual(team["terminal_options"], [{"id": "time_machine_finale", "title": "Finální konzole stroje času"}])
+            self.assertEqual(team["terminal_options"], [{"id": "time_machine_finale", "scenario_id": "hotel_kraskov", "title": "Finální konzole stroje času"}])
             await release_terminal_after_completion(terminal_socket, lobby.session_id, 0)
             self.assertEqual(connection_info[terminal_socket]["role"], "terminal_waiting")
             self.assertNotIn(terminal_socket, session_connections[lobby.session_id])

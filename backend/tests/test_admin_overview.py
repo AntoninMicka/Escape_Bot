@@ -19,7 +19,7 @@ class AdminOverviewTests(unittest.TestCase):
                 "managed_team_create", "managed_start", "managed_start_override",
                 "event_runtime", "leaderboard_finalize", "event_settings",
                 "score_adjustment", "session_extend", "session_end", "support_message",
-                "checkpoint", "scenario_play_modes", "terminal_catalog", "terminal_reservation", "spectate",
+                "checkpoint", "scenario_play_modes", "scenario_availability", "terminal_catalog", "terminal_reservation", "terminal_release", "spectate",
                 "game_reset", "game_player", "team_finalize", "player_recovery", "team_delete",
             ],
             "http_actions": [],
@@ -28,26 +28,42 @@ class AdminOverviewTests(unittest.TestCase):
             "game_player_actions": ["exclude", "include", "reset"],
             "terminal_reservation": True,
             "scenario_play_modes": True,
+            "scenario_availability": True,
             "terminal_catalog": True,
             "terminal_assignment": True,
+            "terminal_release": True,
         })
 
     def test_admin_puzzle_catalog_exposes_effective_terminal_modes(self):
         with patch.dict(server.runtime_settings, {
-            "puzzle_play_modes": {"timeline_lines": "supplemental"},
+            "puzzle_play_modes": {"hotel_kraskov::timeline_lines": "supplemental"},
             "terminal_puzzle_ids": [],
         }, clear=False):
-            catalog = {item["id"]: item for item in server.admin_puzzle_catalog()}
+            rows = server.admin_puzzle_catalog()
+            catalog = {item["key"]: item for item in rows}
 
-        self.assertEqual(catalog["timeline_lines"]["play_mode"], "supplemental")
-        self.assertIn("title", catalog["timeline_lines"])
-        self.assertIn("checkpoint_id", catalog["timeline_lines"])
+        self.assertEqual(catalog["hotel_kraskov::timeline_lines"]["play_mode"], "supplemental")
+        self.assertEqual(catalog["hotel_kraskov::timeline_lines"]["scenario_title"], "Hotel Kraskov")
+        self.assertIn("checkpoint_id", catalog["hotel_kraskov::timeline_lines"])
+        self.assertNotIn("chronos_online", {item["scenario_id"] for item in rows})
+
+    def test_disabled_scenario_is_hidden_and_cannot_start(self):
+        disabled_id = server.selected_scenario_id
+        with patch.dict(server.runtime_settings, {"disabled_scenario_ids": [disabled_id]}, clear=False):
+            payload = server.runtime_payload()
+            availability = server.start_availability(scenario_id=disabled_id)
+
+        self.assertNotIn(disabled_id, {item["id"] for item in payload["games"]})
+        self.assertFalse(availability["start_allowed"])
+        self.assertIn("zakázaný", availability["reason"])
 
     def test_global_terminal_admin_messages_reach_authenticated_dispatch(self):
         self.assertTrue({
             "admin.scenario_play_modes",
+            "admin.scenario_availability",
             "admin.terminal_catalog",
             "admin.terminal_reserve",
+            "admin.terminal_release",
             "admin.terminal_assign",
         }.issubset(server.ADMIN_MESSAGE_TYPES))
 
