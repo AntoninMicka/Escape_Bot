@@ -38,7 +38,7 @@ def test_gameplay_commands_use_persistent_operation_queue() -> None:
 def test_operation_queue_is_part_of_current_offline_cache() -> None:
     service_worker = (ROOT / "client" / "sw.js").read_text(encoding="utf-8")
 
-    assert "const CACHE_NAME = 'escape-bot-v129';" in service_worker
+    assert "const CACHE_NAME = 'escape-bot-v130';" in service_worker
     assert "'./operation-queue.js'" in service_worker
 
 
@@ -54,6 +54,20 @@ def test_lobby_leave_clears_saved_session_only_after_server_acknowledgement() ->
     assert "localStorage.removeItem('escapeBotLobby')" not in request
     assert "localStorage.removeItem('escapeBotLobby')" in acknowledgement
     assert "gameOperationQueue.discardSession(previousSessionId)" in acknowledgement
+
+
+def test_lobby_offer_hides_empty_types_and_handles_no_games() -> None:
+    client = (ROOT / "client" / "index.html").read_text(encoding="utf-8")
+
+    assert 'data-lobby-type="online_doom"' in client
+    assert 'data-lobby-type="on_site_qr"' in client
+    assert 'data-lobby-type="geo"' in client
+    assert "function lobbyTypesForGames(games)" in client
+    assert "if (availableTypes.length === 1)" in client
+    assert "chooseLobbyType(availableTypes[0])" in client
+    assert 'id="lobby-no-games"' in client
+    assert 'class="lobby-no-games-icon"' in client
+    assert "reconcileLobbyGameOffer();" in client
 
 
 def test_personalized_game_state_keeps_operation_correlation() -> None:
