@@ -213,6 +213,15 @@ for (const path of versionInputs) {
 }
 const version = versionHash.digest("hex").slice(0, 12);
 
+const versionedIndexHtml = indexHtml.replace(
+  /const APP_BUILD_VERSION = ['"][^'"]+['"];/,
+  `const APP_BUILD_VERSION = '${version}';`,
+);
+if (versionedIndexHtml === indexHtml) {
+  throw new Error("V index.html chybí APP_BUILD_VERSION.");
+}
+await writeFile(join(outputDir, "index.html"), versionedIndexHtml);
+
 const localPrecache = versionInputs
   .map(relativeUrl)
   .filter((path) => path !== "index.html")

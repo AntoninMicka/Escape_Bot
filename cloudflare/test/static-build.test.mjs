@@ -135,7 +135,14 @@ test("Static Assets build is minimal, fingerprinted and internally complete", as
   ], { id: "event-a" }, "game-a");
   assert.deepEqual(announcements.map((item) => item.text), ["Pro všechny", "Správný event a hra"]);
   const serviceWorker = await readFile(join(outputDir, "sw.js"), "utf8");
-  assert.match(serviceWorker, /const CACHE_NAME = 'escape-bot-[a-f0-9]{12}';/);
+  const workerVersion = serviceWorker.match(/const CACHE_NAME = 'escape-bot-([a-f0-9]{12})';/)?.[1];
+  const clientVersion = index.match(/const APP_BUILD_VERSION = '([a-f0-9]{12})';/)?.[1];
+  assert.ok(workerVersion);
+  assert.equal(clientVersion, workerVersion);
+  assert.match(index, /const AVAILABILITY_BOOTSTRAP_TIMEOUT_MS = 30000;/);
+  assert.match(index, /PROVOZNÍ STAV SE NEPODAŘILO NAČÍST/);
+  assert.match(index, /retryAvailabilityBootstrap/);
+  assert.match(index, /updateClientApplication/);
   for (const match of serviceWorker.matchAll(/"\.\/([^"?]+)"/g)) {
     if (match[1] === "") continue;
     assert.ok(relativeFiles.includes(match[1]), `Precache odkaz ${match[1]} neexistuje.`);

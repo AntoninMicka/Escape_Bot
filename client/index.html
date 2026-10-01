@@ -1213,11 +1213,13 @@
         </div>
     </div>
 
-    <button id="build-version" class="build-version" type="button" title="Kliknutím zkontrolovat aktualizaci">BUILD v118 · SW …</button>
+    <button id="build-version" class="build-version" type="button" title="Kliknutím zkontrolovat aktualizaci">BUILD v131 · SW …</button>
 
     <script src="operation-queue.js"></script>
     <script>
-        const APP_BUILD_VERSION = 'v118';
+        const APP_BUILD_VERSION = 'v131';
+        const AVAILABILITY_BOOTSTRAP_TIMEOUT_MS = 30000;
+        const AUTO_UPDATE_ATTEMPT_KEY = 'escapeBotAutoUpdateAttempt';
         let ws;
         let eventWs;
         let eventWsId = '';
@@ -1248,6 +1250,7 @@
         let eventDailyWindowDraft = [];
         let runtimeAvailability = null;
         let runtimeAvailabilityByLobbyType = {};
+        let availabilityBootstrapTimer = null;
         let runtimeGames = [];
         let mapillaryConfig = {enabled:false,access_token:''};
         let mapillaryRequest = null;
@@ -2281,6 +2284,36 @@
                 solo.title = availability.start_allowed ? 'Spustit sólo hru' : (availability.reason || 'Server nyní start nepovoluje. Kliknutím ověříte aktuální stav.');
             }
             const start = document.getElementById('lobby-start-button'); if (start) start.disabled = !availability.start_allowed;
+        }
+        function availabilityIsReady() {
+            return Boolean(runtimeAvailability) || Object.values(runtimeAvailabilityByLobbyType).some(Boolean);
+        }
+        function clearAvailabilityBootstrapWatchdog() {
+            clearTimeout(availabilityBootstrapTimer);
+            availabilityBootstrapTimer = null;
+        }
+        function startAvailabilityBootstrapWatchdog() {
+            if (adminModeRequested || terminalModeRequested || availabilityIsReady() || availabilityBootstrapTimer) return;
+            availabilityBootstrapTimer = setTimeout(() => {
+                availabilityBootstrapTimer = null;
+                if (availabilityIsReady()) return;
+                const box = document.getElementById('lobby-availability');
+                if (!box) return;
+                box.innerHTML = '<strong>PROVOZNÍ STAV SE NEPODAŘILO NAČÍST</strong><br>Spojení nevrátilo provozní nastavení do 30 sekund.<div class="puzzle-actions"><button type="button" onclick="retryAvailabilityBootstrap()">ZNOVU PŘIPOJIT</button><button type="button" onclick="updateClientApplication()">AKTUALIZOVAT APLIKACI</button></div>';
+            }, AVAILABILITY_BOOTSTRAP_TIMEOUT_MS);
+        }
+        function retryAvailabilityBootstrap() {
+            clearAvailabilityBootstrapWatchdog();
+            const previousSocket = ws;
+            ws = null;
+            if (previousSocket && previousSocket.readyState < WebSocket.CLOSING) {
+                previousSocket.onclose = null;
+                previousSocket.close(4000, 'Availability retry');
+            }
+            const box = document.getElementById('lobby-availability');
+            if (box) box.textContent = 'Načítám provozní dostupnost…';
+            startAvailabilityBootstrapWatchdog();
+            connect();
         }
         setInterval(renderLobbyAvailability, 1000);
 
@@ -3756,6 +3789,7 @@
 
         function connect() {
             if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) return;
+            startAvailabilityBootstrapWatchdog();
             const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
             const routeParams = new URLSearchParams({client_id:clientId});
             if (terminalModeRequested) routeParams.set('client_id', terminalDeviceId);
@@ -3914,6 +3948,7 @@
                     connectEventChannel(activeEvent?.id || '');
                     if(Object.hasOwn(msg.payload,'availability'))runtimeAvailability = msg.payload.availability || null;
                     if(Object.hasOwn(msg.payload,'availability_by_lobby_type'))runtimeAvailabilityByLobbyType = msg.payload.availability_by_lobby_type || {};
+                    if(availabilityIsReady())clearAvailabilityBootstrapWatchdog();
                     if(Array.isArray(msg.payload.start_queue))runtimeStartQueue = msg.payload.start_queue;
                     if(Array.isArray(msg.payload.checkpoints))runtimeCheckpoints = msg.payload.checkpoints;
                     if(Array.isArray(msg.payload.games))runtimeGames = msg.payload.games;
@@ -6170,6 +6205,28 @@
 
         // --- REGISTRACE PWA SERVICE WORKERU ---
         const buildVersionBadge=document.getElementById('build-version');
+        function clientUpdateIsSafe() {
+            return !currentLobby?.started && !terminalAttached && !adminSpectatingSession;
+        }
+        async function updateClientApplication(automatic = false) {
+            if (automatic && !clientUpdateIsSafe()) return;
+            buildVersionBadge.textContent=`BUILD ${APP_BUILD_VERSION} · KONTROLA…`;
+            try {
+                const registration=await navigator.serviceWorker?.getRegistration();
+                const controllerChanged=new Promise(resolve=>{
+                    navigator.serviceWorker?.addEventListener('controllerchange',resolve,{once:true});
+                    setTimeout(resolve,1800);
+                });
+                await registration?.update();
+                await controllerChanged;
+                window.location.reload();
+            } catch(error) {
+                sessionStorage.removeItem(AUTO_UPDATE_ATTEMPT_KEY);
+                buildVersionBadge.textContent=`BUILD ${APP_BUILD_VERSION} · AKTUALIZACE SELHALA`;
+                buildVersionBadge.classList.add('stale');
+                if (!automatic) showNotification('Aktualizaci klienta se nepodařilo dokončit.', 'error');
+            }
+        }
         function requestServiceWorkerVersion(){navigator.serviceWorker.controller?.postMessage({type:'GET_BUILD_VERSION'})}
         navigator.serviceWorker?.addEventListener('message',event=>{
             if(event.data?.type!=='BUILD_VERSION')return;
@@ -6177,18 +6234,14 @@
             buildVersionBadge.textContent=`BUILD ${APP_BUILD_VERSION} · SW ${workerVersion}`;
             buildVersionBadge.classList.toggle('stale',workerVersion!==APP_BUILD_VERSION);
             buildVersionBadge.title=workerVersion===APP_BUILD_VERSION?'Klient i cache jsou aktuální':'Service worker používá jinou verzi; kliknutím aktualizovat';
+            if(workerVersion===APP_BUILD_VERSION){sessionStorage.removeItem(AUTO_UPDATE_ATTEMPT_KEY);return;}
+            const attempt=`${APP_BUILD_VERSION}:${workerVersion}`;
+            if(clientUpdateIsSafe()&&sessionStorage.getItem(AUTO_UPDATE_ATTEMPT_KEY)!==attempt){
+                sessionStorage.setItem(AUTO_UPDATE_ATTEMPT_KEY,attempt);
+                updateClientApplication(true);
+            }
         });
-        buildVersionBadge.addEventListener('click',async()=>{
-            buildVersionBadge.textContent=`BUILD ${APP_BUILD_VERSION} · KONTROLA…`;
-            const registration=await navigator.serviceWorker?.getRegistration();
-            const controllerChanged=new Promise(resolve=>{
-                navigator.serviceWorker?.addEventListener('controllerchange',resolve,{once:true});
-                setTimeout(resolve,1800);
-            });
-            await registration?.update();
-            await controllerChanged;
-            window.location.reload();
-        });
+        buildVersionBadge.addEventListener('click',()=>updateClientApplication());
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
                 navigator.serviceWorker.register('sw.js').then(registration => {
